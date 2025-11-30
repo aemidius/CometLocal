@@ -55,16 +55,20 @@ async def health():
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
+    print("DEBUG: función chat NUEVA cargada ✅")
     """
-    Si el mensaje es del tipo:
-      "abre https://www.google.com"
-    el backend abrirá esa URL en el navegador controlado por Playwright.
-    En cualquier otro caso, solo responde eco.
+    Intérprete muy simple de comandos:
+      - "abre <url>"            -> abre una URL
+      - "acepta cookies"        -> intenta aceptar cookies
+      - "rechaza cookies"       -> intenta rechazar cookies
+      - resto                   -> eco
     """
     text = req.message.strip()
     opened_url: Optional[str] = None
 
     lower = text.lower()
+
+    # 1) Abrir URL
     if lower.startswith("abre ") or lower.startswith("open "):
         parts = text.split(maxsplit=1)
         if len(parts) == 2:
@@ -80,10 +84,28 @@ async def chat(req: ChatRequest):
                 )
         else:
             reply = "Dime qué URL quieres que abra, por ejemplo: 'abre https://www.google.com'."
+
+    # 2) Aceptar cookies
+    elif "acepta cookies" in lower or "accept cookies" in lower:
+        ok = await browser.accept_cookies()
+        if ok:
+            reply = "He intentado aceptar las cookies y he pulsado un botón de aceptar."
+        else:
+            reply = "He buscado botones para aceptar cookies, pero no he encontrado ninguno claro."
+
+    # 3) Rechazar cookies
+    elif "rechaza cookies" in lower or "reject cookies" in lower:
+        ok = await browser.reject_cookies()
+        if ok:
+            reply = "He intentado rechazar las cookies y he pulsado un botón de rechazar."
+        else:
+            reply = "He buscado botones para rechazar cookies, pero no he encontrado ninguno claro."
+
+    # 4) Resto: respuesta simple
     else:
         reply = (
             f"He recibido tu mensaje: '{text}'. "
-            "En próximas versiones el agente actuará con más inteligencia."
+            "De momento entiendo: 'abre <url>', 'acepta cookies' y 'rechaza cookies'."
         )
 
     return ChatResponse(agent_reply=reply, opened_url=opened_url)
