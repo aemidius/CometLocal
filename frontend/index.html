@@ -29,70 +29,141 @@
       justify-content: space-between;
       align-items: center;
     }
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: #22c55e;
-      margin-right: 6px;
-    }
     .status {
       display: flex;
       align-items: center;
       font-size: 12px;
       color: #9ca3af;
     }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      margin-right: 6px;
+      background: #22c55e;
+    }
+    .status-dot.error {
+      background: #ef4444;
+    }
     .messages {
       flex: 1;
       padding: 12px 16px;
       overflow-y: auto;
       font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
     .msg {
-      margin-bottom: 10px;
-      padding: 8px 10px;
+      padding: 10px 12px;
       border-radius: 8px;
-      max-width: 100%;
+      max-width: 85%;
       word-wrap: break-word;
-      line-height: 1.4;
+      line-height: 1.5;
     }
     .msg.user {
       background: #1d4ed8;
       align-self: flex-end;
+      margin-left: auto;
     }
     .msg.agent {
       background: #111827;
       border: 1px solid #1f2937;
+      align-self: flex-start;
+    }
+    .msg.agent.error {
+      background: #7f1d1d;
+      border-color: #991b1b;
+    }
+    .msg.agent.thinking {
+      opacity: 0.7;
+      font-style: italic;
+    }
+    .msg-content {
+      white-space: pre-wrap;
+    }
+    .msg-extra {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 11px;
+    }
+    .steps-link {
+      color: #60a5fa;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .steps-link:hover {
+      color: #93c5fd;
+    }
+    .steps-details {
+      margin-top: 8px;
+      padding: 8px;
+      background: #0f172a;
+      border-radius: 4px;
+      font-size: 11px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .steps-summary {
+      margin-bottom: 8px;
+      color: #9ca3af;
+    }
+    .steps-json {
+      background: #020617;
+      padding: 8px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-family: monospace;
+      font-size: 10px;
+      color: #a3a3a3;
     }
     .footer {
       padding: 10px;
       border-top: 1px solid #1f2937;
       display: flex;
-      gap: 6px;
+      flex-direction: column;
+      gap: 8px;
     }
-    .footer input {
-      flex: 1;
+    .footer textarea {
+      width: 100%;
       padding: 8px 10px;
-      border-radius: 999px;
+      border-radius: 6px;
       border: 1px solid #374151;
       background: #020617;
       color: #e5e7eb;
       font-size: 13px;
       outline: none;
+      resize: none;
+      min-height: 40px;
+      max-height: 120px;
+      font-family: inherit;
+    }
+    .footer textarea:focus {
+      border-color: #60a5fa;
+    }
+    .footer-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
     }
     .footer button {
-      padding: 8px 12px;
-      border-radius: 999px;
+      padding: 8px 16px;
+      border-radius: 6px;
       border: none;
       background: #22c55e;
       color: #02120a;
       font-weight: 600;
       font-size: 13px;
       cursor: pointer;
+      flex-shrink: 0;
     }
     .footer button:disabled {
       opacity: 0.5;
-      cursor: default;
+      cursor: not-allowed;
+    }
+    .footer button:hover:not(:disabled) {
+      background: #16a34a;
     }
     .main-hint {
       flex: 1;
@@ -102,29 +173,23 @@
       color: #6b7280;
       font-size: 14px;
     }
-    .small {
-      font-size: 11px;
-      color: #6b7280;
-      margin-top: 4px;
-    }
   </style>
 </head>
 <body>
   <div class="sidebar">
     <div class="header">
       <div>CometLocal</div>
-      <div class="status">
-        <div class="status-dot"></div>
-        backend: 127.0.0.1:8000
+      <div class="status" id="status">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">backend: 127.0.0.1:8000</span>
       </div>
     </div>
     <div id="messages" class="messages"></div>
     <div class="footer">
-      <input id="input" type="text" placeholder="Escribe un objetivo... (ej: abre https://www.google.com)" />
-      <button id="sendBtn">Enviar</button>
-    </div>
-    <div class="small" style="padding: 0 12px 10px;">
-      Ejemplos: <code>abre https://www.google.com</code>, <code>abre https://www.wikipedia.org</code>
+      <textarea id="input" placeholder="Escribe un objetivo... (ej: busca información sobre Ada Lovelace en Wikipedia)" rows="2"></textarea>
+      <div class="footer-actions">
+        <button id="sendBtn">Enviar</button>
+      </div>
     </div>
   </div>
   <div class="main-hint">
@@ -132,60 +197,200 @@
   </div>
 
   <script>
-    const API_URL = "http://127.0.0.1:8000/chat";
+    // Configuration
+    const BACKEND_URL = "http://127.0.0.1:8000";
+    const API_AGENT_ANSWER = `${BACKEND_URL}/agent/answer`;
+    const API_HEALTH = `${BACKEND_URL}/health`;
 
+    // State
+    let isWaiting = false;
+
+    // DOM elements
     const messagesEl = document.getElementById("messages");
     const inputEl = document.getElementById("input");
     const sendBtn = document.getElementById("sendBtn");
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
 
-    function addMessage(text, who) {
+    // Initialize
+    checkBackendHealth();
+    setupEventListeners();
+
+    function setupEventListeners() {
+      // Send button
+      sendBtn.addEventListener("click", sendMessage);
+
+      // Enter to send (Shift+Enter for new line)
+      inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      // Auto-resize textarea
+      inputEl.addEventListener("input", () => {
+        inputEl.style.height = "auto";
+        inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + "px";
+      });
+    }
+
+    async function checkBackendHealth() {
+      try {
+        const res = await fetch(API_HEALTH);
+        if (res.ok) {
+          statusDot.classList.remove("error");
+          statusText.textContent = "backend: 127.0.0.1:8000";
+        } else {
+          throw new Error("Health check failed");
+        }
+      } catch (err) {
+        statusDot.classList.add("error");
+        statusText.textContent = "backend no disponible";
+      }
+    }
+
+    function addMessage(role, text, extraHtml = "") {
       const div = document.createElement("div");
-      div.className = "msg " + who;
-      div.textContent = text;
+      div.className = `msg ${role}`;
+      
+      const contentDiv = document.createElement("div");
+      contentDiv.className = "msg-content";
+      contentDiv.textContent = text;
+      div.appendChild(contentDiv);
+
+      if (extraHtml) {
+        const extraDiv = document.createElement("div");
+        extraDiv.className = "msg-extra";
+        extraDiv.innerHTML = extraHtml;
+        div.appendChild(extraDiv);
+      }
+
       messagesEl.appendChild(div);
       messagesEl.scrollTop = messagesEl.scrollHeight;
+      return div;
+    }
+
+    function updateMessage(msgEl, text, extraHtml = "") {
+      const contentDiv = msgEl.querySelector(".msg-content");
+      if (contentDiv) {
+        contentDiv.textContent = text;
+      }
+      
+      if (extraHtml) {
+        let extraDiv = msgEl.querySelector(".msg-extra");
+        if (!extraDiv) {
+          extraDiv = document.createElement("div");
+          extraDiv.className = "msg-extra";
+          msgEl.appendChild(extraDiv);
+        }
+        extraDiv.innerHTML = extraHtml;
+      }
+    }
+
+    function createStepsView(steps) {
+      const stepCount = steps.length;
+      const lastStep = steps[stepCount - 1];
+      const lastUrl = lastStep?.observation?.url || "N/A";
+      
+      const summary = `Pasos ejecutados: ${stepCount} | Última URL: ${lastUrl}`;
+      const jsonStr = JSON.stringify(steps, null, 2);
+      
+      return `
+        <div class="steps-summary">${summary}</div>
+        <details>
+          <summary class="steps-link">Ver JSON completo</summary>
+          <pre class="steps-json">${jsonStr}</pre>
+        </details>
+      `;
     }
 
     async function sendMessage() {
       const text = inputEl.value.trim();
-      if (!text) return;
-      addMessage(text, "user");
+      if (!text || isWaiting) return;
+
+      // Add user message
+      addMessage("user", text);
+      
+      // Clear input
       inputEl.value = "";
+      inputEl.style.height = "auto";
       inputEl.focus();
+
+      // Disable input
+      isWaiting = true;
       sendBtn.disabled = true;
+      inputEl.disabled = true;
+
+      // Add thinking message
+      const thinkingMsg = addMessage("agent", "Pensando...", "");
+      thinkingMsg.classList.add("thinking");
 
       try {
-        const res = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: text }),
-        });
-
-        if (!res.ok) {
-          const t = await res.text();
-          addMessage("Error HTTP: " + res.status + " - " + t, "agent");
-        } else {
-          const data = await res.json();
-          let reply = data.agent_reply || "(sin respuesta)";
-          if (data.opened_url) {
-            reply += `\n\nURL abierta: ${data.opened_url}`;
-          }
-          addMessage(reply, "agent");
-        }
+        await sendAgentMessage(text, thinkingMsg);
       } catch (err) {
-        addMessage("Error de red: " + err, "agent");
+        const errorText = `Error al consultar el agente: ${err.message}`;
+        updateMessage(thinkingMsg, errorText, "");
+        thinkingMsg.classList.remove("thinking");
+        thinkingMsg.classList.add("error");
       } finally {
+        isWaiting = false;
         sendBtn.disabled = false;
+        inputEl.disabled = false;
       }
     }
 
-    sendBtn.addEventListener("click", sendMessage);
-    inputEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
+    async function sendAgentMessage(text, thinkingMsg) {
+      const res = await fetch(API_AGENT_ANSWER, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goal: text,
+          max_steps: 8
+        }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`HTTP ${res.status}: ${errorText}`);
       }
-    });
+
+      const data = await res.json();
+      const finalAnswer = data.final_answer || "(sin respuesta)";
+      const steps = data.steps || [];
+      const sourceUrl = data.source_url || null;
+      const sourceTitle = data.source_title || null;
+      const sources = data.sources || [];
+
+      // Update thinking message with final answer
+      thinkingMsg.classList.remove("thinking");
+      
+      // Build extra HTML with source and steps
+      let extraHtml = "";
+      
+      // Add source link if available
+      if (sourceUrl) {
+        const displayText = (sourceTitle && sourceTitle.trim()) ? sourceTitle : sourceUrl;
+        extraHtml += `<div style="margin-bottom: 8px; font-size: 11px; color: #9ca3af;">Fuente principal: <a href="${sourceUrl}" target="_blank" style="color: #60a5fa; text-decoration: underline;">${displayText}</a></div>`;
+      }
+      
+      // Add additional sources if available
+      if (sources.length > 1) {
+        const extra = sources.slice(1);
+        const sourceLinks = extra.map(source => {
+          const displayText = (source.title && source.title.trim()) ? source.title : source.url;
+          return `<a href="${source.url}" target="_blank" style="color: #60a5fa; text-decoration: underline;">${displayText}</a>`;
+        }).join(" · ");
+        extraHtml += `<div style="margin-bottom: 8px; font-size: 11px; color: #9ca3af;">Otras fuentes: ${sourceLinks}</div>`;
+      }
+      
+      // Add steps view if available
+      if (steps.length > 0) {
+        extraHtml += createStepsView(steps);
+      }
+      
+      updateMessage(thinkingMsg, finalAnswer, extraHtml);
+    }
   </script>
 </body>
 </html>
