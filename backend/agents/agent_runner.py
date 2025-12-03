@@ -1,8 +1,10 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 import re
 import time
 import logging
 import unicodedata
+from dataclasses import dataclass, field
+from collections import defaultdict
 from urllib.parse import quote_plus, urlparse, parse_qs
 
 from openai import AsyncOpenAI
@@ -27,6 +29,138 @@ class EarlyStopReason:
     GOAL_SATISFIED_AFTER_REORIENTATION = "goal_satisfied_after_reorientation"
 
 
+@dataclass
+class SubGoalMetrics:
+    """
+    Métricas de un sub-objetivo individual.
+    v1.5.0: Estructura para almacenar métricas por sub-objetivo.
+    """
+    goal: str
+    focus_entity: Optional[str]
+    goal_type: str  # "wikipedia", "images", "other"
+    steps_taken: int
+    early_stop_reason: Optional[str]  # EarlyStopReason.* o None
+    elapsed_seconds: float
+    success: bool
+
+
+class AgentMetrics:
+    """
+    Recolecta y agrega métricas de ejecución del agente.
+    v1.5.0: Infraestructura de observabilidad para medir eficiencia y patrones.
+    """
+    def __init__(self):
+        self.sub_goals: List[SubGoalMetrics] = []
+        self.start_time: Optional[float] = None
+        self.end_time: Optional[float] = None
+    
+    def start(self):
+        """Marca el inicio de la ejecución completa."""
+        self.start_time = time.monotonic()
+    
+    def finish(self):
+        """Marca el fin de la ejecución completa."""
+        self.end_time = time.monotonic()
+    
+    def add_subgoal_metrics(
+        self,
+        goal: str,
+        focus_entity: Optional[str],
+        goal_type: str,
+        steps_taken: int,
+        early_stop_reason: Optional[str],
+        elapsed_seconds: float,
+        success: bool,
+    ):
+        """
+        Añade métricas de un sub-objetivo.
+        
+        Args:
+            goal: Texto del sub-objetivo
+            focus_entity: Entidad focal (si existe)
+            goal_type: Tipo de objetivo ("wikipedia", "images", "other")
+            steps_taken: Número de pasos ejecutados
+            early_stop_reason: Razón de early-stop (EarlyStopReason.*) o None
+            elapsed_seconds: Tiempo transcurrido en segundos
+            success: True si terminó exitosamente (early-stop por objetivo cumplido)
+        """
+        metrics = SubGoalMetrics(
+            goal=goal,
+            focus_entity=focus_entity,
+            goal_type=goal_type,
+            steps_taken=steps_taken,
+            early_stop_reason=early_stop_reason,
+            elapsed_seconds=elapsed_seconds,
+            success=success,
+        )
+        self.sub_goals.append(metrics)
+    
+    def to_summary_dict(self) -> Dict[str, Any]:
+        """
+        Genera un resumen serializable de todas las métricas.
+        
+        Returns:
+            Dict con:
+            - sub_goals: Lista de métricas por sub-objetivo
+            - summary: Resumen agregado (totales, ratios, conteos)
+        """
+        total_sub_goals = len(self.sub_goals)
+        total_steps = sum(m.steps_taken for m in self.sub_goals)
+        total_time = sum(m.elapsed_seconds for m in self.sub_goals)
+        
+        # Conteo por early_stop_reason
+        early_stop_counts: Dict[str, int] = defaultdict(int)
+        for m in self.sub_goals:
+            reason = m.early_stop_reason or "none"
+            early_stop_counts[reason] += 1
+        
+        # Conteo por goal_type
+        goal_type_counts: Dict[str, int] = defaultdict(int)
+        goal_type_success: Dict[str, int] = defaultdict(int)
+        for m in self.sub_goals:
+            goal_type_counts[m.goal_type] += 1
+            if m.success:
+                goal_type_success[m.goal_type] += 1
+        
+        # Ratios de éxito por goal_type
+        goal_type_success_ratio: Dict[str, float] = {}
+        for goal_type, total in goal_type_counts.items():
+            success_count = goal_type_success[goal_type]
+            ratio = success_count / total if total > 0 else 0.0
+            goal_type_success_ratio[goal_type] = round(ratio, 3)
+        
+        # Tiempo total (si se marcó inicio/fin)
+        execution_time = None
+        if self.start_time is not None and self.end_time is not None:
+            execution_time = round(self.end_time - self.start_time, 3)
+        
+        # Serializar sub_goals
+        sub_goals_data = []
+        for m in self.sub_goals:
+            sub_goals_data.append({
+                "goal": m.goal,
+                "focus_entity": m.focus_entity,
+                "goal_type": m.goal_type,
+                "steps_taken": m.steps_taken,
+                "early_stop_reason": m.early_stop_reason,
+                "elapsed_seconds": round(m.elapsed_seconds, 3),
+                "success": m.success,
+            })
+        
+        return {
+            "sub_goals": sub_goals_data,
+            "summary": {
+                "total_sub_goals": total_sub_goals,
+                "total_steps": total_steps,
+                "total_time_seconds": round(total_time, 3),
+                "execution_time_seconds": execution_time,
+                "early_stop_counts": dict(early_stop_counts),
+                "goal_type_counts": dict(goal_type_counts),
+                "goal_type_success_ratio": goal_type_success_ratio,
+            }
+        }
+
+
 def _goal_mentions_wikipedia(goal: str) -> bool:
     text = goal.lower()
     return "wikipedia" in text
@@ -42,6 +176,20 @@ def _goal_mentions_images(goal: str) -> bool:
     text = goal.lower()
     keywords = ["imagen", "imágenes", "foto", "fotos", "picture", "pictures", "image", "images"]
     return any(keyword in text for keyword in keywords)
+
+
+def _infer_goal_type(goal: str) -> str:
+    """
+    Infiere el tipo de objetivo basándose en el contenido del goal.
+    v1.5.0: Helper para clasificar objetivos en "wikipedia", "images", o "other".
+    """
+    goal_lower = goal.lower()
+    if _goal_mentions_wikipedia(goal):
+        return "wikipedia"
+    elif _goal_mentions_images(goal):
+        return "images"
+    else:
+        return "other"
 
 
 def _goal_mentions_pronoun(goal: str) -> bool:
@@ -524,9 +672,15 @@ async def run_llm_agent(
     focus_entity: Optional[str] = None,
     reset_context: bool = False,
 ) -> List[StepResult]:
-    """Runs an agent loop on top of BrowserController using the LLMPlanner."""
+    """
+    Runs an agent loop on top of BrowserController using the LLMPlanner.
+    v1.5.0: Calcula métricas de ejecución y las añade a StepResult.info["metrics_subgoal"].
+    """
     planner = LLMPlanner()
     steps: List[StepResult] = []
+    
+    # v1.5.0: Iniciar medición de tiempo
+    start_time = time.monotonic()
     
     # v1.4: Calcular focus_entity si no se proporciona
     if focus_entity is None:
@@ -534,6 +688,7 @@ async def run_llm_agent(
 
     # v1.4.7: Reordenar flujo de early-stop para evitar doble carga
     # 1) Observación inicial sin tocar nada
+    early_stop_reason: Optional[str] = None
     try:
         initial_observation = await browser.get_observation()
         
@@ -550,15 +705,19 @@ async def run_llm_agent(
                 initial_observation.url if initial_observation else None,
                 initial_observation.title if initial_observation else None,
             )
+            early_stop_reason = EarlyStopReason.GOAL_SATISFIED_ON_INITIAL_PAGE
             steps.append(StepResult(
                 observation=initial_observation,
                 last_action=None,
                 error=None,
                 info={
-                    "reason": EarlyStopReason.GOAL_SATISFIED_ON_INITIAL_PAGE,
+                    "reason": early_stop_reason,
                     "focus_entity": focus_entity,
                 }
             ))
+            # v1.5.0: Añadir métricas antes de retornar
+            elapsed = time.monotonic() - start_time
+            _add_metrics_to_steps(steps, goal, focus_entity, len(steps), early_stop_reason, elapsed, success=True)
             return steps
         
         # 3) Si no está satisfecho, entonces y solo entonces llamamos ensure_context
@@ -593,13 +752,17 @@ async def run_llm_agent(
                 initial_observation.title if initial_observation else None,
             )
             # Actualizar el último step con la razón
+            early_stop_reason = EarlyStopReason.GOAL_SATISFIED_AFTER_ENSURE_CONTEXT_BEFORE_LLM
             if steps:
                 last_step = steps[-1]
                 info = dict(last_step.info or {})
-                info["reason"] = EarlyStopReason.GOAL_SATISFIED_AFTER_ENSURE_CONTEXT_BEFORE_LLM
+                info["reason"] = early_stop_reason
                 if focus_entity:
                     info["focus_entity"] = focus_entity
                 last_step.info = info
+            # v1.5.0: Añadir métricas antes de retornar
+            elapsed = time.monotonic() - start_time
+            _add_metrics_to_steps(steps, goal, focus_entity, len(steps), early_stop_reason, elapsed, success=True)
             return steps
         
         # v1.4.8: Logging defensivo para imágenes no satisfechas
@@ -659,6 +822,7 @@ async def run_llm_agent(
                         
                         # v1.4.5: early-stop después de reorientación si el objetivo ya está satisfecho
                         if _goal_is_satisfied(goal, observation, focus_entity):
+                            early_stop_reason = EarlyStopReason.GOAL_SATISFIED_AFTER_REORIENTATION
                             logger.info(
                                 "[early-stop] goal satisfied after reorientation for goal=%r focus_entity=%r step_idx=%d url=%r title=%r",
                                 goal,
@@ -676,6 +840,7 @@ async def run_llm_agent(
                 # This ensures we don't skip the reorientation step
                 # v1.5: Pero si el objetivo ya está satisfecho, salimos del bucle
                 if observation and _goal_is_satisfied(goal, observation, focus_entity):
+                    early_stop_reason = EarlyStopReason.GOAL_SATISFIED_AFTER_REORIENTATION
                     break
                 continue
 
@@ -767,6 +932,7 @@ async def run_llm_agent(
             
             # v1.4.5: early-stop cuando el sub-objetivo actual ya está satisfecho
             if _goal_is_satisfied(goal, observation_after, focus_entity):
+                early_stop_reason = EarlyStopReason.GOAL_SATISFIED_AFTER_ACTION
                 logger.info(
                     "[early-stop] goal satisfied for goal=%r focus_entity=%r step_idx=%d url=%r title=%r",
                     goal,
@@ -800,6 +966,28 @@ async def run_llm_agent(
             ))
             break
 
+    # v1.5.0: Calcular métricas finales y añadirlas al último step
+    elapsed = time.monotonic() - start_time
+    steps_taken = len(steps)
+    
+    # Determinar si fue exitoso: True si terminó con early-stop por objetivo cumplido
+    success = early_stop_reason is not None and early_stop_reason.startswith("goal_satisfied")
+    
+    # Si no hay early_stop_reason y llegamos aquí, puede ser:
+    # - max_steps alcanzado
+    # - error
+    # - stop action sin early-stop
+    if early_stop_reason is None:
+        # Verificar si el último step tiene error
+        if steps and steps[-1].error:
+            early_stop_reason = None  # Error
+        elif steps_taken >= max_steps:
+            early_stop_reason = None  # Max steps alcanzado
+        else:
+            early_stop_reason = None  # Stop action normal
+    
+    _add_metrics_to_steps(steps, goal, focus_entity, steps_taken, early_stop_reason, elapsed, success)
+    
     return steps
 
 
@@ -1952,7 +2140,13 @@ async def run_llm_task_with_answer(
     - Si el objetivo no se descompone, delega en _run_llm_task_single.
     - Si se descompone en varios sub-objetivos, los ejecuta en secuencia,
       reutilizando el mismo navegador y agregando las respuestas.
+    
+    v1.5.0: Recolecta métricas de ejecución usando AgentMetrics.
     """
+    # v1.5.0: Inicializar métricas
+    agent_metrics = AgentMetrics()
+    agent_metrics.start()
+    
     # v1.4: Entidad global del objetivo completo
     # Primero intentamos desde el goal completo, luego desde el primer sub-goal con entidad
     global_focus_entity = _extract_focus_entity_from_goal(goal)
@@ -1985,14 +2179,53 @@ async def run_llm_task_with_answer(
         )
         t1 = time.perf_counter()
         
-        # v1.4.5: Logging de rendimiento mejorado
-        logger.info(
-            "[sub-goal] idx=1 sub_goal=%r focus_entity=%r steps=%d elapsed=%.2fs",
-            sub_goal,
-            focus_entity,
-            len(steps),
-            t1 - t0,
-        )
+        # v1.5.0: Extraer métricas del último step y añadirlas a AgentMetrics
+        metrics_data = None
+        for step in reversed(steps):
+            if step.info and "metrics_subgoal" in step.info:
+                metrics_data = step.info["metrics_subgoal"]
+                break
+        
+        if metrics_data:
+            agent_metrics.add_subgoal_metrics(
+                goal=metrics_data["goal"],
+                focus_entity=metrics_data.get("focus_entity"),
+                goal_type=metrics_data["goal_type"],
+                steps_taken=metrics_data["steps_taken"],
+                early_stop_reason=metrics_data.get("early_stop_reason"),
+                elapsed_seconds=metrics_data["elapsed_seconds"],
+                success=metrics_data["success"],
+            )
+        else:
+            # Fallback: calcular métricas básicas si no están en StepResult
+            agent_metrics.add_subgoal_metrics(
+                goal=sub_goal,
+                focus_entity=focus_entity,
+                goal_type=_infer_goal_type(sub_goal),
+                steps_taken=len(steps),
+                early_stop_reason=None,
+                elapsed_seconds=t1 - t0,
+                success=False,
+            )
+        
+        # v1.5.0: Logging de métricas por sub-objetivo
+        if metrics_data:
+            logger.info(
+                "[metrics] sub-goal idx=1 type=%s steps=%d early_stop=%s elapsed=%.2fs success=%s",
+                metrics_data["goal_type"],
+                metrics_data["steps_taken"],
+                metrics_data.get("early_stop_reason") or "none",
+                metrics_data["elapsed_seconds"],
+                metrics_data["success"],
+            )
+        else:
+            logger.info(
+                "[sub-goal] idx=1 sub_goal=%r focus_entity=%r steps=%d elapsed=%.2fs",
+                sub_goal,
+                focus_entity,
+                len(steps),
+                t1 - t0,
+            )
         
         # Añadir marcado de focus_entity a todos los steps
         for s in steps:
@@ -2000,6 +2233,11 @@ async def run_llm_task_with_answer(
             if focus_entity:
                 info["focus_entity"] = focus_entity
             s.info = info
+        
+        # v1.5.0: Finalizar métricas y obtener resumen
+        agent_metrics.finish()
+        metrics_summary = agent_metrics.to_summary_dict()
+        logger.info("[metrics] summary=%r", metrics_summary)
         
         # Calcular source_url, source_title y sources para mantener compatibilidad
         last_observation: Optional[BrowserObservation] = None
@@ -2027,6 +2265,13 @@ async def run_llm_task_with_answer(
             sources.append(SourceInfo(url=url, title=(obs.title or None)))
             if len(sources) >= 3:
                 break
+        
+        # v1.5.0: Añadir métricas al último step para que estén disponibles en la respuesta
+        if steps:
+            last_step = steps[-1]
+            info = dict(last_step.info or {})
+            info["metrics"] = metrics_summary
+            last_step.info = info
         
         return steps, final_answer, source_url, source_title, sources
 
@@ -2133,15 +2378,52 @@ async def run_llm_task_with_answer(
         )
         t1 = time.perf_counter()
         
-        # v1.4.5: Logging de rendimiento mejorado
-        logger.info(
-            "[sub-goal] idx=%d sub_goal=%r focus_entity=%r steps=%d elapsed=%.2fs",
-            idx,
-            sub_goal,
-            sub_focus_entity,
-            len(steps),
-            t1 - t0,
-        )
+        # v1.5.0: Extraer métricas del último step y añadirlas a AgentMetrics
+        metrics_data = None
+        for step in reversed(steps):
+            if step.info and "metrics_subgoal" in step.info:
+                metrics_data = step.info["metrics_subgoal"]
+                break
+        
+        if metrics_data:
+            agent_metrics.add_subgoal_metrics(
+                goal=metrics_data["goal"],
+                focus_entity=metrics_data.get("focus_entity"),
+                goal_type=metrics_data["goal_type"],
+                steps_taken=metrics_data["steps_taken"],
+                early_stop_reason=metrics_data.get("early_stop_reason"),
+                elapsed_seconds=metrics_data["elapsed_seconds"],
+                success=metrics_data["success"],
+            )
+            # v1.5.0: Logging de métricas por sub-objetivo
+            logger.info(
+                "[metrics] sub-goal idx=%d type=%s steps=%d early_stop=%s elapsed=%.2fs success=%s",
+                idx,
+                metrics_data["goal_type"],
+                metrics_data["steps_taken"],
+                metrics_data.get("early_stop_reason") or "none",
+                metrics_data["elapsed_seconds"],
+                metrics_data["success"],
+            )
+        else:
+            # Fallback: calcular métricas básicas si no están en StepResult
+            agent_metrics.add_subgoal_metrics(
+                goal=sub_goal,
+                focus_entity=sub_focus_entity,
+                goal_type=_infer_goal_type(sub_goal),
+                steps_taken=len(steps),
+                early_stop_reason=None,
+                elapsed_seconds=t1 - t0,
+                success=False,
+            )
+            logger.info(
+                "[sub-goal] idx=%d sub_goal=%r focus_entity=%r steps=%d elapsed=%.2fs",
+                idx,
+                sub_goal,
+                sub_focus_entity,
+                len(steps),
+                t1 - t0,
+            )
         
         # Combinar context_steps con steps
         all_subgoal_steps = context_steps + steps
@@ -2172,6 +2454,11 @@ async def run_llm_task_with_answer(
 
     # Respuesta final agregada
     final_answer = "\n\n".join(answers)
+    
+    # v1.5.0: Finalizar métricas y obtener resumen
+    agent_metrics.finish()
+    metrics_summary = agent_metrics.to_summary_dict()
+    logger.info("[metrics] summary=%r", metrics_summary)
     
     # Calcular source_url, source_title y sources desde todas las observaciones
     last_observation: Optional[BrowserObservation] = None
@@ -2204,6 +2491,13 @@ async def run_llm_task_with_answer(
         sources.append(SourceInfo(url=url, title=(obs.title or None)))
         if len(sources) >= 3:
             break
+
+    # v1.5.0: Añadir métricas al último step para que estén disponibles en la respuesta
+    if all_steps:
+        last_step = all_steps[-1]
+        info = dict(last_step.info or {})
+        info["metrics"] = metrics_summary
+        last_step.info = info
 
     return all_steps, final_answer, source_url, source_title, sources
 

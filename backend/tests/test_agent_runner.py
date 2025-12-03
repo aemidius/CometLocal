@@ -1,10 +1,12 @@
 """
-Tests unitarios para agent_runner.py v1.4.8
+Tests unitarios para agent_runner.py v1.4.8 y v1.5.0
 
 Cubre:
 - _build_image_search_query
 - _goal_is_satisfied para objetivos de imágenes
 - Motivos de early-stop
+- AgentMetrics (v1.5.0)
+- Integración de métricas (v1.5.0)
 """
 import pytest
 from backend.agents.agent_runner import (
@@ -12,8 +14,9 @@ from backend.agents.agent_runner import (
     _goal_is_satisfied,
     EarlyStopReason,
     _normalize_text_for_comparison,
+    AgentMetrics,
 )
-from backend.shared.models import BrowserObservation
+from backend.shared.models import BrowserObservation, StepResult
 
 
 class TestBuildImageSearchQuery:
@@ -253,4 +256,261 @@ class TestEarlyStopReasons:
         assert EarlyStopReason.GOAL_SATISFIED_AFTER_ENSURE_CONTEXT_BEFORE_LLM == "goal_satisfied_after_ensure_context_before_llm"
         assert EarlyStopReason.GOAL_SATISFIED_AFTER_ACTION == "goal_satisfied_after_action"
         assert EarlyStopReason.GOAL_SATISFIED_AFTER_REORIENTATION == "goal_satisfied_after_reorientation"
+
+
+class TestAgentMetrics:
+    """Tests para AgentMetrics v1.5.0"""
+    
+    def test_create_empty_metrics(self):
+        """Crear instancia vacía de AgentMetrics"""
+        metrics = AgentMetrics()
+        assert len(metrics.sub_goals) == 0
+        assert metrics.start_time is None
+        assert metrics.end_time is None
+    
+    def test_add_subgoal_metrics(self):
+        """Añadir métricas de varios sub-goals"""
+        metrics = AgentMetrics()
+        
+        # Añadir primer sub-goal (Wikipedia exitoso)
+        metrics.add_subgoal_metrics(
+            goal="investiga quién fue Ada Lovelace en Wikipedia",
+            focus_entity="Ada Lovelace",
+            goal_type="wikipedia",
+            steps_taken=1,
+            early_stop_reason=EarlyStopReason.GOAL_SATISFIED_ON_INITIAL_PAGE,
+            elapsed_seconds=0.5,
+            success=True,
+        )
+        
+        # Añadir segundo sub-goal (imágenes exitoso)
+        metrics.add_subgoal_metrics(
+            goal="muéstrame imágenes suyas",
+            focus_entity="Ada Lovelace",
+            goal_type="images",
+            steps_taken=2,
+            early_stop_reason=EarlyStopReason.GOAL_SATISFIED_AFTER_ACTION,
+            elapsed_seconds=1.2,
+            success=True,
+        )
+        
+        # Añadir tercer sub-goal (fallido)
+        metrics.add_subgoal_metrics(
+            goal="busca información sobre computadoras",
+            focus_entity=None,
+            goal_type="other",
+            steps_taken=8,
+            early_stop_reason=None,
+            elapsed_seconds=5.0,
+            success=False,
+        )
+        
+        assert len(metrics.sub_goals) == 3
+        assert metrics.sub_goals[0].goal_type == "wikipedia"
+        assert metrics.sub_goals[1].goal_type == "images"
+        assert metrics.sub_goals[2].goal_type == "other"
+    
+    def test_to_summary_dict_totals(self):
+        """Verificar que to_summary_dict calcula totales correctos"""
+        metrics = AgentMetrics()
+        metrics.start()
+        
+        metrics.add_subgoal_metrics(
+            goal="goal1",
+            focus_entity="Entity1",
+            goal_type="wikipedia",
+            steps_taken=2,
+            early_stop_reason=EarlyStopReason.GOAL_SATISFIED_ON_INITIAL_PAGE,
+            elapsed_seconds=0.5,
+            success=True,
+        )
+        
+        metrics.add_subgoal_metrics(
+            goal="goal2",
+            focus_entity="Entity2",
+            goal_type="images",
+            steps_taken=3,
+            early_stop_reason=None,
+            elapsed_seconds=1.0,
+            success=False,
+        )
+        
+        metrics.finish()
+        summary = metrics.to_summary_dict()
+        
+        assert summary["summary"]["total_sub_goals"] == 2
+        assert summary["summary"]["total_steps"] == 5
+        assert summary["summary"]["total_time_seconds"] == 1.5
+        assert summary["summary"]["execution_time_seconds"] is not None
+    
+    def test_to_summary_dict_early_stop_counts(self):
+        """Verificar conteos por early_stop_reason"""
+        metrics = AgentMetrics()
+        
+        metrics.add_subgoal_metrics(
+            goal="goal1",
+            focus_entity=None,
+            goal_type="wikipedia",
+            steps_taken=1,
+            early_stop_reason=EarlyStopReason.GOAL_SATISFIED_ON_INITIAL_PAGE,
+            elapsed_seconds=0.1,
+            success=True,
+        )
+        
+        metrics.add_subgoal_metrics(
+            goal="goal2",
+            focus_entity=None,
+            goal_type="wikipedia",
+            steps_taken=1,
+            early_stop_reason=EarlyStopReason.GOAL_SATISFIED_ON_INITIAL_PAGE,
+            elapsed_seconds=0.1,
+            success=True,
+        )
+        
+        metrics.add_subgoal_metrics(
+            goal="goal3",
+            focus_entity=None,
+            goal_type="images",
+            steps_taken=2,
+            early_stop_reason=EarlyStopReason.GOAL_SATISFIED_AFTER_ACTION,
+            elapsed_seconds=0.2,
+            success=True,
+        )
+        
+        summary = metrics.to_summary_dict()
+        early_stop_counts = summary["summary"]["early_stop_counts"]
+        
+        assert early_stop_counts[EarlyStopReason.GOAL_SATISFIED_ON_INITIAL_PAGE] == 2
+        assert early_stop_counts[EarlyStopReason.GOAL_SATISFIED_AFTER_ACTION] == 1
+        assert early_stop_counts.get("none", 0) == 0
+    
+    def test_to_summary_dict_goal_type_counts(self):
+        """Verificar conteos y ratios por goal_type"""
+        metrics = AgentMetrics()
+        
+        # 2 Wikipedia exitosos
+        metrics.add_subgoal_metrics("goal1", None, "wikipedia", 1, EarlyStopReason.GOAL_SATISFIED_ON_INITIAL_PAGE, 0.1, True)
+        metrics.add_subgoal_metrics("goal2", None, "wikipedia", 1, EarlyStopReason.GOAL_SATISFIED_ON_INITIAL_PAGE, 0.1, True)
+        
+        # 1 imagen exitoso, 1 imagen fallido
+        metrics.add_subgoal_metrics("goal3", None, "images", 2, EarlyStopReason.GOAL_SATISFIED_AFTER_ACTION, 0.2, True)
+        metrics.add_subgoal_metrics("goal4", None, "images", 8, None, 5.0, False)
+        
+        summary = metrics.to_summary_dict()
+        goal_type_counts = summary["summary"]["goal_type_counts"]
+        success_ratio = summary["summary"]["goal_type_success_ratio"]
+        
+        assert goal_type_counts["wikipedia"] == 2
+        assert goal_type_counts["images"] == 2
+        assert success_ratio["wikipedia"] == 1.0  # 2/2
+        assert success_ratio["images"] == 0.5  # 1/2
+    
+    def test_to_summary_dict_sub_goals_data(self):
+        """Verificar que sub_goals contiene los datos correctos"""
+        metrics = AgentMetrics()
+        
+        metrics.add_subgoal_metrics(
+            goal="test goal",
+            focus_entity="Test Entity",
+            goal_type="wikipedia",
+            steps_taken=5,
+            early_stop_reason=EarlyStopReason.GOAL_SATISFIED_AFTER_ACTION,
+            elapsed_seconds=2.5,
+            success=True,
+        )
+        
+        summary = metrics.to_summary_dict()
+        sub_goals = summary["sub_goals"]
+        
+        assert len(sub_goals) == 1
+        assert sub_goals[0]["goal"] == "test goal"
+        assert sub_goals[0]["focus_entity"] == "Test Entity"
+        assert sub_goals[0]["goal_type"] == "wikipedia"
+        assert sub_goals[0]["steps_taken"] == 5
+        assert sub_goals[0]["early_stop_reason"] == EarlyStopReason.GOAL_SATISFIED_AFTER_ACTION
+        assert sub_goals[0]["elapsed_seconds"] == 2.5
+        assert sub_goals[0]["success"] is True
+
+
+class TestMetricsIntegration:
+    """Tests de integración para métricas en StepResult"""
+    
+    def test_metrics_subgoal_in_step_result_info(self):
+        """Verificar que run_llm_agent añade metrics_subgoal a StepResult.info"""
+        from backend.shared.models import BrowserObservation
+        
+        # Simular un StepResult con métricas
+        obs = BrowserObservation(
+            url="https://es.wikipedia.org/wiki/Ada_Lovelace",
+            title="Ada Lovelace",
+            visible_text_excerpt="",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        step = StepResult(
+            observation=obs,
+            last_action=None,
+            error=None,
+            info={
+                "reason": EarlyStopReason.GOAL_SATISFIED_ON_INITIAL_PAGE,
+                "metrics_subgoal": {
+                    "goal": "investiga quién fue Ada Lovelace en Wikipedia",
+                    "focus_entity": "Ada Lovelace",
+                    "goal_type": "wikipedia",
+                    "steps_taken": 1,
+                    "early_stop_reason": EarlyStopReason.GOAL_SATISFIED_ON_INITIAL_PAGE,
+                    "elapsed_seconds": 0.5,
+                    "success": True,
+                }
+            }
+        )
+        
+        assert "metrics_subgoal" in step.info
+        metrics = step.info["metrics_subgoal"]
+        assert metrics["goal_type"] == "wikipedia"
+        assert metrics["success"] is True
+        assert metrics["steps_taken"] == 1
+    
+    def test_metrics_summary_in_step_result_info(self):
+        """Verificar que run_llm_task_with_answer añade metrics summary al último step"""
+        from backend.shared.models import BrowserObservation
+        
+        # Simular un StepResult con resumen de métricas
+        obs = BrowserObservation(
+            url="https://example.com",
+            title="Example",
+            visible_text_excerpt="",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        step = StepResult(
+            observation=obs,
+            last_action=None,
+            error=None,
+            info={
+                "metrics": {
+                    "sub_goals": [
+                        {
+                            "goal": "goal1",
+                            "goal_type": "wikipedia",
+                            "steps_taken": 1,
+                            "success": True,
+                        }
+                    ],
+                    "summary": {
+                        "total_sub_goals": 1,
+                        "total_steps": 1,
+                        "total_time_seconds": 0.5,
+                    }
+                }
+            }
+        )
+        
+        assert "metrics" in step.info
+        metrics = step.info["metrics"]
+        assert "sub_goals" in metrics
+        assert "summary" in metrics
+        assert metrics["summary"]["total_sub_goals"] == 1
 
