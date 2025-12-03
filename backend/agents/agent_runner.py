@@ -14,6 +14,8 @@ from backend.shared.models import BrowserAction, BrowserObservation, StepResult,
 from backend.planner.simple_planner import SimplePlanner
 from backend.planner.llm_planner import LLMPlanner
 from backend.config import LLM_API_BASE, LLM_API_KEY, LLM_MODEL, DEFAULT_IMAGE_SEARCH_URL_TEMPLATE
+from backend.agents.session_context import SessionContext
+from backend.agents.execution_profile import ExecutionProfile
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +192,67 @@ def _infer_goal_type(goal: str) -> str:
         return "images"
     else:
         return "other"
+
+
+def _add_metrics_to_steps(
+    steps: List[StepResult],
+    goal: str,
+    focus_entity: Optional[str],
+    steps_taken: int,
+    early_stop_reason: Optional[str],
+    elapsed_seconds: float,
+    success: bool,
+) -> None:
+    """
+    Adjunta métricas de sub-goal al último StepResult.
+    v1.5.0: Helper para registrar métricas que luego serán leídas por run_llm_task_with_answer
+    para alimentar AgentMetrics.
+    
+    Args:
+        steps: Lista de StepResult (se modifica el último)
+        goal: Texto del objetivo
+        focus_entity: Entidad focal (opcional)
+        steps_taken: Número de pasos ejecutados
+        early_stop_reason: Razón de early-stop (opcional)
+        elapsed_seconds: Tiempo transcurrido en segundos
+        success: True si terminó exitosamente
+    """
+    if not steps:
+        return
+    
+    # Inferir goal_type usando helper existente
+    goal_type = _infer_goal_type(goal)
+    
+    # Construir dict de métricas
+    metrics_dict = {
+        "goal": goal,
+        "focus_entity": focus_entity,
+        "goal_type": goal_type,
+        "steps_taken": steps_taken,
+        "early_stop_reason": early_stop_reason,
+        "elapsed_seconds": round(elapsed_seconds, 3),
+        "success": success,
+    }
+    
+    # Añadir al último step
+    last_step = steps[-1]
+    if last_step.info is None:
+        last_step.info = {}
+    else:
+        last_step.info = dict(last_step.info)
+    
+    last_step.info["metrics_subgoal"] = metrics_dict
+    
+    logger.debug(
+        "[metrics] sub-goal metrics attached: goal=%r focus_entity=%r steps=%d early_stop=%r elapsed=%.2f success=%r goal_type=%s",
+        goal,
+        focus_entity,
+        steps_taken,
+        early_stop_reason,
+        elapsed_seconds,
+        success,
+        goal_type,
+    )
 
 
 def _extract_sources_from_steps(steps: List[StepResult]) -> List[Dict[str, Any]]:
@@ -401,6 +464,61 @@ def _goal_mentions_pronoun(goal: str) -> bool:
     ]
     padded = f" {lower} "
     return any(p in padded for p in pronouns)
+
+
+def goal_uses_pronouns(goal: str) -> bool:
+    """
+    Devuelve True si el goal contiene referencias implícitas que requieren contexto.
+    v1.7.0: Helper mejorado para detectar pronombres y referencias implícitas.
+    
+    Detecta:
+    - él, ella, ellos, ellas
+    - suyo/suya/suyos/suyas
+    - esa persona, esa empresa (referencias genéricas)
+    
+    Args:
+        goal: Texto del objetivo a analizar
+        
+    Returns:
+        True si contiene referencias implícitas, False en caso contrario
+    """
+    lower = goal.lower()
+    
+    # Pronombres personales
+    personal_pronouns = [
+        r"\bél\b", r"\bella\b", r"\bellos\b", r"\bellas\b",
+    ]
+    
+    # Pronombres posesivos
+    possessive_pronouns = [
+        r"\bsuyo\b", r"\bsuya\b", r"\bsuyos\b", r"\bsuyas\b",
+        r"\bsu\b", r"\bsus\b",
+    ]
+    
+    # Referencias genéricas
+    generic_references = [
+        r"esa persona", r"ese persona",
+        r"esa empresa", r"ese empresa",
+        r"ese lugar", r"esa lugar",
+    ]
+    
+    # Verificar pronombres personales
+    for pattern in personal_pronouns:
+        if re.search(pattern, lower):
+            return True
+    
+    # Verificar pronombres posesivos (con contexto de palabra)
+    padded = f" {lower} "
+    for pronoun in [" su ", " sus ", " suyo", " suya", " suyos", " suyas"]:
+        if pronoun in padded:
+            return True
+    
+    # Verificar referencias genéricas
+    for ref in generic_references:
+        if ref in lower:
+            return True
+    
+    return False
 
 
 def _is_url_in_wikipedia(url: str | None) -> bool:
@@ -866,13 +984,24 @@ async def run_llm_agent(
     max_steps: int = 8,
     focus_entity: Optional[str] = None,
     reset_context: bool = False,
+    execution_profile: Optional[ExecutionProfile] = None,
 ) -> List[StepResult]:
     """
     Runs an agent loop on top of BrowserController using the LLMPlanner.
     v1.5.0: Calcula métricas de ejecución y las añade a StepResult.info["metrics_subgoal"].
+    v1.9.0: Acepta ExecutionProfile para controlar el comportamiento.
     """
     planner = LLMPlanner()
     steps: List[StepResult] = []
+    
+    # v1.9.0: Usar perfil si está disponible, sino usar default
+    if execution_profile is None:
+        execution_profile = ExecutionProfile.default()
+    
+    # v1.9.0: Aplicar max_steps del perfil si está definido
+    effective_max_steps = execution_profile.get_effective_max_steps(max_steps)
+    if effective_max_steps != max_steps:
+        logger.debug(f"[profile] using max_steps={effective_max_steps} from profile (default was {max_steps})")
     
     # v1.5.0: Iniciar medición de tiempo
     start_time = time.monotonic()
@@ -973,7 +1102,7 @@ async def run_llm_agent(
         # Si hay error obteniendo la observación inicial, continuar con el bucle normal
         pass
 
-    for step_idx in range(max_steps):
+    for step_idx in range(effective_max_steps):
         try:
             # Get observation
             observation = await browser.get_observation()
@@ -1176,10 +1305,19 @@ async def run_llm_agent(
         # Verificar si el último step tiene error
         if steps and steps[-1].error:
             early_stop_reason = None  # Error
-        elif steps_taken >= max_steps:
-            early_stop_reason = None  # Max steps alcanzado
+        elif steps_taken >= effective_max_steps:
+            early_stop_reason = None  # Max steps alcanzado (usando effective_max_steps del perfil)
         else:
             early_stop_reason = None  # Stop action normal
+    
+    # v1.9.0: Añadir información del perfil a las métricas
+    if steps:
+        last_step = steps[-1]
+        if last_step.info is None:
+            last_step.info = {}
+        else:
+            last_step.info = dict(last_step.info)
+        last_step.info["execution_profile"] = execution_profile.to_dict()
     
     _add_metrics_to_steps(steps, goal, focus_entity, steps_taken, early_stop_reason, elapsed, success)
     
@@ -1522,8 +1660,9 @@ async def _process_single_subgoal(
             )
 
     # Ejecutar el agente LLM para este sub-objetivo (usando el objetivo normalizado)
+    # v1.9.0: Nota: ensure_context no tiene acceso a execution_profile, usa default
     try:
-        more_steps = await run_llm_agent(goal=navigation_goal, browser=browser, max_steps=max_steps)
+        more_steps = await run_llm_agent(goal=navigation_goal, browser=browser, max_steps=max_steps, execution_profile=None)
         steps.extend(more_steps)
     except Exception as exc:  # pragma: no cover - defensivo
         # Si falla, continuamos con los pasos que tengamos
@@ -2078,6 +2217,7 @@ async def _run_llm_task_single(
     focus_entity: Optional[str] = None,
     reset_context: bool = False,
     sub_goal_index: Optional[int] = None,
+    execution_profile: Optional[ExecutionProfile] = None,
 ) -> Tuple[List[StepResult], str]:
     """
     Ejecuta el agente LLM para un único objetivo (sin descomposición)
@@ -2087,6 +2227,7 @@ async def _run_llm_task_single(
     v1.3: Acepta focus_entity para normalizar queries.
     v1.4: Acepta reset_context para forzar contexto limpio al inicio.
     v1.4: Aislamiento estricto de steps - solo usa steps_local para el prompt.
+    v1.9.0: Acepta ExecutionProfile para controlar el comportamiento.
     """
     # v1.4: Crear estructura local, no compartida
     steps_local: List[StepResult] = []
@@ -2163,12 +2304,14 @@ async def _run_llm_task_single(
 
     # Ejecutar el agente LLM normal a partir del contexto actual
     # v1.4: Pasar focus_entity y reset_context a run_llm_agent
+    # v1.9.0: Pasar execution_profile si está disponible
     more_steps = await run_llm_agent(
         goal=goal,
         browser=browser,
         max_steps=max_steps,
         focus_entity=focus_entity,
-        reset_context=reset_context
+        reset_context=reset_context,
+        execution_profile=execution_profile
     )
     # v1.4: Añadir solo a steps_local, no usar all_steps externos
     steps_local.extend(more_steps)
@@ -2337,7 +2480,17 @@ async def run_llm_task_with_answer(
       reutilizando el mismo navegador y agregando las respuestas.
     
     v1.5.0: Recolecta métricas de ejecución usando AgentMetrics.
+    v1.7.0: Usa SessionContext para mantener memoria de entidades durante la ejecución.
+    v1.9.0: Infiere y aplica ExecutionProfile desde el texto del objetivo.
     """
+    # v1.9.0: Inferir ExecutionProfile desde el texto del objetivo
+    execution_profile = ExecutionProfile.from_goal_text(goal)
+    logger.info(f"[profile] using execution profile: {execution_profile.to_dict()}")
+    
+    # v1.7.0: Inicializar contexto de sesión
+    session_context = SessionContext()
+    session_context.update_goal(goal)
+    
     # v1.5.0: Inicializar métricas
     agent_metrics = AgentMetrics()
     agent_metrics.start()
@@ -2351,6 +2504,13 @@ async def run_llm_task_with_answer(
         # Fallback de seguridad: usar el objetivo original
         sub_goals = [goal]
     
+    # v1.9.0: Filtrar sub-goals según restricciones del perfil
+    original_sub_goals = sub_goals.copy()
+    sub_goals = [sg for sg in sub_goals if not execution_profile.should_skip_goal(sg)]
+    if len(sub_goals) < len(original_sub_goals):
+        skipped = len(original_sub_goals) - len(sub_goals)
+        logger.info(f"[profile] skipped {skipped} sub-goal(s) due to profile restrictions")
+    
     # v1.4: Si no hay entidad global del goal completo, intentar desde el primer sub-goal
     if not global_focus_entity:
         for sub_goal in sub_goals:
@@ -2362,17 +2522,27 @@ async def run_llm_task_with_answer(
     # Caso simple: un solo objetivo → comportamiento actual
     if len(sub_goals) == 1:
         sub_goal = sub_goals[0]
-        # v1.4: Entidad específica del sub-goal con fallback para pronombres
+        session_context.update_goal(goal, sub_goal)
+        
+        # v1.7.0: Resolver focus_entity usando SessionContext si hay pronombres
         focus_entity = _extract_focus_entity_from_goal(sub_goal, fallback_focus_entity=global_focus_entity)
         if not focus_entity:
-            focus_entity = global_focus_entity
+            # Si no hay entidad explícita y hay pronombres, usar contexto
+            if goal_uses_pronouns(sub_goal):
+                focus_entity = session_context.resolve_entity_reference(sub_goal)
+            if not focus_entity:
+                focus_entity = global_focus_entity
         
         # v1.4: Primer sub-goal siempre resetea contexto
         t0 = time.perf_counter()
         steps, final_answer = await _run_llm_task_single(
-            browser, sub_goal, max_steps, focus_entity=focus_entity, reset_context=True, sub_goal_index=1
+            browser, sub_goal, max_steps, focus_entity=focus_entity, reset_context=True, sub_goal_index=1, execution_profile=execution_profile
         )
         t1 = time.perf_counter()
+        
+        # v1.7.0: Actualizar contexto con la entidad confirmada
+        if focus_entity:
+            session_context.update_entity(focus_entity)
         
         # v1.5.0: Extraer métricas del último step y añadirlas a AgentMetrics
         metrics_data = None
@@ -2470,12 +2640,13 @@ async def run_llm_task_with_answer(
             agent_metrics=agent_metrics,
         )
         
-        # v1.5.0: Añadir métricas y estructura al último step para que estén disponibles en la respuesta
+        # v1.5.0 y v1.7.0: Añadir métricas, estructura y contexto al último step
         if steps:
             last_step = steps[-1]
             info = dict(last_step.info or {})
             info["metrics"] = metrics_summary
             info["structured_answer"] = structured_answer
+            info["session_context"] = session_context.to_debug_dict()
             last_step.info = info
         
         # v1.6.0: Usar answer_text estructurado como final_answer (mantiene compatibilidad)
@@ -2486,30 +2657,32 @@ async def run_llm_task_with_answer(
     all_steps: List[StepResult] = []
     answers: List[str] = []
     all_observations: List[BrowserObservation] = []
-    
-    # v1.4.3: Mantener memoria de la última entidad nombrada explícitamente
-    last_named_entity: Optional[str] = global_focus_entity
 
     for idx, sub_goal in enumerate(sub_goals, start=1):
-        # v1.4.3: Calcular sub_focus_entity con memoria de última entidad nombrada
+        # v1.7.0: Actualizar contexto con el sub-goal actual
+        session_context.update_goal(goal, sub_goal)
+        
+        # v1.7.0: Resolver focus_entity usando SessionContext
         direct_entity = _extract_focus_entity_from_goal(sub_goal)
         
         if direct_entity:
             # Si el sub-objetivo menciona explícitamente una entidad (ej. "Charles Babbage")
             sub_focus_entity = direct_entity
-            last_named_entity = direct_entity
         else:
-            # No hay entidad explícita
-            if _goal_mentions_pronoun(sub_goal) and last_named_entity:
-                # Caso "muéstrame imágenes suyas", "de él", etc.
-                sub_focus_entity = last_named_entity
+            # No hay entidad explícita - usar contexto si hay pronombres
+            if goal_uses_pronouns(sub_goal):
+                sub_focus_entity = session_context.resolve_entity_reference(sub_goal)
             else:
-                # Fallback: usar la global si existe, si no la última conocida
-                sub_focus_entity = global_focus_entity or last_named_entity
+                sub_focus_entity = None
+            
+            # Fallback: usar la global si existe
+            if not sub_focus_entity:
+                sub_focus_entity = global_focus_entity
         
-        # v1.4.3: Logging para diagnóstico
+        # v1.7.0: Logging con información de contexto
         logger.info(
-            f"[cometlocal] sub_goal_index={idx} sub_goal={sub_goal!r} focus_entity={sub_focus_entity!r}"
+            f"[cometlocal] sub_goal_index={idx} sub_goal={sub_goal!r} focus_entity={sub_focus_entity!r} "
+            f"context_entity={session_context.current_focus_entity!r}"
         )
         
         # Refuerzo de contexto al inicio de cada sub-goal
@@ -2582,9 +2755,13 @@ async def run_llm_task_with_answer(
         reset_ctx = (idx == 1)
         t0 = time.perf_counter()
         steps, answer = await _run_llm_task_single(
-            browser, sub_goal, max_steps, focus_entity=sub_focus_entity, reset_context=reset_ctx, sub_goal_index=idx
+            browser, sub_goal, max_steps, focus_entity=sub_focus_entity, reset_context=reset_ctx, sub_goal_index=idx, execution_profile=execution_profile
         )
         t1 = time.perf_counter()
+        
+        # v1.7.0: Actualizar contexto con la entidad confirmada después de completar el sub-goal
+        if sub_focus_entity:
+            session_context.update_entity(sub_focus_entity)
         
         # v1.5.0: Extraer métricas del último step y añadirlas a AgentMetrics
         metrics_data = None
@@ -2710,13 +2887,19 @@ async def run_llm_task_with_answer(
         if len(sources) >= 3:
             break
 
-    # v1.5.0 y v1.6.0: Añadir métricas y estructura al último step para que estén disponibles en la respuesta
+    # v1.5.0, v1.6.0, v1.7.0 y v1.9.0: Añadir métricas, estructura, contexto y perfil al último step
     if all_steps:
         last_step = all_steps[-1]
         info = dict(last_step.info or {})
         info["metrics"] = metrics_summary
         info["structured_answer"] = structured_answer
+        info["session_context"] = session_context.to_debug_dict()
+        info["execution_profile"] = execution_profile.to_dict()
         last_step.info = info
+    
+    # v1.9.0: Añadir execution_profile a metrics_summary
+    if metrics_summary and "summary" in metrics_summary:
+        metrics_summary["summary"]["execution_profile"] = execution_profile.to_dict()
 
     return all_steps, final_answer, source_url, source_title, sources
 
