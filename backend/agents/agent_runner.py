@@ -1,6 +1,9 @@
 from typing import List, Optional, Tuple
 import re
-from urllib.parse import quote_plus
+import time
+import logging
+import unicodedata
+from urllib.parse import quote_plus, urlparse, parse_qs
 
 from openai import AsyncOpenAI
 
@@ -9,6 +12,19 @@ from backend.shared.models import BrowserAction, BrowserObservation, StepResult,
 from backend.planner.simple_planner import SimplePlanner
 from backend.planner.llm_planner import LLMPlanner
 from backend.config import LLM_API_BASE, LLM_API_KEY, LLM_MODEL, DEFAULT_IMAGE_SEARCH_URL_TEMPLATE
+
+logger = logging.getLogger(__name__)
+
+
+class EarlyStopReason:
+    """
+    Constantes centralizadas para los motivos de early-stop.
+    v1.4.8: Centralización para evitar typos y facilitar mantenimiento.
+    """
+    GOAL_SATISFIED_ON_INITIAL_PAGE = "goal_satisfied_on_initial_page"
+    GOAL_SATISFIED_AFTER_ENSURE_CONTEXT_BEFORE_LLM = "goal_satisfied_after_ensure_context_before_llm"
+    GOAL_SATISFIED_AFTER_ACTION = "goal_satisfied_after_action"
+    GOAL_SATISFIED_AFTER_REORIENTATION = "goal_satisfied_after_reorientation"
 
 
 def _goal_mentions_wikipedia(goal: str) -> bool:
@@ -26,6 +42,22 @@ def _goal_mentions_images(goal: str) -> bool:
     text = goal.lower()
     keywords = ["imagen", "imágenes", "foto", "fotos", "picture", "pictures", "image", "images"]
     return any(keyword in text for keyword in keywords)
+
+
+def _goal_mentions_pronoun(goal: str) -> bool:
+    """
+    Devuelve True si el objetivo contiene pronombres de tercera persona
+    que suelen referirse a una entidad mencionada antes.
+    
+    v1.4.3: Función auxiliar para detectar pronombres en el goal.
+    """
+    lower = goal.lower()
+    pronouns = [
+        " él", " ella", " ellos", " ellas",
+        " su ", " sus ", " suyo", " suya", " suyos", " suyas",
+    ]
+    padded = f" {lower} "
+    return any(p in padded for p in pronouns)
 
 
 def _is_url_in_wikipedia(url: str | None) -> bool:
@@ -125,51 +157,222 @@ def _is_url_entity_article(url: Optional[str], entity: str) -> bool:
 
 async def ensure_context(
     goal: str,
-    observation: BrowserObservation,
+    observation: Optional[BrowserObservation],
     browser: BrowserController,
+    focus_entity: Optional[str] = None,
 ) -> Optional[BrowserAction]:
     """
     Context reorientation layer: ensures the browser is in a reasonable site
     for the current goal before delegating to the LLM planner.
     Returns a BrowserAction if reorientation is needed, None otherwise.
     
-    For obligatory contexts (like Wikipedia), this function ALWAYS returns
-    the reorientation action if the context is not met, without exceptions.
+    v1.2: Images have priority over Wikipedia to avoid context contamination.
+    v1.3: Uses normalized queries with focus_entity fallback.
+    v1.4: Always navigates to new context, never reuses old pages even if in same domain.
+    v1.4.1: Performance hotfix - avoid unnecessary reloads if already in correct context.
     """
-    # PRIORIDAD 1: Wikipedia con entidad específica
-    # Si el goal menciona Wikipedia y podemos extraer una entidad, navegar directamente al artículo
-    if _goal_mentions_wikipedia(goal):
-        entity = _extract_wikipedia_entity_from_goal(goal)
-        if entity:
-            # Si ya estamos en el artículo de esa entidad, no hacer nada
-            if _is_url_entity_article(observation.url, entity):
-                # Ya estamos en el artículo correcto, dejar que el planner actúe
-                # No hacer nada más, retornar None para que el planner tome el control
-                return None
-            else:
-                # Construir URL del artículo y navegar
-                article_url = _build_wikipedia_article_url(entity)
-                return BrowserAction(type="open_url", args={"url": article_url})
+    # v1.4: Si observation es None, tratamos como contexto desconocido
+    current_url = observation.url if observation else None
     
-    # PRIORIDAD 2: OBLIGATORY CONTEXT: Wikipedia (sin entidad específica o fallback)
-    # If goal requires Wikipedia and we're not in Wikipedia, ALWAYS redirect
-    # Solo aplica si no encontramos una entidad específica en PRIORIDAD 1
-    if _goal_requires_wikipedia(goal):
-        if not _is_url_in_wikipedia(observation.url):
-            # Always return Wikipedia navigation action - no exceptions
-            return BrowserAction(type="open_url", args={"url": "https://www.wikipedia.org"})
-    
-    # PRIORIDAD 3: OPTIONAL CONTEXT: Image search
-    # This is still optional/orientative, not obligatory
+    # PRIORIDAD 1 (v1.2): Image search - tiene prioridad sobre Wikipedia
+    # v1.4.1: No recargar si ya estamos en búsqueda de imágenes
+    # v1.4.5: Si hay focus_entity, usar directamente sin _normalize_image_query
     if _goal_mentions_images(goal):
-        if not _is_url_in_image_search(observation.url):
-            # Extract query from goal (simple: use the whole goal as query)
-            query = goal.strip()
-            image_search_url = DEFAULT_IMAGE_SEARCH_URL_TEMPLATE.format(query=quote_plus(query))
-            return BrowserAction(type="open_url", args={"url": image_search_url})
+        # v1.4.1: Si ya estamos en una URL de búsqueda de imágenes, no recargar
+        if current_url and _is_url_in_image_search(current_url):
+            return None
+        
+        # v1.4.7: Usar helper para construir query normalizada
+        image_query = _build_image_search_query(goal, focus_entity)
+        
+        # v1.4.7: Logging para diagnóstico
+        logger.info(
+            "[image-query] goal=%r focus_entity=%r query=%r",
+            goal,
+            focus_entity,
+            image_query,
+        )
+        
+        image_search_url = DEFAULT_IMAGE_SEARCH_URL_TEMPLATE.format(query=quote_plus(image_query))
+        return BrowserAction(type="open_url", args={"url": image_search_url})
+    
+    # PRIORIDAD 2: Wikipedia con entidad específica
+    # Solo aplica si NO menciona imágenes (ya manejado en PRIORIDAD 1)
+    # v1.4.1: No recargar si ya estamos en el artículo correcto de Wikipedia
+    if _goal_mentions_wikipedia(goal):
+        # v1.4: Usar _get_effective_focus_entity para obtener entidad
+        entity = _get_effective_focus_entity(goal, focus_entity)
+        
+        if entity:
+            # v1.4.1: Si ya estamos en Wikipedia y el título contiene la entidad, no recargar
+            if current_url and _is_url_in_wikipedia(current_url) and observation and observation.title:
+                title_lower = observation.title.lower()
+                if entity.lower() in title_lower:
+                    return None
+            
+            # v1.4: Construir URL de búsqueda
+            wiki_query = _normalize_wikipedia_query(goal, focus_entity=entity)
+            if wiki_query:
+                search_param = quote_plus(wiki_query)
+                wikipedia_search_url = f"https://es.wikipedia.org/wiki/Especial:Buscar?search={search_param}"
+                return BrowserAction(type="open_url", args={"url": wikipedia_search_url})
+    
+    # PRIORIDAD 3: OBLIGATORY CONTEXT: Wikipedia (sin entidad específica o fallback)
+    # v1.4: Solo forzamos búsqueda si tenemos una entidad clara
+    # v1.4.1: No recargar si ya estamos en Wikipedia con el título correcto
+    if _goal_requires_wikipedia(goal):
+        # v1.4: Usar _normalize_wikipedia_query que solo devuelve entidades o None
+        wiki_query = _normalize_wikipedia_query(goal, focus_entity=focus_entity)
+        
+        # Si no hay entidad, NO forzamos búsqueda (dejamos que el agente navegue normalmente)
+        if wiki_query is None:
+            return None
+        
+        # v1.4.1: Si ya estamos en Wikipedia y el título coincide, no recargar
+        if current_url and _is_url_in_wikipedia(current_url) and observation and observation.title:
+            title_lower = observation.title.lower()
+            if (
+                wiki_query.lower() in title_lower
+                or (focus_entity and focus_entity.lower() in title_lower)
+            ):
+                return None
+        
+        # v1.4: Construir URL de búsqueda
+        search_param = quote_plus(wiki_query)
+        wikipedia_search_url = f"https://es.wikipedia.org/wiki/Especial:Buscar?search={search_param}"
+        return BrowserAction(type="open_url", args={"url": wikipedia_search_url})
     
     # No reorientation needed
     return None
+
+
+def _goal_is_satisfied(
+    goal: str,
+    observation: Optional[BrowserObservation],
+    focus_entity: Optional[str],
+) -> bool:
+    """
+    Devuelve True si, para objetivos sencillos de Wikipedia o de imágenes,
+    la página actual cumple razonablemente el objetivo del sub-goal.
+    No intenta cubrir todos los casos complejos.
+    
+    v1.4.5: Helper para early-stop por sub-objetivo.
+    """
+    if not observation or not observation.url:
+        return False
+
+    url = observation.url
+    title = (observation.title or "").lower()
+    goal_lower = goal.lower()
+    entity_lower = (focus_entity or "").lower()
+
+    # Caso 1: objetivos de Wikipedia (quién fue X, info en Wikipedia, etc.)
+    if "wikipedia" in goal_lower and _is_url_in_wikipedia(url):
+        # Si tenemos entidad, comprobamos que el título contenga la entidad
+        if entity_lower:
+            if entity_lower in title:
+                return True
+        else:
+            # Sin entidad clara, aceptamos cualquier artículo que no sea una página de búsqueda
+            if not _is_wikipedia_search_url(url):
+                return True
+
+    # Caso 2: objetivos de imágenes
+    # v1.4.8: Reforzado para detectar entidad en URL codificada o título con normalización robusta
+    if _goal_mentions_images(goal):
+        # 1) La URL tiene que ser un buscador de imágenes (DuckDuckGo)
+        if not _is_url_in_image_search(url):
+            return False
+        
+        # 2) Determinar la entidad relevante (focus_entity tiene prioridad)
+        entity = focus_entity
+        if not entity:
+            # Intentar extraer del goal como fallback
+            entity = _extract_focus_entity_from_goal(goal)
+        
+        entity = entity.strip() if entity else None
+        
+        # 3) Si hay focus_entity, validar que la query contiene la entidad normalizada
+        if entity:
+            # Normalizar entidad para comparación
+            entity_normalized = _normalize_text_for_comparison(entity)
+            if not entity_normalized:
+                return False
+            
+            # Extraer query de la URL
+            try:
+                parsed = urlparse(url)
+                query_params = parse_qs(parsed.query)
+                q_value = query_params.get('q', [''])[0]
+                # Decodificar espacios codificados
+                q_value = q_value.replace('+', ' ').replace('%20', ' ')
+                q_normalized = _normalize_text_for_comparison(q_value)
+                
+                # Verificar que la query normalizada contiene la entidad normalizada
+                if entity_normalized in q_normalized:
+                    return True
+            except Exception:
+                # Si falla el parsing, intentar verificación directa en URL
+                pass
+            
+            # Fallback: verificar en URL y título con normalización
+            url_normalized = _normalize_text_for_comparison(url)
+            title_normalized = _normalize_text_for_comparison(title)
+            
+            # Verificar variantes codificadas en URL
+            entity_variants = [
+                entity_normalized,
+                entity_normalized.replace(" ", "+"),
+                entity_normalized.replace(" ", "%20"),
+                entity_normalized.replace(" ", "_"),
+            ]
+            
+            for variant in entity_variants:
+                if variant in url_normalized:
+                    return True
+            
+            if entity_normalized in title_normalized:
+                return True
+            
+            return False
+        
+        # 4) Si no hay focus_entity, ser conservador: solo satisfecho si la query coincide razonablemente
+        # con el goal descriptivo (ej: "imágenes de computadoras antiguas")
+        # v1.4.8: Ser más estricto para evitar falsos positivos
+        try:
+            parsed = urlparse(url)
+            query_params = parse_qs(parsed.query)
+            q_value = query_params.get('q', [''])[0]
+            q_value = q_value.replace('+', ' ').replace('%20', ' ')
+            q_normalized = _normalize_text_for_comparison(q_value)
+            
+            # Extraer términos descriptivos del goal (sin verbos imperativos ni pronombres)
+            goal_cleaned = _build_image_search_query(goal, None)
+            
+            # Si el goal limpiado es solo "imágenes" (sin entidad), no podemos confirmar satisfacción
+            if goal_cleaned.lower().strip() == "imágenes":
+                return False
+            
+            goal_normalized = _normalize_text_for_comparison(goal_cleaned)
+            
+            # Extraer palabras significativas (más de 3 caracteres, excluyendo "imagenes")
+            goal_words = [w for w in goal_normalized.split() if len(w) > 3 and w != "imagenes"]
+            if not goal_words:
+                # Si no hay palabras significativas, no podemos confirmar
+                return False
+            
+            # Verificar que al menos el 70% de las palabras clave del goal aparecen en la query
+            # y que hay al menos 2 palabras coincidentes (para evitar coincidencias accidentales)
+            matches = sum(1 for word in goal_words if word in q_normalized)
+            if matches >= max(2, len(goal_words) * 0.7):  # Al menos 70% de coincidencia y mínimo 2 palabras
+                return True
+        except Exception:
+            pass
+        
+        # Si no se puede asegurar, devolver False y dejar que el LLM actúe
+        return False
+
+    return False
 
 
 async def _execute_action(action: BrowserAction, browser: BrowserController) -> Optional[str]:
@@ -318,18 +521,120 @@ async def run_llm_agent(
     goal: str,
     browser: BrowserController,
     max_steps: int = 8,
+    focus_entity: Optional[str] = None,
+    reset_context: bool = False,
 ) -> List[StepResult]:
     """Runs an agent loop on top of BrowserController using the LLMPlanner."""
     planner = LLMPlanner()
     steps: List[StepResult] = []
+    
+    # v1.4: Calcular focus_entity si no se proporciona
+    if focus_entity is None:
+        focus_entity = _extract_focus_entity_from_goal(goal)
 
-    for _ in range(max_steps):
+    # v1.4.7: Reordenar flujo de early-stop para evitar doble carga
+    # 1) Observación inicial sin tocar nada
+    try:
+        initial_observation = await browser.get_observation()
+        
+        # Si reset_context, ignorar la observación inicial para forzar navegación
+        if reset_context:
+            initial_observation = None
+        
+        # 2) Early-stop con el estado inicial (antes de ensure_context)
+        if initial_observation and _goal_is_satisfied(goal, initial_observation, focus_entity):
+            logger.info(
+                "[early-stop] goal satisfied on initial page goal=%r focus_entity=%r url=%r title=%r",
+                goal,
+                focus_entity,
+                initial_observation.url if initial_observation else None,
+                initial_observation.title if initial_observation else None,
+            )
+            steps.append(StepResult(
+                observation=initial_observation,
+                last_action=None,
+                error=None,
+                info={
+                    "reason": EarlyStopReason.GOAL_SATISFIED_ON_INITIAL_PAGE,
+                    "focus_entity": focus_entity,
+                }
+            ))
+            return steps
+        
+        # 3) Si no está satisfecho, entonces y solo entonces llamamos ensure_context
+        reorientation_action = await ensure_context(goal, initial_observation, browser, focus_entity=focus_entity)
+        
+        if reorientation_action:
+            # Ejecutar reorientación
+            error = await _execute_action(reorientation_action, browser)
+            if not error:
+                # Obtener nueva observación después de reorientación
+                try:
+                    initial_observation = await browser.get_observation()
+                    steps.append(StepResult(
+                        observation=initial_observation,
+                        last_action=reorientation_action,
+                        error=None,
+                        info={}
+                    ))
+                except Exception:
+                    # Si no podemos obtener observación, usar la anterior
+                    pass
+        
+        # 4) Early-stop tras ensure_context, antes del primer paso del LLM
+        # v1.4.8: Asegurar que se ejecuta siempre con focus_entity correcto
+        if initial_observation and _goal_is_satisfied(goal, initial_observation, focus_entity):
+            logger.info(
+                "[early-stop] goal satisfied after ensure_context before LLM "
+                "goal=%r focus_entity=%r url=%r title=%r",
+                goal,
+                focus_entity,
+                initial_observation.url if initial_observation else None,
+                initial_observation.title if initial_observation else None,
+            )
+            # Actualizar el último step con la razón
+            if steps:
+                last_step = steps[-1]
+                info = dict(last_step.info or {})
+                info["reason"] = EarlyStopReason.GOAL_SATISFIED_AFTER_ENSURE_CONTEXT_BEFORE_LLM
+                if focus_entity:
+                    info["focus_entity"] = focus_entity
+                last_step.info = info
+            return steps
+        
+        # v1.4.8: Logging defensivo para imágenes no satisfechas
+        if _goal_mentions_images(goal) and initial_observation and not _goal_is_satisfied(goal, initial_observation, focus_entity):
+            logger.debug(
+                "[image-goal] not satisfied yet goal=%r focus_entity=%r url=%r title=%r",
+                goal,
+                focus_entity,
+                initial_observation.url if initial_observation else None,
+                initial_observation.title if initial_observation else None,
+            )
+    except Exception:
+        # Si hay error obteniendo la observación inicial, continuar con el bucle normal
+        pass
+
+    for step_idx in range(max_steps):
         try:
             # Get observation
             observation = await browser.get_observation()
+            
+            # v1.4: Si reset_context es True y es el primer paso, ignorar la observación actual
+            # para forzar navegación a nuevo contexto
+            if reset_context and step_idx == 0:
+                observation = None
 
-            # Context reorientation layer: ensure we're in the right context
-            reorientation_action = await ensure_context(goal, observation, browser)
+            # v1.4.1: Context reorientation layer: solo al inicio del sub-objetivo
+            # v1.4.6: Si ya hicimos reorientación antes del bucle (steps no está vacío),
+            # no volver a hacerla en step_idx == 0 para evitar duplicación
+            reorientation_action = None
+            if step_idx == 0 or observation is None:
+                # v1.4.6: Solo reorientar si no se hizo antes del bucle
+                # (si steps está vacío al entrar al bucle, significa que no se hizo reorientación previa)
+                if len(steps) == 0 or step_idx > 0:
+                    reorientation_action = await ensure_context(goal, observation, browser, focus_entity=focus_entity)
+            
             if reorientation_action:
                 # Execute reorientation action immediately
                 error = await _execute_action(reorientation_action, browser)
@@ -351,12 +656,27 @@ async def run_llm_agent(
                             error=None,
                             info={}
                         ))
+                        
+                        # v1.4.5: early-stop después de reorientación si el objetivo ya está satisfecho
+                        if _goal_is_satisfied(goal, observation, focus_entity):
+                            logger.info(
+                                "[early-stop] goal satisfied after reorientation for goal=%r focus_entity=%r step_idx=%d url=%r title=%r",
+                                goal,
+                                focus_entity,
+                                step_idx,
+                                observation.url if observation else None,
+                                observation.title if observation else None,
+                            )
+                            break
                     except Exception:
                         # If we can't get observation, continue with previous one
                         pass
                 
                 # IMPORTANT: After reorientation, continue loop without consulting LLMPlanner
                 # This ensures we don't skip the reorientation step
+                # v1.5: Pero si el objetivo ya está satisfecho, salimos del bucle
+                if observation and _goal_is_satisfied(goal, observation, focus_entity):
+                    break
                 continue
 
             # Ask planner for next action
@@ -371,7 +691,8 @@ async def run_llm_agent(
             if action.type == "stop":
                 if _goal_requires_wikipedia(goal) and not _is_url_in_wikipedia(observation.url):
                     # Ignore STOP action - force reorientation instead
-                    reorientation_action = await ensure_context(goal, observation, browser)
+                    # v1.3: Pasar focus_entity a ensure_context
+                    reorientation_action = await ensure_context(goal, observation, browser, focus_entity=focus_entity)
                     if reorientation_action:
                         # Execute reorientation action
                         error = await _execute_action(reorientation_action, browser)
@@ -443,6 +764,18 @@ async def run_llm_agent(
                 error=None,
                 info={}
             ))
+            
+            # v1.4.5: early-stop cuando el sub-objetivo actual ya está satisfecho
+            if _goal_is_satisfied(goal, observation_after, focus_entity):
+                logger.info(
+                    "[early-stop] goal satisfied for goal=%r focus_entity=%r step_idx=%d url=%r title=%r",
+                    goal,
+                    focus_entity,
+                    step_idx,
+                    observation_after.url if observation_after else None,
+                    observation_after.title if observation_after else None,
+                )
+                break
 
         except Exception as exc:
             # If we can't even get an observation, create a step with error
@@ -477,8 +810,17 @@ SYSTEM_PROMPT_ANSWER = (
     "- el contenido textual visible de la última página,\n"
     "- y opcionalmente la URL y el título.\n"
     "Debes responder al usuario en español, de forma clara y resumida,\n"
-    "usando SOLO la información disponible en el texto y el objetivo.\n"
-    "IMPORTANTE: Si la URL indica que estás en una página de resultados de imágenes "
+    "usando SOLO la información disponible en el texto y el objetivo.\n\n"
+    "INSTRUCCIONES ESPECÍFICAS:\n"
+    "✅ Prioriza Wikipedia para objetivos tipo 'quién fue X' o 'información sobre X'.\n"
+    "✅ Prioriza búsqueda de imágenes cuando el objetivo lo indique explícitamente.\n"
+    "❌ No rechaces responder solo porque haya ruido en el histórico.\n"
+    "✅ Explica explícitamente qué fuente estás usando.\n"
+    "✅ Usa lo mejor disponible incluso si no es perfecto.\n"
+    "❌ Solo di 'no encontré información' si realmente no hay fuentes útiles.\n\n"
+    "IMPORTANTE: No debes bloquear la respuesta por la presencia de páginas menos relevantes.\n"
+    "Debes centrarte únicamente en las fuentes pertinentes al objetivo actual.\n\n"
+    "Si la URL indica que estás en una página de resultados de imágenes "
     "(por ejemplo, contiene 'ia=images' o 'iax=images' o es una búsqueda de imágenes),\n"
     "explica que has encontrado resultados de imágenes relacionados con el objetivo, "
     "y describe brevemente qué tipo de imágenes se muestran basándote en el texto visible.\n"
@@ -488,21 +830,23 @@ SYSTEM_PROMPT_ANSWER = (
 
 def _decompose_goal(goal: str) -> List[str]:
     """
-    Descomposición muy simple de un objetivo en sub-objetivos ordenados.
-
-    Regla v1:
+    Descomposición de un objetivo en sub-objetivos ordenados.
+    
+    v1.4.4: Mejorado para reconocer múltiples conectores secuenciales y devolver
+    sub-goals limpios sin arrastrar partes de otros sub-objetivos.
+    
+    Reglas:
     - Si no detecta conectores, devuelve [goal] tal cual.
-    - Si detecta un conector tipo "y luego", "y después", "y despues",
-      parte el objetivo en dos.
+    - Divide recursivamente por múltiples conectores secuenciales.
     - Si el objetivo original menciona "wikipedia" y alguna parte no la
       menciona, se añade " en Wikipedia" a esa parte.
     - Limpia espacios y signos de puntuación sobrantes en los extremos.
     """
     text = " ".join(goal.strip().split())
     lower = text.lower()
-
-    # Conectores simples v1 (se puede ampliar en el futuro)
-    connectors = [
+    
+    # v1.4.4: Lista ampliada de conectores secuenciales
+    CONNECTORS = [
         " y luego ",
         " y después ",
         " y despues ",
@@ -510,42 +854,98 @@ def _decompose_goal(goal: str) -> List[str]:
         "; luego ",
         ", después ",
         ", despues ",
+        "; después ",
+        "; despues ",
+        " y finalmente ",
+        ", y finalmente ",
+        "; y finalmente ",
     ]
-
-    # Buscar el primer conector que encaje
-    split_index = -1
-    split_len = 0
-    for c in connectors:
-        idx = lower.find(c)
-        if idx != -1:
-            split_index = idx
-            split_len = len(c)
-            break
-
-    if split_index == -1:
-        # No hay conector reconocible → un solo objetivo
+    
+    # v1.4.4: Buscar todos los conectores y sus posiciones
+    connector_positions = []
+    for connector in CONNECTORS:
+        start = 0
+        while True:
+            idx = lower.find(connector, start)
+            if idx == -1:
+                break
+            connector_positions.append((idx, idx + len(connector), len(connector), connector))
+            start = idx + 1
+    
+    # Si no hay conectores, devolver el objetivo tal cual
+    if not connector_positions:
+        sub_goals = [text] if text else []
+    else:
+        # Ordenar por posición de inicio
+        connector_positions.sort(key=lambda x: x[0])
+        
+        # v1.4.4: Filtrar solapamientos (si un conector está dentro de otro, mantener solo el más largo)
+        filtered_positions = []
+        for i, (start, end, length, connector) in enumerate(connector_positions):
+            # Verificar si este conector se solapa con alguno ya añadido
+            overlaps = False
+            for prev_start, prev_end, _, _ in filtered_positions:
+                # Si se solapa (inicio dentro del rango anterior o fin dentro del rango anterior)
+                if (prev_start <= start < prev_end) or (prev_start < end <= prev_end):
+                    overlaps = True
+                    break
+            if not overlaps:
+                filtered_positions.append((start, end, length, connector))
+        
+        # Ordenar de nuevo por posición de inicio
+        filtered_positions.sort(key=lambda x: x[0])
+        
+        # Dividir el texto por los conectores encontrados
+        sub_goals = []
+        start = 0
+        
+        for pos_start, pos_end, length, connector in filtered_positions:
+            # Extraer la parte antes del conector
+            part = text[start:pos_start].strip()
+            if part:
+                sub_goals.append(part)
+            start = pos_end
+        
+        # Añadir la parte final
+        if start < len(text):
+            part = text[start:].strip()
+            if part:
+                sub_goals.append(part)
+    
+    # v1.4.4: Limpiar cada sub-goal
+    cleaned_sub_goals = []
+    for sub in sub_goals:
+        # Limpiar espacios y signos de puntuación residuales
+        sub = sub.strip()
+        sub = sub.strip(" ,.;")
+        if sub:  # Ignorar sub-goals vacíos
+            cleaned_sub_goals.append(sub)
+    
+    if not cleaned_sub_goals:
         return [text] if text else []
-
-    before = text[:split_index].strip(" ,;.")
-    after = text[split_index + split_len :].strip(" ,;.")
-
-    parts = [p for p in [before, after] if p]
-
-    if not parts:
-        return [text] if text else []
-
+    
     # Propagar contexto de Wikipedia:
     # Si el objetivo global menciona "wikipedia" y una parte no lo menciona,
     # añade " en Wikipedia" a esa parte.
+    # EXCEPCIÓN v1.2: NO propagar "en Wikipedia" a sub-goals que mencionen imágenes
     if "wikipedia" in lower:
         new_parts: List[str] = []
-        for p in parts:
+        for p in cleaned_sub_goals:
             if "wikipedia" not in p.lower():
-                p = p + " en Wikipedia"
+                # v1.2: Si el sub-goal menciona imágenes, NO añadir "en Wikipedia"
+                if not _goal_mentions_images(p):
+                    p = p + " en Wikipedia"
             new_parts.append(p)
-        parts = new_parts
-
-    return parts
+        cleaned_sub_goals = new_parts
+    
+    # v1.4.4: Logging para depuración
+    logger.info(
+        "[decompose_goal] goal=%r -> sub_goals=%r",
+        goal,
+        cleaned_sub_goals,
+    )
+    
+    return cleaned_sub_goals
 
 
 def decompose_goal(goal: str) -> List[str]:
@@ -803,12 +1203,250 @@ def _is_wikipedia_search_url(url: Optional[str]) -> bool:
     )
 
 
-def _extract_focus_entity_from_goal(goal: str) -> Optional[str]:
+def _get_effective_focus_entity(goal: str, focus_entity: Optional[str]) -> Optional[str]:
+    """
+    Devuelve la entidad a usar para búsquedas / artículos de Wikipedia.
+    
+    Prioridad:
+    1) focus_entity explícito (propagado por run_llm_task_with_answer)
+    2) entidad extraída del goal con _extract_focus_entity_from_goal
+    3) en caso contrario, None (NO usar el goal literal como título)
+    
+    v1.4: Limpia palabras conectoras al inicio (de, del, la, el) de la entidad.
+    """
+    def clean_entity(entity: str) -> str:
+        """Limpia palabras conectoras al inicio de la entidad."""
+        entity = entity.strip()
+        # Palabras conectoras que pueden aparecer al inicio
+        connectors = ["de ", "del ", "la ", "el ", "y ", "en "]
+        for connector in connectors:
+            if entity.lower().startswith(connector):
+                entity = entity[len(connector):].strip()
+        return entity
+    
+    if focus_entity:
+        cleaned = clean_entity(focus_entity)
+        return cleaned if cleaned else None
+    
+    inferred = _extract_focus_entity_from_goal(goal)
+    if inferred:
+        cleaned = clean_entity(inferred)
+        return cleaned if cleaned else None
+    
+    return None
+
+
+def _normalize_wikipedia_query(goal: str, focus_entity: Optional[str] = None) -> Optional[str]:
+    """
+    Devuelve la query de Wikipedia, siempre basada en una entidad corta,
+    nunca en una frase literal.
+    
+    Prioridad:
+    1) focus_entity (ya normalizada por quien llama)
+    2) _extract_focus_entity_from_goal(goal)
+    3) None si no se puede inferir nada razonable
+    """
+    effective = _get_effective_focus_entity(goal, focus_entity)
+    return effective
+
+
+def _normalize_text_for_comparison(s: str) -> str:
+    """
+    Normaliza texto para comparación robusta (case-insensitive, sin diacríticos).
+    v1.4.8: Helper para comparaciones en _goal_is_satisfied.
+    """
+    if not s:
+        return ""
+    # Pasar a minúsculas
+    normalized = s.lower()
+    # Eliminar diacríticos usando unicodedata
+    normalized = unicodedata.normalize('NFD', normalized)
+    normalized = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
+    # Recortar espacios extra
+    normalized = ' '.join(normalized.split())
+    return normalized
+
+
+def _build_image_search_query(goal: str, focus_entity: Optional[str]) -> str:
+    """
+    Construye una query limpia para búsquedas de imágenes.
+    
+    Reglas:
+    - Si hay focus_entity: devolver "imágenes de {focus_entity}" (idioma español).
+    - Si no hay focus_entity:
+        - eliminar verbos tipo "muéstrame", "muestrame", "enséñame", "enseñame", "búscame", "pon", etc.
+        - eliminar pronombres tipo "suyas", "suyos", "de él", "de ella"
+        - convertir "fotos" a "imágenes"
+        - devolver algo razonable, sin verbos imperativos.
+    
+    v1.4.7: Helper para normalizar queries de imágenes y evitar literales del goal.
+    v1.4.8: Mejorado para cubrir más variantes de lenguaje natural en español.
+    """
+    # v1.4.8: Si hay focus_entity -> SIEMPRE usarla (prioridad absoluta)
+    if focus_entity and focus_entity.strip():
+        return f"imágenes de {focus_entity.strip()}".strip()
+    
+    # v1.4.8: Si no hay focus_entity, limpiar el goal de forma exhaustiva
+    text = goal.strip()
+    lower = text.lower()
+    
+    # v1.4.8: Convertir "fotos" a "imágenes" antes de procesar
+    text = re.sub(r"\bfotos?\b", "imágenes", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bfotografías?\b", "imágenes", text, flags=re.IGNORECASE)
+    
+    # v1.4.8: Eliminar verbos imperativos ampliados (con y sin tilde)
+    verbs = [
+        "muéstrame", "muestrame", "muestra", "muestras", "muestren", "muestrenme",
+        "enséñame", "enseñame", "ensename", "enseña", "enseñas", "enseñen", "enseñenme",
+        "mira", "mirar", "ver", "veo", "vemos",
+        "busca", "buscar", "búscame", "buscame", "buscas", "buscan",
+        "pon", "ponme", "poner",
+        "dame", "dar", "quiero ver", "quiero",
+    ]
+    for verb in verbs:
+        # Eliminar verbos al inicio o seguidos de espacio
+        pattern = rf"\b{re.escape(verb)}\s*"
+        text = re.sub(pattern, "", text, flags=re.IGNORECASE)
+    
+    # v1.4.8: Eliminar pronombres y frases relacionadas de forma exhaustiva
+    pronouns = [
+        r"\bsuyas\b", r"\bsuyos\b", r"\bsuya\b", r"\bsuyo\b",
+        r"\bde él\b", r"\bde ella\b", r"\bde ellos\b", r"\bde ellas\b",
+        r"\bél\b", r"\bella\b", r"\bellos\b", r"\bellas\b",
+        r"\bde mí\b", r"\bde ti\b", r"\bmí\b", r"\bti\b",
+    ]
+    for pronoun in pronouns:
+        text = re.sub(pronoun, "", text, flags=re.IGNORECASE)
+    
+    # Limpiar espacios múltiples y puntuación
+    text = re.sub(r"\s+", " ", text).strip(" ,.;:¡!¿?")
+    
+    # v1.4.8: Si tras limpiar no queda nada útil o solo quedan pronombres, devolver "imágenes"
+    if not text or len(text.strip()) < 3:
+        return "imágenes"
+    
+    # Verificar que no queden solo pronombres comunes
+    remaining_lower = text.lower().strip()
+    if remaining_lower in ["él", "ella", "ellos", "ellas", "mí", "ti", "suyas", "suyos"]:
+        return "imágenes"
+    
+    # Si el texto es exactamente "imágenes" (o variantes), devolver directamente
+    if remaining_lower in ["imágenes", "imagenes", "imagen"]:
+        return "imágenes"
+    
+    # Asegurar que la query empieza por "imágenes" (solo si no empieza ya con "imagen")
+    # Primero, eliminar cualquier "imágenes" duplicada al inicio
+    text = re.sub(r"^imágenes\s+imágenes\s*", "imágenes ", text, flags=re.IGNORECASE)
+    remaining_lower = text.lower().strip()
+    
+    # Verificar si ya empieza con "imágenes" (con o sin tilde)
+    starts_with_imagenes = (
+        remaining_lower.startswith("imágenes") or 
+        remaining_lower.startswith("imagenes") or
+        remaining_lower.startswith("imagen ")
+    )
+    
+    if not starts_with_imagenes:
+        # Si no empieza con "imagen", añadir el prefijo
+        text = f"imágenes {text}"
+    else:
+        # Si ya empieza con "imágenes", asegurar que no haya duplicados
+        text = re.sub(r"^imágenes\s+imágenes\s*", "imágenes ", text, flags=re.IGNORECASE)
+    
+    # v1.4.8: Verificación final - si aún contiene pronombres problemáticos, devolver solo "imágenes"
+    problematic_patterns = [
+        r"\bél\b", r"\bella\b", r"\bsuyas\b", r"\bsuyos\b",
+        r"\bde él\b", r"\bde ella\b",
+    ]
+    for pattern in problematic_patterns:
+        if re.search(pattern, text, flags=re.IGNORECASE):
+            return "imágenes"
+    
+    return text.strip()
+
+
+def _normalize_image_query(goal: str, fallback_focus: Optional[str] = None) -> str:
+    """
+    Normaliza la query para búsquedas de imágenes en DuckDuckGo.
+    
+    Prioridad:
+    1. Si hay pronombres y fallback_focus -> usar siempre fallback_focus.
+    2. Si hay fallback_focus -> usar fallback_focus.
+    3. Entidad detectada en el propio goal.
+    4. Goal limpiado de verbos imperativos comunes.
+    
+    v1.4: Evita duplicados "de de ..." y normaliza espacios.
+    v1.4.2: Corrige uso de pronombres con fallback_focus.
+    """
+    text = goal.strip()
+    lower = text.lower()
+    
+    # v1.4.2: Definir pronombres relevantes
+    PRONOUN_TOKENS = [
+        " su ", " sus ", " suyo", " suya", " suyos", " suyas",
+        " él", " ella", " ellos", " ellas",
+    ]
+    
+    # v1.4.2: Detectar si el objetivo contiene pronombres
+    has_pronoun = any(token in f" {lower} " for token in PRONOUN_TOKENS)
+    
+    # v1.4.2: 1) Pronombres + focus_entity -> usar siempre la entidad
+    if has_pronoun and fallback_focus:
+        clean_entity = fallback_focus.strip()
+        query = f"imágenes de {clean_entity}"
+        # Normalizar duplicados "de de ..." y espacios múltiples
+        query = query.replace("de de ", "de ")
+        query = query.replace("  ", " ").strip()
+        return query
+    
+    # v1.4.2: 2) Sin pronombres pero con focus_entity -> también preferir la entidad
+    if fallback_focus:
+        clean_entity = fallback_focus.strip()
+        query = f"imágenes de {clean_entity}"
+        # Normalizar duplicados "de de ..." y espacios múltiples
+        query = query.replace("de de ", "de ")
+        query = query.replace("  ", " ").strip()
+        return query
+    
+    # 3) Entidad del propio sub-goal
+    focus = _extract_focus_entity_from_goal(text)
+    
+    if focus:
+        # Limpiar entidad de palabras conectoras
+        clean_entity = focus.strip()
+        # Construir query: siempre "imágenes de <entidad>"
+        query = f"imágenes de {clean_entity}"
+    else:
+        # 4) Sin entidad clara: limpiar verbos imperativos típicos
+        cleaned = re.sub(
+            r"\b(muéstrame|muestrame|muestra|mira|ver|enséñame|enseñame|ensename|busca|buscar)\b",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+        cleaned = re.sub(r"\s+", " ", cleaned).strip(" ,.;:¡!¿?")
+        query = cleaned or goal.strip()
+    
+    # v1.4: Normalizar duplicados "de de ..." y espacios múltiples
+    query = query.replace("de de ", "de ")
+    query = query.replace("  ", " ").strip()
+    
+    return query
+
+
+def _extract_focus_entity_from_goal(goal: str, fallback_focus_entity: Optional[str] = None) -> Optional[str]:
     """
     Extrae la entidad principal del sub-goal (ej. 'Ada Lovelace', 'Charles Babbage').
     Usada solo para trazabilidad y control.
+    
+    v1.4: Si el sub-goal contiene pronombres y no se extrae entidad explícita,
+    retorna fallback_focus_entity.
     """
     goal_lower = goal.lower()
+    
+    # v1.4: Detectar pronombres
+    pronouns = ["su", "sus", "suyas", "suyos", "él", "ella", "le", "la", "lo"]
+    has_pronoun = any(pronoun in goal_lower for pronoun in pronouns)
     
     # Buscar y recortar "en wikipedia" o "en la wikipedia"
     topic_part = goal
@@ -824,6 +1462,9 @@ def _extract_focus_entity_from_goal(goal: str) -> Optional[str]:
     # Dividir en tokens
     tokens = topic_part.split()
     if not tokens:
+        # v1.4: Si hay pronombre y no hay tokens, usar fallback
+        if has_pronoun and fallback_focus_entity:
+            return fallback_focus_entity
         return None
     
     # Recorrer desde el final hacia atrás, acumulando palabras capitalizadas
@@ -849,6 +1490,9 @@ def _extract_focus_entity_from_goal(goal: str) -> Optional[str]:
             break
     
     if not accumulated:
+        # v1.4: Si hay pronombre y no se extrajo entidad, usar fallback
+        if has_pronoun and fallback_focus_entity:
+            return fallback_focus_entity
         return None
     
     # Invertir para obtener el orden normal
@@ -940,176 +1584,285 @@ async def _maybe_resolve_wikipedia_search(
     browser: BrowserController,
     goal: str,
     final_observation: Optional[BrowserObservation],
+    focus_entity: Optional[str] = None,
 ) -> tuple[Optional[BrowserObservation], List[StepResult]]:
     """
     Resuelve determinísticamente una búsqueda de Wikipedia navegando al artículo correcto.
     
-    Si final_observation está en una página de búsqueda de Wikipedia y el goal menciona Wikipedia,
-    intenta extraer el título del artículo y navegar directamente a él.
+    v1.4: Solo resuelve artículos por entidad, nunca por frases literales.
+    Si no hay entidad clara, no resuelve nada.
+    v1.4: Endurecido - verifica que focus_entity esté contenido en final_title después de navegar.
     
-    Devuelve (nueva_observación, [step_result]) si tiene éxito, o (None, []) si no aplica o falla.
+    Devuelve (nueva_observación, [step_result]) si tiene éxito, o (final_observation, []) si no aplica o falla.
     """
+    resolver_steps: List[StepResult] = []
+    
     # Validaciones iniciales
     if final_observation is None:
-        return (None, [])
+        return (final_observation, resolver_steps)
     
-    if not _is_wikipedia_search_url(final_observation.url):
-        return (None, [])
+    if not _is_wikipedia_search_url(final_observation.url or ""):
+        return (final_observation, resolver_steps)
     
     goal_lower = goal.lower()
     if "wikipedia" not in goal_lower:
-        return (None, [])
+        return (final_observation, resolver_steps)
     
-    # Extraer título del artículo
-    title = _extract_wikipedia_title_from_goal(goal)
-    if not title:
-        return (None, [])
+    # v1.4: Obtener entidad efectiva usando _normalize_wikipedia_query
+    # Solo resolvemos si tenemos una entidad clara
+    article_title = _normalize_wikipedia_query(goal, focus_entity=focus_entity)
     
-    # Construir URL del artículo
+    if not article_title:
+        # No sabemos qué artículo concreto buscar; no tocamos nada
+        return (final_observation, resolver_steps)
+    
     try:
-        article_url = _build_wikipedia_article_url(final_observation.url, title)
-    except Exception:
-        return (None, [])
-    
-    # Navegar al artículo
-    try:
+        # Construir URL del artículo usando solo la entidad
+        from urllib.parse import urlparse
+        
+        parsed = urlparse(final_observation.url)
+        base = f"{parsed.scheme}://{parsed.netloc}"
+        slug = article_title.replace(" ", "_")
+        encoded_slug = quote_plus(slug, safe="_")
+        article_url = f"{base}/wiki/{encoded_slug}"
+        
+        # Navegar al artículo
         action = BrowserAction(type="open_url", args={"url": article_url})
         error = await _execute_action(action, browser)
         
         if error:
-            # Si hay error, devolver None para no romper el flujo
-            return (None, [])
+            # Si hay error, devolver la observación original sin romper el flujo
+            return (final_observation, resolver_steps)
         
         # Obtener la nueva observación
         article_observation = await browser.get_observation()
         
-        # Crear StepResult
+        # v1.4: Endurecer verificación - normalizar y comparar
+        final_title = (article_observation.title or "").strip()
+        final_title_normalized = final_title.lower()
+        # Quitar paréntesis y su contenido
+        final_title_normalized = re.sub(r"\s*\([^)]*\)\s*", "", final_title_normalized)
+        
+        # Normalizar focus_entity
+        focus_normalized = ""
+        if focus_entity:
+            focus_normalized = focus_entity.lower().strip()
+            focus_normalized = re.sub(r"\s*\([^)]*\)\s*", "", focus_normalized)
+        
+        # Verificación: si focus_entity NO está contenido en final_title, no continuar
+        if focus_entity and focus_normalized:
+            if focus_normalized not in final_title_normalized:
+                # NO navegar más automáticamente - registrar error
+                error_step = StepResult(
+                    observation=article_observation,
+                    last_action=action,
+                    error=None,
+                    info={
+                        "resolver_error": "article_mismatch",
+                        "expected_entity": focus_entity,
+                        "final_title": final_title,
+                        "resolver": "wikipedia_article_v2_failed",
+                    }
+                )
+                resolver_steps.append(error_step)
+                # Devolver la observación original (de la búsqueda)
+                return (final_observation, resolver_steps)
+        
+        # Crear StepResult de éxito
         step_result = StepResult(
             observation=article_observation,
             last_action=action,
             error=None,
             info={
-                "resolver": "wikipedia_article_v1",
-                "article_title": title,
+                "resolver": "wikipedia_article_v2",
+                "article_title": article_title,
                 "from_search_url": final_observation.url,
             }
         )
         
-        return (article_observation, [step_result])
+        resolver_steps.append(step_result)
+        return (article_observation, resolver_steps)
     
     except Exception:
-        # Cualquier error: devolver None para no romper el flujo
-        return (None, [])
+        # En caso de error, no rompemos el flujo
+        return (final_observation, resolver_steps)
 
 
 async def _run_llm_task_single(
     browser: BrowserController,
     goal: str,
     max_steps: int = 8,
+    focus_entity: Optional[str] = None,
+    reset_context: bool = False,
+    sub_goal_index: Optional[int] = None,
 ) -> Tuple[List[StepResult], str]:
     """
     Ejecuta el agente LLM para un único objetivo (sin descomposición)
     y genera una respuesta final en lenguaje natural basada en la última
     observación.
+    
+    v1.3: Acepta focus_entity para normalizar queries.
+    v1.4: Acepta reset_context para forzar contexto limpio al inicio.
+    v1.4: Aislamiento estricto de steps - solo usa steps_local para el prompt.
     """
-    steps: List[StepResult] = []
+    # v1.4: Crear estructura local, no compartida
+    steps_local: List[StepResult] = []
 
-    # Orientación dura a Wikipedia si el objetivo lo pide
-    text_lower = goal.lower()
-    if "wikipedia" in text_lower:
-        raw_goal = goal
-        cleanup_phrases = [
-            "en wikipedia en español",
-            "en la wikipedia en español",
-            "en wikipedia",
-            "en la wikipedia",
-        ]
-        query_text = raw_goal
-        for phrase in cleanup_phrases:
-            query_text = query_text.replace(phrase, "")
-        query_text = query_text.strip() or raw_goal.strip()
+    # v1.4: Calcular focus_entity si no se proporciona
+    if focus_entity is None:
+        focus_entity = _extract_focus_entity_from_goal(goal)
 
-        search_param = quote_plus(query_text)
-        wikipedia_url = f"https://es.wikipedia.org/wiki/Especial:Buscar?search={search_param}"
+    # v1.4: Orientación dura a Wikipedia si el objetivo lo pide
+    # Solo si no estamos reseteando contexto (para evitar duplicar navegación)
+    if not reset_context:
+        text_lower = goal.lower()
+        if "wikipedia" in text_lower:
+            # v1.4: Usar query normalizada con focus_entity
+            query = _normalize_wikipedia_query(goal, focus_entity=focus_entity)
+            if query:
+                search_param = quote_plus(query)
+                wikipedia_url = f"https://es.wikipedia.org/wiki/Especial:Buscar?search={search_param}"
 
-        forced_action = BrowserAction(type="open_url", args={"url": wikipedia_url})
+                forced_action = BrowserAction(type="open_url", args={"url": wikipedia_url})
 
-        try:
-            error = await _execute_action(forced_action, browser)
-            if error:
                 try:
-                    current_obs = await browser.get_observation()
-                except Exception:
-                    from backend.shared.models import BrowserObservation
-                    current_obs = BrowserObservation(
-                        url="",
-                        title="",
-                        visible_text_excerpt="",
-                        clickable_texts=[],
-                        input_hints=[]
+                    error = await _execute_action(forced_action, browser)
+                    if error:
+                        try:
+                            current_obs = await browser.get_observation()
+                        except Exception:
+                            from backend.shared.models import BrowserObservation
+                            current_obs = BrowserObservation(
+                                url="",
+                                title="",
+                                visible_text_excerpt="",
+                                clickable_texts=[],
+                                input_hints=[]
+                            )
+                        steps_local.append(
+                            StepResult(
+                                observation=current_obs,
+                                last_action=forced_action,
+                                error=error,
+                                info={"phase": "forced_wikipedia_error"},
+                            )
+                        )
+                    else:
+                        obs = await browser.get_observation()
+                        steps_local.append(
+                            StepResult(
+                                observation=obs,
+                                last_action=forced_action,
+                                error=None,
+                                info={"phase": "forced_wikipedia"},
+                            )
+                        )
+                except Exception as exc:  # pragma: no cover - defensivo
+                    try:
+                        current_obs = await browser.get_observation()
+                    except Exception:
+                        from backend.shared.models import BrowserObservation
+                        current_obs = BrowserObservation(
+                            url="",
+                            title="",
+                            visible_text_excerpt="",
+                            clickable_texts=[],
+                            input_hints=[]
+                        )
+                    steps_local.append(
+                        StepResult(
+                            observation=current_obs,
+                            last_action=forced_action,
+                            error=str(exc),
+                            info={"phase": "forced_wikipedia_error"},
+                        )
                     )
-                steps.append(
-                    StepResult(
-                        observation=current_obs,
-                        last_action=forced_action,
-                        error=error,
-                        info={"phase": "forced_wikipedia_error"},
-                    )
-                )
-            else:
-                obs = await browser.get_observation()
-                steps.append(
-                    StepResult(
-                        observation=obs,
-                        last_action=forced_action,
-                        error=None,
-                        info={"phase": "forced_wikipedia"},
-                    )
-                )
-        except Exception as exc:  # pragma: no cover - defensivo
-            try:
-                current_obs = await browser.get_observation()
-            except Exception:
-                from backend.shared.models import BrowserObservation
-                current_obs = BrowserObservation(
-                    url="",
-                    title="",
-                    visible_text_excerpt="",
-                    clickable_texts=[],
-                    input_hints=[]
-                )
-            steps.append(
-                StepResult(
-                    observation=current_obs,
-                    last_action=forced_action,
-                    error=str(exc),
-                    info={"phase": "forced_wikipedia_error"},
-                )
-            )
 
     # Ejecutar el agente LLM normal a partir del contexto actual
-    more_steps = await run_llm_agent(goal=goal, browser=browser, max_steps=max_steps)
-    all_steps = steps + more_steps
+    # v1.4: Pasar focus_entity y reset_context a run_llm_agent
+    more_steps = await run_llm_agent(
+        goal=goal,
+        browser=browser,
+        max_steps=max_steps,
+        focus_entity=focus_entity,
+        reset_context=reset_context
+    )
+    # v1.4: Añadir solo a steps_local, no usar all_steps externos
+    steps_local.extend(more_steps)
 
-    # Obtener la última observación disponible
+    # Obtener la última observación disponible (solo de steps_local)
     last_observation: Optional[BrowserObservation] = None
-    for step in reversed(all_steps):
+    for step in reversed(steps_local):
         if step.observation is not None:
             last_observation = step.observation
             break
 
     if last_observation is None:
         # Fallback duro si por alguna razón no hay observación
-        return all_steps, "No he podido obtener ninguna observación del navegador para responder."
+        return steps_local, "No he podido obtener ninguna observación del navegador para responder."
 
     # Resolver determinísticamente búsquedas de Wikipedia si es necesario
+    # v1.4: Pasar focus_entity a _maybe_resolve_wikipedia_search
     resolved_observation, resolver_steps = await _maybe_resolve_wikipedia_search(
-        browser, goal, last_observation
+        browser, goal, last_observation, focus_entity=focus_entity
     )
     if resolved_observation is not None:
-        all_steps.extend(resolver_steps)
+        steps_local.extend(resolver_steps)
         last_observation = resolved_observation
 
+    # v1.4: Marcar todos los steps con sub_goal_index si se proporciona
+    if sub_goal_index is not None:
+        for s in steps_local:
+            info = dict(s.info or {})
+            info["sub_goal_index"] = sub_goal_index
+            if focus_entity:
+                info["focus_entity"] = focus_entity
+            s.info = info
+
+    # v1.4: Construir el prompt usando solo steps_local (todos son del sub-objetivo actual)
+    # Filtrar por sub_goal_index si se proporciona (aunque todos deberían ser del mismo)
+    relevant_steps = steps_local
+    if sub_goal_index is not None:
+        relevant_steps = [
+            s for s in steps_local
+            if s.info.get("sub_goal_index") == sub_goal_index
+        ]
+        # Si no hay steps filtrados, usar todos los del sub-objetivo actual
+        if not relevant_steps:
+            relevant_steps = steps_local
+    
+    # Si hay focus_entity, priorizar steps donde aparezca en title o url
+    if focus_entity and relevant_steps:
+        focus_entity_lower = focus_entity.lower()
+        prioritized_steps = []
+        other_steps = []
+        for step in relevant_steps:
+            if step.observation:
+                title_lower = (step.observation.title or "").lower()
+                url_lower = (step.observation.url or "").lower()
+                if focus_entity_lower in title_lower or focus_entity_lower in url_lower:
+                    prioritized_steps.append(step)
+                else:
+                    other_steps.append(step)
+        # Si encontramos steps prioritarios, usarlos; si no, usar todos
+        if prioritized_steps:
+            relevant_steps = prioritized_steps + other_steps
+    
+    # Construir bloque de observaciones relevantes
+    observations_text = ""
+    if relevant_steps:
+        observations_parts = []
+        for step in relevant_steps:
+            if step.observation:
+                obs = step.observation
+                obs_text = f"URL: {obs.url or 'N/A'}\n"
+                obs_text += f"Título: {obs.title or 'N/A'}\n"
+                if obs.visible_text_excerpt:
+                    obs_text += f"Contenido: {obs.visible_text_excerpt[:500]}...\n"
+                observations_parts.append(obs_text)
+        if observations_parts:
+            observations_text = "\n---\n".join(observations_parts)
+    
     # Construir el prompt para el LLM de respuesta final
     url = last_observation.url or ""
     title = last_observation.title or ""
@@ -1119,12 +1872,47 @@ async def _run_llm_task_single(
 
     user_prompt = (
         f"Objetivo original del usuario:\n{goal}\n\n"
+    )
+    
+    # v1.4: Añadir bloque de observaciones relevantes si hay
+    if observations_text:
+        user_prompt += (
+            "Observaciones relevantes del agente:\n"
+            f"{observations_text}\n\n"
+        )
+        # Si hay focus_entity pero no se encontró en las fuentes, añadir nota
+        if focus_entity:
+            found_entity = False
+            for step in relevant_steps:
+                if step.observation:
+                    title_lower = (step.observation.title or "").lower()
+                    url_lower = (step.observation.url or "").lower()
+                    if focus_entity.lower() in title_lower or focus_entity.lower() in url_lower:
+                        found_entity = True
+                        break
+            if not found_entity:
+                user_prompt += (
+                    "Nota: No se encontró una fuente que mencione explícitamente la entidad esperada "
+                    f"({focus_entity}). Se utilizan las mejores páginas disponibles para responder igualmente.\n\n"
+                )
+    
+    user_prompt += (
         f"Última URL visitada por el agente:\n{url}\n\n"
         f"Título de la página:\n{title}\n\n"
         "Contenido de la página (extracto del texto visible):\n"
         f"{visible}\n\n"
+        "Instrucciones importantes:\n"
+        "- Prioriza la información procedente de Wikipedia cuando el objetivo sea 'quién fue X' o 'información sobre X'.\n"
+        "- Prioriza la información procedente de las páginas de imágenes cuando el objetivo hable de 'imágenes', 'fotos' o 'fotografías'.\n"
+        "- No debes bloquear la respuesta solo porque haya otras páginas menos relevantes en el historial de pasos.\n"
+        "- Ignora las páginas que claramente no estén relacionadas con la entidad del objetivo actual.\n"
+        "- Indica siempre de qué página principal (URL y título) has sacado la información para tu respuesta.\n"
+        "- Si realmente no encuentras ninguna fuente útil relacionada con la entidad, dilo explícitamente.\n\n"
         "Usa esta información para responder al objetivo del usuario en español."
     )
+    
+    # v1.4: Calcular tamaño real del prompt para logging
+    prompt_len = len(system_prompt) + len(user_prompt)
 
     client = AsyncOpenAI(base_url=LLM_API_BASE, api_key=LLM_API_KEY)
     try:
@@ -1143,7 +1931,14 @@ async def _run_llm_task_single(
             f"visitada. Detalle técnico: {exc}"
         )
 
-    return all_steps, final_answer
+    # v1.4: Almacenar prompt_len en el último step para logging posterior
+    if steps_local:
+        last_step = steps_local[-1]
+        info = dict(last_step.info or {})
+        info["prompt_len"] = prompt_len
+        last_step.info = info
+
+    return steps_local, final_answer
 
 
 async def run_llm_task_with_answer(
@@ -1158,17 +1953,46 @@ async def run_llm_task_with_answer(
     - Si se descompone en varios sub-objetivos, los ejecuta en secuencia,
       reutilizando el mismo navegador y agregando las respuestas.
     """
+    # v1.4: Entidad global del objetivo completo
+    # Primero intentamos desde el goal completo, luego desde el primer sub-goal con entidad
+    global_focus_entity = _extract_focus_entity_from_goal(goal)
+    
     sub_goals = _decompose_goal(goal)
     if not sub_goals:
         # Fallback de seguridad: usar el objetivo original
         sub_goals = [goal]
+    
+    # v1.4: Si no hay entidad global del goal completo, intentar desde el primer sub-goal
+    if not global_focus_entity:
+        for sub_goal in sub_goals:
+            candidate = _extract_focus_entity_from_goal(sub_goal)
+            if candidate:
+                global_focus_entity = candidate
+                break
 
     # Caso simple: un solo objetivo → comportamiento actual
     if len(sub_goals) == 1:
         sub_goal = sub_goals[0]
-        focus_entity = _extract_focus_entity_from_goal(sub_goal)
+        # v1.4: Entidad específica del sub-goal con fallback para pronombres
+        focus_entity = _extract_focus_entity_from_goal(sub_goal, fallback_focus_entity=global_focus_entity)
+        if not focus_entity:
+            focus_entity = global_focus_entity
         
-        steps, final_answer = await _run_llm_task_single(browser, sub_goal, max_steps)
+        # v1.4: Primer sub-goal siempre resetea contexto
+        t0 = time.perf_counter()
+        steps, final_answer = await _run_llm_task_single(
+            browser, sub_goal, max_steps, focus_entity=focus_entity, reset_context=True, sub_goal_index=1
+        )
+        t1 = time.perf_counter()
+        
+        # v1.4.5: Logging de rendimiento mejorado
+        logger.info(
+            "[sub-goal] idx=1 sub_goal=%r focus_entity=%r steps=%d elapsed=%.2fs",
+            sub_goal,
+            focus_entity,
+            len(steps),
+            t1 - t0,
+        )
         
         # Añadir marcado de focus_entity a todos los steps
         for s in steps:
@@ -1209,32 +2033,77 @@ async def run_llm_task_with_answer(
     all_steps: List[StepResult] = []
     answers: List[str] = []
     all_observations: List[BrowserObservation] = []
+    
+    # v1.4.3: Mantener memoria de la última entidad nombrada explícitamente
+    last_named_entity: Optional[str] = global_focus_entity
 
     for idx, sub_goal in enumerate(sub_goals, start=1):
+        # v1.4.3: Calcular sub_focus_entity con memoria de última entidad nombrada
+        direct_entity = _extract_focus_entity_from_goal(sub_goal)
+        
+        if direct_entity:
+            # Si el sub-objetivo menciona explícitamente una entidad (ej. "Charles Babbage")
+            sub_focus_entity = direct_entity
+            last_named_entity = direct_entity
+        else:
+            # No hay entidad explícita
+            if _goal_mentions_pronoun(sub_goal) and last_named_entity:
+                # Caso "muéstrame imágenes suyas", "de él", etc.
+                sub_focus_entity = last_named_entity
+            else:
+                # Fallback: usar la global si existe, si no la última conocida
+                sub_focus_entity = global_focus_entity or last_named_entity
+        
+        # v1.4.3: Logging para diagnóstico
+        logger.info(
+            f"[cometlocal] sub_goal_index={idx} sub_goal={sub_goal!r} focus_entity={sub_focus_entity!r}"
+        )
+        
         # Refuerzo de contexto al inicio de cada sub-goal
         # Si el sub-goal contiene "wikipedia", forzar contexto limpio
         context_steps: List[StepResult] = []
         if "wikipedia" in sub_goal.lower():
-            # Limpiar frases comunes para construir la búsqueda
-            cleanup_phrases = [
-                "en wikipedia en español",
-                "en la wikipedia en español",
-                "en wikipedia",
-                "en la wikipedia",
-            ]
-            query_text = sub_goal
-            for phrase in cleanup_phrases:
-                query_text = query_text.replace(phrase, "")
-            query_text = query_text.strip() or sub_goal.strip()
-            
-            search_param = quote_plus(query_text)
-            wikipedia_search_url = f"https://es.wikipedia.org/wiki/Especial:Buscar?search={search_param}"
-            
-            forced_action = BrowserAction(type="open_url", args={"url": wikipedia_search_url})
-            
-            try:
-                error = await _execute_action(forced_action, browser)
-                if error:
+            # v1.4: Normalizar la query usando sub_focus_entity como fallback
+            query = _normalize_wikipedia_query(sub_goal, focus_entity=sub_focus_entity)
+            if query:
+                search_param = quote_plus(query)
+                wikipedia_search_url = f"https://es.wikipedia.org/wiki/Especial:Buscar?search={search_param}"
+                
+                forced_action = BrowserAction(type="open_url", args={"url": wikipedia_search_url})
+                
+                try:
+                    error = await _execute_action(forced_action, browser)
+                    if error:
+                        try:
+                            current_obs = await browser.get_observation()
+                        except Exception:
+                            from backend.shared.models import BrowserObservation
+                            current_obs = BrowserObservation(
+                                url="",
+                                title="",
+                                visible_text_excerpt="",
+                                clickable_texts=[],
+                                input_hints=[]
+                            )
+                        context_steps.append(
+                            StepResult(
+                                observation=current_obs,
+                                last_action=forced_action,
+                                error=error,
+                                info={"phase": "context_cleanup_error"},
+                            )
+                        )
+                    else:
+                        obs = await browser.get_observation()
+                        context_steps.append(
+                            StepResult(
+                                observation=obs,
+                                last_action=forced_action,
+                                error=None,
+                                info={"phase": "context_cleanup"},
+                            )
+                        )
+                except Exception as exc:  # pragma: no cover - defensivo
                     try:
                         current_obs = await browser.get_observation()
                     except Exception:
@@ -1250,46 +2119,29 @@ async def run_llm_task_with_answer(
                         StepResult(
                             observation=current_obs,
                             last_action=forced_action,
-                            error=error,
+                            error=str(exc),
                             info={"phase": "context_cleanup_error"},
                         )
                     )
-                else:
-                    obs = await browser.get_observation()
-                    context_steps.append(
-                        StepResult(
-                            observation=obs,
-                            last_action=forced_action,
-                            error=None,
-                            info={"phase": "context_cleanup"},
-                        )
-                    )
-            except Exception as exc:  # pragma: no cover - defensivo
-                try:
-                    current_obs = await browser.get_observation()
-                except Exception:
-                    from backend.shared.models import BrowserObservation
-                    current_obs = BrowserObservation(
-                        url="",
-                        title="",
-                        visible_text_excerpt="",
-                        clickable_texts=[],
-                        input_hints=[]
-                    )
-                context_steps.append(
-                    StepResult(
-                        observation=current_obs,
-                        last_action=forced_action,
-                        error=str(exc),
-                        info={"phase": "context_cleanup_error"},
-                    )
-                )
         
-        # Extraer focus_entity para marcado
-        focus_entity = _extract_focus_entity_from_goal(sub_goal)
+        # v1.4: Ejecutar el sub-objetivo
+        # Primer sub-goal (idx == 1) resetea contexto, los demás no
+        reset_ctx = (idx == 1)
+        t0 = time.perf_counter()
+        steps, answer = await _run_llm_task_single(
+            browser, sub_goal, max_steps, focus_entity=sub_focus_entity, reset_context=reset_ctx, sub_goal_index=idx
+        )
+        t1 = time.perf_counter()
         
-        # Ejecutar el sub-objetivo
-        steps, answer = await _run_llm_task_single(browser, sub_goal, max_steps)
+        # v1.4.5: Logging de rendimiento mejorado
+        logger.info(
+            "[sub-goal] idx=%d sub_goal=%r focus_entity=%r steps=%d elapsed=%.2fs",
+            idx,
+            sub_goal,
+            sub_focus_entity,
+            len(steps),
+            t1 - t0,
+        )
         
         # Combinar context_steps con steps
         all_subgoal_steps = context_steps + steps
@@ -1299,8 +2151,9 @@ async def run_llm_task_with_answer(
             info = dict(s.info or {})
             info["sub_goal_index"] = idx
             info["sub_goal"] = sub_goal
-            if focus_entity:
-                info["focus_entity"] = focus_entity
+            # v1.4: Añadir focus_entity si está disponible
+            if sub_focus_entity:
+                info["focus_entity"] = sub_focus_entity
             s.info = info
             all_steps.append(s)
         
@@ -1335,76 +2188,6 @@ async def run_llm_task_with_answer(
     source_title = last_observation.title or "" if last_observation else ""
 
     sources: List[SourceInfo] = []
-    if source_url:
-        sources.append(SourceInfo(url=source_url, title=source_title or None))
-
-    seen_urls = {source_url} if source_url else set()
-
-    # Recorrer todas las observaciones (de más reciente a más antigua)
-    for obs in reversed(all_observations):
-        if not obs or not obs.url:
-            continue
-        url = obs.url
-        if url in seen_urls:
-            continue
-        seen_urls.add(url)
-        sources.append(SourceInfo(url=url, title=(obs.title or None)))
-        if len(sources) >= 3:
-            break
-
-    return all_steps, final_answer, source_url, source_title, sources
-
-    all_steps: List[StepResult] = []
-    partial_answers: List[str] = []
-    all_observations: List[BrowserObservation] = []
-
-    # Procesar cada sub-objetivo
-    for idx, sub_goal in enumerate(sub_goals):
-        try:
-            steps, last_obs, partial_answer = await _process_single_subgoal(
-                raw_sub_goal=sub_goal,
-                browser=browser,
-                max_steps=max_steps,
-            )
-            all_steps.extend(steps)
-            partial_answers.append(partial_answer)
-            if last_obs:
-                all_observations.append(last_obs)
-        except Exception as exc:  # pragma: no cover - defensivo
-            # Si falla un sub-objetivo, continuamos con los siguientes
-            partial_answers.append(f"Error al procesar: {sub_goal}. Detalle: {exc}")
-
-    # Combinar respuestas parciales
-    if len(partial_answers) == 1:
-        final_answer = partial_answers[0]
-    else:
-        # Combinar con encabezados numerados
-        combined_parts = []
-        for idx, answer in enumerate(partial_answers, 1):
-            combined_parts.append(f"{idx}. {answer}")
-        final_answer = "\n\n".join(combined_parts)
-
-    # Obtener la última observación global (para source_url/source_title)
-    last_observation: Optional[BrowserObservation] = None
-    if all_observations:
-        last_observation = all_observations[-1]
-    else:
-        # Fallback: buscar en todos los steps
-        for step in reversed(all_steps):
-            if step.observation is not None:
-                last_observation = step.observation
-                break
-
-    if last_observation is None:
-        return all_steps, final_answer, "", "", []
-
-    # Extraer información de la fuente principal
-    source_url = last_observation.url or ""
-    source_title = last_observation.title or ""
-
-    # Calcular lista de fuentes (hasta 3) desde todas las observaciones
-    sources: List[SourceInfo] = []
-
     if source_url:
         sources.append(SourceInfo(url=source_url, title=source_title or None))
 
