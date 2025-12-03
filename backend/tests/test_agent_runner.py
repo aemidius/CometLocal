@@ -15,8 +15,9 @@ from backend.agents.agent_runner import (
     EarlyStopReason,
     _normalize_text_for_comparison,
     AgentMetrics,
+    _build_final_answer,
 )
-from backend.shared.models import BrowserObservation, StepResult
+from backend.shared.models import BrowserObservation, StepResult, BrowserAction
 
 
 class TestBuildImageSearchQuery:
@@ -513,4 +514,251 @@ class TestMetricsIntegration:
         assert "sub_goals" in metrics
         assert "summary" in metrics
         assert metrics["summary"]["total_sub_goals"] == 1
+
+
+class TestBuildFinalAnswer:
+    """Tests para _build_final_answer v1.6.0"""
+    
+    def test_build_final_answer_single_subgoal(self):
+        """Construir respuesta final con un solo sub-goal"""
+        from backend.shared.models import BrowserObservation
+        
+        sub_goals = ["investiga quién fue Ada Lovelace en Wikipedia"]
+        sub_goal_answers = ["Ada Lovelace fue una matemática y escritora británica."]
+        
+        obs = BrowserObservation(
+            url="https://es.wikipedia.org/wiki/Ada_Lovelace",
+            title="Ada Lovelace",
+            visible_text_excerpt="Matemática británica",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        step = StepResult(
+            observation=obs,
+            last_action=None,
+            error=None,
+            info={
+                "sub_goal_index": 1,
+                "sub_goal": sub_goals[0],
+                "focus_entity": "Ada Lovelace",
+            }
+        )
+        
+        all_steps = [step]
+        
+        result = _build_final_answer(
+            original_goal="investiga quién fue Ada Lovelace en Wikipedia",
+            sub_goals=sub_goals,
+            sub_goal_answers=sub_goal_answers,
+            all_steps=all_steps,
+            agent_metrics=None,
+        )
+        
+        assert "answer_text" in result
+        assert "sections" in result
+        assert "sources" in result
+        assert len(result["sections"]) == 1
+        assert result["sections"][0]["index"] == 1
+        assert result["sections"][0]["goal_type"] == "wikipedia"
+        assert result["sections"][0]["focus_entity"] == "Ada Lovelace"
+        assert "Ada Lovelace" in result["answer_text"]
+    
+    def test_build_final_answer_multiple_subgoals(self):
+        """Construir respuesta final con múltiples sub-goals"""
+        from backend.shared.models import BrowserObservation
+        
+        sub_goals = [
+            "investiga quién fue Ada Lovelace en Wikipedia",
+            "muéstrame imágenes suyas",
+        ]
+        sub_goal_answers = [
+            "Ada Lovelace fue una matemática británica.",
+            "He encontrado imágenes de Ada Lovelace.",
+        ]
+        
+        obs1 = BrowserObservation(
+            url="https://es.wikipedia.org/wiki/Ada_Lovelace",
+            title="Ada Lovelace",
+            visible_text_excerpt="Matemática",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        obs2 = BrowserObservation(
+            url="https://duckduckgo.com/?q=imágenes+de+Ada+Lovelace&iax=images",
+            title="Imágenes de Ada Lovelace",
+            visible_text_excerpt="Resultados de imágenes",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        step1 = StepResult(
+            observation=obs1,
+            last_action=None,
+            error=None,
+            info={
+                "sub_goal_index": 1,
+                "sub_goal": sub_goals[0],
+                "focus_entity": "Ada Lovelace",
+            }
+        )
+        
+        step2 = StepResult(
+            observation=obs2,
+            last_action=None,
+            error=None,
+            info={
+                "sub_goal_index": 2,
+                "sub_goal": sub_goals[1],
+                "focus_entity": "Ada Lovelace",
+            }
+        )
+        
+        all_steps = [step1, step2]
+        
+        result = _build_final_answer(
+            original_goal="investiga quién fue Ada Lovelace y muéstrame imágenes suyas",
+            sub_goals=sub_goals,
+            sub_goal_answers=sub_goal_answers,
+            all_steps=all_steps,
+            agent_metrics=None,
+        )
+        
+        assert len(result["sections"]) == 2
+        assert result["sections"][0]["index"] == 1
+        assert result["sections"][1]["index"] == 2
+        assert result["sections"][0]["goal_type"] == "wikipedia"
+        assert result["sections"][1]["goal_type"] == "images"
+        assert len(result["sources"]) >= 2
+        assert "1." in result["answer_text"]
+        assert "2." in result["answer_text"]
+    
+    def test_build_final_answer_sections_structure(self):
+        """Verificar estructura de secciones"""
+        from backend.shared.models import BrowserObservation
+        
+        sub_goals = ["busca información sobre computadoras"]
+        sub_goal_answers = ["Las computadoras son dispositivos electrónicos."]
+        
+        obs = BrowserObservation(
+            url="https://example.com/computadoras",
+            title="Computadoras",
+            visible_text_excerpt="Información sobre computadoras",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        step = StepResult(
+            observation=obs,
+            last_action=None,
+            error=None,
+            info={"sub_goal_index": 1, "sub_goal": sub_goals[0]}
+        )
+        
+        result = _build_final_answer(
+            original_goal="busca información sobre computadoras",
+            sub_goals=sub_goals,
+            sub_goal_answers=sub_goal_answers,
+            all_steps=[step],
+        )
+        
+        section = result["sections"][0]
+        assert "index" in section
+        assert "sub_goal" in section
+        assert "answer" in section
+        assert "goal_type" in section
+        assert "focus_entity" in section
+        assert "sources" in section
+        assert isinstance(section["sources"], list)
+    
+    def test_build_final_answer_sources_deduplication(self):
+        """Verificar que las fuentes se deduplican correctamente"""
+        from backend.shared.models import BrowserObservation
+        
+        sub_goals = ["goal1", "goal2"]
+        sub_goal_answers = ["answer1", "answer2"]
+        
+        # Misma URL en ambos sub-goals
+        obs = BrowserObservation(
+            url="https://example.com/same",
+            title="Same Page",
+            visible_text_excerpt="",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        step1 = StepResult(
+            observation=obs,
+            last_action=None,
+            error=None,
+            info={"sub_goal_index": 1}
+        )
+        
+        step2 = StepResult(
+            observation=obs,
+            last_action=None,
+            error=None,
+            info={"sub_goal_index": 2}
+        )
+        
+        result = _build_final_answer(
+            original_goal="test",
+            sub_goals=sub_goals,
+            sub_goal_answers=sub_goal_answers,
+            all_steps=[step1, step2],
+        )
+        
+        # La misma URL debe aparecer solo una vez en sources globales
+        urls = [s["url"] for s in result["sources"]]
+        assert urls.count("https://example.com/same") == 1
+        # Pero debe estar asociada a ambos sub-goals
+        same_source = next(s for s in result["sources"] if s["url"] == "https://example.com/same")
+        assert 1 in same_source["sub_goals"]
+        assert 2 in same_source["sub_goals"]
+    
+    def test_build_final_answer_with_metrics(self):
+        """Verificar que se incluyen métricas si están disponibles"""
+        from backend.shared.models import BrowserObservation
+        
+        sub_goals = ["test goal"]
+        sub_goal_answers = ["test answer"]
+        
+        obs = BrowserObservation(
+            url="https://example.com",
+            title="Test",
+            visible_text_excerpt="",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        step = StepResult(
+            observation=obs,
+            last_action=None,
+            error=None,
+            info={"sub_goal_index": 1}
+        )
+        
+        metrics = AgentMetrics()
+        metrics.add_subgoal_metrics(
+            goal="test goal",
+            focus_entity=None,
+            goal_type="other",
+            steps_taken=5,
+            early_stop_reason=None,
+            elapsed_seconds=2.0,
+            success=False,
+        )
+        
+        result = _build_final_answer(
+            original_goal="test",
+            sub_goals=sub_goals,
+            sub_goal_answers=sub_goal_answers,
+            all_steps=[step],
+            agent_metrics=metrics,
+        )
+        
+        assert result["metrics_summary"] is not None
+        assert "summary" in result["metrics_summary"]
+        assert result["metrics_summary"]["summary"]["total_sub_goals"] == 1
 

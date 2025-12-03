@@ -60,4 +60,8 @@ class AgentAnswerResponse(BaseModel):
     source_url: Optional[str] = None
     source_title: Optional[str] = None
     sources: List[SourceInfo] = []
+    # v1.6.0: Campos opcionales para respuesta estructurada
+    sections: Optional[List[Dict[str, Any]]] = None
+    structured_sources: Optional[List[Dict[str, Any]]] = None
+    metrics_summary: Optional[Dict[str, Any]] = None
 

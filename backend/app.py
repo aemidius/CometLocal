@@ -216,6 +216,17 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
         browser=browser,
         max_steps=payload.max_steps,
     )
+    
+    # v1.6.0: Extraer información estructurada del último step si está disponible
+    structured_answer = None
+    metrics_summary = None
+    if steps:
+        last_step = steps[-1]
+        if last_step.info and "structured_answer" in last_step.info:
+            structured_answer = last_step.info["structured_answer"]
+        if last_step.info and "metrics" in last_step.info:
+            metrics_summary = last_step.info["metrics"]
+    
     return AgentAnswerResponse(
         goal=payload.goal,
         final_answer=final_answer,
@@ -223,4 +234,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
         source_url=source_url,
         source_title=source_title,
         sources=sources,
+        sections=structured_answer["sections"] if structured_answer else None,
+        structured_sources=structured_answer["sources"] if structured_answer else None,
+        metrics_summary=metrics_summary,
     )

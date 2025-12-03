@@ -192,6 +192,201 @@ def _infer_goal_type(goal: str) -> str:
         return "other"
 
 
+def _extract_sources_from_steps(steps: List[StepResult]) -> List[Dict[str, Any]]:
+    """
+    Extrae fuentes únicas de una lista de StepResult.
+    v1.6.0: Helper para agrupar fuentes por sub-goal.
+    """
+    seen_urls = set()
+    sources = []
+    
+    for step in steps:
+        if not step.observation or not step.observation.url:
+            continue
+        
+        url = step.observation.url
+        if url in seen_urls:
+            continue
+        
+        seen_urls.add(url)
+        title = step.observation.title or ""
+        
+        # Inferir goal_type de la URL
+        goal_type = "other"
+        if "wikipedia.org" in url.lower():
+            goal_type = "wikipedia"
+        elif "duckduckgo.com" in url.lower() and ("ia=images" in url.lower() or "iax=images" in url.lower()):
+            goal_type = "images"
+        
+        sources.append({
+            "url": url,
+            "title": title,
+            "goal_type": goal_type,
+        })
+    
+    return sources
+
+
+def _build_final_answer(
+    original_goal: str,
+    sub_goals: List[str],
+    sub_goal_answers: List[str],
+    all_steps: List[StepResult],
+    agent_metrics: Optional[AgentMetrics] = None,
+) -> Dict[str, Any]:
+    """
+    Construye una estructura de respuesta final enriquecida.
+    v1.6.0: Estructura mejorada con secciones por sub-goal, fuentes y métricas.
+    
+    Returns:
+        Dict con:
+        - answer_text: texto final estructurado en español
+        - sections: lista de secciones por sub-goal
+        - sources: lista global de fuentes deduplicadas
+        - metrics_summary: resumen de métricas (si disponible)
+    """
+    # Agrupar steps por sub_goal_index
+    steps_by_subgoal: Dict[int, List[StepResult]] = defaultdict(list)
+    for step in all_steps:
+        sub_goal_idx = step.info.get("sub_goal_index")
+        if sub_goal_idx is not None:
+            steps_by_subgoal[sub_goal_idx].append(step)
+        else:
+            # Si no tiene índice, asignar al primero (caso de un solo sub-goal)
+            steps_by_subgoal[1].append(step)
+    
+    # Construir secciones por sub-goal
+    sections = []
+    all_sources_dict: Dict[str, Dict[str, Any]] = {}  # url -> source info
+    
+    for idx, (sub_goal, answer) in enumerate(zip(sub_goals, sub_goal_answers), start=1):
+        # Obtener steps de este sub-goal
+        sub_goal_steps = steps_by_subgoal.get(idx, [])
+        
+        # Extraer fuentes de este sub-goal
+        sub_goal_sources = _extract_sources_from_steps(sub_goal_steps)
+        
+        # Obtener información del sub-goal desde los steps o inferirla
+        focus_entity = None
+        goal_type = _infer_goal_type(sub_goal)
+        
+        # Buscar focus_entity en los steps
+        for step in sub_goal_steps:
+            if step.info and step.info.get("focus_entity"):
+                focus_entity = step.info["focus_entity"]
+                break
+        
+        # Si no hay focus_entity, intentar extraerla del sub_goal
+        if not focus_entity:
+            focus_entity = _extract_focus_entity_from_goal(sub_goal)
+        
+        # Construir sección
+        section = {
+            "index": idx,
+            "sub_goal": sub_goal,
+            "answer": answer.strip(),
+            "goal_type": goal_type,
+            "focus_entity": focus_entity,
+            "sources": sub_goal_sources,
+        }
+        sections.append(section)
+        
+        # Agregar fuentes al diccionario global (deduplicar por URL)
+        for source in sub_goal_sources:
+            url = source["url"]
+            if url not in all_sources_dict:
+                all_sources_dict[url] = {
+                    "url": url,
+                    "title": source["title"],
+                    "goal_type": source["goal_type"],
+                    "sub_goals": [],
+                }
+            # Añadir este sub-goal a la lista si no está ya
+            if idx not in all_sources_dict[url]["sub_goals"]:
+                all_sources_dict[url]["sub_goals"].append(idx)
+    
+    # Convertir diccionario de fuentes a lista
+    all_sources = list(all_sources_dict.values())
+    
+    # Construir texto final estructurado
+    answer_parts = []
+    
+    # Resumen global breve
+    if len(sub_goals) > 1:
+        answer_parts.append(f"He completado {len(sub_goals)} sub-objetivos relacionados con tu petición.")
+    else:
+        answer_parts.append("He completado tu petición.")
+    
+    answer_parts.append("")  # Línea en blanco
+    
+    # Secciones por sub-goal
+    for section in sections:
+        idx = section["index"]
+        sub_goal = section["sub_goal"]
+        answer = section["answer"]
+        goal_type = section["goal_type"]
+        focus_entity = section.get("focus_entity")
+        
+        # Título de la sección
+        if goal_type == "wikipedia" and focus_entity:
+            section_title = f"{idx}. Sobre {focus_entity} (Wikipedia)"
+        elif goal_type == "images" and focus_entity:
+            section_title = f"{idx}. Imágenes de {focus_entity}"
+        elif goal_type == "images":
+            section_title = f"{idx}. Imágenes"
+        else:
+            section_title = f"{idx}. {sub_goal}"
+        
+        answer_parts.append(section_title)
+        answer_parts.append(answer)
+        
+        # Mencionar fuentes principales (sin URLs completas)
+        sources = section["sources"]
+        if sources:
+            source_domains = set()
+            source_titles = []
+            for source in sources[:2]:  # Máximo 2 fuentes principales
+                url = source["url"]
+                title = source.get("title", "")
+                
+                # Extraer dominio
+                try:
+                    from urllib.parse import urlparse
+                    parsed = urlparse(url)
+                    domain = parsed.netloc.replace("www.", "")
+                    if domain:
+                        source_domains.add(domain)
+                except Exception:
+                    pass
+                
+                if title and title not in source_titles:
+                    source_titles.append(title)
+            
+            if source_domains or source_titles:
+                source_text = "Fuentes: "
+                if source_titles:
+                    source_text += ", ".join(source_titles[:2])
+                elif source_domains:
+                    source_text += ", ".join(sorted(source_domains)[:2])
+                answer_parts.append(source_text)
+        
+        answer_parts.append("")  # Línea en blanco entre secciones
+    
+    answer_text = "\n".join(answer_parts).strip()
+    
+    # Obtener métricas si están disponibles
+    metrics_summary = None
+    if agent_metrics:
+        metrics_summary = agent_metrics.to_summary_dict()
+    
+    return {
+        "answer_text": answer_text,
+        "sections": sections,
+        "sources": all_sources,
+        "metrics_summary": metrics_summary,
+    }
+
+
 def _goal_mentions_pronoun(goal: str) -> bool:
     """
     Devuelve True si el objetivo contiene pronombres de tercera persona
@@ -2266,12 +2461,25 @@ async def run_llm_task_with_answer(
             if len(sources) >= 3:
                 break
         
-        # v1.5.0: Añadir métricas al último step para que estén disponibles en la respuesta
+        # v1.6.0: Construir respuesta estructurada
+        structured_answer = _build_final_answer(
+            original_goal=goal,
+            sub_goals=sub_goals,
+            sub_goal_answers=[final_answer],
+            all_steps=steps,
+            agent_metrics=agent_metrics,
+        )
+        
+        # v1.5.0: Añadir métricas y estructura al último step para que estén disponibles en la respuesta
         if steps:
             last_step = steps[-1]
             info = dict(last_step.info or {})
             info["metrics"] = metrics_summary
+            info["structured_answer"] = structured_answer
             last_step.info = info
+        
+        # v1.6.0: Usar answer_text estructurado como final_answer (mantiene compatibilidad)
+        final_answer = structured_answer["answer_text"]
         
         return steps, final_answer, source_url, source_title, sources
 
@@ -2445,20 +2653,30 @@ async def run_llm_task_with_answer(
                 all_observations.append(step.observation)
                 break
 
-        # Guardar respuesta numerada
+        # v1.6.0: Guardar respuesta sin numeración (la numeración se añade en _build_final_answer)
         answer = answer.strip()
         if answer:
-            answers.append(f"{idx}. {answer}")
+            answers.append(answer)
         else:
-            answers.append(f"{idx}. (Sin información relevante encontrada para este sub-objetivo)")
+            answers.append("(Sin información relevante encontrada para este sub-objetivo)")
 
-    # Respuesta final agregada
-    final_answer = "\n\n".join(answers)
-    
-    # v1.5.0: Finalizar métricas y obtener resumen
+    # v1.6.0: Construir respuesta estructurada
     agent_metrics.finish()
     metrics_summary = agent_metrics.to_summary_dict()
     logger.info("[metrics] summary=%r", metrics_summary)
+    
+    structured_answer = _build_final_answer(
+        original_goal=goal,
+        sub_goals=sub_goals,
+        sub_goal_answers=answers,
+        all_steps=all_steps,
+        agent_metrics=agent_metrics,
+    )
+    
+    # v1.6.0: Usar answer_text estructurado como final_answer (mantiene compatibilidad)
+    final_answer = structured_answer["answer_text"]
+    
+    logger.info("[structured-answer] built final answer with %d sections", len(structured_answer["sections"]))
     
     # Calcular source_url, source_title y sources desde todas las observaciones
     last_observation: Optional[BrowserObservation] = None
@@ -2492,11 +2710,12 @@ async def run_llm_task_with_answer(
         if len(sources) >= 3:
             break
 
-    # v1.5.0: Añadir métricas al último step para que estén disponibles en la respuesta
+    # v1.5.0 y v1.6.0: Añadir métricas y estructura al último step para que estén disponibles en la respuesta
     if all_steps:
         last_step = all_steps[-1]
         info = dict(last_step.info or {})
         info["metrics"] = metrics_summary
+        info["structured_answer"] = structured_answer
         last_step.info = info
 
     return all_steps, final_answer, source_url, source_title, sources
