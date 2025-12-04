@@ -55,11 +55,15 @@ class AgentMetrics:
     """
     Recolecta y agrega métricas de ejecución del agente.
     v1.5.0: Infraestructura de observabilidad para medir eficiencia y patrones.
+    v2.3.0: Añade contadores de uploads de archivos.
     """
     def __init__(self):
         self.sub_goals: List[SubGoalMetrics] = []
         self.start_time: Optional[float] = None
         self.end_time: Optional[float] = None
+        # v2.3.0: Contadores de uploads
+        self.upload_attempts: int = 0
+        self.upload_successes: int = 0
     
     def start(self):
         """Marca el inicio de la ejecución completa."""
@@ -141,6 +145,18 @@ class AgentMetrics:
         if self.start_time is not None and self.end_time is not None:
             execution_time = round(self.end_time - self.start_time, 3)
         
+        # v2.3.0: Calcular promedios
+        avg_steps_per_subgoal = total_steps / total_sub_goals if total_sub_goals > 0 else 0.0
+        avg_elapsed_seconds = total_time / total_sub_goals if total_sub_goals > 0 else 0.0
+        success_count = sum(1 for m in self.sub_goals if m.success)
+        
+        # v2.3.0: Información de uploads
+        upload_info = {
+            "upload_attempts": self.upload_attempts,
+            "upload_successes": self.upload_successes,
+            "upload_success_ratio": round(self.upload_successes / self.upload_attempts, 3) if self.upload_attempts > 0 else 0.0,
+        }
+        
         # Serializar sub_goals
         sub_goals_data = []
         for m in self.sub_goals:
@@ -161,9 +177,13 @@ class AgentMetrics:
                 "total_steps": total_steps,
                 "total_time_seconds": round(total_time, 3),
                 "execution_time_seconds": execution_time,
+                "success_count": success_count,
+                "avg_steps_per_subgoal": round(avg_steps_per_subgoal, 1),
+                "avg_elapsed_seconds": round(avg_elapsed_seconds, 3),
                 "early_stop_counts": dict(early_stop_counts),
                 "goal_type_counts": dict(goal_type_counts),
                 "goal_type_success_ratio": goal_type_success_ratio,
+                "upload_info": upload_info,  # v2.3.0
             }
         }
 
@@ -293,6 +313,107 @@ def _extract_sources_from_steps(steps: List[StepResult]) -> List[Dict[str, Any]]
         })
     
     return sources
+
+
+async def _maybe_execute_file_upload(
+    browser: BrowserController,
+    instruction: "FileUploadInstruction",
+) -> Optional[StepResult]:
+    """
+    Intenta ejecutar un upload de archivo si hay un input[type='file'] disponible.
+    
+    v2.3.0: Conecta FileUploadInstruction con la acción real de upload en el navegador.
+    
+    Args:
+        browser: Instancia de BrowserController
+        instruction: FileUploadInstruction con la información del archivo a subir
+        
+    Returns:
+        StepResult con el resultado del upload, o None si no se puede ejecutar
+    """
+    from backend.agents.file_upload import FileUploadInstruction
+    from backend.shared.models import BrowserAction, BrowserObservation
+    from pathlib import Path
+    
+    try:
+        # Verificar que el archivo existe
+        file_path = Path(instruction.path)
+        if not file_path.exists():
+            logger.warning(f"[file-upload] File does not exist: {file_path}")
+            # Crear StepResult con error
+            obs = await browser.get_observation()
+            return StepResult(
+                observation=obs,
+                last_action=BrowserAction(
+                    type="upload_file",
+                    args={"file_path": str(file_path), "selector": "input[type='file']"}
+                ),
+                error=f"Archivo no encontrado: {file_path}",
+                info={
+                    "file_upload_instruction": instruction.to_dict(),
+                    "upload_status": "file_not_found",
+                }
+            )
+        
+        # Intentar buscar un input[type='file'] en la página
+        # Por ahora usamos un selector genérico simple
+        selector = "input[type='file']"
+        
+        logger.debug(
+            f"[file-upload] Attempting upload: file={file_path} selector={selector}"
+        )
+        
+        # Ejecutar upload
+        obs = await browser.upload_file(selector, str(file_path))
+        
+        # Construir StepResult con éxito
+        return StepResult(
+            observation=obs,
+            last_action=BrowserAction(
+                type="upload_file",
+                args={"file_path": str(file_path), "selector": selector}
+            ),
+            error=None,
+            info={
+                "file_upload_instruction": instruction.to_dict(),
+                "upload_status": "success",
+            }
+        )
+        
+    except Exception as e:
+        # Si hay error (no se encuentra input, error de Playwright, etc.)
+        logger.debug(f"[file-upload] Upload failed: {e}")
+        try:
+            obs = await browser.get_observation()
+        except Exception:
+            # Si no podemos obtener observación, crear una básica
+            obs = BrowserObservation(
+                url="",
+                title="",
+                visible_text_excerpt="",
+                clickable_texts=[],
+                input_hints=[],
+            )
+        
+        # Determinar el tipo de error
+        error_msg = str(e)
+        if "no se encontró" in error_msg.lower() or "not found" in error_msg.lower():
+            upload_status = "no_input_found"
+        else:
+            upload_status = "error"
+        
+        return StepResult(
+            observation=obs,
+            last_action=BrowserAction(
+                type="upload_file",
+                args={"file_path": str(instruction.path), "selector": "input[type='file']"}
+            ),
+            error=error_msg,
+            info={
+                "file_upload_instruction": instruction.to_dict(),
+                "upload_status": upload_status,
+            }
+        )
 
 
 def _build_final_answer(
@@ -767,6 +888,15 @@ async def _execute_action(action: BrowserAction, browser: BrowserController) -> 
         elif action.type == "noop":
             # No operation, just continue
             pass
+        elif action.type == "upload_file":
+            # v2.3.0: Upload de archivo (normalmente manejado por _maybe_execute_file_upload)
+            # Esta acción puede ser ejecutada directamente si el LLM la elige
+            file_path = action.args.get("file_path", "")
+            selector = action.args.get("selector", "input[type='file']")
+            try:
+                await browser.upload_file(selector, file_path)
+            except Exception as e:
+                return f"Error uploading file: {e}"
         else:
             return f"Unknown action type: {action.type}"
         return None
@@ -2347,10 +2477,61 @@ async def _run_llm_task_single(
         )
 
     # v1.4: Almacenar prompt_len en el último step para logging posterior
+    # v2.2.0: Intentar construir instrucción de file upload si aplica
+    # v2.3.0: Intentar ejecutar upload si hay instrucción y el goal es de subida
     if steps_local:
         last_step = steps_local[-1]
         info = dict(last_step.info or {})
         info["prompt_len"] = prompt_len
+        
+        # v2.2.0: Detectar y construir instrucción de file upload
+        upload_instruction = None
+        try:
+            from backend.agents.file_upload import _maybe_build_file_upload_instruction
+            from backend.agents.document_repository import DocumentRepository
+            from backend.config import DOCUMENT_REPOSITORY_BASE_DIR
+            from pathlib import Path
+            
+            if session_context is not None:
+                document_repo = DocumentRepository(Path(DOCUMENT_REPOSITORY_BASE_DIR))
+                upload_instruction = _maybe_build_file_upload_instruction(
+                    goal=goal,
+                    focus_entity=focus_entity,
+                    session_context=session_context,
+                    document_repository=document_repo,
+                )
+                
+                if upload_instruction:
+                    info["file_upload_instruction"] = upload_instruction.to_dict()
+                    logger.info(
+                        f"[file-upload] Added upload instruction to step: {upload_instruction.description}"
+                    )
+        except Exception as e:
+            logger.warning(f"[file-upload] Error building upload instruction: {e}", exc_info=True)
+        
+        # v2.3.0: Intentar ejecutar upload si hay instrucción y el goal es claramente de subida
+        if upload_instruction:
+            goal_lower = goal.lower()
+            upload_keywords = [
+                "sube", "subir", "adjunta", "adjuntar",
+                "sube el", "sube la", "sube un", "sube una",
+                "adjunta el", "adjunta la", "adjunta un", "adjunta una",
+                "subir documento", "subir documentación", "adjuntar documento", "adjuntar documentación",
+            ]
+            has_upload_intent = any(keyword in goal_lower for keyword in upload_keywords)
+            
+            if has_upload_intent:
+                try:
+                    upload_step = await _maybe_execute_file_upload(browser, upload_instruction)
+                    if upload_step:
+                        steps_local.append(upload_step)
+                        logger.info(
+                            f"[file-upload] Upload executed: {upload_instruction.description} -> "
+                            f"status={upload_step.info.get('upload_status', 'unknown')}"
+                        )
+                except Exception as e:
+                    logger.warning(f"[file-upload] Error executing upload: {e}", exc_info=True)
+        
         last_step.info = info
 
     return steps_local, final_answer

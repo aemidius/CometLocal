@@ -15,7 +15,8 @@ class BrowserAction(BaseModel):
         "accept_cookies",
         "wait",
         "noop",
-        "stop"
+        "stop",
+        "upload_file"  # v2.3.0: Upload de archivos en inputs type="file"
     ]
     args: Dict[str, Any] = Field(default_factory=dict)
 

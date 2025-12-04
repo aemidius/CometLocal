@@ -284,6 +284,62 @@ class BrowserController:
             return False
 
     # -----------------------------
+    #  UPLOAD DE ARCHIVOS (v2.3.0)
+    # -----------------------------
+
+    async def upload_file(self, selector: str, file_path: str) -> BrowserObservation:
+        """
+        Localiza un input[type='file'] por selector CSS/XPath y le asigna file_path.
+        Devuelve una Observation después de que el navegador haya procesado el cambio.
+        
+        v2.3.0: Soporte básico para uploads en formularios HTML estándar.
+        
+        Args:
+            selector: Selector CSS o XPath para el input[type='file']
+            file_path: Ruta absoluta del archivo a subir
+            
+        Returns:
+            BrowserObservation del estado de la página después del upload
+            
+        Raises:
+            RuntimeError: Si el browser no está iniciado
+            Exception: Si no se encuentra el input o hay error al subir
+        """
+        if not self.page:
+            raise RuntimeError("BrowserController no está iniciado. Llama a start() primero.")
+        
+        try:
+            # Intentar localizar el input file
+            # Primero intentar como selector CSS
+            try:
+                file_input = self.page.locator(selector).first
+                # Verificar que es un input file
+                input_type = await file_input.get_attribute("type")
+                if input_type != "file":
+                    raise ValueError(f"Elemento encontrado con selector '{selector}' no es un input[type='file']")
+            except Exception as e:
+                # Si falla, intentar buscar el primer input[type='file'] visible si el selector es genérico
+                if selector == "input[type='file']":
+                    file_input = self.page.locator("input[type='file']:visible").first
+                else:
+                    raise ValueError(f"No se encontró input[type='file'] con selector '{selector}': {e}")
+            
+            # Subir el archivo usando set_input_files de Playwright
+            await file_input.set_input_files(file_path)
+            
+            # Esperar un momento para que el navegador procese el cambio
+            await self.page.wait_for_timeout(500)
+            
+            # Devolver la observación actualizada
+            return await self.get_observation()
+            
+        except Exception as e:
+            # Si hay error, devolver observación actual pero con información del error
+            obs = await self.get_observation()
+            # El error se manejará en el StepResult
+            raise Exception(f"Error al subir archivo '{file_path}' con selector '{selector}': {e}")
+
+    # -----------------------------
     #  OBSERVACIÓN (API para planner)
     # -----------------------------
 
