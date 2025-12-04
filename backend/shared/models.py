@@ -25,12 +25,17 @@ class BrowserObservation(BaseModel):
     """
     Structured observation of the current page state, designed to be consumed
     by a planner (human or LLM). Contains only essential information for decision-making.
+    
+    v3.3.0: Añade campos OCR para texto extraído de capturas de pantalla.
     """
     url: str
     title: str
     visible_text_excerpt: str
     clickable_texts: List[str]
     input_hints: List[str]
+    screenshot_path: Optional[str] = None  # v3.3.0: Ruta a captura de pantalla si está disponible
+    ocr_text: Optional[str] = None  # v3.3.0: Texto extraído por OCR
+    ocr_blocks: Optional[List[Dict[str, Any]]] = None  # v3.3.0: Bloques de texto OCR (serializable)
 
 
 class StepResult(BaseModel):
@@ -195,6 +200,7 @@ class CAEWorkerDocStatus(BaseModel):
     
     v3.1.0: Contiene información detallada sobre documentos subidos, faltantes y errores.
     v3.2.0: Añade visual_actions para auditoría de acciones visuales.
+    v3.3.0: Añade campos para estado CAE extraído desde OCR.
     """
     worker_id: str
     full_name: str
@@ -206,6 +212,9 @@ class CAEWorkerDocStatus(BaseModel):
     raw_answer: Optional[str] = None  # final_answer del agente para ese worker
     metrics_summary: Optional[Dict[str, Any]] = None
     visual_actions: Optional[List[VisualActionResult]] = None  # v3.2.0: Acciones visuales verificadas
+    cae_status: Optional[str] = None  # v3.3.0: Estado CAE extraído (vigente/caducado/pendiente/no_apto)
+    cae_status_evidence: Optional[List[str]] = None  # v3.3.0: Fragmentos de texto que justifican el estado
+    cae_expiry_dates: Optional[List[str]] = None  # v3.3.0: Fechas de caducidad detectadas (YYYY-MM-DD)
 
 
 class CAEBatchResponse(BaseModel):

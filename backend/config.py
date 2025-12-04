@@ -24,3 +24,7 @@ DOCUMENT_REPOSITORY_BASE_DIR = os.getenv("CAE_DOCS_BASE_DIR", os.path.join(os.pa
 ENABLE_BATCH_PERSISTENCE = os.getenv("ENABLE_BATCH_PERSISTENCE", "true").lower() == "true"
 BATCH_RUNS_DIR = os.getenv("BATCH_RUNS_DIR", "runs")
 
+# v3.3.0: Configuración para OCR/visión
+VISION_OCR_ENABLED = os.getenv("VISION_OCR_ENABLED", "true").lower() == "true"
+VISION_OCR_PROVIDER = os.getenv("VISION_OCR_PROVIDER", "lmstudio")
+

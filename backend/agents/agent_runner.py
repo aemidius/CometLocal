@@ -25,6 +25,7 @@ from backend.agents.context_strategies import (
 )
 from backend.agents.retry_policy import RetryPolicy
 from backend.agents.execution_plan import ExecutionPlan, PlannedSubGoal
+from backend.vision.ocr_service import OCRService
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,10 @@ class AgentMetrics:
         # v3.2.0: Contadores de confirmación visual
         self.visual_confirmations_attempted: int = 0
         self.visual_confirmations_failed: int = 0
+        # v3.3.0: Contadores de OCR
+        self.ocr_calls: int = 0
+        self.ocr_failures: int = 0
+        self.ocr_text_coverage: int = 0  # steps con ocr_text no vacío
     
     def start(self):
         """Marca el inicio de la ejecución completa."""
@@ -285,6 +290,16 @@ class AgentMetrics:
             ) if self.visual_confirmations_attempted > 0 else 0.0,
         }
         
+        # v3.3.0: Información de OCR
+        ocr_info = {
+            "ocr_calls": self.ocr_calls,
+            "ocr_failures": self.ocr_failures,
+            "ocr_text_coverage": self.ocr_text_coverage,
+            "ocr_success_ratio": round(
+                (self.ocr_calls - self.ocr_failures) / max(1, self.ocr_calls), 3
+            ) if self.ocr_calls > 0 else 0.0,
+        }
+        
         # Serializar sub_goals
         sub_goals_data = []
         for m in self.sub_goals:
@@ -317,6 +332,7 @@ class AgentMetrics:
                 "planning_info": planning_info,  # v2.8.0
                 "skipped_info": skipped_info,  # v2.9.0
                 "visual_confirmation_info": visual_confirmation_info,  # v3.2.0
+                "ocr_info": ocr_info,  # v3.3.0
                 "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }
@@ -977,6 +993,75 @@ async def _attempt_visual_recovery(
     except Exception as e:
         logger.debug("[visual-recovery] Recovery attempt failed: %s", e)
         return None
+
+
+async def _maybe_enrich_observation_with_ocr(
+    observation: BrowserObservation,
+    ocr_service: "OCRService",
+    metrics: Optional["AgentMetrics"] = None,
+) -> BrowserObservation:
+    """
+    Enriquece una observación con texto extraído por OCR si está disponible.
+    
+    v3.3.0: Analiza la captura de pantalla asociada a la observación y añade
+    el texto extraído por OCR a los campos ocr_text y ocr_blocks.
+    
+    Args:
+        observation: BrowserObservation a enriquecer
+        ocr_service: Instancia de OCRService para análisis
+        metrics: Opcional, AgentMetrics para registrar estadísticas
+        
+    Returns:
+        BrowserObservation enriquecida (o la original si OCR no aplica/falla)
+    """
+    if not ocr_service.enabled:
+        return observation
+    
+    # Si ya tiene OCR, no re-analizar
+    if observation.ocr_text:
+        return observation
+    
+    # Si no hay screenshot, no podemos hacer OCR
+    if not observation.screenshot_path:
+        return observation
+    
+    # v3.3.0: Registrar llamada a OCR en métricas
+    if metrics:
+        metrics.ocr_calls += 1
+    
+    try:
+        ocr_result = await ocr_service.analyze_screenshot(observation.screenshot_path)
+        
+        if not ocr_result:
+            # v3.3.0: Registrar fallo
+            if metrics:
+                metrics.ocr_failures += 1
+            return observation
+        
+        # Enriquecer la observación con el texto OCR
+        observation.ocr_text = ocr_result.full_text
+        # Convertir OCRBlock a dict para serialización
+        if ocr_result.blocks:
+            observation.ocr_blocks = [block.model_dump() for block in ocr_result.blocks]
+        
+        # v3.3.0: Registrar éxito (texto no vacío)
+        if metrics and ocr_result.full_text:
+            metrics.ocr_text_coverage += 1
+        
+        logger.debug(
+            "[ocr] Observation enriched: ocr_text_length=%d blocks=%d",
+            len(ocr_result.full_text) if ocr_result.full_text else 0,
+            len(ocr_result.blocks) if ocr_result.blocks else 0,
+        )
+        
+    except Exception as e:
+        logger.debug("[ocr] Failed to enrich observation with OCR: %s", e)
+        # v3.3.0: Registrar fallo
+        if metrics:
+            metrics.ocr_failures += 1
+        # En caso de error, devolver la observación original sin modificar
+    
+    return observation
 
 
 def _verify_action_visually(
@@ -1918,6 +2003,9 @@ async def run_llm_agent(
                 initial_observation.url if initial_observation else None,
                 initial_observation.title if initial_observation else None,
             )
+            # v3.3.0: Enriquecer observación con OCR antes de early-stop
+            if initial_observation:
+                initial_observation = await _maybe_enrich_observation_with_ocr(initial_observation, ocr_service)
             # Actualizar el último step con la razón
             early_stop_reason = EarlyStopReason.GOAL_SATISFIED_AFTER_ENSURE_CONTEXT_BEFORE_LLM
             if steps:
@@ -1927,6 +2015,8 @@ async def run_llm_agent(
                 if focus_entity:
                     info["focus_entity"] = focus_entity
                 last_step.info = info
+                # Actualizar observación en el step con OCR
+                last_step.observation = initial_observation
             # v1.5.0: Añadir métricas antes de retornar
             elapsed = time.monotonic() - start_time
             _add_metrics_to_steps(steps, goal, focus_entity, len(steps), early_stop_reason, elapsed, success=True)
@@ -1949,6 +2039,10 @@ async def run_llm_agent(
         try:
             # Get observation
             observation = await browser.get_observation()
+            
+            # v3.3.0: Enriquecer observación con OCR si está disponible
+            if observation:
+                observation = await _maybe_enrich_observation_with_ocr(observation, ocr_service)
             
             # v1.4: Si reset_context es True y es el primer paso, ignorar la observación actual
             # para forzar navegación a nuevo contexto
@@ -1980,6 +2074,9 @@ async def run_llm_agent(
                     # Get new observation after reorientation
                     try:
                         observation = await browser.get_observation()
+                        # v3.3.0: Enriquecer con OCR
+                        if observation:
+                            observation = await _maybe_enrich_observation_with_ocr(observation, ocr_service)
                         steps.append(StepResult(
                             observation=observation,
                             last_action=reorientation_action,
@@ -4101,6 +4198,10 @@ async def run_llm_task_with_answer(
                     agent_metrics.visual_confirmations_attempted += 1
                     if not visual_confirmation.get("confirmed", False):
                         agent_metrics.visual_confirmations_failed += 1
+            
+            # v3.3.0: Registrar cobertura de OCR (steps con ocr_text no vacío)
+            if s.observation and s.observation.ocr_text:
+                agent_metrics.ocr_text_coverage += 1
             
             all_steps.append(s)
         

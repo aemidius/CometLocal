@@ -229,12 +229,48 @@ def build_cae_response_from_batch(
                             if doc_type_key not in missing_docs:
                                 missing_docs.append(doc_type_key)
         
+        # v3.3.0: Extraer información CAE desde texto combinado (visible + OCR)
+        combined_text = ""
+        if result.sections:
+            for section in result.sections:
+                answer = section.get("answer", "")
+                if answer:
+                    combined_text += answer + "\n"
+        
+        # También buscar en structured_sources si hay texto adicional
+        if result.structured_sources:
+            for source in result.structured_sources:
+                title = source.get("title", "")
+                if title:
+                    combined_text += title + "\n"
+        
+        # v3.3.0: Analizar estado CAE desde texto combinado
+        cae_status_info = None
+        if combined_text:
+            from backend.agents.cae_ocr_analyzer import extract_cae_status_from_text
+            cae_status_info = extract_cae_status_from_text(combined_text)
+        
         # v3.1.0: Construir notas adicionales
         notes_parts = []
         if result.error_message:
             notes_parts.append(f"Error: {result.error_message}")
         if upload_errors:
             notes_parts.append(f"Errores de subida: {', '.join(upload_errors)}")
+        
+        # v3.3.0: Añadir información de estado CAE a las notas
+        if cae_status_info and cae_status_info.get("status") != "desconocido":
+            status = cae_status_info["status"]
+            status_text = {
+                "vigente": "Estado: Vigente",
+                "caducado": "Estado: Caducado",
+                "pendiente": "Estado: Pendiente",
+                "no_apto": "Estado: No apto",
+            }.get(status, f"Estado: {status}")
+            notes_parts.append(status_text)
+            
+            if cae_status_info.get("expiry_dates"):
+                dates_str = ", ".join(cae_status_info["expiry_dates"])
+                notes_parts.append(f"Caducidades detectadas: {dates_str}")
         
         notes = "; ".join(notes_parts) if notes_parts else None
         
@@ -290,6 +326,9 @@ def build_cae_response_from_batch(
             raw_answer=result.final_answer,
             metrics_summary=result.metrics_summary,
             visual_actions=visual_actions if visual_actions else None,  # v3.2.0
+            cae_status=cae_status_info.get("status") if cae_status_info and cae_status_info.get("status") != "desconocido" else None,  # v3.3.0
+            cae_status_evidence=cae_status_info.get("evidence_snippets") if cae_status_info else None,  # v3.3.0
+            cae_expiry_dates=cae_status_info.get("expiry_dates") if cae_status_info else None,  # v3.3.0
         )
         
         worker_statuses.append(worker_status)
