@@ -174,11 +174,27 @@ class CAEBatchRequest(BaseModel):
     max_consecutive_failures: Optional[int] = 5
 
 
+# v3.2.0: Modelo para confirmación visual de acciones
+class VisualActionResult(BaseModel):
+    """
+    Resultado de verificación visual de una acción crítica.
+    
+    v3.2.0: Permite confirmar que acciones como uploads o clicks en botones críticos
+    han tenido el efecto esperado en la página.
+    """
+    action_type: str  # "click", "upload_file", "navigation"
+    expected_effect: str  # descripción humana del efecto esperado
+    confirmed: bool
+    confidence: float  # 0.0 – 1.0
+    evidence: Optional[str] = None  # texto visible encontrado que confirma o niega
+
+
 class CAEWorkerDocStatus(BaseModel):
     """
     Estado de documentación de un trabajador tras procesamiento CAE.
     
     v3.1.0: Contiene información detallada sobre documentos subidos, faltantes y errores.
+    v3.2.0: Añade visual_actions para auditoría de acciones visuales.
     """
     worker_id: str
     full_name: str
@@ -189,6 +205,7 @@ class CAEWorkerDocStatus(BaseModel):
     notes: Optional[str] = None
     raw_answer: Optional[str] = None  # final_answer del agente para ese worker
     metrics_summary: Optional[Dict[str, Any]] = None
+    visual_actions: Optional[List[VisualActionResult]] = None  # v3.2.0: Acciones visuales verificadas
 
 
 class CAEBatchResponse(BaseModel):

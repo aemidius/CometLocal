@@ -238,6 +238,47 @@ def build_cae_response_from_batch(
         
         notes = "; ".join(notes_parts) if notes_parts else None
         
+        # v3.2.0: Extraer visual_actions de las secciones
+        visual_actions = []
+        if result.sections:
+            from backend.shared.models import VisualActionResult
+            for section in result.sections:
+                # Buscar visual_confirmation en la sección
+                if section.get("upload_verification"):
+                    upload_verification = section["upload_verification"]
+                    if isinstance(upload_verification, dict):
+                        visual_actions.append(VisualActionResult(
+                            action_type="upload_file",
+                            expected_effect="Verificar subida de archivo",
+                            confirmed=upload_verification.get("status") == "confirmed",
+                            confidence=upload_verification.get("confidence", 0.0),
+                            evidence=upload_verification.get("evidence"),
+                        ))
+                # También buscar en upload_summary si existe
+                if section.get("upload_summary") and section["upload_summary"].get("verification_status"):
+                    verification_status = section["upload_summary"]["verification_status"]
+                    visual_actions.append(VisualActionResult(
+                        action_type="upload_file",
+                        expected_effect="Verificar subida de archivo",
+                        confirmed=verification_status == "confirmed",
+                        confidence=section["upload_summary"].get("verification_confidence", 0.0),
+                        evidence=section["upload_summary"].get("verification_evidence"),
+                    ))
+        
+        # Si no hay visual_actions en secciones, intentar extraer de metrics_summary
+        if not visual_actions and result.metrics_summary:
+            visual_confirmation_info = result.metrics_summary.get("summary", {}).get("visual_confirmation_info", {})
+            if visual_confirmation_info.get("visual_confirmations_attempted", 0) > 0:
+                # Crear una acción visual agregada
+                from backend.shared.models import VisualActionResult
+                visual_actions.append(VisualActionResult(
+                    action_type="mixed",
+                    expected_effect="Confirmación visual de acciones críticas",
+                    confirmed=visual_confirmation_info.get("visual_confirmation_success_ratio", 0.0) > 0.5,
+                    confidence=visual_confirmation_info.get("visual_confirmation_success_ratio", 0.0),
+                    evidence=f"Intentos: {visual_confirmation_info.get('visual_confirmations_attempted', 0)}, Fallos: {visual_confirmation_info.get('visual_confirmations_failed', 0)}",
+                ))
+        
         worker_status = CAEWorkerDocStatus(
             worker_id=worker.id,
             full_name=worker.full_name,
@@ -248,6 +289,7 @@ def build_cae_response_from_batch(
             notes=notes,
             raw_answer=result.final_answer,
             metrics_summary=result.metrics_summary,
+            visual_actions=visual_actions if visual_actions else None,  # v3.2.0
         )
         
         worker_statuses.append(worker_status)

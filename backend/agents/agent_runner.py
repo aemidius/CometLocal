@@ -83,6 +83,9 @@ class AgentMetrics:
         # v2.9.0: Contadores de sub-goals saltados
         self.skipped_sub_goals_count: int = 0
         self.skipped_sub_goal_indices: List[int] = []
+        # v3.2.0: Contadores de confirmación visual
+        self.visual_confirmations_attempted: int = 0
+        self.visual_confirmations_failed: int = 0
     
     def start(self):
         """Marca el inicio de la ejecución completa."""
@@ -272,6 +275,16 @@ class AgentMetrics:
             "skipped_sub_goal_indices": self.skipped_sub_goal_indices,
         }
         
+        # v3.2.0: Información de confirmación visual
+        visual_confirmation_info = {
+            "visual_confirmations_attempted": self.visual_confirmations_attempted,
+            "visual_confirmations_failed": self.visual_confirmations_failed,
+            "visual_confirmation_success_ratio": round(
+                (self.visual_confirmations_attempted - self.visual_confirmations_failed) / 
+                max(1, self.visual_confirmations_attempted), 3
+            ) if self.visual_confirmations_attempted > 0 else 0.0,
+        }
+        
         # Serializar sub_goals
         sub_goals_data = []
         for m in self.sub_goals:
@@ -303,6 +316,7 @@ class AgentMetrics:
                 "retry_info": retry_info,  # v2.6.0
                 "planning_info": planning_info,  # v2.8.0
                 "skipped_info": skipped_info,  # v2.9.0
+                "visual_confirmation_info": visual_confirmation_info,  # v3.2.0
                 "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }
@@ -515,11 +529,27 @@ async def _maybe_execute_file_upload(
             goal="",  # El goal se puede obtener del contexto si es necesario
         )
         
+        # v3.2.0: Confirmación visual adicional con _verify_action_visually
+        file_name = os.path.basename(str(file_path))
+        file_name_base = os.path.splitext(file_name)[0]
+        visual_confirmation = _verify_action_visually(
+            observation=obs,
+            expected_effect=f"Confirmar que el archivo {file_name} ha sido subido correctamente",
+            keywords=[
+                file_name, file_name_base,
+                "documento subido", "archivo subido", "documento cargado", "archivo cargado",
+                "subido correctamente", "carga completada", "upload complete", "uploaded successfully",
+                "documento adjuntado", "archivo adjuntado", "guardado correctamente",
+            ],
+        )
+        visual_confirmation.action_type = "upload_file"
+        
         # Construir StepResult con éxito
         info_dict = {
             "file_upload_instruction": instruction.to_dict(),
             "upload_status": upload_status,
             "upload_verification": verification_result,
+            "visual_confirmation": visual_confirmation.model_dump(),  # v3.2.0
         }
         
         return StepResult(
@@ -859,6 +889,182 @@ def _verify_upload_visually(
         "confidence": 0.3,
         "evidence": "No se encontró confirmación visual explícita",
     }
+
+
+async def _attempt_visual_recovery(
+    browser: BrowserController,
+    action_type: str,
+    last_observation: BrowserObservation,
+) -> Optional["VisualActionResult"]:
+    """
+    Intenta recuperación visual tras una acción que no fue confirmada.
+    
+    v3.2.0: Antes de entrar en retry global, intenta estrategias de recuperación:
+    - Buscar botones alternativos (Guardar cambios, Aceptar, Finalizar)
+    - Hacer scroll una vez
+    - Repetir click si aplica
+    - Re-verificar visualmente
+    
+    Args:
+        browser: BrowserController para ejecutar acciones
+        action_type: Tipo de acción que falló ("click", "upload_file")
+        last_observation: Última observación disponible
+        
+    Returns:
+        VisualActionResult si se intentó recuperación, None si no aplica
+    """
+    from backend.shared.models import VisualActionResult
+    
+    if action_type != "click":
+        # Por ahora solo recuperación para clicks
+        return None
+    
+    logger.debug("[visual-recovery] Attempting visual recovery for action_type=%s", action_type)
+    
+    try:
+        # Estrategia 1: Hacer scroll una vez
+        if browser.page:
+            await browser.page.evaluate("window.scrollBy(0, 300)")
+            await asyncio.sleep(0.5)  # Pequeña pausa para que se renderice
+        
+        # Estrategia 2: Buscar botones alternativos en la página
+        observation = await browser.get_observation()
+        clickable_texts = observation.clickable_texts or []
+        
+        alternative_buttons = ["guardar cambios", "aceptar", "finalizar", "confirmar"]
+        clicked_alternative = False
+        
+        for alt_text in alternative_buttons:
+            # Buscar en clickable_texts (normalizado)
+            for clickable in clickable_texts:
+                if alt_text in clickable.lower():
+                    try:
+                        await browser.click_by_text(clickable)
+                        clicked_alternative = True
+                        logger.debug("[visual-recovery] Clicked alternative button: %s", clickable)
+                        await asyncio.sleep(0.5)  # Pausa para que se procese
+                        break
+                    except Exception as e:
+                        logger.debug("[visual-recovery] Failed to click alternative button %s: %s", clickable, e)
+                        continue
+            
+            if clicked_alternative:
+                break
+        
+        # Obtener nueva observación después de la recuperación
+        final_observation = await browser.get_observation()
+        
+        # Verificar si la recuperación tuvo éxito
+        recovery_keywords = [
+            "guardado", "guardado correctamente", "enviado", "enviado correctamente",
+            "confirmado", "aceptado", "finalizado", "saved", "sent", "submitted",
+        ]
+        
+        visual_result = _verify_action_visually(
+            observation=final_observation,
+            expected_effect="Confirmar que la recuperación visual tuvo éxito",
+            keywords=recovery_keywords,
+        )
+        visual_result.action_type = "recovery"
+        
+        logger.debug(
+            "[visual-recovery] Recovery result: confirmed=%r confidence=%.2f",
+            visual_result.confirmed, visual_result.confidence
+        )
+        
+        return visual_result
+        
+    except Exception as e:
+        logger.debug("[visual-recovery] Recovery attempt failed: %s", e)
+        return None
+
+
+def _verify_action_visually(
+    observation: BrowserObservation,
+    expected_effect: str,
+    keywords: List[str],
+) -> "VisualActionResult":
+    """
+    Verifica visualmente si una acción crítica ha tenido el efecto esperado.
+    
+    v3.2.0: Analiza el texto visible de la página después de una acción (click, upload, etc.)
+    para confirmar que se ha producido el efecto esperado.
+    
+    Args:
+        observation: BrowserObservation después de la acción
+        expected_effect: Descripción humana del efecto esperado (para logging)
+        keywords: Lista de palabras clave a buscar en el texto (normalizadas)
+        
+    Returns:
+        VisualActionResult con el resultado de la verificación
+    """
+    from backend.shared.models import VisualActionResult
+    
+    # Extraer texto de la observación
+    page_text = observation.visible_text_excerpt or ""
+    page_text_normalized = _normalize_text_for_comparison(page_text)
+    
+    # Si no hay texto, no podemos verificar
+    if not page_text_normalized:
+        logger.debug(
+            "[visual-confirmation] No text available: expected_effect=%r",
+            expected_effect
+        )
+        return VisualActionResult(
+            action_type="unknown",
+            expected_effect=expected_effect,
+            confirmed=False,
+            confidence=0.3,
+            evidence="No se encontró texto disponible para verificación",
+        )
+    
+    # Normalizar keywords para comparación
+    keywords_normalized = [_normalize_text_for_comparison(kw) for kw in keywords]
+    
+    # Buscar matches de keywords
+    matches = []
+    for kw in keywords_normalized:
+        if kw in page_text_normalized:
+            # Encontrar el fragmento de texto que contiene la keyword
+            idx = page_text_normalized.find(kw)
+            start = max(0, idx - 50)
+            end = min(len(page_text_normalized), idx + len(kw) + 50)
+            evidence_fragment = page_text[start:end].strip()
+            matches.append((kw, evidence_fragment))
+    
+    # Determinar resultado según número de matches
+    if len(matches) >= 1:
+        # Al menos una keyword encontrada → confirmado
+        # Confidence aumenta con más matches
+        confidence = min(0.7 + (len(matches) - 1) * 0.1, 0.95)
+        evidence = "; ".join([frag for _, frag in matches[:3]])  # Máximo 3 fragmentos
+        
+        logger.debug(
+            "[visual-confirmation] Action confirmed: expected_effect=%r matches=%d confidence=%.2f",
+            expected_effect, len(matches), confidence
+        )
+        
+        return VisualActionResult(
+            action_type="unknown",  # Se establecerá en el llamador
+            expected_effect=expected_effect,
+            confirmed=True,
+            confidence=confidence,
+            evidence=evidence,
+        )
+    else:
+        # No se encontraron keywords → no confirmado
+        logger.debug(
+            "[visual-confirmation] Action not confirmed: expected_effect=%r",
+            expected_effect
+        )
+        
+        return VisualActionResult(
+            action_type="unknown",
+            expected_effect=expected_effect,
+            confirmed=False,
+            confidence=0.3,
+            evidence="No se encontraron indicadores visuales del efecto esperado",
+        )
 
 
 def _summarize_uploads_for_subgoal(steps: List[StepResult]) -> Optional[Dict[str, Any]]:
@@ -1883,12 +2089,44 @@ async def run_llm_agent(
                 # If we can't get a new observation, use the previous one
                 observation_after = observation
 
+            # v3.2.0: Confirmación visual para acciones críticas
+            visual_confirmation = None
+            if action.type == "click_text":
+                clicked_text = action.args.get("text", "").lower()
+                # Botones críticos que requieren confirmación visual
+                critical_buttons = ["guardar", "enviar", "confirmar", "aceptar", "finalizar", "guardar cambios"]
+                if any(btn in clicked_text for btn in critical_buttons):
+                    from backend.shared.models import VisualActionResult
+                    visual_confirmation = _verify_action_visually(
+                        observation=observation_after,
+                        expected_effect=f"Confirmar que el botón '{action.args.get('text', '')}' ha tenido efecto",
+                        keywords=[
+                            "guardado", "guardado correctamente", "guardado con éxito",
+                            "enviado", "enviado correctamente", "enviado con éxito",
+                            "confirmado", "confirmado correctamente", "confirmado con éxito",
+                            "aceptado", "aceptado correctamente", "aceptado con éxito",
+                            "finalizado", "finalizado correctamente", "finalizado con éxito",
+                            "cambios guardados", "datos guardados", "información guardada",
+                            "saved", "saved successfully", "changes saved",
+                            "sent", "sent successfully", "submitted",
+                        ],
+                    )
+                    visual_confirmation.action_type = "click"
+                    logger.debug(
+                        "[visual-confirmation] Critical button clicked: text=%r confirmed=%r confidence=%.2f",
+                        action.args.get("text", ""), visual_confirmation.confirmed, visual_confirmation.confidence
+                    )
+
             # Add step result
+            step_info = {}
+            if visual_confirmation:
+                step_info["visual_confirmation"] = visual_confirmation.model_dump()
+            
             steps.append(StepResult(
                 observation=observation_after,
                 last_action=action,
                 error=None,
-                info={}
+                info=step_info
             ))
             
             # v1.4.5: early-stop cuando el sub-objetivo actual ya está satisfecho
@@ -3514,6 +3752,14 @@ async def run_llm_task_with_answer(
                 if isinstance(upload_verification, dict):
                     verification_status = upload_verification.get("status")
                     agent_metrics.register_upload_verification(verification_status)
+            
+            # v3.2.0: Registrar confirmaciones visuales
+            if info.get("visual_confirmation"):
+                visual_confirmation = info["visual_confirmation"]
+                if isinstance(visual_confirmation, dict):
+                    agent_metrics.visual_confirmations_attempted += 1
+                    if not visual_confirmation.get("confirmed", False):
+                        agent_metrics.visual_confirmations_failed += 1
         
         # v1.5.0: Finalizar métricas y obtener resumen
         agent_metrics.finish()
@@ -3847,6 +4093,14 @@ async def run_llm_task_with_answer(
                 if isinstance(upload_verification, dict):
                     verification_status = upload_verification.get("status")
                     agent_metrics.register_upload_verification(verification_status)
+            
+            # v3.2.0: Registrar confirmaciones visuales
+            if info.get("visual_confirmation"):
+                visual_confirmation = info["visual_confirmation"]
+                if isinstance(visual_confirmation, dict):
+                    agent_metrics.visual_confirmations_attempted += 1
+                    if not visual_confirmation.get("confirmed", False):
+                        agent_metrics.visual_confirmations_failed += 1
             
             all_steps.append(s)
         
