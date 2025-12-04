@@ -228,6 +228,35 @@ class VisualFlowState(BaseModel):
     confidence: float = 0.0  # confianza en la inferencia del estado (0.0 - 1.0)
 
 
+# v3.6.0: Modelos para expectativas y contratos visuales
+class VisualExpectation(BaseModel):
+    """
+    Expectativa visual sobre el estado que debería observarse tras una acción.
+    
+    v3.6.0: Define qué estado visual esperamos ver después de ejecutar una acción crítica
+    (ej. upload, guardar, confirmar) para poder evaluar si el flujo está yendo como debería.
+    """
+    expected_stage: Optional[str] = None  # ej. "file_selected", "saved", "confirmed"
+    allowed_stages: List[str] = Field(default_factory=list)  # etapas aceptables (ej. ["saved", "confirmed"])
+    expected_keywords: List[str] = Field(default_factory=list)  # palabras clave que deberían aparecer en el texto
+    description: Optional[str] = None  # descripción humana
+    severity: str = "normal"  # "normal" | "critical"
+
+
+class VisualContractResult(BaseModel):
+    """
+    Resultado de la evaluación de un contrato visual (expectativa vs estado observado).
+    
+    v3.6.0: Representa si el estado visual observado cumple con la expectativa definida
+    para una acción crítica, permitiendo detectar violaciones y desajustes en el flujo.
+    """
+    outcome: str  # "match" | "mismatch" | "violation" | "unknown"
+    expected_stage: Optional[str] = None
+    actual_stage: Optional[str] = None
+    description: Optional[str] = None
+    severity: str = "normal"
+
+
 class CAEWorkerDocStatus(BaseModel):
     """
     Estado de documentación de un trabajador tras procesamiento CAE.

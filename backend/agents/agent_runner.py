@@ -27,6 +27,7 @@ from backend.agents.retry_policy import RetryPolicy
 from backend.agents.execution_plan import ExecutionPlan, PlannedSubGoal
 from backend.vision.ocr_service import OCRService
 from backend.agents.visual_flow import VisualFlowEngine
+from backend.agents.visual_contracts import build_visual_expectation_for_action, evaluate_visual_contract
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,11 @@ class AgentMetrics:
         self.visual_flow_updates: int = 0
         self.visual_flow_error_states: int = 0
         self.visual_flow_confirmed_states: int = 0
+        # v3.6.0: Contadores de expectativas visuales
+        self.visual_expectation_matches: int = 0
+        self.visual_expectation_mismatches: int = 0
+        self.visual_expectation_violations: int = 0
+        self.visual_expectation_unknown: int = 0
     
     def register_visual_click(self, success: bool) -> None:
         """
@@ -130,6 +136,25 @@ class AgentMetrics:
             self.visual_flow_error_states += 1
         if state.stage == "confirmed":
             self.visual_flow_confirmed_states += 1
+    
+    def register_visual_expectation(self, result: "VisualContractResult") -> None:
+        """
+        Registra el resultado de una evaluación de contrato visual.
+        
+        v3.6.0: Actualiza los contadores de expectativas visuales.
+        
+        Args:
+            result: VisualContractResult a registrar
+        """
+        outcome = result.outcome
+        if outcome == "match":
+            self.visual_expectation_matches += 1
+        elif outcome == "mismatch":
+            self.visual_expectation_mismatches += 1
+        elif outcome == "violation":
+            self.visual_expectation_violations += 1
+        else:
+            self.visual_expectation_unknown += 1
     
     def start(self):
         """Marca el inicio de la ejecución completa."""
@@ -355,6 +380,14 @@ class AgentMetrics:
             "visual_flow_confirmed_states": self.visual_flow_confirmed_states,
         }
         
+        # v3.6.0: Información de expectativas visuales
+        visual_expectation_info = {
+            "matches": self.visual_expectation_matches,
+            "mismatches": self.visual_expectation_mismatches,
+            "violations": self.visual_expectation_violations,
+            "unknown": self.visual_expectation_unknown,
+        }
+        
         # Serializar sub_goals
         sub_goals_data = []
         for m in self.sub_goals:
@@ -390,6 +423,7 @@ class AgentMetrics:
                 "ocr_info": ocr_info,  # v3.3.0
                 "visual_click_info": visual_click_info,  # v3.4.0
                 "visual_flow_info": visual_flow_info,  # v3.5.0
+                "visual_expectation_info": visual_expectation_info,  # v3.6.0
                 "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }
@@ -734,6 +768,16 @@ def _evaluate_subgoal_for_retry(
             if step.error and not error_message:
                 error_message = step.error
     
+    # v3.6.0: Buscar resultado de contrato visual en los steps
+    visual_contract_outcome = None
+    for step in reversed(steps):
+        if step.info and "visual_expectation" in step.info:
+            visual_expectation_dict = step.info["visual_expectation"]
+            if isinstance(visual_expectation_dict, dict):
+                visual_contract_outcome = visual_expectation_dict.get("outcome")
+                if visual_contract_outcome:
+                    break
+    
     # Evaluar si se debe hacer retry
     should_retry = False
     retry_reason = None
@@ -741,6 +785,18 @@ def _evaluate_subgoal_for_retry(
     # Si el goal fue exitoso, no hacer retry
     if metrics_data and metrics_data.get("success"):
         return (False, upload_status, verification_status, error_message)
+    
+    # v3.6.0: Usar resultado de contrato visual como señal para retry
+    if visual_contract_outcome == "violation":
+        # Violación es una señal fuerte para retry (similar a upload_error_detected)
+        should_retry = True
+        retry_reason = "visual_contract_violation"
+        logger.debug("[retry-evaluation] Visual contract violation detected, recommending retry")
+    elif visual_contract_outcome == "mismatch":
+        # Mismatch es una señal suave para retry (similar a not_confirmed)
+        should_retry = True
+        retry_reason = "visual_contract_mismatch"
+        logger.debug("[retry-evaluation] Visual contract mismatch detected, recommending retry")
     
     # Si hay upload_status que requiere retry
     if upload_status and retry_policy.should_retry_upload(upload_status):
@@ -2435,13 +2491,35 @@ async def run_llm_agent(
                                     visual_recovery_result.confirmed, visual_recovery_result.confidence
                                 )
 
-            # v3.5.0: Inferir estado visual del flujo
+            # v3.6.0: Construir expectativa visual antes de actualizar el estado
             action_type_str = action.type if action else None
-            visual_flow_state = visual_flow_engine.infer_next_state(
+            visual_expectation = build_visual_expectation_for_action(
+                action_type=action_type_str,
+                visual_flow_state_before=visual_flow_state,
+            )
+            
+            # v3.5.0: Inferir estado visual del flujo
+            visual_flow_state_after = visual_flow_engine.infer_next_state(
                 previous=visual_flow_state,
                 action_type=action_type_str,
                 observation=observation_after,
             )
+            
+            # v3.6.0: Evaluar contrato visual si hay expectativa
+            visual_contract_result = None
+            if visual_expectation:
+                visual_contract_result = evaluate_visual_contract(
+                    expectation=visual_expectation,
+                    state=visual_flow_state_after,
+                )
+                logger.debug(
+                    "[visual-contract] Action=%r outcome=%r expected=%r actual=%r",
+                    action_type_str, visual_contract_result.outcome,
+                    visual_contract_result.expected_stage, visual_contract_result.actual_stage
+                )
+            
+            # Actualizar visual_flow_state para el siguiente step
+            visual_flow_state = visual_flow_state_after
             
             # Add step result
             step_info = {}
@@ -2457,6 +2535,10 @@ async def run_llm_agent(
             # v3.5.0: Añadir estado visual del flujo al step
             if visual_flow_state:
                 step_info["visual_flow_state"] = visual_flow_state.model_dump()
+            
+            # v3.6.0: Añadir resultado del contrato visual al step
+            if visual_contract_result:
+                step_info["visual_expectation"] = visual_contract_result.model_dump()
             
             steps.append(StepResult(
                 observation=observation_after,

@@ -293,6 +293,28 @@ def build_cae_response_from_batch(
                 if not result.success:
                     logger.debug("[cae-batch] Visual flow state indicates confirmed, but result.success is False")
         
+        # v3.6.0: Usar VisualContractResult si está disponible para enriquecer notas
+        last_visual_contract = None
+        if hasattr(result, 'steps') and result.steps:
+            # Buscar el último visual_expectation en los steps
+            for step in reversed(result.steps):
+                if step.info and step.info.get("visual_expectation"):
+                    from backend.shared.models import VisualContractResult
+                    try:
+                        last_visual_contract = VisualContractResult(**step.info["visual_expectation"])
+                        break
+                    except Exception as e:
+                        logger.debug(f"[cae-batch] Failed to parse visual_expectation: {e}")
+        
+        if last_visual_contract:
+            if last_visual_contract.outcome == "violation":
+                notes_parts.append("El contrato visual indica que el flujo de guardado/confirmación no ha llegado al estado esperado.")
+            elif last_visual_contract.outcome == "mismatch":
+                notes_parts.append("El estado visual observado no coincide completamente con el esperado.")
+            elif last_visual_contract.outcome == "match":
+                # Reforzar confianza si hay match
+                logger.debug("[cae-batch] Visual contract match detected, reinforcing confidence")
+        
         notes = "; ".join(notes_parts) if notes_parts else None
         
         # v3.2.0: Extraer visual_actions de las secciones
