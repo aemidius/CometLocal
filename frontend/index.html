@@ -216,6 +216,15 @@
       text-decoration: underline;
       margin-right: 8px;
     }
+    .upload-summary {
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(59, 130, 246, 0.1);
+      border-radius: 4px;
+      border-left: 3px solid #3b82f6;
+      font-size: 12px;
+      color: #d1d5db;
+    }
     .file-upload-list {
       list-style: none;
       padding: 0;
@@ -351,6 +360,25 @@
     <div id="messages" class="messages"></div>
     <div class="footer">
       <textarea id="input" placeholder="Escribe un objetivo... (ej: busca información sobre Ada Lovelace en Wikipedia)" rows="2"></textarea>
+      
+      <!-- v2.7.0: Controles de configuración -->
+      <div class="config-section">
+        <div class="config-title">Modo de ejecución</div>
+        <div class="config-options">
+          <label><input type="radio" name="execProfile" value="fast"> Rápido</label>
+          <label><input type="radio" name="execProfile" value="balanced" checked> Equilibrado</label>
+          <label><input type="radio" name="execProfile" value="thorough"> Exhaustivo</label>
+        </div>
+      </div>
+      
+      <div class="config-section">
+        <div class="config-title">Estrategias de contexto</div>
+        <div class="config-options">
+          <label><input type="checkbox" class="context-strategy" value="wikipedia" checked> Wikipedia</label>
+          <label><input type="checkbox" class="context-strategy" value="images" checked> Imágenes</label>
+          <label><input type="checkbox" class="context-strategy" value="cae"> CAE</label>
+        </div>
+      </div>
       <div class="footer-actions">
         <button id="sendBtn">Enviar</button>
       </div>
@@ -505,6 +533,7 @@
     }
 
     // v1.8.0: Helper para renderizar secciones por sub-objetivo
+    // v2.4.0: Añadido soporte para upload_summary
     function renderSections(sections) {
       if (!sections || sections.length === 0) return "";
       
@@ -516,12 +545,77 @@
         const subGoal = section.sub_goal || "";
         const answer = section.answer || "";
         const sources = section.sources || [];
+        const uploadSummary = section.upload_summary || null;
         
         html += '<div class="subgoal-section">';
         html += `<div class="subgoal-section-title">${index}. ${subGoal}</div>`;
         
         if (answer) {
           html += `<div class="subgoal-section-content">${escapeHtml(answer)}</div>`;
+        }
+        
+        // v2.4.0: Mostrar información de upload si existe
+        if (uploadSummary) {
+          const status = uploadSummary.status || "";
+          const fileName = uploadSummary.file_name || "";
+          let uploadText = "";
+          
+          if (status === "success") {
+            uploadText = fileName 
+              ? `📁 Upload: se ha adjuntado el archivo ${escapeHtml(fileName)}.`
+              : "📁 Upload: se ha adjuntado un archivo desde el repositorio local.";
+          } else if (status === "file_not_found") {
+            uploadText = "📁 Upload: no se encontró el archivo en el repositorio local.";
+          } else if (status === "no_input_found") {
+            uploadText = "📁 Upload: no hay campo de subida en la página.";
+          } else if (status === "error") {
+            uploadText = "📁 Upload: se produjo un error al adjuntar el archivo.";
+          } else {
+            uploadText = "📁 Upload: se intentó adjuntar un archivo.";
+          }
+          
+          html += `<div class="upload-summary">${uploadText}</div>`;
+        }
+        
+        // v2.5.0: Mostrar información de verificación visual si existe
+        const uploadVerification = section.upload_verification || null;
+        if (uploadVerification && uploadVerification.status !== "not_applicable") {
+          const verificationStatus = uploadVerification.status || "";
+          const verificationFileName = uploadVerification.file_name || "";
+          const verificationEvidence = uploadVerification.evidence || "";
+          
+          let verificationBadge = "";
+          let verificationClass = "";
+          
+          if (verificationStatus === "confirmed") {
+            verificationBadge = "✅ Subida confirmada visualmente";
+            verificationClass = "upload-verification-status-confirmed";
+          } else if (verificationStatus === "not_confirmed") {
+            verificationBadge = "⚠️ Sin confirmación visual clara";
+            verificationClass = "upload-verification-status-warning";
+          } else if (verificationStatus === "error_detected") {
+            verificationBadge = "❌ Error detectado tras la subida";
+            verificationClass = "upload-verification-status-error";
+          }
+          
+          if (verificationBadge) {
+            html += '<div class="upload-verification">';
+            html += '<div class="upload-verification-title">Estado de la subida</div>';
+            html += `<div class="upload-verification-badge ${verificationClass}">${verificationBadge}</div>`;
+            
+            if (verificationFileName) {
+              html += `<div class="upload-verification-file">Archivo: ${escapeHtml(verificationFileName)}</div>`;
+            }
+            
+            if (verificationEvidence) {
+              const evidenceShort = verificationEvidence.length > 120 
+                ? verificationEvidence.slice(0, 120) + "..." 
+                : verificationEvidence;
+              html += `<div class="upload-verification-evidence">${escapeHtml(evidenceShort)}</div>`;
+            }
+            
+            html += '</div>';
+          }
         }
         
         if (sources.length > 0) {
@@ -596,6 +690,59 @@
       return html;
     }
     
+    // v2.4.0: Helper para renderizar sección global de subidas de documentos
+    function renderUploadsSection(sections) {
+      if (!sections || sections.length === 0) return "";
+      
+      // Recopilar todos los upload_summary de las secciones
+      const uploads = [];
+      sections.forEach((section, idx) => {
+        const uploadSummary = section.upload_summary;
+        if (uploadSummary) {
+          uploads.push({
+            subGoalIndex: section.index || (idx + 1),
+            subGoal: section.sub_goal || "",
+            status: uploadSummary.status || "",
+            fileName: uploadSummary.file_name || null,
+            filePath: uploadSummary.file_path || null,
+            attempts: uploadSummary.attempts || 1,
+          });
+        }
+      });
+      
+      if (uploads.length === 0) return "";
+      
+      let html = '<div class="structured-section">';
+      html += '<div class="structured-section-title">ACCIONES DE SUBIDA DE DOCUMENTOS</div>';
+      html += '<ul class="file-upload-list">';
+      
+      uploads.forEach(upload => {
+        const statusText = upload.status === "success" 
+          ? "Éxito" 
+          : upload.status === "file_not_found"
+          ? "Archivo no encontrado"
+          : upload.status === "no_input_found"
+          ? "Sin campo de subida"
+          : upload.status === "error"
+          ? "Error"
+          : "Desconocido";
+        
+        html += '<li class="file-upload-item">';
+        html += `<div class="file-upload-description">`;
+        html += `Objetivo ${upload.subGoalIndex}: ${escapeHtml(upload.subGoal || "")}`;
+        html += `</div>`;
+        if (upload.fileName) {
+          html += `<div style="font-size: 11px; color: #9ca3af; margin-top: 4px;">Archivo: ${escapeHtml(upload.fileName)}</div>`;
+        }
+        html += `<div style="font-size: 11px; color: ${upload.status === "success" ? "#22c55e" : "#ef4444"}; margin-top: 4px;">Estado: ${escapeHtml(statusText)}</div>`;
+        html += '</li>';
+      });
+      
+      html += '</ul>';
+      html += '</div>';
+      return html;
+    }
+    
     // v1.8.0: Helper para renderizar métricas
     function renderMetrics(metricsSummary) {
       if (!metricsSummary) return "";
@@ -641,6 +788,20 @@
       }
       html += '</div>';
       
+      // v2.5.0: Añadir información de verificación de uploads si existe
+      if (summary.upload_verification_info) {
+        const verifInfo = summary.upload_verification_info;
+        html += '<div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);">';
+        html += '<div style="font-size: 11px; font-weight: 600; color: #9ca3af; margin-bottom: 8px;">Verificación de subidas:</div>';
+        html += `<div style="font-size: 11px; color: #d1d5db; margin-bottom: 4px;">✅ Confirmadas: ${verifInfo.upload_confirmed_count || 0}</div>`;
+        html += `<div style="font-size: 11px; color: #d1d5db; margin-bottom: 4px;">⚠️ Sin confirmación: ${verifInfo.upload_unconfirmed_count || 0}</div>`;
+        html += `<div style="font-size: 11px; color: #d1d5db; margin-bottom: 4px;">❌ Con error detectado: ${verifInfo.upload_error_detected_count || 0}</div>`;
+        if (verifInfo.upload_verification_confirmed_ratio !== undefined) {
+          html += `<div style="font-size: 11px; color: #9ca3af; margin-top: 4px;">Ratio de confirmación: ${(verifInfo.upload_verification_confirmed_ratio * 100).toFixed(1)}%</div>`;
+        }
+        html += '</div>';
+      }
+      
       // Tabla de early-stop counts
       if (summary.early_stop_counts && Object.keys(summary.early_stop_counts).length > 0) {
         html += '<table class="metrics-table">';
@@ -662,6 +823,42 @@
         }
         html += '</tbody></table>';
       }
+      
+      // v2.7.0: Mostrar configuración efectiva usada
+      html += '<div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);">';
+      html += '<div style="font-size: 11px; font-weight: 600; color: #9ca3af; margin-bottom: 8px;">Configuración efectiva:</div>';
+      
+      // Execution profile
+      if (summary.execution_profile) {
+        const profileMode = summary.execution_profile.mode || "balanced";
+        const profileNames = {
+          "fast": "Rápido",
+          "balanced": "Equilibrado",
+          "thorough": "Exhaustivo"
+        };
+        html += `<div style="font-size: 11px; color: #d1d5db; margin-bottom: 4px;">Modo de ejecución: <strong>${escapeHtml(profileNames[profileMode] || profileMode)}</strong></div>`;
+      }
+      
+      // Context strategies
+      if (summary.context_strategies && summary.context_strategies.length > 0) {
+        const strategyNames = {
+          "wikipedia": "Wikipedia",
+          "images": "Imágenes",
+          "cae": "CAE"
+        };
+        const strategiesText = summary.context_strategies.map(s => strategyNames[s] || s).join(", ");
+        html += `<div style="font-size: 11px; color: #d1d5db; margin-bottom: 4px;">Estrategias de contexto: <strong>${escapeHtml(strategiesText)}</strong></div>`;
+      }
+      
+      // v2.9.0: Mostrar sub-objetivos saltados si hay
+      if (summary.skipped_info && summary.skipped_info.skipped_sub_goals_count > 0) {
+        const skippedCount = summary.skipped_info.skipped_sub_goals_count;
+        const skippedIndices = summary.skipped_info.skipped_sub_goal_indices || [];
+        const indicesText = skippedIndices.join(", ");
+        html += `<div style="font-size: 11px; color: #fbbf24; margin-bottom: 4px;">Sub-objetivos no ejecutados: <strong>${skippedCount}</strong> (índices: ${escapeHtml(indicesText)})</div>`;
+      }
+      
+      html += '</div>';
       
       html += '</div>';
       html += '</div>';
@@ -686,15 +883,186 @@
     
     // Exponer toggleMetrics globalmente para onclick
     window.toggleMetrics = toggleMetrics;
+    
+    // v2.8.0: Renderizar plan de ejecución
+    function renderExecutionPlan(plan, thinkingMsg) {
+      if (!plan) return "";
+      
+      const subGoals = plan.sub_goals || [];
+      const strategyNames = {
+        "wikipedia": "Wikipedia",
+        "images": "Imágenes",
+        "cae": "CAE",
+        "other": "Otro"
+      };
+      const actionNames = {
+        "navigate": "Navegar",
+        "upload_file": "Subir archivo",
+        "verify_upload": "Verificar subida"
+      };
+      
+      let html = '<div class="execution-plan">';
+      html += '<div style="margin-bottom: 16px; padding: 12px; background: #1e293b; border-radius: 6px; border: 1px solid #334155;">';
+      html += '<div style="font-size: 12px; font-weight: 600; color: #9ca3af; margin-bottom: 8px;">Configuración del plan:</div>';
+      html += `<div style="font-size: 11px; color: #d1d5db; margin-bottom: 4px;">Modo: <strong>${escapeHtml(plan.execution_profile?.mode || "balanced")}</strong></div>`;
+      html += `<div style="font-size: 11px; color: #d1d5db;">Estrategias: <strong>${(plan.context_strategies || []).map(s => strategyNames[s] || s).join(", ")}</strong></div>`;
+      html += '</div>';
+      
+      html += '<div style="margin-bottom: 16px;">';
+      subGoals.forEach(sg => {
+        html += '<div style="margin-bottom: 12px; padding: 12px; background: #1e293b; border-radius: 6px; border: 1px solid #334155;">';
+        html += `<div style="font-size: 12px; font-weight: 600; color: #e5e7eb; margin-bottom: 8px;">📌 ${sg.index}. ${escapeHtml(sg.sub_goal)}</div>`;
+        html += `<div style="font-size: 11px; color: #9ca3af; margin-bottom: 4px;">🧠 Estrategia: <strong>${escapeHtml(strategyNames[sg.strategy] || sg.strategy)}</strong></div>`;
+        
+        if (sg.documents_needed && sg.documents_needed.length > 0) {
+          html += `<div style="font-size: 11px; color: #9ca3af; margin-bottom: 4px;">📎 Documentos: <strong>${sg.documents_needed.map(d => escapeHtml(d)).join(", ")}</strong></div>`;
+        }
+        
+        html += `<div style="font-size: 11px; color: #9ca3af; margin-bottom: 4px;">🔁 Reintentos: <strong>${sg.may_retry ? "Sí" : "No"}</strong></div>`;
+        
+        if (sg.expected_actions && sg.expected_actions.length > 0) {
+          html += `<div style="font-size: 11px; color: #9ca3af;">⚙️ Acciones: <strong>${sg.expected_actions.map(a => actionNames[a] || a).join(", ")}</strong></div>`;
+        }
+        
+        // v2.9.0: Checkbox para incluir/excluir este sub-objetivo
+        html += '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.1);">';
+        html += `<label class="plan-subgoal-toggle" style="display: flex; align-items: center; font-size: 11px; color: #d1d5db; cursor: pointer;">`;
+        html += `<input type="checkbox" class="plan-subgoal-enabled" data-subgoal-index="${sg.index}" checked style="margin-right: 6px; cursor: pointer;">`;
+        html += 'Incluir este sub-objetivo en la ejecución';
+        html += '</label>';
+        html += '</div>';
+        
+        html += '</div>';
+      });
+      html += '</div>';
+      
+      // Botones de acción
+      html += '<div style="display: flex; gap: 8px; margin-top: 16px;">';
+      html += '<button onclick="confirmExecution(this)" style="flex: 1; padding: 8px 16px; background: #22c55e; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">▶️ Ejecutar plan</button>';
+      html += '<button onclick="cancelExecution(this)" style="flex: 1; padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">❌ Cancelar</button>';
+      html += '</div>';
+      
+      html += '</div>';
+      return html;
+    }
+    
+    // v2.8.0: Confirmar ejecución
+    // v2.9.0: Leer checkboxes de sub-goals y enviar disabled_sub_goal_indices
+    window.confirmExecution = function(button) {
+      const msgElement = button.closest('.msg');
+      if (!msgElement) return;
+      
+      // v2.9.0: Recoger índices de sub-goals deshabilitados
+      const enabledInputs = document.querySelectorAll('.plan-subgoal-enabled');
+      const disabledIndices = [];
+      
+      enabledInputs.forEach(input => {
+        const index = parseInt(input.getAttribute('data-subgoal-index'), 10);
+        if (!input.checked) {
+          disabledIndices.push(index);
+        }
+      });
+      
+      // Deshabilitar botones
+      button.disabled = true;
+      const cancelBtn = button.parentElement.querySelector('button[onclick*="cancelExecution"]');
+      if (cancelBtn) cancelBtn.disabled = true;
+      
+      // Cambiar mensaje a "Ejecutando..."
+      const contentDiv = msgElement.querySelector('.msg-content');
+      if (contentDiv) {
+        contentDiv.textContent = "Ejecutando plan...";
+      }
+      
+      // Crear nuevo mensaje de thinking
+      const thinkingMsg = addMessage("agent", "Ejecutando...", "");
+      thinkingMsg.classList.add("thinking");
+      
+      // v2.9.0: Guardar disabled_sub_goal_indices para usar en sendAgentMessage
+      window.currentDisabledSubGoalIndices = disabledIndices.length > 0 ? disabledIndices : null;
+      
+      // Ejecutar con confirmación
+      sendAgentMessage("", thinkingMsg, true).catch(err => {
+        const errorText = `Error al ejecutar el plan: ${err.message}`;
+        updateMessage(thinkingMsg, errorText, "");
+        thinkingMsg.classList.remove("thinking");
+        thinkingMsg.classList.add("error");
+      });
+    };
+    
+    // v2.8.0: Cancelar ejecución
+    window.cancelExecution = function(button) {
+      const msgElement = button.closest('.msg');
+      if (!msgElement) return;
+      
+      // Deshabilitar botones
+      button.disabled = true;
+      const confirmBtn = button.parentElement.querySelector('button[onclick*="confirmExecution"]');
+      if (confirmBtn) confirmBtn.disabled = true;
+      
+      // Mostrar mensaje de cancelación
+      const contentDiv = msgElement.querySelector('.msg-content');
+      if (contentDiv) {
+        contentDiv.textContent = "La ejecución fue cancelada por el usuario antes de iniciarse.";
+      }
+      
+      // Limpiar plan
+      currentPlan = null;
+      currentGoal = null;
+      currentExecutionProfile = null;
+      currentContextStrategies = null;
+    };
 
-    async function sendAgentMessage(text, thinkingMsg) {
+    // v2.8.0: Estado para el plan
+    let currentPlan = null;
+    let currentGoal = null;
+    let currentExecutionProfile = null;
+    let currentContextStrategies = null;
+    
+    async function sendAgentMessage(text, thinkingMsg, confirmed = false) {
+      // v2.7.0: Leer configuración de execution profile y context strategies
+      const execProfileInput = document.querySelector('input[name="execProfile"]:checked');
+      const executionProfileName = execProfileInput ? execProfileInput.value : null;
+      
+      const contextStrategyInputs = document.querySelectorAll('input.context-strategy:checked');
+      const contextStrategies = Array.from(contextStrategyInputs).map(el => el.value);
+      
+      // v2.8.0: Guardar configuración para reutilizar en confirmación
+      if (!confirmed) {
+        currentGoal = text;
+        currentExecutionProfile = executionProfileName;
+        currentContextStrategies = contextStrategies;
+      }
+      
+      const payload = {
+        goal: confirmed ? currentGoal : text,
+        max_steps: 8
+      };
+      
+      // v2.7.0: Añadir execution_profile_name si está seleccionado
+      const profileToUse = confirmed ? currentExecutionProfile : executionProfileName;
+      if (profileToUse) {
+        payload.execution_profile_name = profileToUse;
+      }
+      
+      // v2.7.0: Añadir context_strategies si hay alguna seleccionada
+      const strategiesToUse = confirmed ? currentContextStrategies : contextStrategies;
+      if (strategiesToUse && strategiesToUse.length > 0) {
+        payload.context_strategies = strategiesToUse;
+      }
+      
+      // v2.8.0: Primera request: solo plan
+      if (!confirmed) {
+        payload.plan_only = true;
+      } else {
+        // Segunda request: ejecutar con confirmación
+        payload.execution_confirmed = true;
+      }
+      
       const res = await fetch(API_AGENT_ANSWER, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          goal: text,
-          max_steps: 8
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -703,6 +1071,23 @@
       }
 
       const data = await res.json();
+      
+      // v2.8.0: Manejar cancelación
+      if (data.execution_cancelled) {
+        thinkingMsg.classList.remove("thinking");
+        updateMessage(thinkingMsg, data.final_answer || "La ejecución fue cancelada por el usuario antes de iniciarse.", "");
+        return;
+      }
+      
+      // v2.8.0: Manejar plan de ejecución
+      if (data.execution_plan && !confirmed) {
+        currentPlan = data.execution_plan;
+        thinkingMsg.classList.remove("thinking");
+        const planHtml = renderExecutionPlan(data.execution_plan, thinkingMsg);
+        updateMessage(thinkingMsg, "PLAN DE EJECUCIÓN PROPUESTO", planHtml);
+        return;
+      }
+      
       const finalAnswer = data.final_answer || "(sin respuesta)";
       const steps = data.steps || [];
       const sourceUrl = data.source_url || null;
@@ -732,6 +1117,11 @@
         // Renderizar fuentes estructuradas globales
         if (structuredSources) {
           extraHtml += renderStructuredSources(structuredSources);
+        }
+        
+        // v2.4.0: Renderizar sección global de subidas
+        if (sections) {
+          extraHtml += renderUploadsSection(sections);
         }
         
         // Renderizar métricas

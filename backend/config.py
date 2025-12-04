@@ -20,3 +20,7 @@ DEFAULT_CAE_BASE_URL = os.getenv("CAE_BASE_URL", "https://example-cae.local")
 # v2.2.0: Configuración para repositorio de documentos
 DOCUMENT_REPOSITORY_BASE_DIR = os.getenv("CAE_DOCS_BASE_DIR", os.path.join(os.path.expanduser("~"), "CAE_Documents"))
 
+# v3.0.0: Configuración para ejecución batch
+ENABLE_BATCH_PERSISTENCE = os.getenv("ENABLE_BATCH_PERSISTENCE", "true").lower() == "true"
+BATCH_RUNS_DIR = os.getenv("BATCH_RUNS_DIR", "runs")
+

@@ -2,6 +2,8 @@ from typing import List, Optional, Tuple, Dict, Any
 import re
 import time
 import logging
+import os
+import asyncio
 import unicodedata
 from dataclasses import dataclass, field
 from collections import defaultdict
@@ -21,6 +23,8 @@ from backend.agents.context_strategies import (
     ContextStrategy,
     build_context_strategies,
 )
+from backend.agents.retry_policy import RetryPolicy
+from backend.agents.execution_plan import ExecutionPlan, PlannedSubGoal
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +68,21 @@ class AgentMetrics:
         # v2.3.0: Contadores de uploads
         self.upload_attempts: int = 0
         self.upload_successes: int = 0
+        # v2.5.0: Contadores de verificación de uploads
+        self.upload_confirmed_count: int = 0
+        self.upload_unconfirmed_count: int = 0
+        self.upload_error_detected_count: int = 0
+        # v2.6.0: Contadores de retry
+        self.retry_attempts: int = 0
+        self.retry_successes: int = 0
+        self.retry_exhausted_count: int = 0
+        # v2.8.0: Contadores de planificación
+        self.plan_generated: bool = False
+        self.plan_confirmed: bool = False
+        self.plan_cancelled: bool = False
+        # v2.9.0: Contadores de sub-goals saltados
+        self.skipped_sub_goals_count: int = 0
+        self.skipped_sub_goal_indices: List[int] = []
     
     def start(self):
         """Marca el inicio de la ejecución completa."""
@@ -105,6 +124,69 @@ class AgentMetrics:
             success=success,
         )
         self.sub_goals.append(metrics)
+    
+    def register_upload_verification(self, status: Optional[str]) -> None:
+        """
+        Registra el resultado de una verificación de upload.
+        
+        v2.5.1: Helper para actualizar contadores de verificación automáticamente.
+        
+        Args:
+            status: Estado de verificación ("confirmed", "not_confirmed", "error_detected", etc.)
+        """
+        if not status:
+            return
+        
+        if status == "confirmed":
+            self.upload_confirmed_count += 1
+        elif status == "not_confirmed":
+            self.upload_unconfirmed_count += 1
+        elif status == "error_detected":
+            self.upload_error_detected_count += 1
+        # "not_applicable" y otros estados se ignoran
+    
+    def register_upload_attempt(self, upload_status: Optional[Dict[str, Any]]) -> None:
+        """
+        Registra un intento de upload y su resultado.
+        
+        v2.5.1: Helper para actualizar contadores de uploads automáticamente.
+        
+        Args:
+            upload_status: Dict con status del upload (puede ser dict o string para compatibilidad)
+        """
+        if not upload_status:
+            return
+        
+        self.upload_attempts += 1
+        
+        # v2.4.0: Soporte para formato nuevo (dict) y antiguo (string)
+        status = upload_status.get("status") if isinstance(upload_status, dict) else upload_status
+        if status == "success":
+            self.upload_successes += 1
+    
+    def register_retry_attempt(self) -> None:
+        """
+        Registra un intento de retry.
+        
+        v2.6.0: Helper para actualizar contadores de retry.
+        """
+        self.retry_attempts += 1
+    
+    def register_retry_success(self) -> None:
+        """
+        Registra un retry exitoso.
+        
+        v2.6.0: Helper para actualizar contadores de retry.
+        """
+        self.retry_successes += 1
+    
+    def register_retry_exhausted(self) -> None:
+        """
+        Registra que se agotaron los retries sin éxito.
+        
+        v2.6.0: Helper para actualizar contadores de retry.
+        """
+        self.retry_exhausted_count += 1
     
     def to_summary_dict(self) -> Dict[str, Any]:
         """
@@ -157,6 +239,39 @@ class AgentMetrics:
             "upload_success_ratio": round(self.upload_successes / self.upload_attempts, 3) if self.upload_attempts > 0 else 0.0,
         }
         
+        # v2.5.0: Información de verificación de uploads
+        upload_verification_info = {
+            "upload_confirmed_count": self.upload_confirmed_count,
+            "upload_unconfirmed_count": self.upload_unconfirmed_count,
+            "upload_error_detected_count": self.upload_error_detected_count,
+            "upload_verification_confirmed_ratio": round(
+                self.upload_confirmed_count / max(1, self.upload_attempts), 3
+            ) if self.upload_attempts > 0 else 0.0,
+        }
+        
+        # v2.6.0: Información de retry
+        retry_info = {
+            "retry_attempts": self.retry_attempts,
+            "retry_successes": self.retry_successes,
+            "retry_exhausted_count": self.retry_exhausted_count,
+            "retry_success_ratio": round(
+                self.retry_successes / max(1, self.retry_attempts), 3
+            ) if self.retry_attempts > 0 else 0.0,
+        }
+        
+        # v2.8.0: Información de planificación
+        planning_info = {
+            "plan_generated": self.plan_generated,
+            "plan_confirmed": self.plan_confirmed,
+            "plan_cancelled": self.plan_cancelled,
+        }
+        
+        # v2.9.0: Información de sub-goals saltados
+        skipped_info = {
+            "skipped_sub_goals_count": self.skipped_sub_goals_count,
+            "skipped_sub_goal_indices": self.skipped_sub_goal_indices,
+        }
+        
         # Serializar sub_goals
         sub_goals_data = []
         for m in self.sub_goals:
@@ -184,6 +299,11 @@ class AgentMetrics:
                 "goal_type_counts": dict(goal_type_counts),
                 "goal_type_success_ratio": goal_type_success_ratio,
                 "upload_info": upload_info,  # v2.3.0
+                "upload_verification_info": upload_verification_info,  # v2.5.0
+                "retry_info": retry_info,  # v2.6.0
+                "planning_info": planning_info,  # v2.8.0
+                "skipped_info": skipped_info,  # v2.9.0
+                "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }
 
@@ -338,26 +458,40 @@ async def _maybe_execute_file_upload(
     try:
         # Verificar que el archivo existe
         file_path = Path(instruction.path)
+        selector = "input[type='file']"
+        
         if not file_path.exists():
             logger.warning(f"[file-upload] File does not exist: {file_path}")
             # Crear StepResult con error
             obs = await browser.get_observation()
+            # v2.4.0: Estandarizar estructura de upload_status
+            upload_status = {
+                "status": "file_not_found",
+                "file_path": str(file_path),
+                "selector": selector,
+                "error_message": f"Archivo no encontrado: {file_path}",
+            }
+            # v2.5.0: Verificación no aplicable para casos de error previo al upload
+            file_name = os.path.basename(str(file_path))
+            verification_result = {
+                "status": "not_applicable",
+                "file_name": file_name,
+                "confidence": 0.0,
+                "evidence": "",
+            }
             return StepResult(
                 observation=obs,
                 last_action=BrowserAction(
                     type="upload_file",
-                    args={"file_path": str(file_path), "selector": "input[type='file']"}
+                    args={"file_path": str(file_path), "selector": selector}
                 ),
                 error=f"Archivo no encontrado: {file_path}",
                 info={
                     "file_upload_instruction": instruction.to_dict(),
-                    "upload_status": "file_not_found",
+                    "upload_status": upload_status,
+                    "upload_verification": verification_result,
                 }
             )
-        
-        # Intentar buscar un input[type='file'] en la página
-        # Por ahora usamos un selector genérico simple
-        selector = "input[type='file']"
         
         logger.debug(
             f"[file-upload] Attempting upload: file={file_path} selector={selector}"
@@ -366,7 +500,28 @@ async def _maybe_execute_file_upload(
         # Ejecutar upload
         obs = await browser.upload_file(selector, str(file_path))
         
+        # v2.4.0: Estandarizar estructura de upload_status
+        upload_status = {
+            "status": "success",
+            "file_path": str(file_path),
+            "selector": selector,
+            "error_message": None,
+        }
+        
+        # v2.5.0: Verificar visualmente si el upload fue aceptado
+        verification_result = _verify_upload_visually(
+            observation=obs,
+            file_path=str(file_path),
+            goal="",  # El goal se puede obtener del contexto si es necesario
+        )
+        
         # Construir StepResult con éxito
+        info_dict = {
+            "file_upload_instruction": instruction.to_dict(),
+            "upload_status": upload_status,
+            "upload_verification": verification_result,
+        }
+        
         return StepResult(
             observation=obs,
             last_action=BrowserAction(
@@ -374,10 +529,7 @@ async def _maybe_execute_file_upload(
                 args={"file_path": str(file_path), "selector": selector}
             ),
             error=None,
-            info={
-                "file_upload_instruction": instruction.to_dict(),
-                "upload_status": "success",
-            }
+            info=info_dict,
         )
         
     except Exception as e:
@@ -397,23 +549,398 @@ async def _maybe_execute_file_upload(
         
         # Determinar el tipo de error
         error_msg = str(e)
+        selector = "input[type='file']"
+        
         if "no se encontró" in error_msg.lower() or "not found" in error_msg.lower():
-            upload_status = "no_input_found"
+            status = "no_input_found"
         else:
-            upload_status = "error"
+            status = "error"
+        
+        # v2.4.0: Estandarizar estructura de upload_status
+        upload_status = {
+            "status": status,
+            "file_path": str(instruction.path),
+            "selector": selector,
+            "error_message": error_msg,
+        }
+        
+        # v2.5.0: Verificación no aplicable para casos de error
+        file_name = os.path.basename(str(instruction.path))
+        verification_result = {
+            "status": "not_applicable",
+            "file_name": file_name,
+            "confidence": 0.0,
+            "evidence": "",
+        }
         
         return StepResult(
             observation=obs,
             last_action=BrowserAction(
                 type="upload_file",
-                args={"file_path": str(instruction.path), "selector": "input[type='file']"}
+                args={"file_path": str(instruction.path), "selector": selector}
             ),
             error=error_msg,
             info={
                 "file_upload_instruction": instruction.to_dict(),
                 "upload_status": upload_status,
+                "upload_verification": verification_result,
             }
         )
+
+
+def _evaluate_subgoal_for_retry(
+    steps: List[StepResult],
+    metrics_data: Optional[Dict[str, Any]],
+    retry_policy: "RetryPolicy",
+) -> tuple[bool, Optional[str], Optional[str], Optional[str]]:
+    """
+    Evalúa si un sub-goal necesita retry basándose en evidencias.
+    
+    v2.6.0: Analiza upload_status, upload_verification y success del sub-goal.
+    
+    Args:
+        steps: Lista de StepResult del sub-goal
+        metrics_data: Datos de métricas del sub-goal (puede ser None)
+        retry_policy: Política de retry a aplicar
+        
+    Returns:
+        Tuple (should_retry, upload_status, verification_status, error_message)
+    """
+    # Buscar información de upload en los steps
+    upload_status = None
+    verification_status = None
+    error_message = None
+    
+    for step in reversed(steps):
+        if step.info:
+            # Buscar upload_status
+            if "upload_status" in step.info and not upload_status:
+                upload_status_dict = step.info["upload_status"]
+                if isinstance(upload_status_dict, dict):
+                    upload_status = upload_status_dict.get("status")
+                elif isinstance(upload_status_dict, str):
+                    upload_status = upload_status_dict
+            
+            # Buscar upload_verification
+            if "upload_verification" in step.info and not verification_status:
+                verification_dict = step.info["upload_verification"]
+                if isinstance(verification_dict, dict):
+                    verification_status = verification_dict.get("status")
+            
+            # Buscar error
+            if step.error and not error_message:
+                error_message = step.error
+    
+    # Evaluar si se debe hacer retry
+    should_retry = False
+    retry_reason = None
+    
+    # Si el goal fue exitoso, no hacer retry
+    if metrics_data and metrics_data.get("success"):
+        return (False, upload_status, verification_status, error_message)
+    
+    # Si hay upload_status que requiere retry
+    if upload_status and retry_policy.should_retry_upload(upload_status):
+        should_retry = True
+        retry_reason = upload_status
+    # Si hay verification_status que requiere retry
+    elif verification_status and retry_policy.should_retry_verification(verification_status):
+        should_retry = True
+        retry_reason = verification_status
+    # Si el goal falló y retry_on_goal_failure está activo
+    elif retry_policy.retry_on_goal_failure and (not metrics_data or not metrics_data.get("success")):
+        should_retry = True
+        retry_reason = "goal_failure"
+    
+    return (should_retry, upload_status, verification_status, error_message)
+
+
+def _build_retry_prompt_context(
+    retry_context: Dict[str, Any],
+) -> str:
+    """
+    Construye el contexto adicional para el prompt cuando hay retry.
+    
+    v2.6.0: Enriquece el prompt con información del intento anterior.
+    
+    Args:
+        retry_context: Dict con información del intento anterior
+        
+    Returns:
+        String con texto adicional para el prompt
+    """
+    parts = []
+    parts.append("\n\nEl intento anterior de este objetivo no se completó correctamente:")
+    
+    upload_status = retry_context.get("last_upload_status")
+    verification_status = retry_context.get("last_verification_status")
+    error_message = retry_context.get("last_error_message")
+    
+    if upload_status:
+        status_text = {
+            "not_confirmed": "no se confirmó la subida del archivo",
+            "no_input_found": "no se encontró un campo de subida de archivos",
+            "error_detected": "se detectó un error durante la subida",
+            "file_not_found": "no se encontró el archivo en el repositorio",
+            "error": "se produjo un error durante la subida",
+        }.get(upload_status, upload_status)
+        parts.append(f"- Estado de subida: {status_text}")
+    
+    if verification_status:
+        verification_text = {
+            "not_confirmed": "no se encontró confirmación visual del archivo",
+            "error_detected": "se detectó un mensaje de error en la página",
+        }.get(verification_status, verification_status)
+        parts.append(f"- Verificación visual: {verification_text}")
+    
+    if error_message:
+        # Recortar error si es muy largo
+        error_short = error_message[:150] + "..." if len(error_message) > 150 else error_message
+        parts.append(f"- Error: {error_short}")
+    
+    parts.append("\nIntenta una estrategia diferente para completar el objetivo.")
+    parts.append("Por ejemplo:")
+    parts.append("- Busca un botón de guardar o confirmar")
+    parts.append("- Reintenta la subida del archivo")
+    parts.append("- Ajusta la interacción con el formulario")
+    parts.append("- Verifica que el archivo esté en el formato correcto")
+    
+    return "\n".join(parts)
+
+
+def _verify_upload_visually(
+    observation: BrowserObservation,
+    file_path: str,
+    goal: str,
+) -> Dict[str, Any]:
+    """
+    Verifica visualmente si un archivo subido ha sido aceptado/registrado en la plataforma.
+    
+    v2.5.0: Analiza el texto de la página después del upload para detectar:
+    - Confirmación de éxito (nombre del archivo, mensajes de éxito)
+    - Errores (mensajes de error)
+    - Ausencia de confirmación clara
+    
+    Args:
+        observation: BrowserObservation después del upload
+        file_path: Ruta del archivo subido
+        goal: Objetivo original (para contexto)
+        
+    Returns:
+        Dict con:
+        {
+            "status": "confirmed" | "not_confirmed" | "error_detected",
+            "file_name": str,
+            "confidence": float,
+            "evidence": str,
+        }
+    """
+    # Obtener nombre del archivo y normalizarlo
+    file_name = os.path.basename(file_path)
+    file_name_normalized = _normalize_text_for_comparison(file_name)
+    
+    # Extraer texto de la observación
+    # Usamos visible_text_excerpt que ya contiene el texto visible de la página
+    page_text = observation.visible_text_excerpt or ""
+    page_text_normalized = _normalize_text_for_comparison(page_text)
+    
+    # Si no hay texto, no podemos verificar
+    if not page_text_normalized:
+        logger.debug(
+            "[upload-verification] No text available for verification: file=%s",
+            file_name
+        )
+        return {
+            "status": "not_confirmed",
+            "file_name": file_name,
+            "confidence": 0.3,
+            "evidence": "No se encontró confirmación visual explícita (sin texto disponible)",
+        }
+    
+    # Palabras clave de éxito (español e inglés)
+    success_keywords = [
+        "documento subido", "archivo subido", "documento cargado", "archivo cargado",
+        "subido correctamente", "carga completada", "subida exitosa", "carga exitosa",
+        "upload complete", "uploaded successfully", "file uploaded", "upload successful",
+        "documento adjuntado", "archivo adjuntado", "adjuntado correctamente",
+        "documento guardado", "archivo guardado", "guardado correctamente",
+    ]
+    
+    # Palabras clave de error (español e inglés)
+    error_keywords = [
+        "error al subir", "no se pudo cargar", "fallo la carga", "falló la carga",
+        "formato no permitido", "tamano excede", "tamaño excede", "archivo demasiado grande",
+        "upload failed", "error uploading", "failed to upload", "upload error",
+        "error al cargar", "no se pudo subir", "error de carga", "carga fallida",
+        "archivo no valido", "archivo no válido", "formato incorrecto",
+    ]
+    
+    # Normalizar keywords para comparación
+    success_keywords_normalized = [_normalize_text_for_comparison(kw) for kw in success_keywords]
+    error_keywords_normalized = [_normalize_text_for_comparison(kw) for kw in error_keywords]
+    
+    # 1. Buscar patrones de error primero (prioridad)
+    error_evidence = None
+    for kw in error_keywords_normalized:
+        if kw in page_text_normalized:
+            # Encontrar el fragmento de texto que contiene la keyword
+            idx = page_text_normalized.find(kw)
+            start = max(0, idx - 50)
+            end = min(len(page_text_normalized), idx + len(kw) + 50)
+            error_evidence = page_text[start:end].strip()
+            break
+    
+    if error_evidence:
+        logger.debug(
+            "[upload-verification] Error detected: file=%s evidence=%r",
+            file_name, error_evidence[:100]
+        )
+        return {
+            "status": "error_detected",
+            "file_name": file_name,
+            "confidence": 0.9,
+            "evidence": error_evidence,
+        }
+    
+    # 2. Buscar el nombre del archivo en el texto (confirmación fuerte)
+    if file_name_normalized:
+        # Buscar el nombre completo o partes del nombre (sin extensión)
+        file_name_base = os.path.splitext(file_name_normalized)[0]
+        if file_name_normalized in page_text_normalized or file_name_base in page_text_normalized:
+            # Encontrar el fragmento donde aparece
+            idx = page_text_normalized.find(file_name_normalized)
+            if idx == -1:
+                idx = page_text_normalized.find(file_name_base)
+            start = max(0, idx - 50)
+            end = min(len(page_text_normalized), idx + len(file_name_normalized) + 50)
+            evidence = page_text[start:end].strip()
+            
+            logger.debug(
+                "[upload-verification] File name found: file=%s evidence=%r",
+                file_name, evidence[:100]
+            )
+            return {
+                "status": "confirmed",
+                "file_name": file_name,
+                "confidence": 0.85,
+                "evidence": evidence,
+            }
+    
+    # 3. Buscar mensajes genéricos de éxito
+    success_evidence = None
+    for kw in success_keywords_normalized:
+        if kw in page_text_normalized:
+            idx = page_text_normalized.find(kw)
+            start = max(0, idx - 50)
+            end = min(len(page_text_normalized), idx + len(kw) + 50)
+            success_evidence = page_text[start:end].strip()
+            break
+    
+    if success_evidence:
+        logger.debug(
+            "[upload-verification] Success message found: file=%s evidence=%r",
+            file_name, success_evidence[:100]
+        )
+        return {
+            "status": "confirmed",
+            "file_name": file_name,
+            "confidence": 0.7,
+            "evidence": success_evidence,
+        }
+    
+    # 4. No se encontró confirmación clara
+    logger.debug(
+        "[upload-verification] No confirmation found: file=%s",
+        file_name
+    )
+    return {
+        "status": "not_confirmed",
+        "file_name": file_name,
+        "confidence": 0.3,
+        "evidence": "No se encontró confirmación visual explícita",
+    }
+
+
+def _summarize_uploads_for_subgoal(steps: List[StepResult]) -> Optional[Dict[str, Any]]:
+    """
+    Dado el listado de steps de un sub-goal, analiza los upload_status
+    y devuelve un pequeño resumen estructurado, o None si no hay uploads.
+    
+    v2.4.0: Helper para resumir intentos de upload por sub-objetivo.
+    
+    Args:
+        steps: Lista de StepResult del sub-goal
+        
+    Returns:
+        Dict con resumen de uploads o None si no hay uploads:
+        {
+            "status": "success" | "file_not_found" | "no_input_found" | "error",
+            "file_path": str | None,
+            "selector": str | None,
+            "attempts": int,
+        }
+    """
+    upload_statuses = []
+    
+    for step in steps:
+        if step.info and "upload_status" in step.info:
+            upload_status = step.info["upload_status"]
+            # v2.4.0: Soporte para formato nuevo (dict) y antiguo (string) para compatibilidad
+            if isinstance(upload_status, dict):
+                upload_statuses.append(upload_status)
+            elif isinstance(upload_status, str):
+                # Formato antiguo: convertir a formato nuevo
+                upload_statuses.append({
+                    "status": upload_status,
+                    "file_path": step.last_action.args.get("file_path") if step.last_action else None,
+                    "selector": step.last_action.args.get("selector") if step.last_action else None,
+                    "error_message": step.error,
+                })
+    
+    if not upload_statuses:
+        return None
+    
+    # Usar el último intento como el más relevante
+    last_upload = upload_statuses[-1]
+    
+    # Extraer información
+    status = last_upload.get("status") if isinstance(last_upload, dict) else last_upload
+    file_path = last_upload.get("file_path") if isinstance(last_upload, dict) else None
+    selector = last_upload.get("selector") if isinstance(last_upload, dict) else None
+    
+    # v2.5.0: Buscar información de verificación en los steps
+    verification_status = None
+    verification_confidence = None
+    verification_evidence = None
+    
+    # Buscar el último step con upload_verification
+    for step in reversed(steps):
+        if step.info and "upload_verification" in step.info:
+            verification = step.info["upload_verification"]
+            if isinstance(verification, dict):
+                verification_status = verification.get("status")
+                verification_confidence = verification.get("confidence")
+                verification_evidence = verification.get("evidence")
+                break
+    
+    result = {
+        "status": status,
+        "file_path": file_path,
+        "selector": selector,
+        "attempts": len(upload_statuses),
+    }
+    
+    # v2.5.0: Añadir campos de verificación si existen
+    if verification_status is not None:
+        result["verification_status"] = verification_status
+        result["verification_confidence"] = verification_confidence
+        result["verification_evidence"] = verification_evidence
+    else:
+        result["verification_status"] = None
+        result["verification_confidence"] = None
+        result["verification_evidence"] = None
+    
+    return result
 
 
 def _build_final_answer(
@@ -422,6 +949,7 @@ def _build_final_answer(
     sub_goal_answers: List[str],
     all_steps: List[StepResult],
     agent_metrics: Optional[AgentMetrics] = None,
+    skipped_sub_goal_indices: Optional[List[int]] = None,
 ) -> Dict[str, Any]:
     """
     Construye una estructura de respuesta final enriquecida.
@@ -469,6 +997,9 @@ def _build_final_answer(
         if not focus_entity:
             focus_entity = _extract_focus_entity_from_goal(sub_goal)
         
+        # v2.4.0: Resumir uploads para este sub-goal
+        upload_summary = _summarize_uploads_for_subgoal(sub_goal_steps)
+        
         # Construir sección
         section = {
             "index": idx,
@@ -478,6 +1009,31 @@ def _build_final_answer(
             "focus_entity": focus_entity,
             "sources": sub_goal_sources,
         }
+        
+        # v2.4.0: Añadir upload_summary si existe
+        if upload_summary:
+            section["upload_summary"] = {
+                "status": upload_summary["status"],
+                "file_name": os.path.basename(upload_summary["file_path"]) if upload_summary.get("file_path") else None,
+                "file_path": upload_summary.get("file_path"),
+                "attempts": upload_summary["attempts"],
+            }
+            
+            # v2.5.0: Añadir información de verificación si existe
+            verification_status = upload_summary.get("verification_status")
+            if verification_status is not None:
+                section["upload_verification"] = {
+                    "status": verification_status,
+                    "file_name": upload_summary.get("verification_status") and section["upload_summary"]["file_name"],
+                    "confidence": upload_summary.get("verification_confidence"),
+                    "evidence": upload_summary.get("verification_evidence"),
+                }
+            else:
+                section["upload_verification"] = None
+        else:
+            section["upload_summary"] = None
+            section["upload_verification"] = None
+        
         sections.append(section)
         
         # Agregar fuentes al diccionario global (deduplicar por URL)
@@ -505,6 +1061,12 @@ def _build_final_answer(
         answer_parts.append(f"He completado {len(sub_goals)} sub-objetivos relacionados con tu petición.")
     else:
         answer_parts.append("He completado tu petición.")
+    
+    # v2.9.0: Añadir información de sub-objetivos no ejecutados
+    if skipped_sub_goal_indices and len(skipped_sub_goal_indices) > 0:
+        skipped_text = ", ".join(map(str, sorted(skipped_sub_goal_indices)))
+        answer_parts.append("")
+        answer_parts.append(f"Sub-objetivos no ejecutados (por configuración del usuario): {skipped_text}.")
     
     answer_parts.append("")  # Línea en blanco
     
@@ -558,6 +1120,66 @@ def _build_final_answer(
                 elif source_domains:
                     source_text += ", ".join(sorted(source_domains)[:2])
                 answer_parts.append(source_text)
+        
+        # v2.4.0: Añadir descripción de upload si existe
+        upload_summary = section.get("upload_summary")
+        if upload_summary:
+            status = upload_summary["status"]
+            file_name = upload_summary.get("file_name")
+            file_path = upload_summary.get("file_path")
+            
+            if status == "success":
+                if file_name:
+                    upload_text = f"Además, he seleccionado y adjuntado el archivo {file_name} desde el repositorio local en el formulario de la página actual."
+                else:
+                    upload_text = "Además, he adjuntado un archivo desde el repositorio local en el formulario de la página actual."
+            elif status == "file_not_found":
+                upload_text = "He intentado localizar y adjuntar el documento en el repositorio local, pero no se ha encontrado el archivo esperado."
+            elif status == "no_input_found":
+                upload_text = "He buscado un campo de subida de archivos en la página, pero no he encontrado ningún input compatible para adjuntar el documento."
+            elif status == "error":
+                upload_text = "He intentado adjuntar el documento desde el repositorio local, pero se ha producido un error durante la subida."
+            else:
+                upload_text = "He intentado adjuntar un documento desde el repositorio local."
+            
+            answer_parts.append(upload_text)
+            
+            # v2.5.0: Añadir texto de verificación visual si existe
+            upload_verification = section.get("upload_verification")
+            if upload_verification and upload_verification.get("status") != "not_applicable":
+                verification_status = upload_verification.get("status")
+                verification_file_name = upload_verification.get("file_name") or file_name
+                verification_evidence = upload_verification.get("evidence", "")
+                
+                if verification_status == "confirmed":
+                    if verification_file_name:
+                        verification_text = f"Además, he verificado visualmente que el archivo «{verification_file_name}» aparece en la plataforma, por lo que la subida parece completada correctamente."
+                    else:
+                        verification_text = "Además, he verificado visualmente que la subida parece completada correctamente."
+                elif verification_status == "not_confirmed":
+                    if verification_file_name:
+                        verification_text = f"He intentado subir el archivo «{verification_file_name}», pero no he encontrado una confirmación visual clara de que haya quedado registrado en la plataforma. Es posible que sea necesario pulsar algún botón de guardar o confirmar."
+                    else:
+                        verification_text = "He intentado subir el archivo, pero no he encontrado una confirmación visual clara de que haya quedado registrado en la plataforma. Es posible que sea necesario pulsar algún botón de guardar o confirmar."
+                elif verification_status == "error_detected":
+                    if verification_file_name:
+                        if verification_evidence:
+                            # Recortar evidencia si es muy larga
+                            evidence_short = verification_evidence[:100] + "..." if len(verification_evidence) > 100 else verification_evidence
+                            verification_text = f"Tras intentar subir el archivo «{verification_file_name}», he detectado un mensaje de error en la página: «{evidence_short}». Es probable que la subida no se haya completado correctamente."
+                        else:
+                            verification_text = f"Tras intentar subir el archivo «{verification_file_name}», he detectado un mensaje de error en la página. Es probable que la subida no se haya completado correctamente."
+                    else:
+                        if verification_evidence:
+                            evidence_short = verification_evidence[:100] + "..." if len(verification_evidence) > 100 else verification_evidence
+                            verification_text = f"Tras intentar subir el archivo, he detectado un mensaje de error en la página: «{evidence_short}». Es probable que la subida no se haya completado correctamente."
+                        else:
+                            verification_text = "Tras intentar subir el archivo, he detectado un mensaje de error en la página. Es probable que la subida no se haya completado correctamente."
+                else:
+                    verification_text = None
+                
+                if verification_text:
+                    answer_parts.append(verification_text)
         
         answer_parts.append("")  # Línea en blanco entre secciones
     
@@ -1787,6 +2409,118 @@ def _normalize_wikipedia_query(goal: str, focus_entity: Optional[str] = None) ->
     return effective
 
 
+def build_execution_plan(
+    goal: str,
+    sub_goals: List[str],
+    execution_profile: ExecutionProfile,
+    context_strategies: List[str],
+    document_repository: Optional["DocumentRepository"],
+) -> ExecutionPlan:
+    """
+    Construye un plan de ejecución estructurado antes de ejecutar.
+    
+    v2.8.0: Genera un plan determinista basado solo en:
+    - goal y sub_goals
+    - execution_profile
+    - context_strategies
+    - document_repository
+    
+    NO usa LLM ni navegador. Es puramente analítico.
+    
+    Args:
+        goal: Objetivo principal
+        sub_goals: Lista de sub-objetivos descompuestos
+        execution_profile: Perfil de ejecución
+        context_strategies: Lista de nombres de estrategias activas
+        document_repository: Repositorio de documentos (opcional)
+        
+    Returns:
+        ExecutionPlan con toda la información planificada
+    """
+    from backend.agents.file_upload import _maybe_build_file_upload_instruction
+    from backend.agents.session_context import SessionContext
+    import os
+    
+    planned_sub_goals: List[PlannedSubGoal] = []
+    session_context = SessionContext()
+    session_context.update_goal(goal)
+    
+    for idx, sub_goal in enumerate(sub_goals, start=1):
+        # Inferir strategy
+        strategy = "other"
+        sub_goal_lower = sub_goal.lower()
+        
+        if "cae" in sub_goal_lower or "documentación cae" in sub_goal_lower or "documentacion cae" in sub_goal_lower:
+            strategy = "cae"
+        elif _goal_mentions_images(sub_goal):
+            strategy = "images"
+        elif _goal_mentions_wikipedia(sub_goal):
+            strategy = "wikipedia"
+        
+        # Inferir expected_actions
+        expected_actions = ["navigate"]
+        
+        # Detectar intención de upload
+        upload_keywords = [
+            "sube", "subir", "adjunta", "adjuntar",
+            "sube el", "sube la", "sube un", "sube una",
+            "adjunta el", "adjunta la", "adjunta un", "adjunta una",
+            "subir documento", "subir documentación", "adjuntar documento", "adjuntar documentación",
+        ]
+        has_upload_intent = any(keyword in sub_goal_lower for keyword in upload_keywords)
+        
+        if has_upload_intent:
+            expected_actions.append("upload_file")
+            expected_actions.append("verify_upload")
+        
+        # Inferir documents_needed
+        documents_needed: List[str] = []
+        
+        if has_upload_intent and document_repository:
+            try:
+                # Extraer focus_entity del sub-goal
+                focus_entity = _extract_focus_entity_from_goal(sub_goal)
+                
+                # Intentar construir instrucción de upload (modo análisis)
+                upload_instruction = _maybe_build_file_upload_instruction(
+                    goal=sub_goal,
+                    focus_entity=focus_entity,
+                    session_context=session_context,
+                    document_repository=document_repository,
+                )
+                
+                if upload_instruction and upload_instruction.path:
+                    # Solo el nombre del archivo, no el path completo
+                    file_name = os.path.basename(upload_instruction.path)
+                    documents_needed.append(file_name)
+            except Exception as e:
+                logger.debug(f"[execution-plan] Error detecting documents for sub-goal {idx}: {e}")
+        
+        # Determinar may_retry
+        # v2.6.0: Retry está habilitado por defecto, pero puede estar deshabilitado en el perfil
+        may_retry = True  # Por defecto, los retries están habilitados
+        
+        planned_sub_goal = PlannedSubGoal(
+            index=idx,
+            sub_goal=sub_goal,
+            strategy=strategy,
+            expected_actions=expected_actions,
+            documents_needed=documents_needed,
+            may_retry=may_retry,
+        )
+        planned_sub_goals.append(planned_sub_goal)
+    
+    # Construir ExecutionPlan
+    plan = ExecutionPlan(
+        goal=goal,
+        execution_profile=execution_profile.to_dict(),
+        context_strategies=context_strategies,
+        sub_goals=planned_sub_goals,
+    )
+    
+    return plan
+
+
 def _normalize_text_for_comparison(s: str) -> str:
     """
     Normaliza texto para comparación robusta (case-insensitive, sin diacríticos).
@@ -2235,6 +2969,7 @@ async def _run_llm_task_single(
     execution_profile: Optional[ExecutionProfile] = None,
     context_strategies: Optional[List[ContextStrategy]] = None,
     session_context: Optional[SessionContext] = None,
+    retry_context: Optional[Dict[str, Any]] = None,
 ) -> Tuple[List[StepResult], str]:
     """
     Ejecuta el agente LLM para un único objetivo (sin descomposición)
@@ -2419,6 +3154,11 @@ async def _run_llm_task_single(
         f"Objetivo original del usuario:\n{goal}\n\n"
     )
     
+    # v2.6.0: Añadir contexto de retry si existe
+    if retry_context and retry_context.get("attempt_index", 0) > 0:
+        retry_prompt_text = _build_retry_prompt_context(retry_context)
+        user_prompt += retry_prompt_text
+    
     # v1.4: Añadir bloque de observaciones relevantes si hay
     if observations_text:
         user_prompt += (
@@ -2525,9 +3265,12 @@ async def _run_llm_task_single(
                     upload_step = await _maybe_execute_file_upload(browser, upload_instruction)
                     if upload_step:
                         steps_local.append(upload_step)
+                        # v2.4.0: Extraer status del nuevo formato
+                        upload_status = upload_step.info.get('upload_status', {})
+                        status = upload_status.get('status') if isinstance(upload_status, dict) else upload_status
                         logger.info(
                             f"[file-upload] Upload executed: {upload_instruction.description} -> "
-                            f"status={upload_step.info.get('upload_status', 'unknown')}"
+                            f"status={status}"
                         )
                 except Exception as e:
                     logger.warning(f"[file-upload] Error executing upload: {e}", exc_info=True)
@@ -2542,6 +3285,8 @@ async def run_llm_task_with_answer(
     browser: BrowserController,
     max_steps: int = 8,
     context_strategies: Optional[List[str]] = None,
+    execution_profile_name: Optional[str] = None,
+    disabled_sub_goal_indices: Optional[List[int]] = None,
 ) -> tuple[List[StepResult], str, str, str, List[SourceInfo]]:
     """
     Orquesta la ejecución del agente para uno o varios sub-objetivos.
@@ -2554,7 +3299,44 @@ async def run_llm_task_with_answer(
     v1.7.0: Usa SessionContext para mantener memoria de entidades durante la ejecución.
     v1.9.0: Infiere y aplica ExecutionProfile desde el texto del objetivo.
     v2.1.0: Acepta context_strategies para selección de estrategias por petición.
+    v2.7.0: Acepta execution_profile_name para selección explícita del perfil de ejecución.
+    
+    Args:
+        goal: Objetivo del usuario
+        browser: Controlador del navegador
+        max_steps: Número máximo de pasos por sub-objetivo
+        context_strategies: Lista opcional de nombres de estrategias de contexto
+        execution_profile_name: Nombre del perfil de ejecución ("fast", "balanced", "thorough") o None
     """
+    # v2.7.0: Determinar ExecutionProfile desde execution_profile_name o inferirlo
+    if execution_profile_name:
+        valid_profiles = {"fast", "balanced", "thorough"}
+        if execution_profile_name in valid_profiles:
+            if execution_profile_name == "fast":
+                execution_profile = ExecutionProfile.fast()
+            elif execution_profile_name == "thorough":
+                execution_profile = ExecutionProfile.thorough()
+            else:  # "balanced"
+                execution_profile = ExecutionProfile.default()
+            logger.debug(
+                "[execution-profile] name=%r effective=%r",
+                execution_profile_name,
+                execution_profile.mode,
+            )
+        else:
+            logger.warning(
+                "[execution-profile] Invalid profile name %r, falling back to from_goal_text",
+                execution_profile_name
+            )
+            execution_profile = ExecutionProfile.from_goal_text(goal)
+    else:
+        # Comportamiento por defecto: inferir desde el texto del objetivo
+        execution_profile = ExecutionProfile.from_goal_text(goal)
+        logger.debug(
+            "[execution-profile] inferred from goal text: %r",
+            execution_profile.mode,
+        )
+    
     # v2.1.0: Construir estrategias de contexto desde nombres
     from backend.config import DEFAULT_CAE_BASE_URL
     active_strategies = build_context_strategies(context_strategies, cae_base_url=DEFAULT_CAE_BASE_URL)
@@ -2564,8 +3346,7 @@ async def run_llm_task_with_answer(
     else:
         logger.debug("[context-strategies] using default strategies")
     
-    # v1.9.0: Inferir ExecutionProfile desde el texto del objetivo
-    execution_profile = ExecutionProfile.from_goal_text(goal)
+    # v2.7.0: ExecutionProfile ya se determinó arriba desde execution_profile_name o desde goal text
     logger.info(f"[profile] using execution profile: {execution_profile.to_dict()}")
     
     # v1.7.0: Inicializar contexto de sesión
@@ -2573,8 +3354,11 @@ async def run_llm_task_with_answer(
     session_context.update_goal(goal)
     
     # v1.5.0: Inicializar métricas
+    # v2.9.0: Inicializar contadores de sub-goals saltados
     agent_metrics = AgentMetrics()
     agent_metrics.start()
+    agent_metrics.skipped_sub_goals_count = len(disabled_sub_goal_indices or [])
+    agent_metrics.skipped_sub_goal_indices = sorted(list(disabled_sub_goal_indices or []))
     
     # v1.4: Entidad global del objetivo completo
     # Primero intentamos desde el goal completo, luego desde el primer sub-goal con entidad
@@ -2585,16 +3369,55 @@ async def run_llm_task_with_answer(
         # Fallback de seguridad: usar el objetivo original
         sub_goals = [goal]
     
+    # v2.9.0: Filtrar sub-goals deshabilitados por el usuario
+    disabled = set(disabled_sub_goal_indices or [])
+    effective_sub_goals = [
+        (idx, sub_goal)
+        for idx, sub_goal in enumerate(sub_goals, start=1)
+        if idx not in disabled
+    ]
+    
+    # v2.9.0: Si todos los sub-goals están deshabilitados, devolver respuesta amigable
+    if not effective_sub_goals:
+        # Crear respuesta sin ejecutar nada
+        empty_steps: List[StepResult] = []
+        empty_answer = "No se ha ejecutado ningún sub-objetivo porque todos han sido desactivados en el plan."
+        
+        # Crear métricas básicas
+        agent_metrics = AgentMetrics()
+        agent_metrics.start()
+        agent_metrics.plan_confirmed = True
+        agent_metrics.skipped_sub_goals_count = len(disabled_sub_goal_indices or [])
+        agent_metrics.skipped_sub_goal_indices = sorted(list(disabled_sub_goal_indices or []))
+        agent_metrics.end()
+        
+        metrics_summary = agent_metrics.to_summary_dict()
+        if empty_steps:
+            empty_steps[-1].info = empty_steps[-1].info or {}
+            empty_steps[-1].info["metrics"] = metrics_summary
+        
+        return empty_steps, empty_answer, "", "", []
+    
+    # v2.9.0: Usar effective_sub_goals en lugar de sub_goals completos
+    # Convertir effective_sub_goals a lista simple para compatibilidad con código existente
+    # Pero mantener mapeo de índices originales
+    effective_sub_goals_dict = {idx: sg for idx, sg in effective_sub_goals}
+    sub_goals_to_execute = [sg for _, sg in effective_sub_goals]
+    
     # v1.9.0: Filtrar sub-goals según restricciones del perfil
-    original_sub_goals = sub_goals.copy()
-    sub_goals = [sg for sg in sub_goals if not execution_profile.should_skip_goal(sg)]
-    if len(sub_goals) < len(original_sub_goals):
-        skipped = len(original_sub_goals) - len(sub_goals)
+    # v2.9.0: Mantener mapeo de índices originales después del filtro del perfil
+    original_sub_goals = sub_goals_to_execute.copy()
+    sub_goals_to_execute = [sg for sg in sub_goals_to_execute if not execution_profile.should_skip_goal(sg)]
+    
+    # v2.9.0: Reconstruir effective_sub_goals solo con los que pasan el filtro del perfil
+    effective_sub_goals = [(idx, sg) for idx, sg in effective_sub_goals if sg in sub_goals_to_execute]
+    if len(sub_goals_to_execute) < len(original_sub_goals):
+        skipped = len(original_sub_goals) - len(sub_goals_to_execute)
         logger.info(f"[profile] skipped {skipped} sub-goal(s) due to profile restrictions")
     
     # v1.4: Si no hay entidad global del goal completo, intentar desde el primer sub-goal
     if not global_focus_entity:
-        for sub_goal in sub_goals:
+        for sub_goal in sub_goals_to_execute:
             candidate = _extract_focus_entity_from_goal(sub_goal)
             if candidate:
                 global_focus_entity = candidate
@@ -2615,9 +3438,10 @@ async def run_llm_task_with_answer(
                 focus_entity = global_focus_entity
         
         # v1.4: Primer sub-goal siempre resetea contexto
+        # v2.9.0: Usar índice original del sub-goal
         t0 = time.perf_counter()
         steps, final_answer = await _run_llm_task_single(
-            browser, sub_goal, max_steps, focus_entity=focus_entity, reset_context=True, sub_goal_index=1, execution_profile=execution_profile, context_strategies=active_strategies, session_context=session_context
+            browser, sub_goal, max_steps, focus_entity=focus_entity, reset_context=True, sub_goal_index=original_idx, execution_profile=execution_profile, context_strategies=active_strategies, session_context=session_context
         )
         t1 = time.perf_counter()
         
@@ -2674,11 +3498,22 @@ async def run_llm_task_with_answer(
             )
         
         # Añadir marcado de focus_entity a todos los steps
+        # v2.5.1: Actualizar métricas de uploads y verificación mientras se procesan los steps
         for s in steps:
             info = dict(s.info or {})
             if focus_entity:
                 info["focus_entity"] = focus_entity
             s.info = info
+            
+            # v2.5.1: Registrar uploads y verificaciones en métricas
+            if info.get("upload_status"):
+                agent_metrics.register_upload_attempt(info["upload_status"])
+            
+            if info.get("upload_verification"):
+                upload_verification = info["upload_verification"]
+                if isinstance(upload_verification, dict):
+                    verification_status = upload_verification.get("status")
+                    agent_metrics.register_upload_verification(verification_status)
         
         # v1.5.0: Finalizar métricas y obtener resumen
         agent_metrics.finish()
@@ -2742,7 +3577,11 @@ async def run_llm_task_with_answer(
     answers: List[str] = []
     all_observations: List[BrowserObservation] = []
 
-    for idx, sub_goal in enumerate(sub_goals, start=1):
+    # v2.9.0: Iterar sobre effective_sub_goals manteniendo índices originales
+    for original_idx, sub_goal in effective_sub_goals:
+        # v2.9.0: Saltar si este sub-goal fue filtrado por el perfil
+        if sub_goal not in sub_goals_to_execute:
+            continue
         # v1.7.0: Actualizar contexto con el sub-goal actual
         session_context.update_goal(goal, sub_goal)
         
@@ -2834,26 +3673,115 @@ async def run_llm_task_with_answer(
                         )
                     )
         
-        # v1.4: Ejecutar el sub-objetivo
-        # Primer sub-goal (idx == 1) resetea contexto, los demás no
-        reset_ctx = (idx == 1)
-        t0 = time.perf_counter()
-        steps, answer = await _run_llm_task_single(
-            browser, sub_goal, max_steps, focus_entity=sub_focus_entity, reset_context=reset_ctx, sub_goal_index=idx, execution_profile=execution_profile, context_strategies=active_strategies, session_context=session_context
-        )
-        t1 = time.perf_counter()
+        # v2.6.0: Retry loop para sub-objetivos
+        retry_policy = RetryPolicy()
+        attempt_index = 0
+        retry_context: Dict[str, Any] = {
+            "attempt_index": 0,
+            "last_upload_status": None,
+            "last_verification_status": None,
+            "last_error_message": None,
+        }
+        
+        all_subgoal_steps_retry: List[StepResult] = []
+        final_answer_retry = ""
+        metrics_data_final = None
+        success_final = False
+        
+        while True:
+            # v1.4: Ejecutar el sub-objetivo
+            # v2.9.0: Primer sub-goal efectivo resetea contexto solo en el primer intento
+            # Usar original_idx para determinar si es el primero
+            reset_ctx = (original_idx == 1) and (attempt_index == 0)
+            t0 = time.perf_counter()
+            
+            # v2.6.0: Pasar retry_context al ejecutor
+            steps, answer = await _run_llm_task_single(
+                browser, sub_goal, max_steps, focus_entity=sub_focus_entity, reset_context=reset_ctx, 
+                sub_goal_index=idx, execution_profile=execution_profile, context_strategies=active_strategies, 
+                session_context=session_context, retry_context=retry_context if attempt_index > 0 else None
+            )
+            t1 = time.perf_counter()
+            
+            # Acumular steps de este intento
+            all_subgoal_steps_retry.extend(steps)
+            final_answer_retry = answer
+            
+            # v1.5.0: Extraer métricas del último step
+            metrics_data = None
+            for step in reversed(steps):
+                if step.info and "metrics_subgoal" in step.info:
+                    metrics_data = step.info["metrics_subgoal"]
+                    break
+            
+            # v2.6.0: Evaluar si se necesita retry
+            should_retry, upload_status, verification_status, error_message = _evaluate_subgoal_for_retry(
+                steps, metrics_data, retry_policy
+            )
+            
+            # Actualizar retry_context para el siguiente intento
+            retry_context["last_upload_status"] = upload_status
+            retry_context["last_verification_status"] = verification_status
+            retry_context["last_error_message"] = error_message
+            
+            # Determinar si el intento fue exitoso
+            success = metrics_data.get("success") if metrics_data else False
+            # También considerar éxito si upload está confirmado
+            if not success and upload_status == "success" and verification_status == "confirmed":
+                success = True
+            
+            # Si fue exitoso, salir del loop
+            if success:
+                success_final = True
+                metrics_data_final = metrics_data
+                logger.debug(
+                    "[retry] sub-goal=%d attempt=%d success=True",
+                    original_idx, attempt_index
+                )
+                break
+            
+            # Si no se debe hacer retry o no se puede, salir
+            if not should_retry or not retry_policy.can_retry(attempt_index):
+                if should_retry and not retry_policy.can_retry(attempt_index):
+                    # Se agotaron los retries
+                    agent_metrics.register_retry_exhausted()
+                    logger.debug(
+                        "[retry] sub-goal=%d retries exhausted",
+                        original_idx
+                    )
+                metrics_data_final = metrics_data
+                break
+            
+            # Preparar siguiente intento
+            attempt_index += 1
+            retry_context["attempt_index"] = attempt_index
+            agent_metrics.register_retry_attempt()
+            logger.debug(
+                "[retry] sub-goal=%d attempt=%d reason=%s",
+                original_idx, attempt_index, upload_status or verification_status or "goal_failure"
+            )
+            
+            # Backoff antes del siguiente intento
+            await asyncio.sleep(retry_policy.backoff_seconds)
+        
+        # Si hubo retry exitoso, registrar éxito
+        if attempt_index > 0 and success_final:
+            agent_metrics.register_retry_success()
+            logger.debug(
+                "[retry] sub-goal=%d retry succeeded after %d attempts",
+                original_idx, attempt_index + 1
+            )
+        
+        # Usar steps y answer finales
+        steps = all_subgoal_steps_retry
+        answer = final_answer_retry
+        metrics_data = metrics_data_final
         
         # v1.7.0: Actualizar contexto con la entidad confirmada después de completar el sub-goal
         if sub_focus_entity:
             session_context.update_entity(sub_focus_entity)
         
-        # v1.5.0: Extraer métricas del último step y añadirlas a AgentMetrics
-        metrics_data = None
-        for step in reversed(steps):
-            if step.info and "metrics_subgoal" in step.info:
-                metrics_data = step.info["metrics_subgoal"]
-                break
-        
+        # v1.5.0: Añadir métricas a AgentMetrics
         if metrics_data:
             agent_metrics.add_subgoal_metrics(
                 goal=metrics_data["goal"],
@@ -2862,17 +3790,18 @@ async def run_llm_task_with_answer(
                 steps_taken=metrics_data["steps_taken"],
                 early_stop_reason=metrics_data.get("early_stop_reason"),
                 elapsed_seconds=metrics_data["elapsed_seconds"],
-                success=metrics_data["success"],
+                success=metrics_data["success"] or success_final,
             )
             # v1.5.0: Logging de métricas por sub-objetivo
+            # v2.9.0: Usar original_idx
             logger.info(
                 "[metrics] sub-goal idx=%d type=%s steps=%d early_stop=%s elapsed=%.2fs success=%s",
-                idx,
+                original_idx,
                 metrics_data["goal_type"],
                 metrics_data["steps_taken"],
                 metrics_data.get("early_stop_reason") or "none",
                 metrics_data["elapsed_seconds"],
-                metrics_data["success"],
+                metrics_data["success"] or success_final,
             )
         else:
             # Fallback: calcular métricas básicas si no están en StepResult
@@ -2883,11 +3812,11 @@ async def run_llm_task_with_answer(
                 steps_taken=len(steps),
                 early_stop_reason=None,
                 elapsed_seconds=t1 - t0,
-                success=False,
+                success=success_final,
             )
             logger.info(
                 "[sub-goal] idx=%d sub_goal=%r focus_entity=%r steps=%d elapsed=%.2fs",
-                idx,
+                original_idx,
                 sub_goal,
                 sub_focus_entity,
                 len(steps),
@@ -2898,14 +3827,27 @@ async def run_llm_task_with_answer(
         all_subgoal_steps = context_steps + steps
 
         # Anotar en info a qué sub-objetivo pertenece cada paso
+        # v2.5.1: Actualizar métricas de uploads y verificación mientras se procesan los steps
+        # v2.9.0: Usar original_idx para mantener índices originales aunque se salten algunos
         for s in all_subgoal_steps:
             info = dict(s.info or {})
-            info["sub_goal_index"] = idx
+            info["sub_goal_index"] = original_idx
             info["sub_goal"] = sub_goal
             # v1.4: Añadir focus_entity si está disponible
             if sub_focus_entity:
                 info["focus_entity"] = sub_focus_entity
             s.info = info
+            
+            # v2.5.1: Registrar uploads y verificaciones en métricas
+            if info.get("upload_status"):
+                agent_metrics.register_upload_attempt(info["upload_status"])
+            
+            if info.get("upload_verification"):
+                upload_verification = info["upload_verification"]
+                if isinstance(upload_verification, dict):
+                    verification_status = upload_verification.get("status")
+                    agent_metrics.register_upload_verification(verification_status)
+            
             all_steps.append(s)
         
         # Guardar la última observación de este sub-objetivo
@@ -2986,10 +3928,15 @@ async def run_llm_task_with_answer(
     
     # v1.9.0: Añadir execution_profile a metrics_summary
     # v2.1.0: Añadir información de estrategias activas
+    # v2.7.0: Asegurar que context_strategies siempre esté presente
     if metrics_summary and "summary" in metrics_summary:
         metrics_summary["summary"]["execution_profile"] = execution_profile.to_dict()
         if context_strategies:
             metrics_summary["summary"]["context_strategies"] = context_strategies
+        else:
+            # Si no se especificaron, usar las estrategias por defecto
+            default_strategy_names = [s.name for s in DEFAULT_CONTEXT_STRATEGIES]
+            metrics_summary["summary"]["context_strategies"] = default_strategy_names
 
     return all_steps, final_answer, source_url, source_title, sources
 

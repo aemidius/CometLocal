@@ -11,7 +11,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from backend.browser.browser import BrowserController
-from backend.shared.models import StepResult, AgentAnswerRequest, AgentAnswerResponse, SourceInfo, FileUploadInstructionDTO
+from backend.shared.models import (
+    StepResult,
+    AgentAnswerRequest,
+    AgentAnswerResponse,
+    SourceInfo,
+    FileUploadInstructionDTO,
+    CAEBatchRequest,
+    CAEBatchResponse,
+)
 from backend.agents.agent_runner import run_simple_agent, run_llm_agent, run_llm_task_with_answer
 
 app = FastAPI(title="CometLocal Backend")
@@ -211,11 +219,92 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
     Runs the LLM-based agent and generates a final natural-language answer
     based on the last observation and the original goal.
     """
+    # v2.8.0: Manejar flujo de planificación
+    from backend.agents.agent_runner import build_execution_plan, _decompose_goal, ExecutionProfile
+    from backend.agents.document_repository import DocumentRepository
+    from backend.agents.context_strategies import build_context_strategies, DEFAULT_CONTEXT_STRATEGIES
+    from backend.config import DOCUMENT_REPOSITORY_BASE_DIR, DEFAULT_CAE_BASE_URL
+    from pathlib import Path
+    
+    if payload.plan_only:
+        # Solo generar y devolver el plan, NO ejecutar
+        # Determinar ExecutionProfile
+        if payload.execution_profile_name:
+            valid_profiles = {"fast", "balanced", "thorough"}
+            if payload.execution_profile_name in valid_profiles:
+                if payload.execution_profile_name == "fast":
+                    execution_profile = ExecutionProfile.fast()
+                elif payload.execution_profile_name == "thorough":
+                    execution_profile = ExecutionProfile.thorough()
+                else:
+                    execution_profile = ExecutionProfile.default()
+            else:
+                execution_profile = ExecutionProfile.from_goal_text(payload.goal)
+        else:
+            execution_profile = ExecutionProfile.from_goal_text(payload.goal)
+        
+        # Construir estrategias de contexto
+        strategy_names = payload.context_strategies if payload.context_strategies else [s.name for s in DEFAULT_CONTEXT_STRATEGIES]
+        
+        # Descomponer goal
+        sub_goals = _decompose_goal(payload.goal)
+        if not sub_goals:
+            sub_goals = [payload.goal]
+        
+        # Obtener repositorio de documentos
+        document_repository = DocumentRepository(Path(DOCUMENT_REPOSITORY_BASE_DIR))
+        
+        # Generar plan
+        execution_plan = build_execution_plan(
+            goal=payload.goal,
+            sub_goals=sub_goals,
+            execution_profile=execution_profile,
+            context_strategies=strategy_names,
+            document_repository=document_repository,
+        )
+        
+        # Devolver solo el plan
+        return AgentAnswerResponse(
+            goal=payload.goal,
+            final_answer="Plan de ejecución generado. Por favor, revisa y confirma para ejecutar.",
+            steps=[],
+            source_url=None,
+            source_title=None,
+            sources=[],
+            sections=None,
+            structured_sources=None,
+            metrics_summary=None,
+            file_upload_instructions=None,
+            execution_plan=execution_plan.to_dict(),
+            execution_cancelled=None,
+        )
+    
+    # v2.8.0: Manejar cancelación
+    if payload.execution_confirmed is False:
+        return AgentAnswerResponse(
+            goal=payload.goal,
+            final_answer="La ejecución fue cancelada por el usuario antes de iniciarse.",
+            steps=[],
+            source_url=None,
+            source_title=None,
+            sources=[],
+            sections=None,
+            structured_sources=None,
+            metrics_summary=None,
+            file_upload_instructions=None,
+            execution_plan=None,
+            execution_cancelled=True,
+        )
+    
+    # Ejecución normal (v2.7.0)
+    # v2.9.0: Pasar disabled_sub_goal_indices
     steps, final_answer, source_url, source_title, sources = await run_llm_task_with_answer(
         goal=payload.goal,
         browser=browser,
         max_steps=payload.max_steps,
         context_strategies=payload.context_strategies,
+        execution_profile_name=payload.execution_profile_name,
+        disabled_sub_goal_indices=payload.disabled_sub_goal_indices,
     )
     
     # v1.6.0: Extraer información estructurada del último step si está disponible
@@ -251,4 +340,41 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
         structured_sources=structured_answer["sources"] if structured_answer else None,
         metrics_summary=metrics_summary,
         file_upload_instructions=file_upload_instructions if file_upload_instructions else None,
+        execution_plan=None,
+        execution_cancelled=None,
     )
+
+
+@app.post("/agent/batch", response_model=BatchAgentResponse)
+async def agent_batch_endpoint(request: BatchAgentRequest):
+    """
+    Ejecuta un batch de objetivos de forma autónoma.
+    
+    v3.0.0: Permite ejecutar múltiples objetivos secuencialmente sin intervención humana.
+    """
+    from backend.agents.batch_runner import run_batch_agent
+    
+    try:
+        response = await run_batch_agent(
+            batch_request=request,
+            browser=browser,
+        )
+        return response
+    except Exception as e:
+        logger.error(f"[batch-endpoint] Fatal error in batch execution: {e}", exc_info=True)
+        # Devolver respuesta de error estructurada
+        error_result = BatchAgentResponse(
+            goals=[],
+            summary={
+                "total_goals": len(request.goals),
+                "success_count": 0,
+                "failure_count": len(request.goals),
+                "failure_ratio": 1.0,
+                "aborted_due_to_failures": True,
+                "max_consecutive_failures": request.max_consecutive_failures or 5,
+                "elapsed_seconds": 0.0,
+                "mode": "batch",
+                "fatal_error": str(e),
+            },
+        )
+        return error_result
