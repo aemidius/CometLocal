@@ -26,6 +26,7 @@ from backend.agents.context_strategies import (
 from backend.agents.retry_policy import RetryPolicy
 from backend.agents.execution_plan import ExecutionPlan, PlannedSubGoal
 from backend.vision.ocr_service import OCRService
+from backend.agents.visual_flow import VisualFlowEngine
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,44 @@ class AgentMetrics:
         self.ocr_calls: int = 0
         self.ocr_failures: int = 0
         self.ocr_text_coverage: int = 0  # steps con ocr_text no vacío
+        # v3.4.0: Contadores de click visual
+        self.visual_click_attempts: int = 0
+        self.visual_click_successes: int = 0
+        # v3.5.0: Contadores de visual flow
+        self.visual_flow_updates: int = 0
+        self.visual_flow_error_states: int = 0
+        self.visual_flow_confirmed_states: int = 0
+    
+    def register_visual_click(self, success: bool) -> None:
+        """
+        Registra un intento de click visual.
+        
+        v3.4.0: Actualiza los contadores de clicks visuales.
+        
+        Args:
+            success: True si el click visual fue exitoso
+        """
+        self.visual_click_attempts += 1
+        if success:
+            self.visual_click_successes += 1
+    
+    def register_visual_flow_state(self, state: Optional["VisualFlowState"]) -> None:
+        """
+        Registra un estado visual del flujo.
+        
+        v3.5.0: Actualiza los contadores de estados visuales del flujo.
+        
+        Args:
+            state: VisualFlowState a registrar (None se ignora)
+        """
+        if not state:
+            return
+        
+        self.visual_flow_updates += 1
+        if state.stage == "error":
+            self.visual_flow_error_states += 1
+        if state.stage == "confirmed":
+            self.visual_flow_confirmed_states += 1
     
     def start(self):
         """Marca el inicio de la ejecución completa."""
@@ -300,6 +339,22 @@ class AgentMetrics:
             ) if self.ocr_calls > 0 else 0.0,
         }
         
+        # v3.4.0: Información de click visual
+        visual_click_info = {
+            "visual_click_attempts": self.visual_click_attempts,
+            "visual_click_successes": self.visual_click_successes,
+            "visual_click_success_ratio": round(
+                self.visual_click_successes / max(1, self.visual_click_attempts), 3
+            ) if self.visual_click_attempts > 0 else 0.0,
+        }
+        
+        # v3.5.0: Información de visual flow
+        visual_flow_info = {
+            "visual_flow_updates": self.visual_flow_updates,
+            "visual_flow_error_states": self.visual_flow_error_states,
+            "visual_flow_confirmed_states": self.visual_flow_confirmed_states,
+        }
+        
         # Serializar sub_goals
         sub_goals_data = []
         for m in self.sub_goals:
@@ -333,6 +388,8 @@ class AgentMetrics:
                 "skipped_info": skipped_info,  # v2.9.0
                 "visual_confirmation_info": visual_confirmation_info,  # v3.2.0
                 "ocr_info": ocr_info,  # v3.3.0
+                "visual_click_info": visual_click_info,  # v3.4.0
+                "visual_flow_info": visual_flow_info,  # v3.5.0
                 "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }
@@ -907,10 +964,50 @@ def _verify_upload_visually(
     }
 
 
+def _find_high_confidence_visual_button(
+    observation: BrowserObservation,
+    allowed_labels: List[str],
+    min_confidence: float = 0.85,
+) -> Optional["VisualTarget"]:
+    """
+    Busca un botón visual de alta confianza en la observación.
+    
+    v3.4.0: Usa VisualTargetDetector para encontrar botones críticos
+    con coordenadas válidas para clicks por pantalla.
+    
+    Args:
+        observation: BrowserObservation con ocr_blocks (opcional)
+        allowed_labels: Lista de labels permitidos (ej. ["guardar", "adjuntar", "confirmar"])
+        min_confidence: Confianza mínima requerida
+        
+    Returns:
+        VisualTarget con coordenadas válidas, o None si no se encuentra
+    """
+    from backend.vision.visual_targets import VisualTargetDetector
+    
+    detector = VisualTargetDetector(min_confidence=min_confidence)
+    targets = detector.find_targets(observation)
+    
+    # Filtrar por labels permitidos y que tengan coordenadas
+    candidates = [
+        t for t in targets
+        if t.label in allowed_labels and t.x is not None and t.y is not None
+    ]
+    
+    if not candidates:
+        return None
+    
+    # Devolver el de mayor confianza
+    candidates.sort(key=lambda t: t.confidence, reverse=True)
+    return candidates[0]
+
+
 async def _attempt_visual_recovery(
     browser: BrowserController,
     action_type: str,
     last_observation: BrowserObservation,
+    goal: Optional[str] = None,  # v3.4.0: Para detectar si es CAE/upload
+    visual_flow_state: Optional["VisualFlowState"] = None,  # v3.5.0: Estado visual del flujo
 ) -> Optional["VisualActionResult"]:
     """
     Intenta recuperación visual tras una acción que no fue confirmada.
@@ -921,15 +1018,20 @@ async def _attempt_visual_recovery(
     - Repetir click si aplica
     - Re-verificar visualmente
     
+    v3.4.0: Añade detección visual como último recurso:
+    - Usa OCR para detectar botones críticos
+    - Hace click por coordenadas si se encuentra un botón válido
+    
     Args:
         browser: BrowserController para ejecutar acciones
         action_type: Tipo de acción que falló ("click", "upload_file")
         last_observation: Última observación disponible
+        goal: Opcional, texto del objetivo para detectar contexto CAE/upload
         
     Returns:
         VisualActionResult si se intentó recuperación, None si no aplica
     """
-    from backend.shared.models import VisualActionResult
+    from backend.shared.models import VisualActionResult, VisualTarget
     
     if action_type != "click":
         # Por ahora solo recuperación para clicks
@@ -967,28 +1069,115 @@ async def _attempt_visual_recovery(
             if clicked_alternative:
                 break
         
-        # Obtener nueva observación después de la recuperación
+        # Obtener nueva observación después de la recuperación DOM
         final_observation = await browser.get_observation()
         
-        # Verificar si la recuperación tuvo éxito
-        recovery_keywords = [
-            "guardado", "guardado correctamente", "enviado", "enviado correctamente",
-            "confirmado", "aceptado", "finalizado", "saved", "sent", "submitted",
-        ]
-        
-        visual_result = _verify_action_visually(
+        # v3.4.0: Estrategia 3: Detección visual como último recurso
+        # Solo si no se ha conseguido confirmación positiva todavía
+        visual_result_after_dom = _verify_action_visually(
             observation=final_observation,
             expected_effect="Confirmar que la recuperación visual tuvo éxito",
-            keywords=recovery_keywords,
+            keywords=[
+                "guardado", "guardado correctamente", "enviado", "enviado correctamente",
+                "confirmado", "aceptado", "finalizado", "saved", "sent", "submitted",
+            ],
         )
-        visual_result.action_type = "recovery"
         
+        # Si ya tenemos confirmación positiva, devolver
+        if visual_result_after_dom.confirmed:
+            visual_result_after_dom.action_type = "recovery"
+            logger.debug(
+                "[visual-recovery] Recovery result (DOM): confirmed=%r confidence=%.2f",
+                visual_result_after_dom.confirmed, visual_result_after_dom.confidence
+            )
+            return visual_result_after_dom
+        
+        # Si no hay confirmación, intentar detección visual
+        # Solo en contextos CAE o upload/guardar
+        is_cae_or_upload = False
+        if goal:
+            goal_lower = goal.lower()
+            is_cae_or_upload = any(
+                keyword in goal_lower
+                for keyword in ["cae", "subir", "upload", "guardar", "adjuntar", "documento"]
+            )
+        
+        if is_cae_or_upload:
+            # Enriquecer observación con OCR si no está ya enriquecida
+            # (Nota: esto debería haberse hecho antes, pero por si acaso)
+            from backend.vision.ocr_service import OCRService
+            from backend.config import VISION_OCR_ENABLED
+            ocr_service = OCRService(enabled=VISION_OCR_ENABLED)
+            final_observation = await _maybe_enrich_observation_with_ocr(
+                final_observation, ocr_service, None
+            )
+            
+            # v3.5.0: Usar VisualFlowState para orientar la búsqueda de botones visuales
+            allowed_labels = ["guardar", "adjuntar", "confirmar"]  # valor por defecto
+            
+            if visual_flow_state is not None and visual_flow_state.pending_actions:
+                # Mapear pending_actions -> labels
+                if "click_save_button" in visual_flow_state.pending_actions:
+                    allowed_labels = ["guardar"]
+                    logger.debug("[visual-recovery] Using visual flow state: focusing on 'guardar' button")
+                elif "click_confirm_button" in visual_flow_state.pending_actions:
+                    allowed_labels = ["confirmar"]
+                    logger.debug("[visual-recovery] Using visual flow state: focusing on 'confirmar' button")
+                elif "click_upload_button" in visual_flow_state.pending_actions:
+                    allowed_labels = ["adjuntar"]
+                    logger.debug("[visual-recovery] Using visual flow state: focusing on 'adjuntar' button")
+            
+            # Buscar botón visual de alta confianza
+            visual_target = _find_high_confidence_visual_button(
+                observation=final_observation,
+                allowed_labels=allowed_labels,
+                min_confidence=0.85,
+            )
+            
+            if visual_target and visual_target.x is not None and visual_target.y is not None:
+                logger.debug(
+                    "[visual-recovery] Found visual target: label=%r confidence=%.2f x=%d y=%d",
+                    visual_target.label, visual_target.confidence, visual_target.x, visual_target.y
+                )
+                
+                try:
+                    # Hacer click por coordenadas
+                    observation_after_click = await browser.click_at(visual_target.x, visual_target.y)
+                    
+                    # Verificar visualmente el resultado
+                    visual_result = _verify_action_visually(
+                        observation=observation_after_click,
+                        expected_effect=f"Confirmar que el click visual en '{visual_target.label}' tuvo éxito",
+                        keywords=[
+                            "guardado", "guardado correctamente", "enviado", "enviado correctamente",
+                            "confirmado", "aceptado", "finalizado", "saved", "sent", "submitted",
+                        ],
+                    )
+                    visual_result.action_type = "visual_click"
+                    
+                    # v3.4.0: Añadir información del target visual al resultado
+                    # Usamos un atributo dinámico para almacenar el target
+                    visual_result.visual_target = visual_target
+                    
+                    logger.debug(
+                        "[visual-recovery] Visual click result: confirmed=%r confidence=%.2f",
+                        visual_result.confirmed, visual_result.confidence
+                    )
+                    
+                    return visual_result
+                    
+                except Exception as e:
+                    logger.debug("[visual-recovery] Visual click failed: %s", e)
+                    # Continuar y devolver el resultado de DOM recovery
+        
+        # Devolver resultado de recuperación DOM (sin confirmación positiva)
+        visual_result_after_dom.action_type = "recovery"
         logger.debug(
             "[visual-recovery] Recovery result: confirmed=%r confidence=%.2f",
-            visual_result.confirmed, visual_result.confidence
+            visual_result_after_dom.confirmed, visual_result_after_dom.confidence
         )
         
-        return visual_result
+        return visual_result_after_dom
         
     except Exception as e:
         logger.debug("[visual-recovery] Recovery attempt failed: %s", e)
@@ -1934,6 +2123,10 @@ async def run_llm_agent(
     # v1.5.0: Iniciar medición de tiempo
     start_time = time.monotonic()
     
+    # v3.5.0: Inicializar estado visual del flujo
+    visual_flow_engine = VisualFlowEngine()
+    visual_flow_state = None
+    
     # v1.4: Calcular focus_entity si no se proporciona
     if focus_entity is None:
         focus_entity = _extract_focus_entity_from_goal(goal)
@@ -2188,6 +2381,7 @@ async def run_llm_agent(
 
             # v3.2.0: Confirmación visual para acciones críticas
             visual_confirmation = None
+            visual_recovery_result = None  # v3.4.0: Resultado de recuperación visual
             if action.type == "click_text":
                 clicked_text = action.args.get("text", "").lower()
                 # Botones críticos que requieren confirmación visual
@@ -2213,11 +2407,56 @@ async def run_llm_agent(
                         "[visual-confirmation] Critical button clicked: text=%r confirmed=%r confidence=%.2f",
                         action.args.get("text", ""), visual_confirmation.confirmed, visual_confirmation.confidence
                     )
+                    
+                    # v3.4.0: Si la confirmación visual falla, intentar recuperación visual
+                    if not visual_confirmation.confirmed:
+                        logger.debug("[visual-recovery] Visual confirmation failed, attempting visual recovery")
+                        visual_recovery_result = await _attempt_visual_recovery(
+                            browser=browser,
+                            action_type="click",
+                            last_observation=observation_after,
+                            goal=goal,
+                            visual_flow_state=visual_flow_state,  # v3.5.0: Pasar estado visual del flujo
+                        )
+                        
+                        if visual_recovery_result:
+                            # Registrar métricas de click visual
+                            # Nota: Necesitamos acceso a agent_metrics, pero no está disponible aquí directamente
+                            # Se registrará más tarde en el procesamiento de steps
+                            
+                            # Si la recuperación visual tuvo éxito, actualizar la observación
+                            if visual_recovery_result.confirmed:
+                                try:
+                                    observation_after = await browser.get_observation()
+                                except Exception:
+                                    pass  # Mantener observation_after anterior
+                                logger.debug(
+                                    "[visual-recovery] Visual recovery succeeded: confirmed=%r confidence=%.2f",
+                                    visual_recovery_result.confirmed, visual_recovery_result.confidence
+                                )
 
+            # v3.5.0: Inferir estado visual del flujo
+            action_type_str = action.type if action else None
+            visual_flow_state = visual_flow_engine.infer_next_state(
+                previous=visual_flow_state,
+                action_type=action_type_str,
+                observation=observation_after,
+            )
+            
             # Add step result
             step_info = {}
             if visual_confirmation:
                 step_info["visual_confirmation"] = visual_confirmation.model_dump()
+            if visual_recovery_result:
+                step_info["visual_recovery"] = visual_recovery_result.model_dump()
+                step_info["reason"] = "visual_recovery_click"  # v3.4.0: Marcar como click de recuperación visual
+                # Añadir información del target visual si está disponible
+                if hasattr(visual_recovery_result, 'visual_target') and visual_recovery_result.visual_target:
+                    step_info["visual_target"] = visual_recovery_result.visual_target.model_dump() if hasattr(visual_recovery_result.visual_target, 'model_dump') else visual_recovery_result.visual_target
+            
+            # v3.5.0: Añadir estado visual del flujo al step
+            if visual_flow_state:
+                step_info["visual_flow_state"] = visual_flow_state.model_dump()
             
             steps.append(StepResult(
                 observation=observation_after,
@@ -3857,6 +4096,24 @@ async def run_llm_task_with_answer(
                     agent_metrics.visual_confirmations_attempted += 1
                     if not visual_confirmation.get("confirmed", False):
                         agent_metrics.visual_confirmations_failed += 1
+            
+            # v3.4.0: Registrar clicks visuales
+            if info.get("reason") == "visual_recovery_click":
+                visual_recovery = info.get("visual_recovery")
+                if visual_recovery and isinstance(visual_recovery, dict):
+                    confirmed = visual_recovery.get("confirmed", False)
+                    agent_metrics.register_visual_click(success=confirmed)
+            
+            # v3.5.0: Registrar estados visuales del flujo
+            if info.get("visual_flow_state"):
+                visual_flow_state_dict = info["visual_flow_state"]
+                if isinstance(visual_flow_state_dict, dict):
+                    from backend.shared.models import VisualFlowState
+                    try:
+                        visual_flow_state = VisualFlowState(**visual_flow_state_dict)
+                        agent_metrics.register_visual_flow_state(visual_flow_state)
+                    except Exception as e:
+                        logger.debug(f"[metrics] Failed to parse visual_flow_state: {e}")
         
         # v1.5.0: Finalizar métricas y obtener resumen
         agent_metrics.finish()
@@ -4198,6 +4455,13 @@ async def run_llm_task_with_answer(
                     agent_metrics.visual_confirmations_attempted += 1
                     if not visual_confirmation.get("confirmed", False):
                         agent_metrics.visual_confirmations_failed += 1
+            
+            # v3.4.0: Registrar clicks visuales
+            if info.get("reason") == "visual_recovery_click":
+                visual_recovery = info.get("visual_recovery")
+                if visual_recovery and isinstance(visual_recovery, dict):
+                    confirmed = visual_recovery.get("confirmed", False)
+                    agent_metrics.register_visual_click(success=confirmed)
             
             # v3.3.0: Registrar cobertura de OCR (steps con ocr_text no vacío)
             if s.observation and s.observation.ocr_text:

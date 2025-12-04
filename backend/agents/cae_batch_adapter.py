@@ -272,6 +272,27 @@ def build_cae_response_from_batch(
                 dates_str = ", ".join(cae_status_info["expiry_dates"])
                 notes_parts.append(f"Caducidades detectadas: {dates_str}")
         
+        # v3.5.0: Usar VisualFlowState si está disponible para enriquecer notas y success
+        last_visual_flow_state = None
+        if hasattr(result, 'steps') and result.steps:
+            # Buscar el último visual_flow_state en los steps
+            for step in reversed(result.steps):
+                if step.info and step.info.get("visual_flow_state"):
+                    from backend.shared.models import VisualFlowState
+                    try:
+                        last_visual_flow_state = VisualFlowState(**step.info["visual_flow_state"])
+                        break
+                    except Exception as e:
+                        logger.debug(f"[cae-batch] Failed to parse visual_flow_state: {e}")
+        
+        if last_visual_flow_state:
+            if last_visual_flow_state.stage == "error":
+                notes_parts.append("El flujo visual indica que hay mensajes de error en la plataforma.")
+            elif last_visual_flow_state.stage == "confirmed":
+                # Reforzar success si el flujo visual indica confirmación
+                if not result.success:
+                    logger.debug("[cae-batch] Visual flow state indicates confirmed, but result.success is False")
+        
         notes = "; ".join(notes_parts) if notes_parts else None
         
         # v3.2.0: Extraer visual_actions de las secciones

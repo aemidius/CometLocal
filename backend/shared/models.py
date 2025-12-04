@@ -194,6 +194,40 @@ class VisualActionResult(BaseModel):
     evidence: Optional[str] = None  # texto visible encontrado que confirma o niega
 
 
+# v3.4.0: Modelo para objetivos visuales detectados
+class VisualTarget(BaseModel):
+    """
+    Botón o elemento visual detectado en una captura de pantalla.
+    
+    v3.4.0: Representa un botón detectado mediante OCR o heurísticas,
+    con sus coordenadas para permitir clicks por pantalla.
+    """
+    label: str  # "guardar", "adjuntar", "confirmar", etc.
+    x: Optional[int] = None  # coordenada X del centro o del click
+    y: Optional[int] = None  # coordenada Y del centro o del click
+    width: Optional[int] = None
+    height: Optional[int] = None
+    confidence: float = 0.0  # confianza de la detección (0.0 - 1.0)
+    source: Optional[str] = None  # "ocr_block", "heuristic", etc.
+    text: Optional[str] = None  # texto OCR asociado (ej. "Guardar cambios")
+
+
+# v3.5.0: Modelo para estado visual del flujo
+class VisualFlowState(BaseModel):
+    """
+    Estado visual del flujo actual, especialmente útil para formularios CAE/upload.
+    
+    v3.5.0: Representa el estado visual del flujo de trabajo (ej. "archivo ya adjuntado",
+    "pendiente de guardar", "confirmado", etc.) para orientar mejor la recuperación visual
+    y el análisis de resultados.
+    """
+    stage: str = "unknown"  # "idle" | "select_file" | "file_selected" | "uploaded" | "saved" | "confirmed" | "error" | "unknown"
+    last_action: Optional[str] = None  # ej. "click_upload_button", "click_save_button", "upload_file"
+    pending_actions: List[str] = Field(default_factory=list)  # ej. ["click_save_button", "click_confirm_button"]
+    notes: Optional[str] = None  # explicación humana breve
+    confidence: float = 0.0  # confianza en la inferencia del estado (0.0 - 1.0)
+
+
 class CAEWorkerDocStatus(BaseModel):
     """
     Estado de documentación de un trabajador tras procesamiento CAE.
