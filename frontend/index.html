@@ -173,6 +173,170 @@
       color: #6b7280;
       font-size: 14px;
     }
+    /* v1.8.0: Estilos para respuesta estructurada */
+    .structured-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .structured-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #9ca3af;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .subgoal-section {
+      margin-bottom: 16px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+      border-left: 3px solid #60a5fa;
+    }
+    .subgoal-section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e5e7eb;
+      margin-bottom: 8px;
+    }
+    .subgoal-section-content {
+      font-size: 12px;
+      color: #d1d5db;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    .subgoal-section-sources {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #9ca3af;
+    }
+    .subgoal-section-sources a {
+      color: #60a5fa;
+      text-decoration: underline;
+      margin-right: 8px;
+    }
+    .file-upload-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .file-upload-item {
+      margin-bottom: 12px;
+      padding: 10px;
+      background: rgba(59, 130, 246, 0.1);
+      border-radius: 6px;
+      border-left: 3px solid #3b82f6;
+    }
+    .file-upload-description {
+      font-size: 13px;
+      font-weight: 500;
+      color: #e5e7eb;
+      margin-bottom: 4px;
+    }
+    .file-upload-path {
+      font-size: 11px;
+      color: #9ca3af;
+      font-family: monospace;
+      word-break: break-all;
+    }
+    .structured-sources-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .structured-sources-list li {
+      margin-bottom: 8px;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 4px;
+      font-size: 11px;
+    }
+    .structured-sources-list a {
+      color: #60a5fa;
+      text-decoration: underline;
+      font-weight: 500;
+    }
+    .structured-sources-list .source-meta {
+      color: #9ca3af;
+      font-size: 10px;
+      margin-top: 4px;
+    }
+    .metrics-toggle {
+      cursor: pointer;
+      user-select: none;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .metrics-toggle:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .metrics-toggle::before {
+      content: "▶";
+      font-size: 8px;
+      transition: transform 0.2s;
+    }
+    .metrics-toggle.expanded::before {
+      transform: rotate(90deg);
+    }
+    .metrics-content {
+      display: none;
+      margin-top: 8px;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      font-size: 11px;
+    }
+    .metrics-content.expanded {
+      display: block;
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .metrics-item {
+      padding: 6px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 4px;
+    }
+    .metrics-item-label {
+      color: #9ca3af;
+      font-size: 10px;
+      margin-bottom: 2px;
+    }
+    .metrics-item-value {
+      color: #e5e7eb;
+      font-weight: 600;
+      font-size: 12px;
+    }
+    .metrics-table {
+      width: 100%;
+      margin-top: 12px;
+      font-size: 10px;
+      border-collapse: collapse;
+    }
+    .metrics-table th,
+    .metrics-table td {
+      padding: 6px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .metrics-table th {
+      color: #9ca3af;
+      font-weight: 600;
+    }
+    .metrics-table td {
+      color: #d1d5db;
+    }
   </style>
 </head>
 <body>
@@ -340,6 +504,189 @@
       }
     }
 
+    // v1.8.0: Helper para renderizar secciones por sub-objetivo
+    function renderSections(sections) {
+      if (!sections || sections.length === 0) return "";
+      
+      let html = '<div class="structured-section">';
+      html += '<div class="structured-section-title">Desglose por objetivos</div>';
+      
+      sections.forEach(section => {
+        const index = section.index || 0;
+        const subGoal = section.sub_goal || "";
+        const answer = section.answer || "";
+        const sources = section.sources || [];
+        
+        html += '<div class="subgoal-section">';
+        html += `<div class="subgoal-section-title">${index}. ${subGoal}</div>`;
+        
+        if (answer) {
+          html += `<div class="subgoal-section-content">${escapeHtml(answer)}</div>`;
+        }
+        
+        if (sources.length > 0) {
+          html += '<div class="subgoal-section-sources">Fuentes: ';
+          const sourceLinks = sources.slice(0, 3).map(source => {
+            const displayText = (source.title && source.title.trim()) ? escapeHtml(source.title) : escapeHtml(source.url);
+            return `<a href="${escapeHtml(source.url)}" target="_blank">${displayText}</a>`;
+          }).join(", ");
+          html += sourceLinks;
+          html += '</div>';
+        }
+        
+        html += '</div>';
+      });
+      
+      html += '</div>';
+      return html;
+    }
+    
+    // v1.8.0: Helper para renderizar fuentes estructuradas globales
+    function renderStructuredSources(structuredSources) {
+      if (!structuredSources || structuredSources.length === 0) return "";
+      
+      let html = '<div class="structured-section">';
+      html += '<div class="structured-section-title">Fuentes</div>';
+      html += '<ul class="structured-sources-list">';
+      
+      structuredSources.forEach(source => {
+        const url = source.url || "";
+        const title = source.title || "";
+        const subGoals = source.sub_goals || [];
+        const displayText = (title && title.trim()) ? escapeHtml(title) : escapeHtml(url);
+        
+        html += '<li>';
+        html += `<a href="${escapeHtml(url)}" target="_blank">${displayText}</a>`;
+        
+        if (subGoals.length > 0) {
+          const subGoalsText = subGoals.sort((a, b) => a - b).join(", ");
+          html += `<div class="source-meta">Usado en objetivos: ${subGoalsText}</div>`;
+        }
+        
+        html += '</li>';
+      });
+      
+      html += '</ul>';
+      html += '</div>';
+      return html;
+    }
+    
+    // v2.2.0: Helper para renderizar documentos locales sugeridos
+    function renderFileUploadInstructions(fileUploadInstructions) {
+      if (!fileUploadInstructions || fileUploadInstructions.length === 0) return "";
+      
+      let html = '<div class="structured-section">';
+      html += '<div class="structured-section-title">DOCUMENTOS LOCALES SUGERIDOS</div>';
+      html += '<ul class="file-upload-list">';
+      
+      fileUploadInstructions.forEach(instruction => {
+        const description = instruction.description || "documento";
+        const path = instruction.path || "";
+        
+        html += '<li class="file-upload-item">';
+        html += `<div class="file-upload-description">${escapeHtml(description)}</div>`;
+        if (path) {
+          html += `<div class="file-upload-path">${escapeHtml(path)}</div>`;
+        }
+        html += '</li>';
+      });
+      
+      html += '</ul>';
+      html += '</div>';
+      return html;
+    }
+    
+    // v1.8.0: Helper para renderizar métricas
+    function renderMetrics(metricsSummary) {
+      if (!metricsSummary) return "";
+      
+      const summary = metricsSummary.summary || {};
+      const subGoals = metricsSummary.sub_goals || [];
+      
+      let html = '<div class="structured-section">';
+      html += '<div class="metrics-toggle" onclick="toggleMetrics(this)">';
+      html += 'Detalles técnicos de la ejecución (métricas)';
+      html += '</div>';
+      html += '<div class="metrics-content">';
+      
+      // Grid de métricas principales
+      html += '<div class="metrics-grid">';
+      html += `<div class="metrics-item">
+        <div class="metrics-item-label">Total sub-objetivos</div>
+        <div class="metrics-item-value">${summary.total_sub_goals || 0}</div>
+      </div>`;
+      html += `<div class="metrics-item">
+        <div class="metrics-item-label">Total pasos</div>
+        <div class="metrics-item-value">${summary.total_steps || 0}</div>
+      </div>`;
+      html += `<div class="metrics-item">
+        <div class="metrics-item-label">Éxitos</div>
+        <div class="metrics-item-value">${summary.success_count || 0}</div>
+      </div>`;
+      html += `<div class="metrics-item">
+        <div class="metrics-item-label">Tiempo total</div>
+        <div class="metrics-item-value">${(summary.total_time_seconds || 0).toFixed(2)}s</div>
+      </div>`;
+      if (summary.avg_steps_per_subgoal !== undefined) {
+        html += `<div class="metrics-item">
+          <div class="metrics-item-label">Promedio pasos/sub-objetivo</div>
+          <div class="metrics-item-value">${summary.avg_steps_per_subgoal.toFixed(1)}</div>
+        </div>`;
+      }
+      if (summary.avg_elapsed_seconds !== undefined) {
+        html += `<div class="metrics-item">
+          <div class="metrics-item-label">Promedio tiempo/sub-objetivo</div>
+          <div class="metrics-item-value">${summary.avg_elapsed_seconds.toFixed(2)}s</div>
+        </div>`;
+      }
+      html += '</div>';
+      
+      // Tabla de early-stop counts
+      if (summary.early_stop_counts && Object.keys(summary.early_stop_counts).length > 0) {
+        html += '<table class="metrics-table">';
+        html += '<thead><tr><th>Razón de early-stop</th><th>Cantidad</th></tr></thead>';
+        html += '<tbody>';
+        for (const [reason, count] of Object.entries(summary.early_stop_counts)) {
+          html += `<tr><td>${escapeHtml(reason)}</td><td>${count}</td></tr>`;
+        }
+        html += '</tbody></table>';
+      }
+      
+      // Tabla de goal_type counts
+      if (summary.goal_type_counts && Object.keys(summary.goal_type_counts).length > 0) {
+        html += '<table class="metrics-table" style="margin-top: 12px;">';
+        html += '<thead><tr><th>Tipo de objetivo</th><th>Cantidad</th></tr></thead>';
+        html += '<tbody>';
+        for (const [goalType, count] of Object.entries(summary.goal_type_counts)) {
+          html += `<tr><td>${escapeHtml(goalType)}</td><td>${count}</td></tr>`;
+        }
+        html += '</tbody></table>';
+      }
+      
+      html += '</div>';
+      html += '</div>';
+      return html;
+    }
+    
+    // v1.8.0: Helper para escapar HTML
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // v1.8.0: Toggle para panel de métricas
+    function toggleMetrics(element) {
+      element.classList.toggle("expanded");
+      const content = element.nextElementSibling;
+      if (content) {
+        content.classList.toggle("expanded");
+      }
+    }
+    
+    // Exponer toggleMetrics globalmente para onclick
+    window.toggleMetrics = toggleMetrics;
+
     async function sendAgentMessage(text, thinkingMsg) {
       const res = await fetch(API_AGENT_ANSWER, {
         method: "POST",
@@ -361,6 +708,13 @@
       const sourceUrl = data.source_url || null;
       const sourceTitle = data.source_title || null;
       const sources = data.sources || [];
+      
+      // v1.8.0: Leer campos estructurados
+      const sections = data.sections || null;
+      const structuredSources = data.structured_sources || null;
+      const metricsSummary = data.metrics_summary || null;
+      // v2.2.0: Leer instrucciones de file upload
+      const fileUploadInstructions = data.file_upload_instructions || null;
 
       // Update thinking message with final answer
       thinkingMsg.classList.remove("thinking");
@@ -368,25 +722,54 @@
       // Build extra HTML with source and steps
       let extraHtml = "";
       
-      // Add source link if available
-      if (sourceUrl) {
-        const displayText = (sourceTitle && sourceTitle.trim()) ? sourceTitle : sourceUrl;
-        extraHtml += `<div style="margin-bottom: 8px; font-size: 11px; color: #9ca3af;">Fuente principal: <a href="${sourceUrl}" target="_blank" style="color: #60a5fa; text-decoration: underline;">${displayText}</a></div>`;
+      // v1.8.0: Si hay datos estructurados, usarlos; si no, comportamiento legacy
+      if (sections || structuredSources || metricsSummary || fileUploadInstructions) {
+        // Renderizar secciones por sub-objetivo
+        if (sections) {
+          extraHtml += renderSections(sections);
+        }
+        
+        // Renderizar fuentes estructuradas globales
+        if (structuredSources) {
+          extraHtml += renderStructuredSources(structuredSources);
+        }
+        
+        // Renderizar métricas
+        if (metricsSummary) {
+          extraHtml += renderMetrics(metricsSummary);
+        }
+      } else {
+        // Comportamiento legacy (v1.7.0 y anteriores)
+        // Add source link if available
+        if (sourceUrl) {
+          const displayText = (sourceTitle && sourceTitle.trim()) ? sourceTitle : sourceUrl;
+          extraHtml += `<div style="margin-bottom: 8px; font-size: 11px; color: #9ca3af;">Fuente principal: <a href="${escapeHtml(sourceUrl)}" target="_blank" style="color: #60a5fa; text-decoration: underline;">${escapeHtml(displayText)}</a></div>`;
+        }
+        
+        // Add additional sources if available
+        if (sources.length > 1) {
+          const extra = sources.slice(1);
+          const sourceLinks = extra.map(source => {
+            const displayText = (source.title && source.title.trim()) ? source.title : source.url;
+            return `<a href="${escapeHtml(source.url)}" target="_blank" style="color: #60a5fa; text-decoration: underline;">${escapeHtml(displayText)}</a>`;
+          }).join(" · ");
+          extraHtml += `<div style="margin-bottom: 8px; font-size: 11px; color: #9ca3af;">Otras fuentes: ${sourceLinks}</div>`;
+        }
       }
       
-      // Add additional sources if available
-      if (sources.length > 1) {
-        const extra = sources.slice(1);
-        const sourceLinks = extra.map(source => {
-          const displayText = (source.title && source.title.trim()) ? source.title : source.url;
-          return `<a href="${source.url}" target="_blank" style="color: #60a5fa; text-decoration: underline;">${displayText}</a>`;
-        }).join(" · ");
-        extraHtml += `<div style="margin-bottom: 8px; font-size: 11px; color: #9ca3af;">Otras fuentes: ${sourceLinks}</div>`;
-      }
-      
-      // Add steps view if available
+      // Add steps view if available (siempre disponible para debug)
       if (steps.length > 0) {
         extraHtml += createStepsView(steps);
+      }
+      
+      // v1.8.0: Debug logging en desarrollo
+      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+        console.log("[CometLocal] Respuesta completa:", {
+          sections,
+          structuredSources,
+          metricsSummary,
+          fullData: data
+        });
       }
       
       updateMessage(thinkingMsg, finalAnswer, extraHtml);

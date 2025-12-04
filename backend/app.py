@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from backend.browser.browser import BrowserController
-from backend.shared.models import StepResult, AgentAnswerRequest, AgentAnswerResponse, SourceInfo
+from backend.shared.models import StepResult, AgentAnswerRequest, AgentAnswerResponse, SourceInfo, FileUploadInstructionDTO
 from backend.agents.agent_runner import run_simple_agent, run_llm_agent, run_llm_task_with_answer
 
 app = FastAPI(title="CometLocal Backend")
@@ -228,6 +228,18 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
         if last_step.info and "metrics" in last_step.info:
             metrics_summary = last_step.info["metrics"]
     
+    # v2.2.0: Recoger instrucciones de file upload de todos los steps
+    file_upload_instructions: List[FileUploadInstructionDTO] = []
+    seen_paths = set()
+    for step in steps:
+        if step.info and "file_upload_instruction" in step.info:
+            instruction_dict = step.info["file_upload_instruction"]
+            path_str = instruction_dict.get("path", "")
+            # Deduplicar por path
+            if path_str and path_str not in seen_paths:
+                seen_paths.add(path_str)
+                file_upload_instructions.append(FileUploadInstructionDTO(**instruction_dict))
+    
     return AgentAnswerResponse(
         goal=payload.goal,
         final_answer=final_answer,
@@ -238,4 +250,5 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
         sections=structured_answer["sections"] if structured_answer else None,
         structured_sources=structured_answer["sources"] if structured_answer else None,
         metrics_summary=metrics_summary,
+        file_upload_instructions=file_upload_instructions if file_upload_instructions else None,
     )

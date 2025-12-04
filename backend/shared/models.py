@@ -55,6 +55,18 @@ class SourceInfo(BaseModel):
     title: Optional[str] = None
 
 
+class FileUploadInstructionDTO(BaseModel):
+    """
+    DTO para instrucción de subida de archivo (versión serializable).
+    v2.2.0: Versión serializable de FileUploadInstruction para la respuesta.
+    """
+    path: str
+    description: str
+    company: Optional[str] = None
+    worker: Optional[str] = None
+    doc_type: Optional[str] = None
+
+
 class AgentAnswerResponse(BaseModel):
     goal: str
     final_answer: str
@@ -66,4 +78,25 @@ class AgentAnswerResponse(BaseModel):
     sections: Optional[List[Dict[str, Any]]] = None
     structured_sources: Optional[List[Dict[str, Any]]] = None
     metrics_summary: Optional[Dict[str, Any]] = None
+    # v2.2.0: Instrucciones de subida de archivos
+    file_upload_instructions: Optional[List[FileUploadInstructionDTO]] = None
+
+
+# v2.2.0: Modelos para gestión de documentos
+class DocumentRequest(BaseModel):
+    """
+    Petición lógica de documento por empresa/trabajador/tipo.
+    """
+    company: str
+    worker: Optional[str] = None
+    doc_type: Optional[str] = None  # "dni", "contrato", "formacion", "prl", "reconocimiento_medico", "otro"
+
+
+class UploadInstruction(BaseModel):
+    """
+    Instrucción para subir un documento en un formulario web.
+    """
+    document: DocumentRequest
+    target: str  # Descripción del destino, ej. "input_subir_documento" o "zona subir CAE"
+    resolved_path: Optional[str] = None  # Ruta resuelta del documento (solo para debug interno)
 

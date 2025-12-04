@@ -440,6 +440,25 @@ def _build_final_answer(
         
         answer_parts.append("")  # Línea en blanco entre secciones
     
+    # v2.2.0: Recoger instrucciones de file upload de todos los steps
+    file_upload_instructions = []
+    seen_paths = set()
+    for step in all_steps:
+        if step.info and "file_upload_instruction" in step.info:
+            instruction_dict = step.info["file_upload_instruction"]
+            path_str = instruction_dict.get("path", "")
+            if path_str and path_str not in seen_paths:
+                seen_paths.add(path_str)
+                file_upload_instructions.append(instruction_dict)
+    
+    # v2.2.0: Añadir sección sobre documentos locales si existen
+    if file_upload_instructions:
+        answer_parts.append("")  # Línea en blanco
+        answer_parts.append("Además, he identificado los siguientes documentos locales que podrían ser subidos:")
+        for instruction in file_upload_instructions:
+            description = instruction.get("description", "documento")
+            answer_parts.append(f"- {description}")
+    
     answer_text = "\n".join(answer_parts).strip()
     
     # Obtener métricas si están disponibles
@@ -2085,6 +2104,7 @@ async def _run_llm_task_single(
     sub_goal_index: Optional[int] = None,
     execution_profile: Optional[ExecutionProfile] = None,
     context_strategies: Optional[List[ContextStrategy]] = None,
+    session_context: Optional[SessionContext] = None,
 ) -> Tuple[List[StepResult], str]:
     """
     Ejecuta el agente LLM para un único objetivo (sin descomposición)
@@ -2096,6 +2116,7 @@ async def _run_llm_task_single(
     v1.4: Aislamiento estricto de steps - solo usa steps_local para el prompt.
     v1.9.0: Acepta ExecutionProfile para controlar el comportamiento.
     v2.1.0: Acepta context_strategies para selección de estrategias por petición.
+    v2.2.0: Acepta session_context para detección de instrucciones de file upload.
     """
     # v1.4: Crear estructura local, no compartida
     steps_local: List[StepResult] = []
@@ -2415,7 +2436,7 @@ async def run_llm_task_with_answer(
         # v1.4: Primer sub-goal siempre resetea contexto
         t0 = time.perf_counter()
         steps, final_answer = await _run_llm_task_single(
-            browser, sub_goal, max_steps, focus_entity=focus_entity, reset_context=True, sub_goal_index=1, execution_profile=execution_profile, context_strategies=active_strategies
+            browser, sub_goal, max_steps, focus_entity=focus_entity, reset_context=True, sub_goal_index=1, execution_profile=execution_profile, context_strategies=active_strategies, session_context=session_context
         )
         t1 = time.perf_counter()
         
@@ -2637,7 +2658,7 @@ async def run_llm_task_with_answer(
         reset_ctx = (idx == 1)
         t0 = time.perf_counter()
         steps, answer = await _run_llm_task_single(
-            browser, sub_goal, max_steps, focus_entity=sub_focus_entity, reset_context=reset_ctx, sub_goal_index=idx, execution_profile=execution_profile, context_strategies=active_strategies
+            browser, sub_goal, max_steps, focus_entity=sub_focus_entity, reset_context=reset_ctx, sub_goal_index=idx, execution_profile=execution_profile, context_strategies=active_strategies, session_context=session_context
         )
         t1 = time.perf_counter()
         

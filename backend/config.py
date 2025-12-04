@@ -17,3 +17,6 @@ DEFAULT_IMAGE_SEARCH_URL_TEMPLATE = (
 # v2.1.0: Configuración para plataformas CAE
 DEFAULT_CAE_BASE_URL = os.getenv("CAE_BASE_URL", "https://example-cae.local")
 
+# v2.2.0: Configuración para repositorio de documentos
+DOCUMENT_REPOSITORY_BASE_DIR = os.getenv("CAE_DOCS_BASE_DIR", os.path.join(os.path.expanduser("~"), "CAE_Documents"))
+
