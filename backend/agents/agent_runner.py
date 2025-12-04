@@ -16,6 +16,7 @@ from backend.planner.llm_planner import LLMPlanner
 from backend.config import LLM_API_BASE, LLM_API_KEY, LLM_MODEL, DEFAULT_IMAGE_SEARCH_URL_TEMPLATE
 from backend.agents.session_context import SessionContext
 from backend.agents.execution_profile import ExecutionProfile
+from backend.agents.context_strategies import DEFAULT_CONTEXT_STRATEGIES, ContextStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -631,79 +632,31 @@ async def ensure_context(
     v1.3: Uses normalized queries with focus_entity fallback.
     v1.4: Always navigates to new context, never reuses old pages even if in same domain.
     v1.4.1: Performance hotfix - avoid unnecessary reloads if already in correct context.
+    v2.0.0: Refactored to use pluggable context strategies.
     """
-    # v1.4: Si observation es None, tratamos como contexto desconocido
-    current_url = observation.url if observation else None
+    # v2.0.0: Usar estrategias de contexto por dominio
+    for strategy in DEFAULT_CONTEXT_STRATEGIES:
+        if strategy.goal_applies(goal, focus_entity):
+            action = await strategy.ensure_context(goal, observation, focus_entity)
+            # Logging para diagnóstico (mantener compatibilidad con v1.4.7)
+            if action and action.type == "open_url" and "duckduckgo.com" in action.args.get("url", ""):
+                # Extraer query de la URL para logging
+                try:
+                    from urllib.parse import urlparse, parse_qs
+                    parsed = urlparse(action.args["url"])
+                    query_params = parse_qs(parsed.query)
+                    q_value = query_params.get('q', [''])[0]
+                    logger.info(
+                        "[image-query] goal=%r focus_entity=%r query=%r",
+                        goal,
+                        focus_entity,
+                        q_value.replace('+', ' '),
+                    )
+                except Exception:
+                    pass
+            return action
     
-    # PRIORIDAD 1 (v1.2): Image search - tiene prioridad sobre Wikipedia
-    # v1.4.1: No recargar si ya estamos en búsqueda de imágenes
-    # v1.4.5: Si hay focus_entity, usar directamente sin _normalize_image_query
-    if _goal_mentions_images(goal):
-        # v1.4.1: Si ya estamos en una URL de búsqueda de imágenes, no recargar
-        if current_url and _is_url_in_image_search(current_url):
-            return None
-        
-        # v1.4.7: Usar helper para construir query normalizada
-        image_query = _build_image_search_query(goal, focus_entity)
-        
-        # v1.4.7: Logging para diagnóstico
-        logger.info(
-            "[image-query] goal=%r focus_entity=%r query=%r",
-            goal,
-            focus_entity,
-            image_query,
-        )
-        
-        image_search_url = DEFAULT_IMAGE_SEARCH_URL_TEMPLATE.format(query=quote_plus(image_query))
-        return BrowserAction(type="open_url", args={"url": image_search_url})
-    
-    # PRIORIDAD 2: Wikipedia con entidad específica
-    # Solo aplica si NO menciona imágenes (ya manejado en PRIORIDAD 1)
-    # v1.4.1: No recargar si ya estamos en el artículo correcto de Wikipedia
-    if _goal_mentions_wikipedia(goal):
-        # v1.4: Usar _get_effective_focus_entity para obtener entidad
-        entity = _get_effective_focus_entity(goal, focus_entity)
-        
-        if entity:
-            # v1.4.1: Si ya estamos en Wikipedia y el título contiene la entidad, no recargar
-            if current_url and _is_url_in_wikipedia(current_url) and observation and observation.title:
-                title_lower = observation.title.lower()
-                if entity.lower() in title_lower:
-                    return None
-            
-            # v1.4: Construir URL de búsqueda
-            wiki_query = _normalize_wikipedia_query(goal, focus_entity=entity)
-            if wiki_query:
-                search_param = quote_plus(wiki_query)
-                wikipedia_search_url = f"https://es.wikipedia.org/wiki/Especial:Buscar?search={search_param}"
-                return BrowserAction(type="open_url", args={"url": wikipedia_search_url})
-    
-    # PRIORIDAD 3: OBLIGATORY CONTEXT: Wikipedia (sin entidad específica o fallback)
-    # v1.4: Solo forzamos búsqueda si tenemos una entidad clara
-    # v1.4.1: No recargar si ya estamos en Wikipedia con el título correcto
-    if _goal_requires_wikipedia(goal):
-        # v1.4: Usar _normalize_wikipedia_query que solo devuelve entidades o None
-        wiki_query = _normalize_wikipedia_query(goal, focus_entity=focus_entity)
-        
-        # Si no hay entidad, NO forzamos búsqueda (dejamos que el agente navegue normalmente)
-        if wiki_query is None:
-            return None
-        
-        # v1.4.1: Si ya estamos en Wikipedia y el título coincide, no recargar
-        if current_url and _is_url_in_wikipedia(current_url) and observation and observation.title:
-            title_lower = observation.title.lower()
-            if (
-                wiki_query.lower() in title_lower
-                or (focus_entity and focus_entity.lower() in title_lower)
-            ):
-                return None
-        
-        # v1.4: Construir URL de búsqueda
-        search_param = quote_plus(wiki_query)
-        wikipedia_search_url = f"https://es.wikipedia.org/wiki/Especial:Buscar?search={search_param}"
-        return BrowserAction(type="open_url", args={"url": wikipedia_search_url})
-    
-    # No reorientation needed
+    # No reorientation needed (ninguna estrategia aplica)
     return None
 
 
@@ -718,121 +671,17 @@ def _goal_is_satisfied(
     No intenta cubrir todos los casos complejos.
     
     v1.4.5: Helper para early-stop por sub-objetivo.
+    v2.0.0: Refactored to use pluggable context strategies.
     """
     if not observation or not observation.url:
         return False
 
-    url = observation.url
-    title = (observation.title or "").lower()
-    goal_lower = goal.lower()
-    entity_lower = (focus_entity or "").lower()
+    # v2.0.0: Usar estrategias de contexto por dominio
+    for strategy in DEFAULT_CONTEXT_STRATEGIES:
+        if strategy.goal_applies(goal, focus_entity):
+            return strategy.is_goal_satisfied(goal, observation, focus_entity)
 
-    # Caso 1: objetivos de Wikipedia (quién fue X, info en Wikipedia, etc.)
-    if "wikipedia" in goal_lower and _is_url_in_wikipedia(url):
-        # Si tenemos entidad, comprobamos que el título contenga la entidad
-        if entity_lower:
-            if entity_lower in title:
-                return True
-        else:
-            # Sin entidad clara, aceptamos cualquier artículo que no sea una página de búsqueda
-            if not _is_wikipedia_search_url(url):
-                return True
-
-    # Caso 2: objetivos de imágenes
-    # v1.4.8: Reforzado para detectar entidad en URL codificada o título con normalización robusta
-    if _goal_mentions_images(goal):
-        # 1) La URL tiene que ser un buscador de imágenes (DuckDuckGo)
-        if not _is_url_in_image_search(url):
-            return False
-        
-        # 2) Determinar la entidad relevante (focus_entity tiene prioridad)
-        entity = focus_entity
-        if not entity:
-            # Intentar extraer del goal como fallback
-            entity = _extract_focus_entity_from_goal(goal)
-        
-        entity = entity.strip() if entity else None
-        
-        # 3) Si hay focus_entity, validar que la query contiene la entidad normalizada
-        if entity:
-            # Normalizar entidad para comparación
-            entity_normalized = _normalize_text_for_comparison(entity)
-            if not entity_normalized:
-                return False
-            
-            # Extraer query de la URL
-            try:
-                parsed = urlparse(url)
-                query_params = parse_qs(parsed.query)
-                q_value = query_params.get('q', [''])[0]
-                # Decodificar espacios codificados
-                q_value = q_value.replace('+', ' ').replace('%20', ' ')
-                q_normalized = _normalize_text_for_comparison(q_value)
-                
-                # Verificar que la query normalizada contiene la entidad normalizada
-                if entity_normalized in q_normalized:
-                    return True
-            except Exception:
-                # Si falla el parsing, intentar verificación directa en URL
-                pass
-            
-            # Fallback: verificar en URL y título con normalización
-            url_normalized = _normalize_text_for_comparison(url)
-            title_normalized = _normalize_text_for_comparison(title)
-            
-            # Verificar variantes codificadas en URL
-            entity_variants = [
-                entity_normalized,
-                entity_normalized.replace(" ", "+"),
-                entity_normalized.replace(" ", "%20"),
-                entity_normalized.replace(" ", "_"),
-            ]
-            
-            for variant in entity_variants:
-                if variant in url_normalized:
-                    return True
-            
-            if entity_normalized in title_normalized:
-                return True
-            
-            return False
-        
-        # 4) Si no hay focus_entity, ser conservador: solo satisfecho si la query coincide razonablemente
-        # con el goal descriptivo (ej: "imágenes de computadoras antiguas")
-        # v1.4.8: Ser más estricto para evitar falsos positivos
-        try:
-            parsed = urlparse(url)
-            query_params = parse_qs(parsed.query)
-            q_value = query_params.get('q', [''])[0]
-            q_value = q_value.replace('+', ' ').replace('%20', ' ')
-            q_normalized = _normalize_text_for_comparison(q_value)
-            
-            # Extraer términos descriptivos del goal (sin verbos imperativos ni pronombres)
-            goal_cleaned = _build_image_search_query(goal, None)
-            
-            # Si el goal limpiado es solo "imágenes" (sin entidad), no podemos confirmar satisfacción
-            if goal_cleaned.lower().strip() == "imágenes":
-                return False
-            
-            goal_normalized = _normalize_text_for_comparison(goal_cleaned)
-            
-            # Extraer palabras significativas (más de 3 caracteres, excluyendo "imagenes")
-            goal_words = [w for w in goal_normalized.split() if len(w) > 3 and w != "imagenes"]
-            if not goal_words:
-                # Si no hay palabras significativas, no podemos confirmar
-                return False
-            
-            # Verificar que al menos el 70% de las palabras clave del goal aparecen en la query
-            # y que hay al menos 2 palabras coincidentes (para evitar coincidencias accidentales)
-            matches = sum(1 for word in goal_words if word in q_normalized)
-            if matches >= max(2, len(goal_words) * 0.7):  # Al menos 70% de coincidencia y mínimo 2 palabras
-                return True
-        except Exception:
-            pass
-        
-        # Si no se puede asegurar, devolver False y dejar que el LLM actúe
-        return False
-
+    # Si ninguna estrategia aplica, el objetivo no está satisfecho
     return False
 
 
