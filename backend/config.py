@@ -14,3 +14,6 @@ DEFAULT_IMAGE_SEARCH_URL_TEMPLATE = (
     "https://duckduckgo.com/?q={query}&ia=images&iax=images"
 )
 
+# v2.1.0: Configuración para plataformas CAE
+DEFAULT_CAE_BASE_URL = os.getenv("CAE_BASE_URL", "https://example-cae.local")
+

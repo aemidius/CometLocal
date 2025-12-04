@@ -16,7 +16,11 @@ from backend.planner.llm_planner import LLMPlanner
 from backend.config import LLM_API_BASE, LLM_API_KEY, LLM_MODEL, DEFAULT_IMAGE_SEARCH_URL_TEMPLATE
 from backend.agents.session_context import SessionContext
 from backend.agents.execution_profile import ExecutionProfile
-from backend.agents.context_strategies import DEFAULT_CONTEXT_STRATEGIES, ContextStrategy
+from backend.agents.context_strategies import (
+    DEFAULT_CONTEXT_STRATEGIES,
+    ContextStrategy,
+    build_context_strategies,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -622,6 +626,7 @@ async def ensure_context(
     observation: Optional[BrowserObservation],
     browser: BrowserController,
     focus_entity: Optional[str] = None,
+    context_strategies: Optional[List[ContextStrategy]] = None,
 ) -> Optional[BrowserAction]:
     """
     Context reorientation layer: ensures the browser is in a reasonable site
@@ -633,9 +638,13 @@ async def ensure_context(
     v1.4: Always navigates to new context, never reuses old pages even if in same domain.
     v1.4.1: Performance hotfix - avoid unnecessary reloads if already in correct context.
     v2.0.0: Refactored to use pluggable context strategies.
+    v2.1.0: Accepts context_strategies parameter for per-request strategy selection.
     """
+    # v2.1.0: Usar estrategias proporcionadas o DEFAULT_CONTEXT_STRATEGIES
+    strategies = context_strategies if context_strategies is not None else DEFAULT_CONTEXT_STRATEGIES
+    
     # v2.0.0: Usar estrategias de contexto por dominio
-    for strategy in DEFAULT_CONTEXT_STRATEGIES:
+    for strategy in strategies:
         if strategy.goal_applies(goal, focus_entity):
             action = await strategy.ensure_context(goal, observation, focus_entity)
             # Logging para diagnóstico (mantener compatibilidad con v1.4.7)
@@ -654,6 +663,9 @@ async def ensure_context(
                     )
                 except Exception:
                     pass
+            # v2.1.0: Logging para CAE
+            if action and action.type == "open_url" and "cae" in goal.lower():
+                logger.debug(f"[cae-context] navigating to CAE platform for goal: {goal!r}")
             return action
     
     # No reorientation needed (ninguna estrategia aplica)
@@ -664,6 +676,7 @@ def _goal_is_satisfied(
     goal: str,
     observation: Optional[BrowserObservation],
     focus_entity: Optional[str],
+    context_strategies: Optional[List[ContextStrategy]] = None,
 ) -> bool:
     """
     Devuelve True si, para objetivos sencillos de Wikipedia o de imágenes,
@@ -672,12 +685,16 @@ def _goal_is_satisfied(
     
     v1.4.5: Helper para early-stop por sub-objetivo.
     v2.0.0: Refactored to use pluggable context strategies.
+    v2.1.0: Accepts context_strategies parameter for per-request strategy selection.
     """
     if not observation or not observation.url:
         return False
 
+    # v2.1.0: Usar estrategias proporcionadas o DEFAULT_CONTEXT_STRATEGIES
+    strategies = context_strategies if context_strategies is not None else DEFAULT_CONTEXT_STRATEGIES
+
     # v2.0.0: Usar estrategias de contexto por dominio
-    for strategy in DEFAULT_CONTEXT_STRATEGIES:
+    for strategy in strategies:
         if strategy.goal_applies(goal, focus_entity):
             return strategy.is_goal_satisfied(goal, observation, focus_entity)
 
@@ -870,7 +887,7 @@ async def run_llm_agent(
             initial_observation = None
         
         # 2) Early-stop con el estado inicial (antes de ensure_context)
-        if initial_observation and _goal_is_satisfied(goal, initial_observation, focus_entity):
+        if initial_observation and _goal_is_satisfied(goal, initial_observation, focus_entity, context_strategies=context_strategies):
             logger.info(
                 "[early-stop] goal satisfied on initial page goal=%r focus_entity=%r url=%r title=%r",
                 goal,
@@ -894,7 +911,7 @@ async def run_llm_agent(
             return steps
         
         # 3) Si no está satisfecho, entonces y solo entonces llamamos ensure_context
-        reorientation_action = await ensure_context(goal, initial_observation, browser, focus_entity=focus_entity)
+        reorientation_action = await ensure_context(goal, initial_observation, browser, focus_entity=focus_entity, context_strategies=context_strategies)
         
         if reorientation_action:
             # Ejecutar reorientación
@@ -915,7 +932,7 @@ async def run_llm_agent(
         
         # 4) Early-stop tras ensure_context, antes del primer paso del LLM
         # v1.4.8: Asegurar que se ejecuta siempre con focus_entity correcto
-        if initial_observation and _goal_is_satisfied(goal, initial_observation, focus_entity):
+        if initial_observation and _goal_is_satisfied(goal, initial_observation, focus_entity, context_strategies=context_strategies):
             logger.info(
                 "[early-stop] goal satisfied after ensure_context before LLM "
                 "goal=%r focus_entity=%r url=%r title=%r",
@@ -939,7 +956,7 @@ async def run_llm_agent(
             return steps
         
         # v1.4.8: Logging defensivo para imágenes no satisfechas
-        if _goal_mentions_images(goal) and initial_observation and not _goal_is_satisfied(goal, initial_observation, focus_entity):
+        if _goal_mentions_images(goal) and initial_observation and not _goal_is_satisfied(goal, initial_observation, focus_entity, context_strategies=context_strategies):
             logger.debug(
                 "[image-goal] not satisfied yet goal=%r focus_entity=%r url=%r title=%r",
                 goal,
@@ -969,7 +986,7 @@ async def run_llm_agent(
                 # v1.4.6: Solo reorientar si no se hizo antes del bucle
                 # (si steps está vacío al entrar al bucle, significa que no se hizo reorientación previa)
                 if len(steps) == 0 or step_idx > 0:
-                    reorientation_action = await ensure_context(goal, observation, browser, focus_entity=focus_entity)
+                    reorientation_action = await ensure_context(goal, observation, browser, focus_entity=focus_entity, context_strategies=context_strategies)
             
             if reorientation_action:
                 # Execute reorientation action immediately
@@ -994,7 +1011,7 @@ async def run_llm_agent(
                         ))
                         
                         # v1.4.5: early-stop después de reorientación si el objetivo ya está satisfecho
-                        if _goal_is_satisfied(goal, observation, focus_entity):
+                        if _goal_is_satisfied(goal, observation, focus_entity, context_strategies=context_strategies):
                             early_stop_reason = EarlyStopReason.GOAL_SATISFIED_AFTER_REORIENTATION
                             logger.info(
                                 "[early-stop] goal satisfied after reorientation for goal=%r focus_entity=%r step_idx=%d url=%r title=%r",
@@ -1012,7 +1029,7 @@ async def run_llm_agent(
                 # IMPORTANT: After reorientation, continue loop without consulting LLMPlanner
                 # This ensures we don't skip the reorientation step
                 # v1.5: Pero si el objetivo ya está satisfecho, salimos del bucle
-                if observation and _goal_is_satisfied(goal, observation, focus_entity):
+                if observation and _goal_is_satisfied(goal, observation, focus_entity, context_strategies=context_strategies):
                     early_stop_reason = EarlyStopReason.GOAL_SATISFIED_AFTER_REORIENTATION
                     break
                 continue
@@ -1030,7 +1047,7 @@ async def run_llm_agent(
                 if _goal_requires_wikipedia(goal) and not _is_url_in_wikipedia(observation.url):
                     # Ignore STOP action - force reorientation instead
                     # v1.3: Pasar focus_entity a ensure_context
-                    reorientation_action = await ensure_context(goal, observation, browser, focus_entity=focus_entity)
+                    reorientation_action = await ensure_context(goal, observation, browser, focus_entity=focus_entity, context_strategies=context_strategies)
                     if reorientation_action:
                         # Execute reorientation action
                         error = await _execute_action(reorientation_action, browser)
@@ -1104,7 +1121,7 @@ async def run_llm_agent(
             ))
             
             # v1.4.5: early-stop cuando el sub-objetivo actual ya está satisfecho
-            if _goal_is_satisfied(goal, observation_after, focus_entity):
+            if _goal_is_satisfied(goal, observation_after, focus_entity, context_strategies=context_strategies):
                 early_stop_reason = EarlyStopReason.GOAL_SATISFIED_AFTER_ACTION
                 logger.info(
                     "[early-stop] goal satisfied for goal=%r focus_entity=%r step_idx=%d url=%r title=%r",
@@ -2067,6 +2084,7 @@ async def _run_llm_task_single(
     reset_context: bool = False,
     sub_goal_index: Optional[int] = None,
     execution_profile: Optional[ExecutionProfile] = None,
+    context_strategies: Optional[List[ContextStrategy]] = None,
 ) -> Tuple[List[StepResult], str]:
     """
     Ejecuta el agente LLM para un único objetivo (sin descomposición)
@@ -2077,6 +2095,7 @@ async def _run_llm_task_single(
     v1.4: Acepta reset_context para forzar contexto limpio al inicio.
     v1.4: Aislamiento estricto de steps - solo usa steps_local para el prompt.
     v1.9.0: Acepta ExecutionProfile para controlar el comportamiento.
+    v2.1.0: Acepta context_strategies para selección de estrategias por petición.
     """
     # v1.4: Crear estructura local, no compartida
     steps_local: List[StepResult] = []
@@ -2320,6 +2339,7 @@ async def run_llm_task_with_answer(
     goal: str,
     browser: BrowserController,
     max_steps: int = 8,
+    context_strategies: Optional[List[str]] = None,
 ) -> tuple[List[StepResult], str, str, str, List[SourceInfo]]:
     """
     Orquesta la ejecución del agente para uno o varios sub-objetivos.
@@ -2331,7 +2351,17 @@ async def run_llm_task_with_answer(
     v1.5.0: Recolecta métricas de ejecución usando AgentMetrics.
     v1.7.0: Usa SessionContext para mantener memoria de entidades durante la ejecución.
     v1.9.0: Infiere y aplica ExecutionProfile desde el texto del objetivo.
+    v2.1.0: Acepta context_strategies para selección de estrategias por petición.
     """
+    # v2.1.0: Construir estrategias de contexto desde nombres
+    from backend.config import DEFAULT_CAE_BASE_URL
+    active_strategies = build_context_strategies(context_strategies, cae_base_url=DEFAULT_CAE_BASE_URL)
+    if context_strategies:
+        strategy_names_str = ", ".join(context_strategies)
+        logger.debug(f"[context-strategies] using strategies: {strategy_names_str}")
+    else:
+        logger.debug("[context-strategies] using default strategies")
+    
     # v1.9.0: Inferir ExecutionProfile desde el texto del objetivo
     execution_profile = ExecutionProfile.from_goal_text(goal)
     logger.info(f"[profile] using execution profile: {execution_profile.to_dict()}")
@@ -2385,7 +2415,7 @@ async def run_llm_task_with_answer(
         # v1.4: Primer sub-goal siempre resetea contexto
         t0 = time.perf_counter()
         steps, final_answer = await _run_llm_task_single(
-            browser, sub_goal, max_steps, focus_entity=focus_entity, reset_context=True, sub_goal_index=1, execution_profile=execution_profile
+            browser, sub_goal, max_steps, focus_entity=focus_entity, reset_context=True, sub_goal_index=1, execution_profile=execution_profile, context_strategies=active_strategies
         )
         t1 = time.perf_counter()
         
@@ -2451,6 +2481,9 @@ async def run_llm_task_with_answer(
         # v1.5.0: Finalizar métricas y obtener resumen
         agent_metrics.finish()
         metrics_summary = agent_metrics.to_summary_dict()
+        # v2.1.0: Añadir información de estrategias activas
+        if context_strategies:
+            metrics_summary["summary"]["context_strategies"] = context_strategies
         logger.info("[metrics] summary=%r", metrics_summary)
         
         # Calcular source_url, source_title y sources para mantener compatibilidad
@@ -2604,7 +2637,7 @@ async def run_llm_task_with_answer(
         reset_ctx = (idx == 1)
         t0 = time.perf_counter()
         steps, answer = await _run_llm_task_single(
-            browser, sub_goal, max_steps, focus_entity=sub_focus_entity, reset_context=reset_ctx, sub_goal_index=idx, execution_profile=execution_profile
+            browser, sub_goal, max_steps, focus_entity=sub_focus_entity, reset_context=reset_ctx, sub_goal_index=idx, execution_profile=execution_profile, context_strategies=active_strategies
         )
         t1 = time.perf_counter()
         
@@ -2737,6 +2770,7 @@ async def run_llm_task_with_answer(
             break
 
     # v1.5.0, v1.6.0, v1.7.0 y v1.9.0: Añadir métricas, estructura, contexto y perfil al último step
+    # v2.1.0: Añadir información de estrategias activas
     if all_steps:
         last_step = all_steps[-1]
         info = dict(last_step.info or {})
@@ -2744,11 +2778,16 @@ async def run_llm_task_with_answer(
         info["structured_answer"] = structured_answer
         info["session_context"] = session_context.to_debug_dict()
         info["execution_profile"] = execution_profile.to_dict()
+        if context_strategies:
+            info["context_strategies"] = context_strategies
         last_step.info = info
     
     # v1.9.0: Añadir execution_profile a metrics_summary
+    # v2.1.0: Añadir información de estrategias activas
     if metrics_summary and "summary" in metrics_summary:
         metrics_summary["summary"]["execution_profile"] = execution_profile.to_dict()
+        if context_strategies:
+            metrics_summary["summary"]["context_strategies"] = context_strategies
 
     return all_steps, final_answer, source_url, source_title, sources
 

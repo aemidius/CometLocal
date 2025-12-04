@@ -215,6 +215,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
         goal=payload.goal,
         browser=browser,
         max_steps=payload.max_steps,
+        context_strategies=payload.context_strategies,
     )
     
     # v1.6.0: Extraer información estructurada del último step si está disponible

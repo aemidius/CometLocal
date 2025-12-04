@@ -46,6 +46,8 @@ class StepResult(BaseModel):
 class AgentAnswerRequest(BaseModel):
     goal: str
     max_steps: int = 8
+    # v2.1.0: Selección opcional de estrategias de contexto por petición
+    context_strategies: Optional[List[str]] = None
 
 
 class SourceInfo(BaseModel):

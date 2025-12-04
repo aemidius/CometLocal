@@ -9,13 +9,13 @@ Cada estrategia encapsula:
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, List
 import re
 import unicodedata
 from urllib.parse import quote_plus, urlparse, parse_qs
 
 from backend.shared.models import BrowserAction, BrowserObservation
-from backend.config import DEFAULT_IMAGE_SEARCH_URL_TEMPLATE
+from backend.config import DEFAULT_IMAGE_SEARCH_URL_TEMPLATE, DEFAULT_CAE_BASE_URL
 
 
 class ContextStrategy(ABC):
@@ -455,6 +455,155 @@ class ImageSearchContextStrategy(ContextStrategy):
         # Recortar espacios extra
         normalized = ' '.join(normalized.split())
         return normalized
+
+
+class CAEContextStrategy(ContextStrategy):
+    """
+    Estrategia para objetivos relacionados con plataformas CAE (prevención de riesgos).
+    Maneja la navegación a plataformas CAE y verificación de satisfacción.
+    v2.1.0: Estrategia básica para plataformas tipo CAE.
+    """
+    
+    def __init__(self, base_url: str = "https://example-cae.local", platform_name: str = "Plataforma CAE Demo"):
+        """
+        Inicializa la estrategia CAE con una URL base y nombre de plataforma.
+        
+        Args:
+            base_url: URL base de la plataforma CAE
+            platform_name: Nombre descriptivo de la plataforma
+        """
+        self.base_url = base_url.rstrip('/')
+        self.platform_name = platform_name
+    
+    def goal_applies(self, goal: str, focus_entity: Optional[str]) -> bool:
+        """
+        Detecta objetivos que mencionan CAE, prevención de riesgos, o plataforma CAE.
+        """
+        text = goal.lower()
+        keywords = [
+            "cae",
+            "prevención de riesgos",
+            "prevencion de riesgos",
+            "plataforma cae",
+            "documentación cae",
+            "documentacion cae",
+            "entra en la plataforma",
+            "revisa la documentación",
+            "comprueba la documentación",
+        ]
+        applies = any(keyword in text for keyword in keywords)
+        # v2.1.0: Logging cuando se detecta un objetivo CAE
+        if applies:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.debug(f"[cae-context] goal applies: {goal!r}")
+        return applies
+    
+    async def ensure_context(
+        self,
+        goal: str,
+        observation: Optional[BrowserObservation],
+        focus_entity: Optional[str] = None,
+    ) -> Optional[BrowserAction]:
+        """
+        Asegura que el navegador esté en la plataforma CAE.
+        Si ya estamos en el dominio correcto, no recarga.
+        """
+        current_url = observation.url if observation else None
+        
+        # Si ya estamos en el dominio correcto, no recargar
+        if current_url and self._is_url_in_cae_domain(current_url):
+            return None
+        
+        # Navegar a la URL base de la plataforma CAE
+        return BrowserAction(type="open_url", args={"url": self.base_url})
+    
+    def is_goal_satisfied(
+        self,
+        goal: str,
+        observation: Optional[BrowserObservation],
+        focus_entity: Optional[str],
+    ) -> bool:
+        """
+        Verifica si estamos en la plataforma CAE.
+        Considera satisfecho si estamos en el dominio correcto.
+        Opcionalmente, si el título/URL contiene "documentación", es un bonus.
+        """
+        if not observation or not observation.url:
+            return False
+        
+        url = observation.url
+        
+        # Verificar que estamos en el dominio CAE
+        if not self._is_url_in_cae_domain(url):
+            return False
+        
+        # Opcional: si el título contiene "documentación" o similar, es un bonus
+        # pero no es estrictamente necesario para considerar satisfecho
+        title = (observation.title or "").lower()
+        if "documentación" in title or "documentacion" in title or "documentation" in title:
+            return True
+        
+        # Si estamos en el dominio correcto, consideramos satisfecho
+        # (aunque no estemos específicamente en documentación)
+        return True
+    
+    def _is_url_in_cae_domain(self, url: Optional[str]) -> bool:
+        """Verifica si la URL pertenece al dominio de la plataforma CAE."""
+        if not url:
+            return False
+        
+        # Extraer el dominio de base_url
+        try:
+            from urllib.parse import urlparse
+            base_parsed = urlparse(self.base_url)
+            base_domain = base_parsed.netloc.lower()
+            
+            current_parsed = urlparse(url)
+            current_domain = current_parsed.netloc.lower()
+            
+            # Verificar que el dominio coincide (o es un subdominio)
+            return current_domain == base_domain or current_domain.endswith('.' + base_domain)
+        except Exception:
+            # Fallback: verificar si base_url está en la URL
+            return self.base_url.lower() in url.lower()
+
+
+def build_context_strategies(strategy_names: Optional[List[str]] = None, cae_base_url: Optional[str] = None) -> List[ContextStrategy]:
+    """
+    Construye una lista de estrategias de contexto basándose en nombres simbólicos.
+    
+    Args:
+        strategy_names: Lista de nombres de estrategias ("wikipedia", "images", "cae", etc.)
+                       Si es None, devuelve DEFAULT_CONTEXT_STRATEGIES
+        cae_base_url: URL base para CAEContextStrategy (opcional, usa default si no se proporciona)
+    
+    Returns:
+        Lista de instancias de ContextStrategy en el orden especificado
+    """
+    if strategy_names is None:
+        return DEFAULT_CONTEXT_STRATEGIES.copy()
+    
+    strategies = []
+    strategy_map = {
+        "wikipedia": WikipediaContextStrategy,
+        "images": ImageSearchContextStrategy,
+        "cae": lambda: CAEContextStrategy(base_url=cae_base_url or DEFAULT_CAE_BASE_URL),
+    }
+    
+    for name in strategy_names:
+        name_lower = name.lower()
+        if name_lower in strategy_map:
+            if name_lower == "cae":
+                strategies.append(strategy_map[name_lower]())
+            else:
+                strategies.append(strategy_map[name_lower]())
+        else:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"[context-strategies] Unknown strategy name: {name}, skipping")
+    
+    return strategies
 
 
 # Registro de estrategias disponibles (orden importa: imágenes tiene prioridad sobre Wikipedia)

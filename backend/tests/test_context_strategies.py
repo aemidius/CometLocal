@@ -14,7 +14,9 @@ from backend.agents.context_strategies import (
     ContextStrategy,
     WikipediaContextStrategy,
     ImageSearchContextStrategy,
+    CAEContextStrategy,
     DEFAULT_CONTEXT_STRATEGIES,
+    build_context_strategies,
 )
 from backend.shared.models import BrowserObservation, BrowserAction
 
@@ -193,6 +195,54 @@ class TestImageSearchContextStrategy:
         
         run(_test)
     
+    def test_ensure_context_navigates_to_base_url(self):
+        """Navega a la URL base si no estamos en el dominio CAE"""
+        async def _test():
+            strategy = CAEContextStrategy(base_url="https://example-cae.local")
+            
+            # No estamos en el dominio CAE
+            obs = BrowserObservation(
+                url="https://es.wikipedia.org/wiki/Ada_Lovelace",
+                title="Ada Lovelace",
+                visible_text_excerpt="",
+                clickable_texts=[],
+                input_hints=[],
+            )
+            
+            action = await strategy.ensure_context(
+                "revisa la documentación CAE",
+                obs,
+                None
+            )
+            assert action is not None
+            assert action.type == "open_url"
+            assert action.args["url"] == "https://example-cae.local"
+        
+        run(_test)
+    
+    def test_ensure_context_no_reload_if_already_in_domain(self):
+        """No recarga si ya estamos en el dominio CAE"""
+        async def _test():
+            strategy = CAEContextStrategy(base_url="https://example-cae.local")
+            
+            # Ya estamos en el dominio CAE
+            obs = BrowserObservation(
+                url="https://example-cae.local/documentacion",
+                title="Documentación CAE",
+                visible_text_excerpt="",
+                clickable_texts=[],
+                input_hints=[],
+            )
+            
+            action = await strategy.ensure_context(
+                "revisa la documentación CAE",
+                obs,
+                None
+            )
+            assert action is None  # No debe recargar
+        
+        run(_test)
+    
     def test_ensure_context_no_reload_if_already_correct(self):
         """No recarga si ya estamos en búsqueda de imágenes"""
         async def _test():
@@ -367,6 +417,173 @@ class TestDefaultContextStrategies:
         assert image_strategy.goal_applies(goal, None) is True
         # Wikipedia también aplica, pero ImageSearch tiene prioridad
         assert wiki_strategy.goal_applies(goal, None) is True
+
+
+class TestCAEContextStrategy:
+    """Tests para CAEContextStrategy"""
+    
+    def test_goal_applies_cae_keywords(self):
+        """Detecta objetivos que mencionan CAE o prevención de riesgos"""
+        strategy = CAEContextStrategy()
+        assert strategy.goal_applies("revisa la documentación CAE de prevención de riesgos", None) is True
+        assert strategy.goal_applies("comprueba la documentación de prevención de riesgos en la plataforma", None) is True
+        assert strategy.goal_applies("entra en la plataforma CAE", None) is True
+        assert strategy.goal_applies("investiga quién fue Ada Lovelace en Wikipedia", None) is False
+        assert strategy.goal_applies("muéstrame imágenes de Ada", None) is False
+    
+    def test_goal_applies_prevencion_riesgos(self):
+        """Detecta objetivos relacionados con prevención de riesgos"""
+        strategy = CAEContextStrategy()
+        assert strategy.goal_applies("revisa la documentación de prevención de riesgos", None) is True
+        assert strategy.goal_applies("comprueba la documentacion de prevencion de riesgos", None) is True
+    
+    def test_ensure_context_navigates_to_base_url(self):
+        """Navega a la URL base si no estamos en el dominio CAE"""
+        async def _test():
+            strategy = CAEContextStrategy(base_url="https://example-cae.local")
+            
+            # No estamos en el dominio CAE
+            obs = BrowserObservation(
+                url="https://es.wikipedia.org/wiki/Ada_Lovelace",
+                title="Ada Lovelace",
+                visible_text_excerpt="",
+                clickable_texts=[],
+                input_hints=[],
+            )
+            
+            action = await strategy.ensure_context(
+                "revisa la documentación CAE",
+                obs,
+                None
+            )
+            assert action is not None
+            assert action.type == "open_url"
+            assert action.args["url"] == "https://example-cae.local"
+        
+        run(_test)
+    
+    def test_ensure_context_no_reload_if_already_in_domain(self):
+        """No recarga si ya estamos en el dominio CAE"""
+        async def _test():
+            strategy = CAEContextStrategy(base_url="https://example-cae.local")
+            
+            # Ya estamos en el dominio CAE
+            obs = BrowserObservation(
+                url="https://example-cae.local/documentacion",
+                title="Documentación CAE",
+                visible_text_excerpt="",
+                clickable_texts=[],
+                input_hints=[],
+            )
+            
+            action = await strategy.ensure_context(
+                "revisa la documentación CAE",
+                obs,
+                None
+            )
+            assert action is None  # No debe recargar
+        
+        run(_test)
+    
+    def test_is_goal_satisfied_in_cae_domain(self):
+        """Satisfecho si estamos en el dominio CAE"""
+        strategy = CAEContextStrategy(base_url="https://example-cae.local")
+        
+        obs = BrowserObservation(
+            url="https://example-cae.local/documentacion",
+            title="Documentación CAE",
+            visible_text_excerpt="",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        assert strategy.is_goal_satisfied(
+            "revisa la documentación CAE",
+            obs,
+            None
+        ) is True
+    
+    def test_is_goal_satisfied_not_in_cae_domain(self):
+        """No satisfecho si no estamos en el dominio CAE"""
+        strategy = CAEContextStrategy(base_url="https://example-cae.local")
+        
+        obs = BrowserObservation(
+            url="https://es.wikipedia.org/wiki/Ada_Lovelace",
+            title="Ada Lovelace",
+            visible_text_excerpt="",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        assert strategy.is_goal_satisfied(
+            "revisa la documentación CAE",
+            obs,
+            None
+        ) is False
+    
+    def test_is_goal_satisfied_with_documentation_title(self):
+        """Satisfecho si el título contiene 'documentación'"""
+        strategy = CAEContextStrategy(base_url="https://example-cae.local")
+        
+        obs = BrowserObservation(
+            url="https://example-cae.local/seccion/documentacion",
+            title="Documentación de Prevención de Riesgos",
+            visible_text_excerpt="",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        assert strategy.is_goal_satisfied(
+            "revisa la documentación CAE",
+            obs,
+            None
+        ) is True
+
+
+class TestBuildContextStrategies:
+    """Tests para build_context_strategies"""
+    
+    def test_build_default_strategies(self):
+        """Si no se especifican nombres, devuelve DEFAULT_CONTEXT_STRATEGIES"""
+        strategies = build_context_strategies(None)
+        assert len(strategies) == 2
+        assert isinstance(strategies[0], ImageSearchContextStrategy)
+        assert isinstance(strategies[1], WikipediaContextStrategy)
+    
+    def test_build_wikipedia_and_images(self):
+        """Construye estrategias Wikipedia e imágenes en el orden especificado"""
+        strategies = build_context_strategies(["wikipedia", "images"])
+        assert len(strategies) == 2
+        assert isinstance(strategies[0], WikipediaContextStrategy)
+        assert isinstance(strategies[1], ImageSearchContextStrategy)
+    
+    def test_build_with_cae(self):
+        """Construye estrategia CAE con URL base personalizada"""
+        strategies = build_context_strategies(["cae"], cae_base_url="https://custom-cae.local")
+        assert len(strategies) == 1
+        assert isinstance(strategies[0], CAEContextStrategy)
+        assert strategies[0].base_url == "https://custom-cae.local"
+    
+    def test_build_with_cae_default_url(self):
+        """Construye estrategia CAE con URL base por defecto"""
+        strategies = build_context_strategies(["cae"])
+        assert len(strategies) == 1
+        assert isinstance(strategies[0], CAEContextStrategy)
+    
+    def test_build_mixed_strategies(self):
+        """Construye múltiples estrategias en el orden especificado"""
+        strategies = build_context_strategies(["cae", "wikipedia", "images"])
+        assert len(strategies) == 3
+        assert isinstance(strategies[0], CAEContextStrategy)
+        assert isinstance(strategies[1], WikipediaContextStrategy)
+        assert isinstance(strategies[2], ImageSearchContextStrategy)
+    
+    def test_build_unknown_strategy_ignored(self):
+        """Ignora nombres de estrategias desconocidos"""
+        strategies = build_context_strategies(["wikipedia", "unknown", "images"])
+        assert len(strategies) == 2
+        assert isinstance(strategies[0], WikipediaContextStrategy)
+        assert isinstance(strategies[1], ImageSearchContextStrategy)
 
 
 class TestContextStrategiesIntegration:
