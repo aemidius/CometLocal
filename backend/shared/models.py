@@ -80,6 +80,53 @@ class FileUploadInstructionDTO(BaseModel):
     doc_type: Optional[str] = None
 
 
+# v3.8.0: Modelos para Reasoning Spotlight
+class ReasoningInterpretation(BaseModel):
+    """
+    Una interpretación alternativa del objetivo del usuario.
+    
+    v3.8.0: Representa una posible forma de entender el objetivo, con un nivel de confianza.
+    """
+    interpretation: str  # Descripción de cómo se interpreta el objetivo
+    confidence: float  # Confianza en esta interpretación (0.0 - 1.0)
+
+
+class ReasoningAmbiguity(BaseModel):
+    """
+    Una ambigüedad detectada en el objetivo del usuario.
+    
+    v3.8.0: Identifica áreas donde el objetivo puede ser ambiguo o poco claro.
+    """
+    description: str  # Descripción de la ambigüedad
+    severity: str  # "low" | "medium" | "high"
+
+
+class ReasoningQuestion(BaseModel):
+    """
+    Una pregunta de clarificación sugerida para el usuario.
+    
+    v3.8.0: Preguntas que ayudarían a desambiguar el objetivo antes de ejecutarlo.
+    """
+    question: str  # La pregunta a hacer al usuario
+    rationale: Optional[str] = None  # Por qué esta pregunta es útil
+
+
+class ReasoningSpotlight(BaseModel):
+    """
+    Análisis previo del objetivo del usuario antes de planificar o ejecutar.
+    
+    v3.8.0: Contiene interpretaciones alternativas, ambigüedades detectadas,
+    preguntas de clarificación sugeridas, riesgos percibidos y notas del LLM.
+    Este spotlight se genera ANTES de la planificación o ejecución.
+    """
+    raw_goal: str  # El objetivo original del usuario
+    interpretations: List[ReasoningInterpretation] = Field(default_factory=list)  # Al menos 2 interpretaciones
+    ambiguities: List[ReasoningAmbiguity] = Field(default_factory=list)  # Ambigüedades detectadas
+    recommended_questions: List[ReasoningQuestion] = Field(default_factory=list)  # Preguntas de clarificación (0-3)
+    perceived_risks: List[str] = Field(default_factory=list)  # Riesgos percibidos
+    llm_notes: Optional[str] = None  # Notas breves del LLM (2-3 líneas)
+
+
 class AgentAnswerResponse(BaseModel):
     goal: str
     final_answer: str
@@ -96,6 +143,8 @@ class AgentAnswerResponse(BaseModel):
     # v2.8.0: Plan de ejecución y estado de cancelación
     execution_plan: Optional[Dict[str, Any]] = None
     execution_cancelled: Optional[bool] = None
+    # v3.8.0: Reasoning Spotlight (análisis previo del objetivo)
+    reasoning_spotlight: Optional[ReasoningSpotlight] = None
 
 
 # v3.0.0: Modelos para ejecución batch autónoma

@@ -226,6 +226,36 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
     from backend.config import DOCUMENT_REPOSITORY_BASE_DIR, DEFAULT_CAE_BASE_URL
     from pathlib import Path
     
+    # v3.8.0: Generar Reasoning Spotlight antes de planificar o ejecutar
+    reasoning_spotlight = None
+    try:
+        from backend.agents.reasoning_spotlight import build_reasoning_spotlight
+        
+        # Determinar ExecutionProfile para el spotlight
+        if payload.execution_profile_name:
+            valid_profiles = {"fast", "balanced", "thorough"}
+            if payload.execution_profile_name in valid_profiles:
+                if payload.execution_profile_name == "fast":
+                    execution_profile = ExecutionProfile.fast()
+                elif payload.execution_profile_name == "thorough":
+                    execution_profile = ExecutionProfile.thorough()
+                else:
+                    execution_profile = ExecutionProfile.default()
+            else:
+                execution_profile = ExecutionProfile.from_goal_text(payload.goal)
+        else:
+            execution_profile = ExecutionProfile.from_goal_text(payload.goal)
+        
+        # Generar spotlight (no es batch, es endpoint interactivo)
+        reasoning_spotlight = await build_reasoning_spotlight(
+            raw_goal=payload.goal,
+            execution_profile=execution_profile,
+            is_batch=False,
+        )
+    except Exception as e:
+        logger.warning(f"[agent-answer] Error al generar Reasoning Spotlight: {e}", exc_info=True)
+        # Continuar sin spotlight si hay error
+    
     if payload.plan_only:
         # Solo generar y devolver el plan, NO ejecutar
         # Determinar ExecutionProfile
@@ -277,6 +307,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
             file_upload_instructions=None,
             execution_plan=execution_plan.to_dict(),
             execution_cancelled=None,
+            reasoning_spotlight=reasoning_spotlight,  # v3.8.0
         )
     
     # v2.8.0: Manejar cancelación
@@ -294,6 +325,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
             file_upload_instructions=None,
             execution_plan=None,
             execution_cancelled=True,
+            reasoning_spotlight=reasoning_spotlight,  # v3.8.0
         )
     
     # Ejecución normal (v2.7.0)
@@ -316,6 +348,18 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
             structured_answer = last_step.info["structured_answer"]
         if last_step.info and "metrics" in last_step.info:
             metrics_summary = last_step.info["metrics"]
+            # v3.8.0: Actualizar métricas con spotlight si está disponible
+            if reasoning_spotlight and metrics_summary:
+                # Registrar spotlight en métricas
+                from backend.agents.agent_runner import AgentMetrics
+                temp_metrics = AgentMetrics()
+                temp_metrics.register_reasoning_spotlight(reasoning_spotlight)
+                spotlight_info = temp_metrics.to_summary_dict()["summary"]["spotlight_info"]
+                # Añadir spotlight_info a metrics_summary (crear copia para no modificar el original)
+                metrics_summary = dict(metrics_summary) if isinstance(metrics_summary, dict) else metrics_summary
+                if "summary" not in metrics_summary:
+                    metrics_summary["summary"] = {}
+                metrics_summary["summary"]["spotlight_info"] = spotlight_info
     
     # v2.2.0: Recoger instrucciones de file upload de todos los steps
     file_upload_instructions: List[FileUploadInstructionDTO] = []
@@ -342,6 +386,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
         file_upload_instructions=file_upload_instructions if file_upload_instructions else None,
         execution_plan=None,
         execution_cancelled=None,
+        reasoning_spotlight=reasoning_spotlight,  # v3.8.0
     )
 
 

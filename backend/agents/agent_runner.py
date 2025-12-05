@@ -109,6 +109,11 @@ class AgentMetrics:
         # v3.7.0: Contadores de intenciones del agente
         self.intent_counts: Dict[str, int] = defaultdict(int)
         self.critical_intent_count: int = 0
+        # v3.8.0: Contadores de Reasoning Spotlight
+        self.spotlight_generated: bool = False
+        self.ambiguity_count: int = 0
+        self.high_risk_count: int = 0
+        self.interpretation_count: int = 0
     
     def register_visual_click(self, success: bool) -> None:
         """
@@ -172,6 +177,26 @@ class AgentMetrics:
         self.intent_counts[intent.intent_type] = self.intent_counts.get(intent.intent_type, 0) + 1
         if intent.criticality == "critical":
             self.critical_intent_count += 1
+    
+    def register_reasoning_spotlight(self, spotlight: Optional["ReasoningSpotlight"]) -> None:
+        """
+        Registra un Reasoning Spotlight.
+        
+        v3.8.0: Actualiza los contadores de spotlight.
+        
+        Args:
+            spotlight: ReasoningSpotlight a registrar (None se ignora)
+        """
+        if not spotlight:
+            return
+        
+        self.spotlight_generated = True
+        self.interpretation_count = len(spotlight.interpretations)
+        self.ambiguity_count = len(spotlight.ambiguities)
+        # Contar solo riesgos de alta severidad (high)
+        self.high_risk_count = sum(
+            1 for amb in spotlight.ambiguities if amb.severity == "high"
+        )
     
     def start(self):
         """Marca el inicio de la ejecución completa."""
@@ -448,6 +473,7 @@ class AgentMetrics:
                 "visual_flow_info": visual_flow_info,  # v3.5.0
                 "visual_expectation_info": visual_expectation_info,  # v3.6.0
                 "intent_info": intent_info,  # v3.7.0
+                "spotlight_info": spotlight_info,  # v3.8.0
                 "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }

@@ -297,6 +297,139 @@
     }
     .metrics-content {
       display: none;
+    }
+    /* v3.8.0: Estilos para Reasoning Spotlight */
+    .spotlight-panel {
+      margin-bottom: 20px;
+      padding: 16px;
+      background: #1e293b;
+      border-radius: 8px;
+      border: 1px solid #334155;
+    }
+    .spotlight-header {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e5e7eb;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #334155;
+    }
+    .spotlight-section {
+      margin-bottom: 16px;
+    }
+    .spotlight-section:last-child {
+      margin-bottom: 0;
+    }
+    .spotlight-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #9ca3af;
+      margin-bottom: 8px;
+    }
+    .spotlight-item {
+      margin-bottom: 12px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+      border-left: 3px solid #475569;
+    }
+    .spotlight-item:last-child {
+      margin-bottom: 0;
+    }
+    .spotlight-interpretation-header {
+      font-size: 11px;
+      font-weight: 600;
+      color: #60a5fa;
+      margin-bottom: 4px;
+    }
+    .spotlight-interpretation-text {
+      font-size: 12px;
+      color: #d1d5db;
+      line-height: 1.5;
+    }
+    .spotlight-ambiguity-header {
+      font-size: 11px;
+      font-weight: 600;
+      color: #fbbf24;
+      margin-bottom: 4px;
+    }
+    .spotlight-ambiguity-text {
+      font-size: 12px;
+      color: #d1d5db;
+      line-height: 1.5;
+    }
+    .spotlight-question-header {
+      font-size: 11px;
+      font-weight: 600;
+      color: #a78bfa;
+      margin-bottom: 4px;
+    }
+    .spotlight-question-text {
+      font-size: 12px;
+      color: #d1d5db;
+      line-height: 1.5;
+      margin-bottom: 4px;
+    }
+    .spotlight-question-rationale {
+      font-size: 11px;
+      color: #9ca3af;
+      font-style: italic;
+    }
+    .spotlight-risks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .spotlight-risk-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      border-radius: 4px;
+      font-size: 11px;
+      color: #fca5a5;
+    }
+    .spotlight-notes-toggle {
+      cursor: pointer;
+      user-select: none;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      font-size: 11px;
+      color: #9ca3af;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .spotlight-notes-toggle:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .spotlight-notes-toggle::before {
+      content: "▶";
+      font-size: 8px;
+      transition: transform 0.2s;
+    }
+    .spotlight-notes-toggle.expanded::before {
+      transform: rotate(90deg);
+    }
+    .spotlight-notes-content {
+      display: none;
+      margin-top: 8px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 4px;
+    }
+    .spotlight-notes-content.expanded {
+      display: block;
+    }
+    .spotlight-notes-text {
+      font-size: 12px;
+      color: #d1d5db;
+      line-height: 1.6;
+      font-style: italic;
+    }
+    .metrics-content {
+      display: none;
       margin-top: 8px;
       padding: 12px;
       background: rgba(0, 0, 0, 0.2);
@@ -884,6 +1017,96 @@
     // Exponer toggleMetrics globalmente para onclick
     window.toggleMetrics = toggleMetrics;
     
+    // v3.8.0: Renderizar Reasoning Spotlight
+    function renderReasoningSpotlight(spotlight) {
+      if (!spotlight) return "";
+      
+      let html = '<div class="spotlight-panel">';
+      html += '<div class="spotlight-header">🔍 RAZONAMIENTO DEL AGENTE</div>';
+      
+      // Interpretaciones
+      if (spotlight.interpretations && spotlight.interpretations.length > 0) {
+        html += '<div class="spotlight-section">';
+        html += '<div class="spotlight-section-title">Interpretaciones</div>';
+        spotlight.interpretations.forEach((interp, idx) => {
+          const confidencePercent = Math.round(interp.confidence * 100);
+          html += `<div class="spotlight-item">`;
+          html += `<div class="spotlight-interpretation-header">Interpretación ${idx + 1} (${confidencePercent}%)</div>`;
+          html += `<div class="spotlight-interpretation-text">${escapeHtml(interp.interpretation)}</div>`;
+          html += `</div>`;
+        });
+        html += '</div>';
+      }
+      
+      // Ambigüedades
+      if (spotlight.ambiguities && spotlight.ambiguities.length > 0) {
+        html += '<div class="spotlight-section">';
+        html += '<div class="spotlight-section-title">Ambigüedades detectadas</div>';
+        spotlight.ambiguities.forEach(amb => {
+          const severityIcon = amb.severity === "high" ? "🔴" : amb.severity === "medium" ? "🟡" : "🟢";
+          html += `<div class="spotlight-item">`;
+          html += `<div class="spotlight-ambiguity-header">${severityIcon} ${escapeHtml(amb.severity.toUpperCase())}</div>`;
+          html += `<div class="spotlight-ambiguity-text">${escapeHtml(amb.description)}</div>`;
+          html += `</div>`;
+        });
+        html += '</div>';
+      }
+      
+      // Preguntas de clarificación (solo si existen y es modo interactivo)
+      if (spotlight.recommended_questions && spotlight.recommended_questions.length > 0) {
+        html += '<div class="spotlight-section">';
+        html += '<div class="spotlight-section-title">Preguntas de clarificación</div>';
+        spotlight.recommended_questions.forEach((q, idx) => {
+          html += `<div class="spotlight-item">`;
+          html += `<div class="spotlight-question-header">❓ Pregunta ${idx + 1}</div>`;
+          html += `<div class="spotlight-question-text">${escapeHtml(q.question)}</div>`;
+          if (q.rationale) {
+            html += `<div class="spotlight-question-rationale">💡 ${escapeHtml(q.rationale)}</div>`;
+          }
+          html += `</div>`;
+        });
+        html += '</div>';
+      }
+      
+      // Riesgos percibidos
+      if (spotlight.perceived_risks && spotlight.perceived_risks.length > 0) {
+        html += '<div class="spotlight-section">';
+        html += '<div class="spotlight-section-title">Riesgos detectados</div>';
+        html += '<div class="spotlight-risks">';
+        spotlight.perceived_risks.forEach(risk => {
+          html += `<span class="spotlight-risk-badge">⚠️ ${escapeHtml(risk)}</span>`;
+        });
+        html += '</div>';
+        html += '</div>';
+      }
+      
+      // LLM Notes (plegable)
+      if (spotlight.llm_notes) {
+        html += '<div class="spotlight-section">';
+        html += '<div class="spotlight-notes-toggle" onclick="toggleSpotlightNotes(this)">';
+        html += '📝 Notas del LLM';
+        html += '</div>';
+        html += '<div class="spotlight-notes-content">';
+        html += `<div class="spotlight-notes-text">${escapeHtml(spotlight.llm_notes)}</div>`;
+        html += '</div>';
+        html += '</div>';
+      }
+      
+      html += '</div>';
+      return html;
+    }
+    
+    // v3.8.0: Toggle para notas del spotlight
+    function toggleSpotlightNotes(toggle) {
+      const content = toggle.nextElementSibling;
+      if (content) {
+        content.classList.toggle("expanded");
+      }
+    }
+    
+    // Exponer toggleSpotlightNotes globalmente
+    window.toggleSpotlightNotes = toggleSpotlightNotes;
+    
     // v2.8.0: Renderizar plan de ejecución
     function renderExecutionPlan(plan, thinkingMsg) {
       if (!plan) return "";
@@ -1083,10 +1306,20 @@
       if (data.execution_plan && !confirmed) {
         currentPlan = data.execution_plan;
         thinkingMsg.classList.remove("thinking");
-        const planHtml = renderExecutionPlan(data.execution_plan, thinkingMsg);
-        updateMessage(thinkingMsg, "PLAN DE EJECUCIÓN PROPUESTO", planHtml);
+        
+        // v3.8.0: Renderizar spotlight antes del plan si está disponible
+        let contentHtml = "";
+        if (data.reasoning_spotlight) {
+          contentHtml += renderReasoningSpotlight(data.reasoning_spotlight);
+        }
+        contentHtml += renderExecutionPlan(data.execution_plan, thinkingMsg);
+        
+        updateMessage(thinkingMsg, "PLAN DE EJECUCIÓN PROPUESTO", contentHtml);
         return;
       }
+      
+      // v3.8.0: Si hay spotlight pero no plan, mostrarlo también
+      const reasoningSpotlight = data.reasoning_spotlight || null;
       
       const finalAnswer = data.final_answer || "(sin respuesta)";
       const steps = data.steps || [];
@@ -1100,12 +1333,19 @@
       const metricsSummary = data.metrics_summary || null;
       // v2.2.0: Leer instrucciones de file upload
       const fileUploadInstructions = data.file_upload_instructions || null;
+      // v3.8.0: Leer Reasoning Spotlight
+      const reasoningSpotlight = data.reasoning_spotlight || null;
 
       // Update thinking message with final answer
       thinkingMsg.classList.remove("thinking");
       
       // Build extra HTML with source and steps
       let extraHtml = "";
+      
+      // v3.8.0: Renderizar spotlight si está disponible (antes de otras secciones)
+      if (reasoningSpotlight) {
+        extraHtml += renderReasoningSpotlight(reasoningSpotlight);
+      }
       
       // v1.8.0: Si hay datos estructurados, usarlos; si no, comportamiento legacy
       if (sections || structuredSources || metricsSummary || fileUploadInstructions) {
