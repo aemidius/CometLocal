@@ -118,6 +118,10 @@ class AgentMetrics:
         self.memory_reads: int = 0
         self.memory_writes: int = 0
         self.memory_errors: int = 0
+        # v4.0.0: Contadores de Planner Hints
+        self.planner_hints_generated: bool = False
+        self.planner_hints_subgoals_with_suggestions: int = 0
+        self.planner_hints_profile_changed_recommendation: bool = False
     
     def register_visual_click(self, success: bool) -> None:
         """
@@ -229,6 +233,26 @@ class AgentMetrics:
             self.memory_writes += 1
         else:
             self.memory_errors += 1
+    
+    def register_planner_hints(self, hints: Optional["PlannerHints"]) -> None:
+        """
+        Registra Planner Hints generados.
+        
+        v4.0.0: Actualiza los contadores de planner hints.
+        
+        Args:
+            hints: PlannerHints a registrar (None se ignora)
+        """
+        if not hints:
+            return
+        
+        self.planner_hints_generated = True
+        self.planner_hints_subgoals_with_suggestions = sum(
+            1 for sg in hints.sub_goals
+            if sg.suggested_enabled is not None or sg.priority is not None or sg.risk_level is not None
+        )
+        if hints.profile_suggestion and hints.profile_suggestion.suggested_profile:
+            self.planner_hints_profile_changed_recommendation = True
     
     def start(self):
         """Marca el inicio de la ejecución completa."""
@@ -483,6 +507,13 @@ class AgentMetrics:
             "memory_errors": self.memory_errors,
         }
         
+        # v4.0.0: Información de Planner Hints
+        planner_hints_info = {
+            "planner_hints_generated": self.planner_hints_generated,
+            "planner_hints_subgoals_with_suggestions": self.planner_hints_subgoals_with_suggestions,
+            "planner_hints_profile_changed_recommendation": self.planner_hints_profile_changed_recommendation,
+        }
+        
         # Serializar sub_goals
         sub_goals_data = []
         for m in self.sub_goals:
@@ -522,6 +553,7 @@ class AgentMetrics:
                 "intent_info": intent_info,  # v3.7.0
                 "spotlight_info": spotlight_info,  # v3.8.0
                 "memory_info": memory_info,  # v3.9.0
+                "planner_hints_info": planner_hints_info,  # v4.0.0
                 "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }

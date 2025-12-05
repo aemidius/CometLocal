@@ -428,6 +428,111 @@
       line-height: 1.6;
       font-style: italic;
     }
+    /* v4.0.0: Estilos para Planner Hints */
+    .planner-panel {
+      margin-top: 16px;
+      padding: 16px;
+      background: #1e293b;
+      border-radius: 8px;
+      border: 1px solid #334155;
+    }
+    .planner-header {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e5e7eb;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .planner-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #9ca3af;
+      margin-top: 12px;
+      margin-bottom: 6px;
+    }
+    .planner-item {
+      font-size: 12px;
+      color: #d1d5db;
+      margin-bottom: 4px;
+      line-height: 1.5;
+    }
+    .planner-subgoal {
+      margin-bottom: 12px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      border-left: 3px solid #3b82f6;
+    }
+    .planner-subgoal-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #e5e7eb;
+      margin-bottom: 8px;
+    }
+    .planner-badge-priority,
+    .planner-badge-risk,
+    .planner-badge-enabled {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-right: 6px;
+      margin-bottom: 4px;
+    }
+    .planner-badge-priority.low { background: #22c55e; color: #0f172a; }
+    .planner-badge-priority.medium { background: #facc15; color: #0f172a; }
+    .planner-badge-priority.high { background: #ef4444; color: white; }
+    .planner-badge-risk.low { background: #22c55e; color: #0f172a; }
+    .planner-badge-risk.medium { background: #facc15; color: #0f172a; }
+    .planner-badge-risk.high { background: #ef4444; color: white; }
+    .planner-badge-enabled.enabled { background: #22c55e; color: #0f172a; }
+    .planner-badge-enabled.disabled { background: #ef4444; color: white; }
+    .planner-rationale {
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+    .planner-notes-toggle {
+      cursor: pointer;
+      user-select: none;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .planner-notes-toggle:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .planner-notes-toggle::before {
+      content: "▶";
+      font-size: 8px;
+      transition: transform 0.2s;
+    }
+    .planner-notes-toggle.expanded::before {
+      transform: rotate(90deg);
+    }
+    .planner-notes-content {
+      display: none;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 4px;
+      margin-top: 4px;
+      font-size: 11px;
+      color: #d1d5db;
+      white-space: pre-wrap;
+    }
+    .planner-notes-content.expanded {
+      display: block;
+    }
     .metrics-content {
       display: none;
       margin-top: 8px;
@@ -1108,6 +1213,98 @@
     window.toggleSpotlightNotes = toggleSpotlightNotes;
     
     // v2.8.0: Renderizar plan de ejecución
+    function renderPlannerHints(hints) {
+      if (!hints) return "";
+
+      let html = '<div class="planner-panel">';
+      html += '<div class="planner-header">🧭 SUGERENCIAS DEL PLANIFICADOR (LLM)</div>';
+
+      // Global insights
+      if (hints.global_insights) {
+        const gi = hints.global_insights;
+        if (gi.summary) {
+          html += '<div class="planner-section-title">Resumen:</div>';
+          html += `<div class="planner-item">${escapeHtml(gi.summary)}</div>`;
+        }
+        if (gi.risks && gi.risks.length > 0) {
+          html += '<div class="planner-section-title">⚠️ Riesgos:</div>';
+          gi.risks.forEach(risk => {
+            html += `<div class="planner-item">⚠️ ${escapeHtml(risk)}</div>`;
+          });
+        }
+        if (gi.opportunities && gi.opportunities.length > 0) {
+          html += '<div class="planner-section-title">💡 Oportunidades:</div>';
+          gi.opportunities.forEach(opp => {
+            html += `<div class="planner-item">💡 ${escapeHtml(opp)}</div>`;
+          });
+        }
+      }
+
+      // Sugerencias por sub-objetivo
+      if (hints.sub_goals && hints.sub_goals.length > 0) {
+        html += '<div class="planner-section-title">Sugerencias por sub-objetivo:</div>';
+        hints.sub_goals.forEach(sg => {
+          html += '<div class="planner-subgoal">';
+          html += `<div class="planner-subgoal-title">Sub-objetivo ${sg.sub_goal_index}: "${escapeHtml(sg.sub_goal_text)}"</div>`;
+          
+          if (sg.priority) {
+            const priorityClass = sg.priority === "high" ? "high" : sg.priority === "medium" ? "medium" : "low";
+            html += `<span class="planner-badge-priority ${priorityClass}">Prioridad: ${sg.priority.toUpperCase()}</span>`;
+          }
+          
+          if (sg.risk_level) {
+            const riskClass = sg.risk_level === "high" ? "high" : sg.risk_level === "medium" ? "medium" : "low";
+            html += `<span class="planner-badge-risk ${riskClass}">Riesgo: ${sg.risk_level.toUpperCase()}</span>`;
+          }
+          
+          if (sg.suggested_enabled !== null && sg.suggested_enabled !== undefined) {
+            const enabledClass = sg.suggested_enabled ? "enabled" : "disabled";
+            const enabledText = sg.suggested_enabled ? "✅ Recomienda ejecutar" : "⛔ Recomienda NO ejecutar";
+            html += `<span class="planner-badge-enabled ${enabledClass}">${enabledText}</span>`;
+          }
+          
+          if (sg.rationale) {
+            html += `<div class="planner-rationale">${escapeHtml(sg.rationale)}</div>`;
+          }
+          
+          html += '</div>';
+        });
+      }
+
+      // Sugerencia de perfil
+      if (hints.profile_suggestion && hints.profile_suggestion.suggested_profile) {
+        html += '<div class="planner-section-title">Sugerencia de perfil:</div>';
+        const profileNames = {
+          "fast": "Rápido",
+          "balanced": "Equilibrado",
+          "thorough": "Exhaustivo"
+        };
+        const profileName = profileNames[hints.profile_suggestion.suggested_profile] || hints.profile_suggestion.suggested_profile;
+        html += `<div class="planner-item">El LLM sugiere modo: <strong>${escapeHtml(profileName)}</strong></div>`;
+        if (hints.profile_suggestion.rationale) {
+          html += `<div class="planner-rationale">${escapeHtml(hints.profile_suggestion.rationale)}</div>`;
+        }
+      }
+
+      // Notas brutas del LLM (plegable)
+      if (hints.llm_raw_notes) {
+        html += '<div class="planner-notes-toggle" onclick="togglePlannerNotes(this)">Detalles internos del razonamiento del planificador (solo para diagnóstico)</div>';
+        html += `<pre class="planner-notes-content">${escapeHtml(hints.llm_raw_notes)}</pre>`;
+      }
+
+      html += '</div>';
+      return html;
+    }
+
+    function togglePlannerNotes(toggle) {
+      const content = toggle.nextElementSibling;
+      if (content) {
+        content.classList.toggle("expanded");
+        toggle.classList.toggle("expanded");
+      }
+    }
+    window.togglePlannerNotes = togglePlannerNotes;
+
     function renderExecutionPlan(plan, thinkingMsg) {
       if (!plan) return "";
       
@@ -1308,9 +1505,13 @@
         thinkingMsg.classList.remove("thinking");
         
         // v3.8.0: Renderizar spotlight antes del plan si está disponible
+        // v4.0.0: Renderizar planner hints después del spotlight y antes del plan
         let contentHtml = "";
         if (data.reasoning_spotlight) {
           contentHtml += renderReasoningSpotlight(data.reasoning_spotlight);
+        }
+        if (data.planner_hints) {
+          contentHtml += renderPlannerHints(data.planner_hints);
         }
         contentHtml += renderExecutionPlan(data.execution_plan, thinkingMsg);
         

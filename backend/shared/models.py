@@ -146,6 +146,8 @@ class AgentAnswerResponse(BaseModel):
     execution_cancelled: Optional[bool] = None
     # v3.8.0: Reasoning Spotlight (análisis previo del objetivo)
     reasoning_spotlight: Optional[ReasoningSpotlight] = None
+    # v4.0.0: Planner Hints (recomendaciones del LLM sobre el plan)
+    planner_hints: Optional["PlannerHints"] = None
 
 
 # v3.0.0: Modelos para ejecución batch autónoma
@@ -370,6 +372,59 @@ class PlatformMemory(BaseModel):
     ocr_usage: int = 0
     last_seen: Optional[datetime] = None
     notes: Optional[str] = None
+
+
+# v4.0.0: Modelos para Planner Hints (recomendaciones del LLM sobre el plan)
+class PlannerHintSubGoal(BaseModel):
+    """
+    Sugerencia del LLM para un sub-objetivo específico.
+    
+    v4.0.0: Contiene recomendaciones sobre prioridad, riesgo y si ejecutar o no.
+    """
+    sub_goal_index: int
+    sub_goal_text: str
+    suggested_enabled: Optional[bool] = None  # True/False si el LLM recomienda algo
+    priority: Optional[str] = None  # "low" | "medium" | "high"
+    risk_level: Optional[str] = None  # "low" | "medium" | "high"
+    rationale: Optional[str] = None
+
+
+class PlannerHintProfileSuggestion(BaseModel):
+    """
+    Sugerencia del LLM para cambiar el perfil de ejecución.
+    
+    v4.0.0: El LLM puede recomendar cambiar de fast/balanced/thorough.
+    """
+    suggested_profile: Optional[str] = None  # "fast" | "balanced" | "thorough"
+    rationale: Optional[str] = None
+
+
+class PlannerHintGlobal(BaseModel):
+    """
+    Insights globales del LLM sobre el plan completo.
+    
+    v4.0.0: Resumen, riesgos y oportunidades detectadas por el LLM.
+    """
+    summary: Optional[str] = None
+    risks: List[str] = Field(default_factory=list)
+    opportunities: List[str] = Field(default_factory=list)
+
+
+class PlannerHints(BaseModel):
+    """
+    Recomendaciones del LLM sobre el plan de ejecución.
+    
+    v4.0.0: El LLM revisa el objetivo, ReasoningSpotlight, ExecutionPlan y memoria
+    para generar sugerencias sobre qué sub-objetivos son críticos, qué riesgos ve,
+    si recomienda cambiar el perfil de ejecución, etc.
+    """
+    goal: str
+    execution_profile_name: Optional[str] = None
+    context_strategies: Optional[List[str]] = None
+    sub_goals: List[PlannerHintSubGoal] = Field(default_factory=list)
+    profile_suggestion: Optional[PlannerHintProfileSuggestion] = None
+    global_insights: Optional[PlannerHintGlobal] = None
+    llm_raw_notes: Optional[str] = None  # dump del razonamiento que queramos conservar
 
 
 class CAEWorkerDocStatus(BaseModel):

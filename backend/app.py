@@ -293,6 +293,47 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
             document_repository=document_repository,
         )
         
+        # v4.0.0: Generar Planner Hints si estamos en modo pre-flight
+        planner_hints = None
+        if payload.plan_only and not is_batch_request:
+            try:
+                from backend.agents.llm_planner_hints import build_planner_hints
+                # Construir MemoryStore si estamos en contexto CAE (opcional)
+                memory_store = None
+                platform = None
+                company_name = None
+                
+                # Intentar extraer platform/company_name del goal si es contexto CAE
+                goal_lower = payload.goal.lower()
+                if "cae" in goal_lower or "plataforma" in goal_lower:
+                    try:
+                        from backend.memory import MemoryStore
+                        from backend.config import MEMORY_BASE_DIR
+                        memory_store = MemoryStore(MEMORY_BASE_DIR)
+                        # TODO: Extraer platform y company_name del goal o de otro lugar si está disponible
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.debug(f"[app] Failed to initialize memory store for planner hints: {e}")
+                
+                planner_hints = await build_planner_hints(
+                    llm_client=llm_client,
+                    goal=payload.goal,
+                    execution_plan=execution_plan,
+                    spotlight=reasoning_spotlight,
+                    memory_store=memory_store,
+                    platform=platform,
+                    company_name=company_name,
+                )
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info("[app] Generated planner hints for pre-flight review")
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"[app] Failed to generate planner hints: {e}", exc_info=True)
+                planner_hints = None
+        
         # Devolver solo el plan
         return AgentAnswerResponse(
             goal=payload.goal,
@@ -308,6 +349,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
             execution_plan=execution_plan.to_dict(),
             execution_cancelled=None,
             reasoning_spotlight=reasoning_spotlight,  # v3.8.0
+            planner_hints=planner_hints,  # v4.0.0
         )
     
     # v2.8.0: Manejar cancelación
