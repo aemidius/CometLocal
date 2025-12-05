@@ -68,8 +68,8 @@ class TestDocumentAnalyzer:
         async def run_test():
             analyzer = DocumentAnalyzer()
             
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-                f.write("Juan Pérez García\nReconocimiento médico")
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.pdf', delete=False) as f:
+                f.write("dummy")  # Solo para crear el archivo
                 temp_path = f.name
             
             try:
@@ -77,7 +77,8 @@ class TestDocumentAnalyzer:
                     with patch('backend.agents.document_analyzer.PdfReader') as mock_pdf:
                         mock_reader = MagicMock()
                         mock_page = MagicMock()
-                        mock_page.extract_text.return_value = "Juan Pérez García\nReconocimiento médico"
+                        # Asegurar que el texto es suficientemente largo (>50 caracteres)
+                        mock_page.extract_text.return_value = "Juan Pérez García\nReconocimiento médico\nFecha de emisión: 01/03/2025\nFecha de caducidad: 01/03/2026"
                         mock_reader.pages = [mock_page]
                         mock_pdf.return_value = mock_reader
                         
