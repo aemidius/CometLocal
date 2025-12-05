@@ -122,12 +122,6 @@ def extract_cae_status_from_text(text: str) -> Dict[str, Any]:
                     evidence_snippets.append(snippet)
                 status = "pendiente"
                 break
-                end = min(len(text), idx + len(keyword) + 50)
-                snippet = text[start:end].strip()
-                if snippet not in evidence_snippets:
-                    evidence_snippets.append(snippet)
-                status = "pendiente"
-                break
     
     # 2. Extraer fechas (múltiples formatos)
     date_patterns = [

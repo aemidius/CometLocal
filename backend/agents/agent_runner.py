@@ -198,6 +198,9 @@ class AgentMetrics:
         self.interpretation_count = len(spotlight.interpretations)
         self.ambiguity_count = len(spotlight.ambiguities)
         # Contar solo riesgos de alta severidad (high)
+        self.high_risk_count = sum(
+            1 for amb in spotlight.ambiguities if amb.severity == "high"
+        )
     
     def register_memory_read(self, ok: bool) -> None:
         """
@@ -226,9 +229,6 @@ class AgentMetrics:
             self.memory_writes += 1
         else:
             self.memory_errors += 1
-        self.high_risk_count = sum(
-            1 for amb in spotlight.ambiguities if amb.severity == "high"
-        )
     
     def start(self):
         """Marca el inicio de la ejecución completa."""
@@ -474,6 +474,13 @@ class AgentMetrics:
             "ambiguity_count": self.ambiguity_count,
             "high_risk_count": self.high_risk_count,
             "interpretation_count": self.interpretation_count,
+        }
+        
+        # v3.9.0: Información de memoria persistente
+        memory_info = {
+            "memory_reads": self.memory_reads,
+            "memory_writes": self.memory_writes,
+            "memory_errors": self.memory_errors,
         }
         
         # Serializar sub_goals
@@ -1685,7 +1692,7 @@ def _build_final_answer(
             if verification_status is not None:
                 section["upload_verification"] = {
                     "status": verification_status,
-                    "file_name": upload_summary.get("verification_status") and section["upload_summary"]["file_name"],
+                    "file_name": section["upload_summary"].get("file_name"),
                     "confidence": upload_summary.get("verification_confidence"),
                     "evidence": upload_summary.get("verification_evidence"),
                 }
