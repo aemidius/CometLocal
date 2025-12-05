@@ -259,6 +259,56 @@ class BrowserController:
             raise RuntimeError("BrowserController no está iniciado. Llama a start() primero.")
         await self.page.keyboard.press("Enter")
 
+    # -----------------------------
+    #  CLICK POR COORDENADAS (v3.4.0)
+    # -----------------------------
+
+    async def click_at(self, x: int, y: int) -> BrowserObservation:
+        """
+        Realiza un click en coordenadas absolutas (x, y) sobre la página.
+        
+        v3.4.0: Permite hacer click por coordenadas cuando el DOM no es accesible
+        pero se ha detectado un botón visual mediante OCR.
+        
+        Args:
+            x: Coordenada X absoluta en píxeles
+            y: Coordenada Y absoluta en píxeles
+            
+        Returns:
+            BrowserObservation actualizada después del click
+            
+        Raises:
+            RuntimeError: Si el browser no está iniciado
+            Exception: Si hay error al hacer click
+        """
+        if not self.page:
+            raise RuntimeError("BrowserController no está iniciado. Llama a start() primero.")
+        
+        try:
+            # Usar la API de mouse de Playwright para click por coordenadas
+            await self.page.mouse.click(x, y)
+            
+            # Esperar un momento para que la página procese el click
+            await self.page.wait_for_timeout(500)
+            
+            # Devolver la observación actualizada
+            return await self.get_observation()
+            
+        except Exception as e:
+            # Si hay error, intentar devolver observación actual de todas formas
+            try:
+                obs = await self.get_observation()
+            except Exception:
+                # Si no podemos obtener observación, crear una básica
+                obs = BrowserObservation(
+                    url="",
+                    title="",
+                    visible_text_excerpt="",
+                    clickable_texts=[],
+                    input_hints=[],
+                )
+            raise Exception(f"Error al hacer click en coordenadas ({x}, {y}): {e}")
+
     async def google_search(self, query: str) -> bool:
         """Realiza una búsqueda en Google con la query indicada."""
         if not self.page:

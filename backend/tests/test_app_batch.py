@@ -73,3 +73,5 @@ class TestBatchEndpoint:
         # Debe devolver error de validación (422)
         assert response.status_code == 422, "Debería validar el schema de la petición"
 
+
+

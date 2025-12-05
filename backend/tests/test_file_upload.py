@@ -146,7 +146,11 @@ class TestMaybeExecuteFileUpload:
                 # Verificar resultado
                 assert result is not None
                 assert isinstance(result, StepResult)
-                assert result.info["upload_status"] == "success"
+                # v2.4.0: upload_status ahora es un dict
+                upload_status = result.info["upload_status"]
+                assert isinstance(upload_status, dict)
+                assert upload_status["status"] == "success"
+                assert upload_status["file_path"] == str(temp_path)
                 assert result.info["file_upload_instruction"]["description"] == "Test document"
                 assert result.last_action is not None
                 assert result.last_action.type == "upload_file"
@@ -186,7 +190,10 @@ class TestMaybeExecuteFileUpload:
             # Verificar resultado
             assert result is not None
             assert isinstance(result, StepResult)
-            assert result.info["upload_status"] == "file_not_found"
+            # v2.4.0: upload_status ahora es un dict
+            upload_status = result.info["upload_status"]
+            assert isinstance(upload_status, dict)
+            assert upload_status["status"] == "file_not_found"
             assert result.error is not None
             assert "no encontrado" in result.error.lower() or "not found" in result.error.lower()
         
@@ -226,7 +233,10 @@ class TestMaybeExecuteFileUpload:
                 # Verificar resultado
                 assert result is not None
                 assert isinstance(result, StepResult)
-                assert result.info["upload_status"] == "no_input_found"
+                # v2.4.0: upload_status ahora es un dict
+                upload_status = result.info["upload_status"]
+                assert isinstance(upload_status, dict)
+                assert upload_status["status"] == "no_input_found"
                 assert result.error is not None
                 
             finally:
@@ -268,7 +278,10 @@ class TestMaybeExecuteFileUpload:
                 # Verificar resultado
                 assert result is not None
                 assert isinstance(result, StepResult)
-                assert result.info["upload_status"] == "error"
+                # v2.4.0: upload_status ahora es un dict
+                upload_status = result.info["upload_status"]
+                assert isinstance(upload_status, dict)
+                assert upload_status["status"] == "error"
                 assert result.error is not None
                 
             finally:
@@ -303,7 +316,12 @@ class TestFileUploadIntegration:
             ),
             error=None,
             info={
-                "upload_status": "success",
+                "upload_status": {
+                    "status": "success",
+                    "file_path": "/test/file.pdf",
+                    "selector": "input[type='file']",
+                    "error_message": None,
+                },
                 "file_upload_instruction": {
                     "path": "/test/file.pdf",
                     "description": "Test document",
@@ -315,7 +333,9 @@ class TestFileUploadIntegration:
         if upload_step.info and "upload_status" in upload_step.info:
             metrics.upload_attempts += 1
             upload_status = upload_step.info.get("upload_status")
-            if upload_status == "success":
+            # v2.4.0: Soporte para formato nuevo (dict) y antiguo (string)
+            status = upload_status.get("status") if isinstance(upload_status, dict) else upload_status
+            if status == "success":
                 metrics.upload_successes += 1
         
         # Verificar contadores
@@ -328,4 +348,224 @@ class TestFileUploadIntegration:
         assert summary["summary"]["upload_info"]["upload_attempts"] == 1
         assert summary["summary"]["upload_info"]["upload_successes"] == 1
         assert summary["summary"]["upload_info"]["upload_success_ratio"] == 1.0
+    
+    def test_upload_verification_metrics(self):
+        """Los contadores de verificación se actualizan correctamente"""
+        from backend.agents.agent_runner import AgentMetrics
+        
+        metrics = AgentMetrics()
+        
+        # Simular steps con diferentes estados de verificación
+        from backend.shared.models import StepResult, BrowserObservation, BrowserAction
+        
+        # Step con verificación confirmada
+        step_confirmed = StepResult(
+            observation=BrowserObservation(
+                url="https://example.com",
+                title="Test",
+                visible_text_excerpt="",
+                clickable_texts=[],
+                input_hints=[],
+            ),
+            last_action=BrowserAction(
+                type="upload_file",
+                args={"file_path": "/test/file1.pdf", "selector": "input[type='file']"}
+            ),
+            error=None,
+            info={
+                "upload_status": {
+                    "status": "success",
+                    "file_path": "/test/file1.pdf",
+                    "selector": "input[type='file']",
+                    "error_message": None,
+                },
+                "upload_verification": {
+                    "status": "confirmed",
+                    "file_name": "file1.pdf",
+                    "confidence": 0.85,
+                    "evidence": "Archivo subido correctamente",
+                }
+            }
+        )
+        
+        # Step con verificación no confirmada
+        step_unconfirmed = StepResult(
+            observation=BrowserObservation(
+                url="https://example.com",
+                title="Test",
+                visible_text_excerpt="",
+                clickable_texts=[],
+                input_hints=[],
+            ),
+            last_action=BrowserAction(
+                type="upload_file",
+                args={"file_path": "/test/file2.pdf", "selector": "input[type='file']"}
+            ),
+            error=None,
+            info={
+                "upload_status": {
+                    "status": "success",
+                    "file_path": "/test/file2.pdf",
+                    "selector": "input[type='file']",
+                    "error_message": None,
+                },
+                "upload_verification": {
+                    "status": "not_confirmed",
+                    "file_name": "file2.pdf",
+                    "confidence": 0.3,
+                    "evidence": "No se encontró confirmación",
+                }
+            }
+        )
+        
+        # v2.5.1: Usar el método helper para registrar verificaciones (wiring automático)
+        for step in [step_confirmed, step_unconfirmed]:
+            if step.info and "upload_verification" in step.info:
+                verification = step.info["upload_verification"]
+                if isinstance(verification, dict):
+                    verification_status = verification.get("status")
+                    metrics.register_upload_verification(verification_status)
+        
+        # Verificar contadores
+        assert metrics.upload_confirmed_count == 1
+        assert metrics.upload_unconfirmed_count == 1
+        assert metrics.upload_error_detected_count == 0
+        
+        # Verificar que aparece en el summary
+        summary = metrics.to_summary_dict()
+        assert "upload_verification_info" in summary["summary"]
+        assert summary["summary"]["upload_verification_info"]["upload_confirmed_count"] == 1
+        assert summary["summary"]["upload_verification_info"]["upload_unconfirmed_count"] == 1
+        assert summary["summary"]["upload_verification_info"]["upload_error_detected_count"] == 0
+    
+    def test_upload_verification_metrics_integration(self):
+        """Test de integración: verificar que el wiring automático funciona con múltiples estados"""
+        from backend.agents.agent_runner import AgentMetrics
+        
+        metrics = AgentMetrics()
+        
+        # Simular steps con diferentes estados de verificación
+        from backend.shared.models import StepResult, BrowserObservation, BrowserAction
+        
+        steps = [
+            # Step 1: confirmed
+            StepResult(
+                observation=BrowserObservation(
+                    url="https://example.com",
+                    title="Test",
+                    visible_text_excerpt="",
+                    clickable_texts=[],
+                    input_hints=[],
+                ),
+                last_action=BrowserAction(
+                    type="upload_file",
+                    args={"file_path": "/test/file1.pdf", "selector": "input[type='file']"}
+                ),
+                error=None,
+                info={
+                    "upload_status": {
+                        "status": "success",
+                        "file_path": "/test/file1.pdf",
+                        "selector": "input[type='file']",
+                        "error_message": None,
+                    },
+                    "upload_verification": {
+                        "status": "confirmed",
+                        "file_name": "file1.pdf",
+                        "confidence": 0.85,
+                        "evidence": "Archivo subido correctamente",
+                    }
+                }
+            ),
+            # Step 2: not_confirmed
+            StepResult(
+                observation=BrowserObservation(
+                    url="https://example.com",
+                    title="Test",
+                    visible_text_excerpt="",
+                    clickable_texts=[],
+                    input_hints=[],
+                ),
+                last_action=BrowserAction(
+                    type="upload_file",
+                    args={"file_path": "/test/file2.pdf", "selector": "input[type='file']"}
+                ),
+                error=None,
+                info={
+                    "upload_status": {
+                        "status": "success",
+                        "file_path": "/test/file2.pdf",
+                        "selector": "input[type='file']",
+                        "error_message": None,
+                    },
+                    "upload_verification": {
+                        "status": "not_confirmed",
+                        "file_name": "file2.pdf",
+                        "confidence": 0.3,
+                        "evidence": "No se encontró confirmación",
+                    }
+                }
+            ),
+            # Step 3: error_detected
+            StepResult(
+                observation=BrowserObservation(
+                    url="https://example.com",
+                    title="Test",
+                    visible_text_excerpt="",
+                    clickable_texts=[],
+                    input_hints=[],
+                ),
+                last_action=BrowserAction(
+                    type="upload_file",
+                    args={"file_path": "/test/file3.pdf", "selector": "input[type='file']"}
+                ),
+                error=None,
+                info={
+                    "upload_status": {
+                        "status": "success",
+                        "file_path": "/test/file3.pdf",
+                        "selector": "input[type='file']",
+                        "error_message": None,
+                    },
+                    "upload_verification": {
+                        "status": "error_detected",
+                        "file_name": "file3.pdf",
+                        "confidence": 0.9,
+                        "evidence": "Error al subir el archivo",
+                    }
+                }
+            ),
+        ]
+        
+        # Simular el procesamiento automático como en run_llm_task_with_answer
+        for step in steps:
+            info = step.info or {}
+            
+            # Registrar upload attempt
+            if info.get("upload_status"):
+                metrics.register_upload_attempt(info["upload_status"])
+            
+            # Registrar verificación
+            if info.get("upload_verification"):
+                upload_verification = info["upload_verification"]
+                if isinstance(upload_verification, dict):
+                    verification_status = upload_verification.get("status")
+                    metrics.register_upload_verification(verification_status)
+        
+        # Verificar contadores
+        assert metrics.upload_attempts == 3
+        assert metrics.upload_successes == 3  # Todos fueron success
+        assert metrics.upload_confirmed_count == 1
+        assert metrics.upload_unconfirmed_count == 1
+        assert metrics.upload_error_detected_count == 1
+        
+        # Verificar que aparece en el summary
+        summary = metrics.to_summary_dict()
+        assert "upload_verification_info" in summary["summary"]
+        verif_info = summary["summary"]["upload_verification_info"]
+        assert verif_info["upload_confirmed_count"] == 1
+        assert verif_info["upload_unconfirmed_count"] == 1
+        assert verif_info["upload_error_detected_count"] == 1
+        # Ratio: 1 confirmed / 3 attempts = 0.333...
+        assert abs(verif_info["upload_verification_confirmed_ratio"] - 0.333) < 0.01
 

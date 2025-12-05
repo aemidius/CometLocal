@@ -216,3 +216,4 @@ def test_evaluate_contract_match_when_state_ahead():
     # Debe ser match porque saved está en allowed_stages y está más adelante
     assert result.outcome == "match"
 
+

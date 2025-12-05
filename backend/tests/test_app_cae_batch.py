@@ -74,3 +74,5 @@ class TestCAEBatchEndpoint:
         assert isinstance(response.summary, dict)
         assert "total_workers" in response.summary
 
+
+

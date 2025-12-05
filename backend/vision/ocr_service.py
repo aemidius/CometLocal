@@ -19,13 +19,13 @@ class OCRBlock(BaseModel):
     Bloque de texto extraído por OCR.
     
     v3.3.0: Representa un fragmento de texto con su posición (opcional).
+    v3.4.0: Añade bounding boxes para interacción por coordenadas.
     """
     text: str
-    # TODO v3.4+: Añadir bounding boxes cuando se necesite interacción por coordenadas
-    # x: Optional[int] = None
-    # y: Optional[int] = None
-    # width: Optional[int] = None
-    # height: Optional[int] = None
+    x: Optional[int] = None  # v3.4.0: coordenada X del bloque
+    y: Optional[int] = None  # v3.4.0: coordenada Y del bloque
+    width: Optional[int] = None  # v3.4.0: ancho del bloque
+    height: Optional[int] = None  # v3.4.0: alto del bloque
 
 
 class OCRResult(BaseModel):
@@ -117,4 +117,5 @@ class OCRService:
             "failures": self._failure_count,
             "successes": self._call_count - self._failure_count,
         }
+
 

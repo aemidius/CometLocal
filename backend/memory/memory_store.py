@@ -10,7 +10,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 from backend.shared.models import WorkerMemory, CompanyMemory, PlatformMemory
@@ -110,6 +110,8 @@ class MemoryStore:
             data = memory.model_dump()
             if data.get('last_seen') and isinstance(data['last_seen'], datetime):
                 data['last_seen'] = data['last_seen'].isoformat()
+            if data.get('last_outcome_timestamp') and isinstance(data['last_outcome_timestamp'], datetime):
+                data['last_outcome_timestamp'] = data['last_outcome_timestamp'].isoformat()
             
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
@@ -144,6 +146,9 @@ class MemoryStore:
             # Convertir last_seen de string a datetime si existe
             if 'last_seen' in data and data['last_seen']:
                 data['last_seen'] = datetime.fromisoformat(data['last_seen'])
+            # v4.2.0: Convertir last_outcome_timestamp de string a datetime si existe
+            if 'last_outcome_timestamp' in data and data['last_outcome_timestamp']:
+                data['last_outcome_timestamp'] = datetime.fromisoformat(data['last_outcome_timestamp'])
             
             return CompanyMemory(**data)
         except Exception as e:
@@ -168,6 +173,8 @@ class MemoryStore:
             data = memory.model_dump()
             if data.get('last_seen') and isinstance(data['last_seen'], datetime):
                 data['last_seen'] = data['last_seen'].isoformat()
+            if data.get('last_outcome_timestamp') and isinstance(data['last_outcome_timestamp'], datetime):
+                data['last_outcome_timestamp'] = data['last_outcome_timestamp'].isoformat()
             
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
@@ -197,6 +204,9 @@ class MemoryStore:
             # Convertir last_seen de string a datetime si existe
             if 'last_seen' in data and data['last_seen']:
                 data['last_seen'] = datetime.fromisoformat(data['last_seen'])
+            # v4.2.0: Convertir last_outcome_timestamp de string a datetime si existe
+            if 'last_outcome_timestamp' in data and data['last_outcome_timestamp']:
+                data['last_outcome_timestamp'] = datetime.fromisoformat(data['last_outcome_timestamp'])
             
             return PlatformMemory(**data)
         except Exception as e:
@@ -218,9 +228,201 @@ class MemoryStore:
             data = memory.model_dump()
             if data.get('last_seen') and isinstance(data['last_seen'], datetime):
                 data['last_seen'] = data['last_seen'].isoformat()
+            if data.get('last_outcome_timestamp') and isinstance(data['last_outcome_timestamp'], datetime):
+                data['last_outcome_timestamp'] = data['last_outcome_timestamp'].isoformat()
             
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
             logger.warning(f"[memory-store] Error al guardar memoria de plataforma {memory.platform}: {e}")
+    
+    # v4.2.0: Métodos para actualizar memoria con resultados de OutcomeJudge
+    def update_worker_outcome(
+        self,
+        worker_id: str,
+        new_score: Optional[float],
+        issues: List[str],
+        timestamp: datetime,
+    ) -> Optional[WorkerMemory]:
+        """
+        Actualiza la memoria de un trabajador con resultados de OutcomeJudge.
+        
+        v4.2.0: Actualiza last_outcome_score, best/worst_outcome_score,
+        outcome_run_count, last_outcome_issues, last_outcome_timestamp y outcome_history.
+        
+        Args:
+            worker_id: ID del trabajador
+            new_score: Puntuación nueva (0.0-1.0) o None
+            issues: Lista de problemas principales detectados
+            timestamp: Timestamp de la ejecución
+            
+        Returns:
+            WorkerMemory actualizado, o None si hay error
+        """
+        # Cargar memoria actual o inicializar nueva
+        memory = self.load_worker(worker_id)
+        if not memory:
+            memory = WorkerMemory(worker_id=worker_id)
+        
+        # Actualizar campos de outcome
+        if new_score is not None:
+            memory.last_outcome_score = new_score
+            
+            # Actualizar best/worst
+            if memory.best_outcome_score is None or new_score > memory.best_outcome_score:
+                memory.best_outcome_score = new_score
+            if memory.worst_outcome_score is None or new_score < memory.worst_outcome_score:
+                memory.worst_outcome_score = new_score
+        
+        memory.outcome_run_count += 1
+        memory.last_outcome_issues = issues[:5] if issues else None  # Limitar a top 5
+        memory.last_outcome_timestamp = timestamp
+        
+        # Actualizar historial (limitar a últimos 10)
+        if memory.outcome_history is None:
+            memory.outcome_history = []
+        
+        history_entry = {
+            "score": new_score,
+            "timestamp": timestamp.isoformat(),
+            "issues": issues[:3] if issues else []  # Limitar a top 3 por entrada
+        }
+        memory.outcome_history.append(history_entry)
+        # Mantener solo últimos 10
+        if len(memory.outcome_history) > 10:
+            memory.outcome_history = memory.outcome_history[-10:]
+        
+        # Guardar
+        try:
+            self.save_worker(memory)
+            return memory
+        except Exception as e:
+            logger.warning(f"[memory-store] Error al actualizar outcome de trabajador {worker_id}: {e}")
+            return None
+    
+    def update_company_outcome(
+        self,
+        company_name: str,
+        platform: Optional[str],
+        worker_contribution_score: Optional[float],
+        issues: List[str],
+        timestamp: datetime,
+    ) -> Optional[CompanyMemory]:
+        """
+        Actualiza la memoria de una empresa con resultados de OutcomeJudge.
+        
+        v4.2.0: Actualiza avg_outcome_score (media incremental), outcome_run_count,
+        last_outcome_timestamp y common_issues.
+        
+        Args:
+            company_name: Nombre de la empresa
+            platform: Plataforma opcional
+            worker_contribution_score: Puntuación del worker que contribuye (0.0-1.0) o None
+            issues: Lista de problemas principales detectados
+            timestamp: Timestamp de la ejecución
+            
+        Returns:
+            CompanyMemory actualizado, o None si hay error
+        """
+        # Cargar memoria actual o inicializar nueva
+        memory = self.load_company(company_name, platform)
+        if not memory:
+            memory = CompanyMemory(company_name=company_name, platform=platform)
+        
+        # Actualizar media incremental
+        if worker_contribution_score is not None:
+            if memory.avg_outcome_score is None:
+                memory.avg_outcome_score = worker_contribution_score
+            else:
+                # Media incremental: (avg_prev * count_prev + new_score) / (count_prev + 1)
+                memory.avg_outcome_score = (
+                    (memory.avg_outcome_score * memory.outcome_run_count + worker_contribution_score)
+                    / (memory.outcome_run_count + 1)
+                )
+        
+        memory.outcome_run_count += 1
+        memory.last_outcome_timestamp = timestamp
+        
+        # Actualizar common_issues (merge simple: añadir nuevas y mantener lista deduplicada)
+        if memory.common_issues is None:
+            memory.common_issues = []
+        
+        # Añadir issues nuevas que no estén ya en la lista
+        for issue in issues[:5]:  # Limitar a top 5
+            if issue not in memory.common_issues:
+                memory.common_issues.append(issue)
+        
+        # Limitar a últimos 10 issues
+        if len(memory.common_issues) > 10:
+            memory.common_issues = memory.common_issues[-10:]
+        
+        # Guardar
+        try:
+            self.save_company(memory)
+            return memory
+        except Exception as e:
+            logger.warning(f"[memory-store] Error al actualizar outcome de empresa {company_name}: {e}")
+            return None
+    
+    def update_platform_outcome(
+        self,
+        platform_name: str,
+        company_contribution_score: Optional[float],
+        issues: List[str],
+        timestamp: datetime,
+    ) -> Optional[PlatformMemory]:
+        """
+        Actualiza la memoria de una plataforma con resultados de OutcomeJudge.
+        
+        v4.2.0: Actualiza avg_outcome_score (media incremental), outcome_run_count,
+        last_outcome_timestamp y common_issues.
+        
+        Args:
+            platform_name: Nombre de la plataforma
+            company_contribution_score: Puntuación de la empresa que contribuye (0.0-1.0) o None
+            issues: Lista de problemas principales detectados
+            timestamp: Timestamp de la ejecución
+            
+        Returns:
+            PlatformMemory actualizado, o None si hay error
+        """
+        # Cargar memoria actual o inicializar nueva
+        memory = self.load_platform(platform_name)
+        if not memory:
+            memory = PlatformMemory(platform=platform_name)
+        
+        # Actualizar media incremental
+        if company_contribution_score is not None:
+            if memory.avg_outcome_score is None:
+                memory.avg_outcome_score = company_contribution_score
+            else:
+                # Media incremental: (avg_prev * count_prev + new_score) / (count_prev + 1)
+                memory.avg_outcome_score = (
+                    (memory.avg_outcome_score * memory.outcome_run_count + company_contribution_score)
+                    / (memory.outcome_run_count + 1)
+                )
+        
+        memory.outcome_run_count += 1
+        memory.last_outcome_timestamp = timestamp
+        
+        # Actualizar common_issues (merge simple: añadir nuevas y mantener lista deduplicada)
+        if memory.common_issues is None:
+            memory.common_issues = []
+        
+        # Añadir issues nuevas que no estén ya en la lista
+        for issue in issues[:5]:  # Limitar a top 5
+            if issue not in memory.common_issues:
+                memory.common_issues.append(issue)
+        
+        # Limitar a últimos 10 issues
+        if len(memory.common_issues) > 10:
+            memory.common_issues = memory.common_issues[-10:]
+        
+        # Guardar
+        try:
+            self.save_platform(memory)
+            return memory
+        except Exception as e:
+            logger.warning(f"[memory-store] Error al actualizar outcome de plataforma {platform_name}: {e}")
+            return None
 

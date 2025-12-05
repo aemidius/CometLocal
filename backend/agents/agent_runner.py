@@ -121,6 +121,8 @@ class AgentMetrics:
         self.memory_reads: int = 0
         self.memory_writes: int = 0
         self.memory_errors: int = 0
+        # v4.2.0: Contadores de actualización de memoria con outcome
+        self.memory_outcome_updates: int = 0
         # v4.0.0: Contadores de Planner Hints
         self.planner_hints_generated: bool = False
         self.planner_hints_subgoals_with_suggestions: int = 0
@@ -241,6 +243,14 @@ class AgentMetrics:
             self.memory_writes += 1
         else:
             self.memory_errors += 1
+    
+    def register_memory_outcome_update(self) -> None:
+        """
+        Registra una actualización de memoria con resultados de OutcomeJudge.
+        
+        v4.2.0: Actualiza el contador de actualizaciones de outcome en memoria.
+        """
+        self.memory_outcome_updates += 1
     
     def register_planner_hints(self, hints: Optional["PlannerHints"]) -> None:
         """
@@ -533,10 +543,12 @@ class AgentMetrics:
         }
         
         # v3.9.0: Información de memoria persistente
+        # v4.2.0: Añade contador de actualizaciones de outcome
         memory_info = {
             "memory_reads": self.memory_reads,
             "memory_writes": self.memory_writes,
             "memory_errors": self.memory_errors,
+            "memory_outcome_updates": self.memory_outcome_updates,  # v4.2.0
         }
         
         # v4.0.0: Información de Planner Hints

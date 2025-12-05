@@ -377,18 +377,25 @@ def build_cae_response_from_batch(
                 notes_parts.append(f"Intenciones detectadas: {', '.join(intent_types)}.")
         
         # v4.1.0: Usar OutcomeJudgeReport si está disponible para enriquecer notas y success
-        if result.outcome_judge:
-            outcome_judge = result.outcome_judge
+        # v4.2.0: También extraer información para actualizar memoria y detectar regresiones
+        outcome_judge = result.outcome_judge
+        global_score = None
+        top_issues = []
+        regression_flag = None
+        
+        if outcome_judge:
             if outcome_judge.global_review:
                 global_review = outcome_judge.global_review
                 # Añadir información de puntuación global
                 if global_review.global_score is not None:
-                    score_percent = int(global_review.global_score * 100)
+                    global_score = global_review.global_score
+                    score_percent = int(global_score * 100)
                     notes_parts.append(f"OutcomeJudge: Puntuación global {score_percent}%")
                 
                 # Añadir problemas principales si hay
                 if global_review.main_issues:
-                    issues_str = "; ".join(global_review.main_issues[:3])  # Limitar a 3
+                    top_issues = global_review.main_issues[:5]  # Top 5 issues
+                    issues_str = "; ".join(top_issues[:3])  # Limitar a 3 para notas
                     notes_parts.append(f"Issues detectados: {issues_str}")
                 
                 # Actualizar success si overall_success está definido y es False
@@ -457,6 +464,132 @@ def build_cae_response_from_batch(
         
         worker_statuses.append(worker_status)
     
+    # v4.2.0: Actualizar memoria con resultados de OutcomeJudge y detectar regresiones
+    memory_store: Optional[MemoryStore] = None
+    regressions_detected = 0
+    regression_threshold = 0.20  # Umbral de regresión en escala 0-1 (delta <= -0.20, equivalente a -20 puntos porcentuales)
+    
+    try:
+        memory_store = MemoryStore(MEMORY_BASE_DIR)
+        now = datetime.now()
+        
+        for i, result in enumerate(batch_response.goals):
+            worker = worker_by_id.get(result.id)
+            if not worker:
+                continue
+            
+            worker_status = worker_statuses[i] if i < len(worker_statuses) else None
+            if not worker_status:
+                continue
+            
+            outcome_judge = result.outcome_judge
+            if not outcome_judge or not outcome_judge.global_review:
+                continue
+            
+            global_review = outcome_judge.global_review
+            global_score = global_review.global_score
+            if global_score is None:
+                continue
+            
+            # Extraer issues principales
+            top_issues = []
+            if global_review.main_issues:
+                top_issues = global_review.main_issues[:5]
+            # También añadir issues de sub-goals si hay
+            if outcome_judge.sub_goals:
+                for sg in outcome_judge.sub_goals:
+                    if sg.issues:
+                        top_issues.extend(sg.issues[:2])  # Top 2 por sub-goal
+            # Limitar a top 10 issues totales
+            top_issues = top_issues[:10]
+            
+            # Cargar memoria previa del worker para detectar regresión
+            prev_worker_memory = memory_store.load_worker(worker.id)
+            prev_score = prev_worker_memory.last_outcome_score if prev_worker_memory else None
+            
+            # Detectar regresión
+            if prev_score is not None:
+                delta = global_score - prev_score
+                if delta <= -regression_threshold:
+                    regression_flag = {
+                        "type": "strong_regression",
+                        "previous_score": prev_score,
+                        "current_score": global_score,
+                        "delta": delta
+                    }
+                    worker_status.regression_flag = regression_flag
+                    regressions_detected += 1
+                    
+                    # Añadir nota de regresión
+                    if worker_status.notes:
+                        worker_status.notes += f" ⚠️ Posible regresión: la puntuación global ha bajado de {int(prev_score * 100)} → {int(global_score * 100)}."
+                    else:
+                        worker_status.notes = f"⚠️ Posible regresión: la puntuación global ha bajado de {int(prev_score * 100)} → {int(global_score * 100)}."
+            
+            # Actualizar memoria del worker
+            updated_worker_memory = memory_store.update_worker_outcome(
+                worker_id=worker.id,
+                new_score=global_score,
+                issues=top_issues,
+                timestamp=now
+            )
+            
+            # Actualizar memoria de empresa
+            memory_store.update_company_outcome(
+                company_name=cae_request.company_name,
+                platform=cae_request.platform,
+                worker_contribution_score=global_score,
+                issues=top_issues,
+                timestamp=now
+            )
+            
+            # Actualizar memoria de plataforma
+            memory_store.update_platform_outcome(
+                platform_name=cae_request.platform,
+                company_contribution_score=global_score,
+                issues=top_issues,
+                timestamp=now
+            )
+            
+            # Enriquecer worker_status con memory_summary_outcome
+            if updated_worker_memory:
+                # Cargar también memoria de empresa para common_issues
+                company_memory = memory_store.load_company(cae_request.company_name, cae_request.platform)
+                
+                memory_summary_outcome = {
+                    "last_outcome_score": updated_worker_memory.last_outcome_score,
+                    "best_outcome_score": updated_worker_memory.best_outcome_score,
+                    "worst_outcome_score": updated_worker_memory.worst_outcome_score,
+                    "outcome_run_count": updated_worker_memory.outcome_run_count,
+                    "last_outcome_timestamp": updated_worker_memory.last_outcome_timestamp.isoformat() if updated_worker_memory.last_outcome_timestamp else None,
+                }
+                
+                if company_memory and company_memory.common_issues:
+                    memory_summary_outcome["common_issues_company"] = company_memory.common_issues
+                
+                worker_status.memory_summary_outcome = memory_summary_outcome
+                
+                # Añadir nota histórica si hay suficiente información
+                if updated_worker_memory.outcome_run_count > 1:
+                    avg_score = updated_worker_memory.last_outcome_score
+                    if avg_score is not None:
+                        score_text = "excelente" if avg_score >= 0.8 else "buena" if avg_score >= 0.6 else "regular" if avg_score >= 0.4 else "baja"
+                        historical_note = f"Históricamente este trabajador tiene calidad de documentación {score_text} (media ~{int(avg_score * 100)}/100)."
+                        if worker_status.notes:
+                            worker_status.notes = f"{historical_note} {worker_status.notes}"
+                        else:
+                            worker_status.notes = historical_note
+                
+                if company_memory and company_memory.common_issues:
+                    issues_note = f"Se han detectado problemas recurrentes en esta empresa: {', '.join(company_memory.common_issues[:3])}."
+                    if worker_status.notes:
+                        worker_status.notes = f"{worker_status.notes} {issues_note}"
+                    else:
+                        worker_status.notes = issues_note
+    
+    except Exception as e:
+        logger.warning(f"[cae-adapter] Error al actualizar memoria de outcome: {e}", exc_info=True)
+    
     # Construir summary global
     total_workers = len(cae_request.workers)
     success_count = sum(1 for w in worker_statuses if w.success)
@@ -475,6 +608,27 @@ def build_cae_response_from_batch(
         # Reutilizar información del batch genérico
         "batch_summary": batch_response.summary,
     }
+    
+    # v4.2.0: Añadir información de outcome y regresiones al summary
+    if memory_store:
+        # Calcular avg_outcome_score de workers con outcome_judge
+        outcome_scores = []
+        workers_with_low_score = 0
+        for result in batch_response.goals:
+            if result.outcome_judge and result.outcome_judge.global_review:
+                score = result.outcome_judge.global_review.global_score
+                if score is not None:
+                    outcome_scores.append(score)
+                    if score < 0.6:  # Score bajo (< 60%)
+                        workers_with_low_score += 1
+        
+        if outcome_scores:
+            avg_outcome_score_workers = sum(outcome_scores) / len(outcome_scores)
+            summary["avg_outcome_score_workers"] = round(avg_outcome_score_workers, 2)
+            summary["workers_with_low_score"] = workers_with_low_score
+        
+        summary["regressions_detected"] = regressions_detected
+        summary["regression_threshold"] = regression_threshold
     
     logger.info(
         f"[cae-adapter] Built CAE response: {total_workers} workers, "

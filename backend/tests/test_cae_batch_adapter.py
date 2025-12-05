@@ -15,6 +15,9 @@ from backend.shared.models import (
     BatchAgentGoal,
     BatchAgentResponse,
     BatchAgentGoalResult,
+    OutcomeJudgeReport,
+    OutcomeGlobalReview,
+    OutcomeSubGoalReview,
 )
 
 

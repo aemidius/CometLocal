@@ -1,0 +1,11 @@
+{
+  "worker_id": "worker_1",
+  "full_name": "Juan Pérez",
+  "company_name": "Empresa Test",
+  "successful_docs": {
+    "dni": 2
+  },
+  "failed_docs": {},
+  "last_seen": "2025-12-05T14:50:52.409022",
+  "notes": null
+}

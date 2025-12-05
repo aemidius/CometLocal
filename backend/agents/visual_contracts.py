@@ -216,3 +216,4 @@ def evaluate_visual_contract(
         severity=expectation.severity,
     )
 
+

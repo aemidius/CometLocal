@@ -330,12 +330,14 @@ class AgentIntent(BaseModel):
 
 
 # v3.9.0: Modelos para memoria persistente
+# v4.2.0: Extendido con campos de calidad histórica (OutcomeJudge)
 class WorkerMemory(BaseModel):
     """
     Memoria persistente de un trabajador.
     
     v3.9.0: Almacena historial de documentación CAE por trabajador,
     incluyendo documentos exitosos, fallidos y notas.
+    v4.2.0: Añade campos de calidad histórica basados en OutcomeJudge.
     """
     worker_id: str
     full_name: Optional[str] = None
@@ -344,6 +346,14 @@ class WorkerMemory(BaseModel):
     failed_docs: Dict[str, int] = Field(default_factory=dict)  # doc_type -> contador de fallos
     last_seen: Optional[datetime] = None
     notes: Optional[str] = None
+    # v4.2.0: Campos de calidad histórica
+    last_outcome_score: Optional[float] = None  # 0.0-1.0 (escala de OutcomeJudge)
+    best_outcome_score: Optional[float] = None
+    worst_outcome_score: Optional[float] = None
+    outcome_run_count: int = 0
+    last_outcome_issues: Optional[List[str]] = None
+    last_outcome_timestamp: Optional[datetime] = None
+    outcome_history: Optional[List[Dict[str, Any]]] = None  # Últimos 10 ejecuciones
 
 
 class CompanyMemory(BaseModel):
@@ -352,6 +362,7 @@ class CompanyMemory(BaseModel):
     
     v3.9.0: Almacena patrones de documentación por empresa y plataforma,
     incluyendo qué documentos suelen requerirse, faltar o dar error.
+    v4.2.0: Añade agregados de calidad histórica basados en OutcomeJudge.
     """
     company_name: str
     platform: Optional[str] = None
@@ -360,6 +371,11 @@ class CompanyMemory(BaseModel):
     upload_error_counts: Dict[str, int] = Field(default_factory=dict)  # doc_type -> veces con error
     last_seen: Optional[datetime] = None
     notes: Optional[str] = None
+    # v4.2.0: Agregados de calidad histórica
+    avg_outcome_score: Optional[float] = None  # Media de scores de todos los workers
+    outcome_run_count: int = 0
+    last_outcome_timestamp: Optional[datetime] = None
+    common_issues: Optional[List[str]] = None  # Problemas frecuentes promocionados desde workers
 
 
 class PlatformMemory(BaseModel):
@@ -368,6 +384,7 @@ class PlatformMemory(BaseModel):
     
     v3.9.0: Almacena patrones de comportamiento de la plataforma,
     como uso de clicks visuales, recuperación visual, errores de upload, etc.
+    v4.2.0: Añade agregados globales de calidad histórica basados en OutcomeJudge.
     """
     platform: str
     visual_click_usage: int = 0
@@ -376,6 +393,11 @@ class PlatformMemory(BaseModel):
     ocr_usage: int = 0
     last_seen: Optional[datetime] = None
     notes: Optional[str] = None
+    # v4.2.0: Agregados globales de calidad histórica
+    avg_outcome_score: Optional[float] = None  # Media de scores de todas las empresas
+    outcome_run_count: int = 0
+    last_outcome_timestamp: Optional[datetime] = None
+    common_issues: Optional[List[str]] = None  # Problemas frecuentes promocionados desde empresas
 
 
 # v4.0.0: Modelos para Planner Hints (recomendaciones del LLM sobre el plan)
@@ -507,6 +529,8 @@ class CAEWorkerDocStatus(BaseModel):
     cae_status_evidence: Optional[List[str]] = None  # v3.3.0: Fragmentos de texto que justifican el estado
     cae_expiry_dates: Optional[List[str]] = None  # v3.3.0: Fechas de caducidad detectadas (YYYY-MM-DD)
     memory_summary: Optional[Dict[str, Any]] = None  # v3.9.0: Información resumida de memoria persistente
+    memory_summary_outcome: Optional[Dict[str, Any]] = None  # v4.2.0: Resumen de calidad histórica (scores, issues)
+    regression_flag: Optional[Dict[str, Any]] = None  # v4.2.0: Flag de regresión detectada
 
 
 class CAEBatchResponse(BaseModel):

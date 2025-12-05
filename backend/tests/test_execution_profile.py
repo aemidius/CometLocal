@@ -149,3 +149,7 @@ class TestExecutionProfileIntegration:
         assert profile.allow_wikipedia is True
         assert profile.allow_images is True
 
+
+
+
+

@@ -228,3 +228,4 @@ def test_visual_flow_maintains_previous_state():
     assert "click_save_button" in state.pending_actions
     assert state.confidence < previous_state.confidence  # Confianza reducida
 
+
