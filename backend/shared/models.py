@@ -257,6 +257,22 @@ class VisualContractResult(BaseModel):
     severity: str = "normal"
 
 
+# v3.7.0: Modelo para intenciones del agente
+class AgentIntent(BaseModel):
+    """
+    Intención explícita del agente para una acción crítica.
+    
+    v3.7.0: Representa qué está intentando hacer el agente con una acción específica,
+    permitiendo trazar la intención → acción → estado visual → contrato.
+    """
+    intent_type: str  # ej. "select_file", "upload_file", "save_changes", "confirm_submission"
+    description: Optional[str] = None  # descripción humana: "Seleccionar el archivo de reconocimiento médico"
+    related_stage: Optional[str] = None  # stage de VisualFlowState al que apunta: "file_selected", "uploaded", "saved", "confirmed"
+    criticality: str = "normal"  # "normal" | "critical"
+    tags: List[str] = Field(default_factory=list)  # tags libres: ["cae", "upload", "worker_doc"]
+    sub_goal_index: Optional[int] = None
+
+
 class CAEWorkerDocStatus(BaseModel):
     """
     Estado de documentación de un trabajador tras procesamiento CAE.

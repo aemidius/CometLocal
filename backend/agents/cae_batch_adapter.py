@@ -315,6 +315,41 @@ def build_cae_response_from_batch(
                 # Reforzar confianza si hay match
                 logger.debug("[cae-batch] Visual contract match detected, reinforcing confidence")
         
+        # v3.7.0: Usar AgentIntent si está disponible para enriquecer notas
+        critical_intents = []
+        all_intents = []
+        if hasattr(result, 'steps') and result.steps:
+            # Buscar intenciones relevantes en los steps
+            for step in reversed(result.steps):
+                if step.info and step.info.get("agent_intent"):
+                    from backend.shared.models import AgentIntent
+                    try:
+                        agent_intent = AgentIntent(**step.info["agent_intent"])
+                        # Solo considerar intenciones relevantes para CAE
+                        if agent_intent.intent_type in ["upload_file", "save_changes", "confirm_submission", "select_file"]:
+                            if agent_intent.intent_type not in [i.intent_type for i in all_intents]:
+                                all_intents.append(agent_intent)
+                                if agent_intent.criticality == "critical":
+                                    critical_intents.append(agent_intent)
+                    except Exception as e:
+                        logger.debug(f"[cae-batch] Failed to parse agent_intent: {e}")
+        
+        if critical_intents:
+            intent_descriptions = {
+                "upload_file": "subir archivo",
+                "save_changes": "guardar cambios",
+                "confirm_submission": "confirmar envío",
+                "select_file": "seleccionar archivo",
+            }
+            intent_names = [intent_descriptions.get(intent.intent_type, intent.intent_type) for intent in critical_intents]
+            notes_parts.append(f"Intenciones críticas ejecutadas: {', '.join(intent_names)}.")
+        
+        if all_intents and not critical_intents:
+            # Si hay intenciones pero ninguna es crítica, mencionarlas brevemente
+            intent_types = list(set([intent.intent_type for intent in all_intents]))
+            if intent_types:
+                notes_parts.append(f"Intenciones detectadas: {', '.join(intent_types)}.")
+        
         notes = "; ".join(notes_parts) if notes_parts else None
         
         # v3.2.0: Extraer visual_actions de las secciones

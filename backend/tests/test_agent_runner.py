@@ -16,8 +16,15 @@ from backend.agents.agent_runner import (
     _normalize_text_for_comparison,
     AgentMetrics,
     _build_final_answer,
+    goal_uses_pronouns,
+    _summarize_uploads_for_subgoal,
+    _verify_upload_visually,
+    _evaluate_subgoal_for_retry,
+    _build_retry_prompt_context,
 )
+from backend.agents.retry_policy import RetryPolicy
 from backend.shared.models import BrowserObservation, StepResult, BrowserAction
+from backend.agents.session_context import SessionContext
 
 
 class TestBuildImageSearchQuery:
@@ -761,4 +768,1099 @@ class TestBuildFinalAnswer:
         assert result["metrics_summary"] is not None
         assert "summary" in result["metrics_summary"]
         assert result["metrics_summary"]["summary"]["total_sub_goals"] == 1
+
+
+class TestGoalUsesPronouns:
+    """Tests para goal_uses_pronouns v1.7.0"""
+    
+    def test_detects_personal_pronouns(self):
+        """Detectar pronombres personales"""
+        assert goal_uses_pronouns("muéstrame imágenes de él") is True
+        assert goal_uses_pronouns("enséñame información sobre ella") is True
+        assert goal_uses_pronouns("busca fotos de ellos") is True
+    
+    def test_detects_possessive_pronouns(self):
+        """Detectar pronombres posesivos"""
+        assert goal_uses_pronouns("muéstrame imágenes suyas") is True
+        assert goal_uses_pronouns("enséñame fotos suyos") is True
+        assert goal_uses_pronouns("busca información su") is True
+    
+    def test_detects_generic_references(self):
+        """Detectar referencias genéricas"""
+        assert goal_uses_pronouns("busca información sobre esa persona") is True
+        assert goal_uses_pronouns("muéstrame datos de esa empresa") is True
+    
+    def test_no_pronouns(self):
+        """No detectar pronombres cuando no hay"""
+        assert goal_uses_pronouns("investiga quién fue Ada Lovelace") is False
+        assert goal_uses_pronouns("muéstrame imágenes de computadoras") is False
+        assert goal_uses_pronouns("busca información sobre Python") is False
+
+
+class TestSessionContextIntegrationWithAgent:
+    """Tests de integración de SessionContext con el agente"""
+    
+    def test_context_resolves_pronouns_in_sequence(self):
+        """Verificar que el contexto resuelve pronombres en secuencia de sub-goals"""
+        context = SessionContext()
+        
+        # Simular sub-goal 1: entidad explícita
+        sub_goal_1 = "investiga quién fue Ada Lovelace en Wikipedia"
+        entity_1 = "Ada Lovelace"
+        context.update_entity(entity_1)
+        context.update_goal("goal completo", sub_goal_1)
+        
+        # Simular sub-goal 2: con pronombres
+        sub_goal_2 = "muéstrame imágenes suyas"
+        assert goal_uses_pronouns(sub_goal_2) is True
+        
+        # Resolver usando contexto
+        resolved_entity = context.resolve_entity_reference(sub_goal_2)
+        assert resolved_entity == "Ada Lovelace"
+        
+        # Actualizar contexto después del sub-goal 2
+        context.update_entity(resolved_entity)
+        context.update_goal("goal completo", sub_goal_2)
+        
+        # Verificar estado final
+        assert context.current_focus_entity == "Ada Lovelace"
+        assert context.last_sub_goal == sub_goal_2
+    
+    def test_context_preserves_entities_across_subgoals(self):
+        """Verificar que el contexto preserva entidades entre sub-goals"""
+        context = SessionContext()
+        
+        # Sub-goal 1
+        context.update_entity("Ada Lovelace")
+        context.update_goal("goal", "sub-goal 1")
+        
+        # Sub-goal 2 (con pronombres)
+        resolved = context.resolve_entity_reference("muéstrame imágenes suyas")
+        assert resolved == "Ada Lovelace"
+        context.update_entity(resolved)
+        
+        # Sub-goal 3 (nueva entidad explícita)
+        context.update_entity("Charles Babbage")
+        context.update_goal("goal", "sub-goal 3")
+        
+        # Verificar historial
+        assert len(context.entity_history) == 2
+        assert "Ada Lovelace" in context.entity_history
+        assert "Charles Babbage" in context.entity_history
+        assert context.current_focus_entity == "Charles Babbage"
+    
+    def test_no_regression_explicit_entities(self):
+        """Verificar que entidades explícitas no se confunden con contexto previo"""
+        context = SessionContext()
+        
+        # Sub-goal 1: Ada Lovelace
+        context.update_entity("Ada Lovelace")
+        context.update_goal("goal", "investiga quién fue Ada Lovelace")
+        
+        # Sub-goal 2: Charles Babbage (explícito, debe sobrescribir)
+        entity_2 = "Charles Babbage"
+        context.update_entity(entity_2)
+        context.update_goal("goal", "dime quién fue Charles Babbage")
+        
+        # Verificar que la entidad actual es la nueva
+        assert context.current_focus_entity == "Charles Babbage"
+        assert context.last_valid_entity == "Charles Babbage"
+        
+        # Si hay un sub-goal 3 con pronombres, debe usar Charles Babbage
+        resolved = context.resolve_entity_reference("muéstrame imágenes suyas")
+        assert resolved == "Charles Babbage"
+
+
+class TestSummarizeUploadsForSubgoal:
+    """Tests para _summarize_uploads_for_subgoal v2.4.0"""
+    
+    def test_summarize_uploads_no_uploads(self):
+        """Sin uploads devuelve None"""
+        from backend.shared.models import BrowserObservation
+        
+        steps = [
+            StepResult(
+                observation=BrowserObservation(
+                    url="https://example.com",
+                    title="Test",
+                    visible_text_excerpt="",
+                    clickable_texts=[],
+                    input_hints=[],
+                ),
+                last_action=None,
+                error=None,
+                info={},
+            )
+        ]
+        
+        result = _summarize_uploads_for_subgoal(steps)
+        assert result is None
+    
+    def test_summarize_uploads_single_success(self):
+        """Un solo upload exitoso"""
+        from backend.shared.models import BrowserObservation, BrowserAction
+        
+        steps = [
+            StepResult(
+                observation=BrowserObservation(
+                    url="https://example.com",
+                    title="Test",
+                    visible_text_excerpt="",
+                    clickable_texts=[],
+                    input_hints=[],
+                ),
+                last_action=BrowserAction(
+                    type="upload_file",
+                    args={"file_path": "/test/file.pdf", "selector": "input[type='file']"}
+                ),
+                error=None,
+                info={
+                    "upload_status": {
+                        "status": "success",
+                        "file_path": "/test/file.pdf",
+                        "selector": "input[type='file']",
+                        "error_message": None,
+                    }
+                },
+            )
+        ]
+        
+        result = _summarize_uploads_for_subgoal(steps)
+        assert result is not None
+        assert result["status"] == "success"
+        assert result["file_path"] == "/test/file.pdf"
+        assert result["selector"] == "input[type='file']"
+        assert result["attempts"] == 1
+    
+    def test_summarize_uploads_multiple_last_relevant(self):
+        """Múltiples uploads, el último es el más relevante"""
+        from backend.shared.models import BrowserObservation, BrowserAction
+        
+        steps = [
+            StepResult(
+                observation=BrowserObservation(
+                    url="https://example.com",
+                    title="Test",
+                    visible_text_excerpt="",
+                    clickable_texts=[],
+                    input_hints=[],
+                ),
+                last_action=BrowserAction(
+                    type="upload_file",
+                    args={"file_path": "/test/file1.pdf", "selector": "input[type='file']"}
+                ),
+                error=None,
+                info={
+                    "upload_status": {
+                        "status": "success",
+                        "file_path": "/test/file1.pdf",
+                        "selector": "input[type='file']",
+                        "error_message": None,
+                    }
+                },
+            ),
+            StepResult(
+                observation=BrowserObservation(
+                    url="https://example.com",
+                    title="Test",
+                    visible_text_excerpt="",
+                    clickable_texts=[],
+                    input_hints=[],
+                ),
+                last_action=BrowserAction(
+                    type="upload_file",
+                    args={"file_path": "/test/file2.pdf", "selector": "input[type='file']"}
+                ),
+                error="No se encontró input",
+                info={
+                    "upload_status": {
+                        "status": "no_input_found",
+                        "file_path": "/test/file2.pdf",
+                        "selector": "input[type='file']",
+                        "error_message": "No se encontró input",
+                    }
+                },
+            ),
+        ]
+        
+        result = _summarize_uploads_for_subgoal(steps)
+        assert result is not None
+        assert result["status"] == "no_input_found"
+        assert result["file_path"] == "/test/file2.pdf"
+        assert result["attempts"] == 2
+    
+    def test_summarize_uploads_file_not_found(self):
+        """Upload con archivo no encontrado"""
+        from backend.shared.models import BrowserObservation, BrowserAction
+        
+        steps = [
+            StepResult(
+                observation=BrowserObservation(
+                    url="https://example.com",
+                    title="Test",
+                    visible_text_excerpt="",
+                    clickable_texts=[],
+                    input_hints=[],
+                ),
+                last_action=BrowserAction(
+                    type="upload_file",
+                    args={"file_path": "/nonexistent.pdf", "selector": "input[type='file']"}
+                ),
+                error="Archivo no encontrado",
+                info={
+                    "upload_status": {
+                        "status": "file_not_found",
+                        "file_path": "/nonexistent.pdf",
+                        "selector": "input[type='file']",
+                        "error_message": "Archivo no encontrado",
+                    }
+                },
+            )
+        ]
+        
+        result = _summarize_uploads_for_subgoal(steps)
+        assert result is not None
+        assert result["status"] == "file_not_found"
+        assert result["file_path"] == "/nonexistent.pdf"
+        assert result["attempts"] == 1
+    
+    def test_summarize_uploads_with_verification(self):
+        """_summarize_uploads_for_subgoal incluye información de verificación"""
+        from backend.shared.models import BrowserObservation, BrowserAction
+        
+        steps = [
+            StepResult(
+                observation=BrowserObservation(
+                    url="https://example.com",
+                    title="Test",
+                    visible_text_excerpt="",
+                    clickable_texts=[],
+                    input_hints=[],
+                ),
+                last_action=BrowserAction(
+                    type="upload_file",
+                    args={"file_path": "/test/file.pdf", "selector": "input[type='file']"}
+                ),
+                error=None,
+                info={
+                    "upload_status": {
+                        "status": "success",
+                        "file_path": "/test/file.pdf",
+                        "selector": "input[type='file']",
+                        "error_message": None,
+                    },
+                    "upload_verification": {
+                        "status": "confirmed",
+                        "file_name": "file.pdf",
+                        "confidence": 0.85,
+                        "evidence": "El archivo file.pdf ha sido subido correctamente",
+                    }
+                },
+            )
+        ]
+        
+        result = _summarize_uploads_for_subgoal(steps)
+        assert result is not None
+        assert result["verification_status"] == "confirmed"
+        assert result["verification_confidence"] == 0.85
+        assert "file.pdf" in result["verification_evidence"]
+
+
+class TestBuildFinalAnswerWithUploads:
+    """Tests para _build_final_answer con uploads v2.4.0"""
+    
+    def test_build_final_answer_with_upload_success(self):
+        """Respuesta con upload exitoso incluye texto y upload_summary"""
+        from backend.shared.models import BrowserObservation, BrowserAction
+        
+        sub_goals = ["sube el documento reconocimiento.pdf"]
+        sub_goal_answers = ["He completado la tarea."]
+        
+        obs = BrowserObservation(
+            url="https://example.com/upload",
+            title="Upload Page",
+            visible_text_excerpt="Upload form",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        step = StepResult(
+            observation=obs,
+            last_action=BrowserAction(
+                type="upload_file",
+                args={"file_path": "/test/reconocimiento.pdf", "selector": "input[type='file']"}
+            ),
+            error=None,
+            info={
+                "sub_goal_index": 1,
+                "sub_goal": sub_goals[0],
+                "upload_status": {
+                    "status": "success",
+                    "file_path": "/test/reconocimiento.pdf",
+                    "selector": "input[type='file']",
+                    "error_message": None,
+                }
+            }
+        )
+        
+        result = _build_final_answer(
+            original_goal="sube el documento reconocimiento.pdf",
+            sub_goals=sub_goals,
+            sub_goal_answers=sub_goal_answers,
+            all_steps=[step],
+        )
+        
+        # Verificar que el texto contiene mención del upload
+        assert "reconocimiento.pdf" in result["answer_text"]
+        assert "adjuntado" in result["answer_text"].lower() or "seleccionado" in result["answer_text"].lower()
+        
+        # Verificar que la sección tiene upload_summary
+        section = result["sections"][0]
+        assert section["upload_summary"] is not None
+        assert section["upload_summary"]["status"] == "success"
+        assert section["upload_summary"]["file_name"] == "reconocimiento.pdf"
+        assert section["upload_summary"]["attempts"] == 1
+    
+    def test_build_final_answer_with_upload_verification_confirmed(self):
+        """Respuesta con verificación confirmada incluye texto y estructura"""
+        from backend.shared.models import BrowserObservation, BrowserAction
+        
+        sub_goals = ["sube el documento reconocimiento.pdf"]
+        sub_goal_answers = ["He completado la tarea."]
+        
+        obs = BrowserObservation(
+            url="https://example.com/upload",
+            title="Upload Page",
+            visible_text_excerpt="El archivo reconocimiento.pdf ha sido subido correctamente",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        step = StepResult(
+            observation=obs,
+            last_action=BrowserAction(
+                type="upload_file",
+                args={"file_path": "/test/reconocimiento.pdf", "selector": "input[type='file']"}
+            ),
+            error=None,
+            info={
+                "sub_goal_index": 1,
+                "sub_goal": sub_goals[0],
+                "upload_status": {
+                    "status": "success",
+                    "file_path": "/test/reconocimiento.pdf",
+                    "selector": "input[type='file']",
+                    "error_message": None,
+                },
+                "upload_verification": {
+                    "status": "confirmed",
+                    "file_name": "reconocimiento.pdf",
+                    "confidence": 0.85,
+                    "evidence": "El archivo reconocimiento.pdf ha sido subido correctamente",
+                }
+            }
+        )
+        
+        result = _build_final_answer(
+            original_goal="sube el documento reconocimiento.pdf",
+            sub_goals=sub_goals,
+            sub_goal_answers=sub_goal_answers,
+            all_steps=[step],
+        )
+        
+        # Verificar que el texto contiene mención de verificación
+        assert "verificado visualmente" in result["answer_text"].lower()
+        assert "reconocimiento.pdf" in result["answer_text"]
+        
+        # Verificar que la sección tiene upload_verification
+        section = result["sections"][0]
+        assert section["upload_verification"] is not None
+        assert section["upload_verification"]["status"] == "confirmed"
+        assert section["upload_verification"]["file_name"] == "reconocimiento.pdf"
+    
+    def test_build_final_answer_with_upload_verification_not_confirmed(self):
+        """Respuesta con verificación no confirmada"""
+        from backend.shared.models import BrowserObservation, BrowserAction
+        
+        sub_goals = ["sube el documento reconocimiento.pdf"]
+        sub_goal_answers = ["He intentado subir el documento."]
+        
+        obs = BrowserObservation(
+            url="https://example.com/upload",
+            title="Upload Page",
+            visible_text_excerpt="Formulario de subida de documentos",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        step = StepResult(
+            observation=obs,
+            last_action=BrowserAction(
+                type="upload_file",
+                args={"file_path": "/test/reconocimiento.pdf", "selector": "input[type='file']"}
+            ),
+            error=None,
+            info={
+                "sub_goal_index": 1,
+                "sub_goal": sub_goals[0],
+                "upload_status": {
+                    "status": "success",
+                    "file_path": "/test/reconocimiento.pdf",
+                    "selector": "input[type='file']",
+                    "error_message": None,
+                },
+                "upload_verification": {
+                    "status": "not_confirmed",
+                    "file_name": "reconocimiento.pdf",
+                    "confidence": 0.3,
+                    "evidence": "No se encontró confirmación visual explícita",
+                }
+            }
+        )
+        
+        result = _build_final_answer(
+            original_goal="sube el documento reconocimiento.pdf",
+            sub_goals=sub_goals,
+            sub_goal_answers=sub_goal_answers,
+            all_steps=[step],
+        )
+        
+        # Verificar que el texto menciona falta de confirmación
+        assert "no he encontrado una confirmación visual clara" in result["answer_text"].lower()
+        
+        # Verificar upload_verification
+        section = result["sections"][0]
+        assert section["upload_verification"] is not None
+        assert section["upload_verification"]["status"] == "not_confirmed"
+    
+    def test_build_final_answer_with_upload_file_not_found(self):
+        """Respuesta con archivo no encontrado"""
+        from backend.shared.models import BrowserObservation, BrowserAction
+        
+        sub_goals = ["sube el documento reconocimiento.pdf"]
+        sub_goal_answers = ["He intentado subir el documento."]
+        
+        obs = BrowserObservation(
+            url="https://example.com/upload",
+            title="Upload Page",
+            visible_text_excerpt="Upload form",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        step = StepResult(
+            observation=obs,
+            last_action=BrowserAction(
+                type="upload_file",
+                args={"file_path": "/test/reconocimiento.pdf", "selector": "input[type='file']"}
+            ),
+            error="Archivo no encontrado",
+            info={
+                "sub_goal_index": 1,
+                "sub_goal": sub_goals[0],
+                "upload_status": {
+                    "status": "file_not_found",
+                    "file_path": "/test/reconocimiento.pdf",
+                    "selector": "input[type='file']",
+                    "error_message": "Archivo no encontrado",
+                }
+            }
+        )
+        
+        result = _build_final_answer(
+            original_goal="sube el documento reconocimiento.pdf",
+            sub_goals=sub_goals,
+            sub_goal_answers=sub_goal_answers,
+            all_steps=[step],
+        )
+        
+        # Verificar que el texto menciona que no se encontró el archivo
+        assert "no se ha encontrado" in result["answer_text"].lower() or "no se encontró" in result["answer_text"].lower()
+        
+        # Verificar upload_summary
+        section = result["sections"][0]
+        assert section["upload_summary"] is not None
+        assert section["upload_summary"]["status"] == "file_not_found"
+    
+    def test_build_final_answer_without_upload(self):
+        """Respuesta sin uploads es idéntica a antes"""
+        from backend.shared.models import BrowserObservation
+        
+        sub_goals = ["busca información sobre computadoras"]
+        sub_goal_answers = ["Las computadoras son dispositivos electrónicos."]
+        
+        obs = BrowserObservation(
+            url="https://example.com/computadoras",
+            title="Computadoras",
+            visible_text_excerpt="Información sobre computadoras",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        step = StepResult(
+            observation=obs,
+            last_action=None,
+            error=None,
+            info={"sub_goal_index": 1, "sub_goal": sub_goals[0]}
+        )
+        
+        result = _build_final_answer(
+            original_goal="busca información sobre computadoras",
+            sub_goals=sub_goals,
+            sub_goal_answers=sub_goal_answers,
+            all_steps=[step],
+        )
+        
+        # Verificar que no hay upload_summary
+        section = result["sections"][0]
+        assert section["upload_summary"] is None
+        
+        # Verificar que el texto no menciona uploads
+        assert "adjuntado" not in result["answer_text"].lower()
+        assert "subida" not in result["answer_text"].lower()
+
+
+class TestVerifyUploadVisually:
+    """Tests para _verify_upload_visually v2.5.0"""
+    
+    def test_verify_upload_file_name_found(self):
+        """Verificación encuentra el nombre del archivo en el texto"""
+        from backend.shared.models import BrowserObservation
+        
+        obs = BrowserObservation(
+            url="https://example.com/upload",
+            title="Upload Page",
+            visible_text_excerpt="El archivo reconocimiento.pdf ha sido subido correctamente",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        result = _verify_upload_visually(
+            observation=obs,
+            file_path="/test/reconocimiento.pdf",
+            goal="sube el documento",
+        )
+        
+        assert result["status"] == "confirmed"
+        assert result["file_name"] == "reconocimiento.pdf"
+        assert result["confidence"] >= 0.8
+        assert "reconocimiento" in result["evidence"].lower()
+    
+    def test_verify_upload_success_message_found(self):
+        """Verificación encuentra mensaje genérico de éxito sin nombre de archivo"""
+        from backend.shared.models import BrowserObservation
+        
+        obs = BrowserObservation(
+            url="https://example.com/upload",
+            title="Upload Page",
+            visible_text_excerpt="Documento subido correctamente. La carga se ha completado exitosamente.",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        result = _verify_upload_visually(
+            observation=obs,
+            file_path="/test/documento.pdf",
+            goal="sube el documento",
+        )
+        
+        assert result["status"] == "confirmed"
+        assert result["file_name"] == "documento.pdf"
+        assert 0.6 <= result["confidence"] < 0.9  # Confianza media
+        assert len(result["evidence"]) > 0
+    
+    def test_verify_upload_error_detected(self):
+        """Verificación detecta mensaje de error"""
+        from backend.shared.models import BrowserObservation
+        
+        obs = BrowserObservation(
+            url="https://example.com/upload",
+            title="Upload Page",
+            visible_text_excerpt="Error al subir el archivo. El formato no está permitido.",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        result = _verify_upload_visually(
+            observation=obs,
+            file_path="/test/archivo.pdf",
+            goal="sube el documento",
+        )
+        
+        assert result["status"] == "error_detected"
+        assert result["file_name"] == "archivo.pdf"
+        assert result["confidence"] >= 0.8
+        assert "error" in result["evidence"].lower()
+    
+    def test_verify_upload_no_confirmation(self):
+        """Verificación no encuentra confirmación clara"""
+        from backend.shared.models import BrowserObservation
+        
+        obs = BrowserObservation(
+            url="https://example.com/upload",
+            title="Upload Page",
+            visible_text_excerpt="Formulario de carga. Por favor, seleccione un archivo para continuar.",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        result = _verify_upload_visually(
+            observation=obs,
+            file_path="/test/documento.pdf",
+            goal="sube el documento",
+        )
+        
+        assert result["status"] == "not_confirmed"
+        assert result["file_name"] == "documento.pdf"
+        assert result["confidence"] < 0.5
+        assert len(result["evidence"]) > 0
+    
+    def test_verify_upload_no_text(self):
+        """Verificación sin texto disponible"""
+        from backend.shared.models import BrowserObservation
+        
+        obs = BrowserObservation(
+            url="https://example.com/upload",
+            title="Upload Page",
+            visible_text_excerpt="",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        result = _verify_upload_visually(
+            observation=obs,
+            file_path="/test/documento.pdf",
+            goal="sube el documento",
+        )
+        
+        assert result["status"] == "not_confirmed"
+        assert result["file_name"] == "documento.pdf"
+        assert result["confidence"] <= 0.3
+
+
+class TestEvaluateSubgoalForRetry:
+    """Tests para _evaluate_subgoal_for_retry v2.6.0"""
+    
+    def test_evaluate_subgoal_success_no_retry(self):
+        """No se debe hacer retry si el goal fue exitoso"""
+        from backend.shared.models import BrowserObservation, BrowserAction
+        
+        steps = [
+            StepResult(
+                observation=BrowserObservation(
+                    url="https://example.com",
+                    title="Test",
+                    visible_text_excerpt="",
+                    clickable_texts=[],
+                    input_hints=[],
+                ),
+                last_action=None,
+                error=None,
+                info={
+                    "metrics_subgoal": {
+                        "success": True,
+                        "goal": "test goal",
+                    }
+                }
+            )
+        ]
+        
+        metrics_data = {"success": True}
+        retry_policy = RetryPolicy()
+        
+        should_retry, upload_status, verification_status, error_message = _evaluate_subgoal_for_retry(
+            steps, metrics_data, retry_policy
+        )
+        
+        assert should_retry is False
+    
+    def test_evaluate_subgoal_upload_not_confirmed_retry(self):
+        """Se debe hacer retry si upload_status es not_confirmed"""
+        from backend.shared.models import BrowserObservation, BrowserAction
+        
+        steps = [
+            StepResult(
+                observation=BrowserObservation(
+                    url="https://example.com",
+                    title="Test",
+                    visible_text_excerpt="",
+                    clickable_texts=[],
+                    input_hints=[],
+                ),
+                last_action=BrowserAction(
+                    type="upload_file",
+                    args={"file_path": "/test/file.pdf", "selector": "input[type='file']"}
+                ),
+                error=None,
+                info={
+                    "upload_status": {
+                        "status": "not_confirmed",
+                        "file_path": "/test/file.pdf",
+                        "selector": "input[type='file']",
+                        "error_message": None,
+                    },
+                    "upload_verification": {
+                        "status": "not_confirmed",
+                        "file_name": "file.pdf",
+                        "confidence": 0.3,
+                        "evidence": "No se encontró confirmación",
+                    }
+                }
+            )
+        ]
+        
+        metrics_data = {"success": False}
+        retry_policy = RetryPolicy()
+        
+        should_retry, upload_status, verification_status, error_message = _evaluate_subgoal_for_retry(
+            steps, metrics_data, retry_policy
+        )
+        
+        assert should_retry is True
+        assert upload_status == "not_confirmed"
+        assert verification_status == "not_confirmed"
+    
+    def test_evaluate_subgoal_verification_error_retry(self):
+        """Se debe hacer retry si verification_status es error_detected"""
+        from backend.shared.models import BrowserObservation, BrowserAction
+        
+        steps = [
+            StepResult(
+                observation=BrowserObservation(
+                    url="https://example.com",
+                    title="Test",
+                    visible_text_excerpt="",
+                    clickable_texts=[],
+                    input_hints=[],
+                ),
+                last_action=BrowserAction(
+                    type="upload_file",
+                    args={"file_path": "/test/file.pdf", "selector": "input[type='file']"}
+                ),
+                error=None,
+                info={
+                    "upload_status": {
+                        "status": "success",
+                        "file_path": "/test/file.pdf",
+                        "selector": "input[type='file']",
+                        "error_message": None,
+                    },
+                    "upload_verification": {
+                        "status": "error_detected",
+                        "file_name": "file.pdf",
+                        "confidence": 0.9,
+                        "evidence": "Error al subir el archivo",
+                    }
+                }
+            )
+        ]
+        
+        metrics_data = {"success": False}
+        retry_policy = RetryPolicy()
+        
+        should_retry, upload_status, verification_status, error_message = _evaluate_subgoal_for_retry(
+            steps, metrics_data, retry_policy
+        )
+        
+        assert should_retry is True
+        assert verification_status == "error_detected"
+    
+    def test_evaluate_subgoal_goal_failure_retry(self):
+        """Se debe hacer retry si el goal falló y retry_on_goal_failure está activo"""
+        from backend.shared.models import BrowserObservation
+        
+        steps = [
+            StepResult(
+                observation=BrowserObservation(
+                    url="https://example.com",
+                    title="Test",
+                    visible_text_excerpt="",
+                    clickable_texts=[],
+                    input_hints=[],
+                ),
+                last_action=None,
+                error=None,
+                info={}
+            )
+        ]
+        
+        metrics_data = {"success": False}
+        retry_policy = RetryPolicy(retry_on_goal_failure=True)
+        
+        should_retry, upload_status, verification_status, error_message = _evaluate_subgoal_for_retry(
+            steps, metrics_data, retry_policy
+        )
+        
+        assert should_retry is True
+
+
+class TestBuildRetryPromptContext:
+    """Tests para _build_retry_prompt_context v2.6.0"""
+    
+    def test_build_retry_prompt_with_upload_status(self):
+        """Construye prompt con información de upload_status"""
+        retry_context = {
+            "attempt_index": 1,
+            "last_upload_status": "not_confirmed",
+            "last_verification_status": None,
+            "last_error_message": None,
+        }
+        
+        result = _build_retry_prompt_context(retry_context)
+        
+        assert "intento anterior" in result.lower()
+        assert "not_confirmed" in result or "no se confirmó" in result
+        assert "estrategia diferente" in result.lower()
+    
+    def test_build_retry_prompt_with_verification_status(self):
+        """Construye prompt con información de verification_status"""
+        retry_context = {
+            "attempt_index": 1,
+            "last_upload_status": "success",
+            "last_verification_status": "error_detected",
+            "last_error_message": None,
+        }
+        
+        result = _build_retry_prompt_context(retry_context)
+        
+        assert "error_detected" in result or "mensaje de error" in result
+        assert "verificación visual" in result.lower()
+    
+    def test_build_retry_prompt_with_error_message(self):
+        """Construye prompt con error_message"""
+        retry_context = {
+            "attempt_index": 1,
+            "last_upload_status": None,
+            "last_verification_status": None,
+            "last_error_message": "Error al procesar el formulario",
+        }
+        
+        result = _build_retry_prompt_context(retry_context)
+        
+        assert "Error al procesar" in result
+
+
+class TestRetryMetrics:
+    """Tests para métricas de retry v2.6.0"""
+    
+    def test_retry_metrics_initialization(self):
+        """Los contadores de retry se inicializan a 0"""
+        metrics = AgentMetrics()
+        
+        assert metrics.retry_attempts == 0
+        assert metrics.retry_successes == 0
+        assert metrics.retry_exhausted_count == 0
+    
+    def test_register_retry_attempt(self):
+        """register_retry_attempt incrementa el contador"""
+        metrics = AgentMetrics()
+        
+        metrics.register_retry_attempt()
+        assert metrics.retry_attempts == 1
+        
+        metrics.register_retry_attempt()
+        assert metrics.retry_attempts == 2
+    
+    def test_register_retry_success(self):
+        """register_retry_success incrementa el contador"""
+        metrics = AgentMetrics()
+        
+        metrics.register_retry_success()
+        assert metrics.retry_successes == 1
+        
+        metrics.register_retry_success()
+        assert metrics.retry_successes == 2
+    
+    def test_register_retry_exhausted(self):
+        """register_retry_exhausted incrementa el contador"""
+        metrics = AgentMetrics()
+        
+        metrics.register_retry_exhausted()
+        assert metrics.retry_exhausted_count == 1
+        
+        metrics.register_retry_exhausted()
+        assert metrics.retry_exhausted_count == 2
+    
+    def test_retry_info_in_summary(self):
+        """retry_info aparece en el summary con valores correctos"""
+        metrics = AgentMetrics()
+        
+        metrics.register_retry_attempt()
+        metrics.register_retry_attempt()
+        metrics.register_retry_success()
+        metrics.register_retry_exhausted()
+        
+        summary = metrics.to_summary_dict()
+        
+        assert "retry_info" in summary["summary"]
+        retry_info = summary["summary"]["retry_info"]
+        assert retry_info["retry_attempts"] == 2
+        assert retry_info["retry_successes"] == 1
+        assert retry_info["retry_exhausted_count"] == 1
+        assert retry_info["retry_success_ratio"] == 0.5  # 1/2
+    
+    def test_retry_info_empty_summary(self):
+        """retry_info tiene valores 0 cuando no hay retries"""
+        metrics = AgentMetrics()
+        
+        summary = metrics.to_summary_dict()
+        
+        assert "retry_info" in summary["summary"]
+        retry_info = summary["summary"]["retry_info"]
+        assert retry_info["retry_attempts"] == 0
+        assert retry_info["retry_successes"] == 0
+        assert retry_info["retry_exhausted_count"] == 0
+        assert retry_info["retry_success_ratio"] == 0.0
+
+
+class TestAgentIntentMetrics:
+    """Tests para métricas de intenciones del agente (v3.7.0)"""
+    
+    def test_agent_intent_metrics_initialization(self):
+        """Los contadores de intenciones se inicializan correctamente"""
+        metrics = AgentMetrics()
+        
+        assert metrics.intent_counts == {}
+        assert metrics.critical_intent_count == 0
+    
+    def test_register_agent_intent(self):
+        """register_agent_intent actualiza los contadores correctamente"""
+        from backend.shared.models import AgentIntent
+        
+        metrics = AgentMetrics()
+        
+        # Registrar intención normal
+        intent1 = AgentIntent(
+            intent_type="upload_file",
+            criticality="normal",
+        )
+        metrics.register_agent_intent(intent1)
+        
+        assert metrics.intent_counts["upload_file"] == 1
+        assert metrics.critical_intent_count == 0
+        
+        # Registrar intención crítica
+        intent2 = AgentIntent(
+            intent_type="save_changes",
+            criticality="critical",
+        )
+        metrics.register_agent_intent(intent2)
+        
+        assert metrics.intent_counts["save_changes"] == 1
+        assert metrics.critical_intent_count == 1
+        
+        # Registrar otra intención del mismo tipo
+        intent3 = AgentIntent(
+            intent_type="upload_file",
+            criticality="normal",
+        )
+        metrics.register_agent_intent(intent3)
+        
+        assert metrics.intent_counts["upload_file"] == 2
+        assert metrics.critical_intent_count == 1
+    
+    def test_intent_info_in_summary(self):
+        """intent_info aparece en el summary con valores correctos"""
+        from backend.shared.models import AgentIntent
+        
+        metrics = AgentMetrics()
+        
+        metrics.register_agent_intent(AgentIntent(intent_type="upload_file", criticality="normal"))
+        metrics.register_agent_intent(AgentIntent(intent_type="save_changes", criticality="critical"))
+        metrics.register_agent_intent(AgentIntent(intent_type="confirm_submission", criticality="critical"))
+        
+        summary = metrics.to_summary_dict()
+        
+        assert "intent_info" in summary["summary"]
+        intent_info = summary["summary"]["intent_info"]
+        assert intent_info["intent_counts"]["upload_file"] == 1
+        assert intent_info["intent_counts"]["save_changes"] == 1
+        assert intent_info["intent_counts"]["confirm_submission"] == 1
+        assert intent_info["critical_intent_count"] == 2
+    
+    def test_agent_intent_in_step_result_info(self):
+        """Verificar que agent_intent se guarda en StepResult.info"""
+        from backend.shared.models import BrowserObservation, AgentIntent
+        
+        obs = BrowserObservation(
+            url="https://example.com",
+            title="Example",
+            visible_text_excerpt="",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        intent = AgentIntent(
+            intent_type="upload_file",
+            description="Subir archivo de reconocimiento médico",
+            related_stage="file_selected",
+            criticality="normal",
+            tags=["upload", "cae"],
+            sub_goal_index=1,
+        )
+        
+        step = StepResult(
+            observation=obs,
+            last_action=BrowserAction(type="upload_file", args={}),
+            error=None,
+            info={
+                "agent_intent": intent.model_dump(),
+            }
+        )
+        
+        assert "agent_intent" in step.info
+        intent_dict = step.info["agent_intent"]
+        assert intent_dict["intent_type"] == "upload_file"
+        assert intent_dict["criticality"] == "normal"
+        assert "upload" in intent_dict["tags"]
+    
+    def test_evaluate_subgoal_for_retry_with_critical_intent_and_violation(self):
+        """_evaluate_subgoal_for_retry debe recomendar retry si hay intención crítica con violación"""
+        from backend.shared.models import BrowserObservation, AgentIntent, VisualContractResult
+        
+        obs = BrowserObservation(
+            url="https://example.com",
+            title="Example",
+            visible_text_excerpt="",
+            clickable_texts=[],
+            input_hints=[],
+        )
+        
+        # Crear step con intención crítica y violación de contrato visual
+        intent = AgentIntent(
+            intent_type="save_changes",
+            criticality="critical",
+        )
+        
+        contract_result = VisualContractResult(
+            outcome="violation",
+            expected_stage="saved",
+            actual_stage="error",
+            severity="critical",
+        )
+        
+        step = StepResult(
+            observation=obs,
+            last_action=BrowserAction(type="click_text", args={"text": "Guardar"}),
+            error=None,
+            info={
+                "agent_intent": intent.model_dump(),
+                "visual_expectation": contract_result.model_dump(),
+            }
+        )
+        
+        retry_policy = RetryPolicy(
+            retry_on_goal_failure=True,
+            max_retries=3,
+        )
+        
+        should_retry, upload_status, verification_status, error_message = _evaluate_subgoal_for_retry(
+            steps=[step],
+            metrics_data={"success": False},
+            retry_policy=retry_policy,
+        )
+        
+        assert should_retry is True
+        # Verificar que el retry_reason contiene información sobre la intención crítica
+        # (aunque no lo retornamos directamente, el logger debería haber registrado algo)
 

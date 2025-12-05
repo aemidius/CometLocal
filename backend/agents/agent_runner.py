@@ -28,6 +28,7 @@ from backend.agents.execution_plan import ExecutionPlan, PlannedSubGoal
 from backend.vision.ocr_service import OCRService
 from backend.agents.visual_flow import VisualFlowEngine
 from backend.agents.visual_contracts import build_visual_expectation_for_action, evaluate_visual_contract
+from backend.agents.agent_intents import build_agent_intent_for_action
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,9 @@ class AgentMetrics:
         self.visual_expectation_mismatches: int = 0
         self.visual_expectation_violations: int = 0
         self.visual_expectation_unknown: int = 0
+        # v3.7.0: Contadores de intenciones del agente
+        self.intent_counts: Dict[str, int] = defaultdict(int)
+        self.critical_intent_count: int = 0
     
     def register_visual_click(self, success: bool) -> None:
         """
@@ -155,6 +159,19 @@ class AgentMetrics:
             self.visual_expectation_violations += 1
         else:
             self.visual_expectation_unknown += 1
+    
+    def register_agent_intent(self, intent: "AgentIntent") -> None:
+        """
+        Registra una intención del agente.
+        
+        v3.7.0: Actualiza los contadores de intenciones del agente.
+        
+        Args:
+            intent: AgentIntent a registrar
+        """
+        self.intent_counts[intent.intent_type] = self.intent_counts.get(intent.intent_type, 0) + 1
+        if intent.criticality == "critical":
+            self.critical_intent_count += 1
     
     def start(self):
         """Marca el inicio de la ejecución completa."""
@@ -388,6 +405,12 @@ class AgentMetrics:
             "unknown": self.visual_expectation_unknown,
         }
         
+        # v3.7.0: Información de intenciones del agente
+        intent_info = {
+            "intent_counts": dict(self.intent_counts),
+            "critical_intent_count": self.critical_intent_count,
+        }
+        
         # Serializar sub_goals
         sub_goals_data = []
         for m in self.sub_goals:
@@ -424,6 +447,7 @@ class AgentMetrics:
                 "visual_click_info": visual_click_info,  # v3.4.0
                 "visual_flow_info": visual_flow_info,  # v3.5.0
                 "visual_expectation_info": visual_expectation_info,  # v3.6.0
+                "intent_info": intent_info,  # v3.7.0
                 "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }
@@ -778,6 +802,20 @@ def _evaluate_subgoal_for_retry(
                 if visual_contract_outcome:
                     break
     
+    # v3.7.0: Buscar intención del agente en los steps
+    last_agent_intent = None
+    for step in reversed(steps):
+        if step.info and "agent_intent" in step.info:
+            agent_intent_dict = step.info["agent_intent"]
+            if isinstance(agent_intent_dict, dict):
+                try:
+                    from backend.shared.models import AgentIntent
+                    last_agent_intent = AgentIntent(**agent_intent_dict)
+                    break
+                except Exception:
+                    # Si no se puede parsear, continuar
+                    pass
+    
     # Evaluar si se debe hacer retry
     should_retry = False
     retry_reason = None
@@ -786,17 +824,37 @@ def _evaluate_subgoal_for_retry(
     if metrics_data and metrics_data.get("success"):
         return (False, upload_status, verification_status, error_message)
     
-    # v3.6.0: Usar resultado de contrato visual como señal para retry
-    if visual_contract_outcome == "violation":
-        # Violación es una señal fuerte para retry (similar a upload_error_detected)
-        should_retry = True
-        retry_reason = "visual_contract_violation"
-        logger.debug("[retry-evaluation] Visual contract violation detected, recommending retry")
-    elif visual_contract_outcome == "mismatch":
-        # Mismatch es una señal suave para retry (similar a not_confirmed)
-        should_retry = True
-        retry_reason = "visual_contract_mismatch"
-        logger.debug("[retry-evaluation] Visual contract mismatch detected, recommending retry")
+    # v3.7.0: Usar intención + contrato visual como señal para retry
+    if last_agent_intent and visual_contract_outcome:
+        # Si la intención es crítica y hay violación del contrato visual, es una señal muy fuerte
+        if last_agent_intent.criticality == "critical" and visual_contract_outcome == "violation":
+            should_retry = True
+            retry_reason = f"critical_intent_{last_agent_intent.intent_type}_violation"
+            logger.debug(
+                "[retry-evaluation] Critical intent '%s' with visual contract violation, recommending retry",
+                last_agent_intent.intent_type
+            )
+        # Si la intención es crítica y hay mismatch, también es señal fuerte
+        elif last_agent_intent.criticality == "critical" and visual_contract_outcome == "mismatch":
+            should_retry = True
+            retry_reason = f"critical_intent_{last_agent_intent.intent_type}_mismatch"
+            logger.debug(
+                "[retry-evaluation] Critical intent '%s' with visual contract mismatch, recommending retry",
+                last_agent_intent.intent_type
+            )
+    
+    # v3.6.0: Usar resultado de contrato visual como señal para retry (si no se ha decidido ya)
+    if not should_retry:
+        if visual_contract_outcome == "violation":
+            # Violación es una señal fuerte para retry (similar a upload_error_detected)
+            should_retry = True
+            retry_reason = "visual_contract_violation"
+            logger.debug("[retry-evaluation] Visual contract violation detected, recommending retry")
+        elif visual_contract_outcome == "mismatch":
+            # Mismatch es una señal suave para retry (similar a not_confirmed)
+            should_retry = True
+            retry_reason = "visual_contract_mismatch"
+            logger.debug("[retry-evaluation] Visual contract mismatch detected, recommending retry")
     
     # Si hay upload_status que requiere retry
     if upload_status and retry_policy.should_retry_upload(upload_status):
@@ -2158,6 +2216,8 @@ async def run_llm_agent(
     focus_entity: Optional[str] = None,
     reset_context: bool = False,
     execution_profile: Optional[ExecutionProfile] = None,
+    sub_goal_index: Optional[int] = None,  # v3.7.0: Índice del sub-goal actual
+    agent_metrics: Optional["AgentMetrics"] = None,  # v3.7.0: Métricas para registrar intenciones
 ) -> List[StepResult]:
     """
     Runs an agent loop on top of BrowserController using the LLMPlanner.
@@ -2405,6 +2465,14 @@ async def run_llm_agent(
                 ))
                 break
 
+            # v3.7.0: Construir intención del agente antes de ejecutar la acción
+            agent_intent = build_agent_intent_for_action(
+                action=action,
+                sub_goal=goal,  # En run_llm_agent, goal es el sub-goal actual
+                sub_goal_index=sub_goal_index,
+                visual_flow_state_before=visual_flow_state,
+            )
+
             # Execute the action
             try:
                 error = await _execute_action(action, browser)
@@ -2539,6 +2607,13 @@ async def run_llm_agent(
             # v3.6.0: Añadir resultado del contrato visual al step
             if visual_contract_result:
                 step_info["visual_expectation"] = visual_contract_result.model_dump()
+            
+            # v3.7.0: Añadir intención del agente al step
+            if agent_intent:
+                step_info["agent_intent"] = agent_intent.model_dump()
+                # Registrar intención en métricas si está disponible
+                if agent_metrics:
+                    agent_metrics.register_agent_intent(agent_intent)
             
             steps.append(StepResult(
                 observation=observation_after,
@@ -3626,6 +3701,7 @@ async def _run_llm_task_single(
     context_strategies: Optional[List[ContextStrategy]] = None,
     session_context: Optional[SessionContext] = None,
     retry_context: Optional[Dict[str, Any]] = None,
+    agent_metrics: Optional["AgentMetrics"] = None,  # v3.7.0: Métricas para registrar intenciones
 ) -> Tuple[List[StepResult], str]:
     """
     Ejecuta el agente LLM para un único objetivo (sin descomposición)
@@ -3715,13 +3791,16 @@ async def _run_llm_task_single(
     # Ejecutar el agente LLM normal a partir del contexto actual
     # v1.4: Pasar focus_entity y reset_context a run_llm_agent
     # v1.9.0: Pasar execution_profile si está disponible
+    # v3.7.0: Pasar sub_goal_index y agent_metrics
     more_steps = await run_llm_agent(
         goal=goal,
         browser=browser,
         max_steps=max_steps,
         focus_entity=focus_entity,
         reset_context=reset_context,
-        execution_profile=execution_profile
+        execution_profile=execution_profile,
+        sub_goal_index=sub_goal_index,
+        agent_metrics=agent_metrics,
     )
     # v1.4: Añadir solo a steps_local, no usar all_steps externos
     steps_local.extend(more_steps)
@@ -4097,7 +4176,7 @@ async def run_llm_task_with_answer(
         # v2.9.0: Usar índice original del sub-goal
         t0 = time.perf_counter()
         steps, final_answer = await _run_llm_task_single(
-            browser, sub_goal, max_steps, focus_entity=focus_entity, reset_context=True, sub_goal_index=original_idx, execution_profile=execution_profile, context_strategies=active_strategies, session_context=session_context
+            browser, sub_goal, max_steps, focus_entity=focus_entity, reset_context=True, sub_goal_index=original_idx, execution_profile=execution_profile, context_strategies=active_strategies, session_context=session_context, agent_metrics=agent_metrics
         )
         t1 = time.perf_counter()
         
@@ -4378,10 +4457,12 @@ async def run_llm_task_with_answer(
             t0 = time.perf_counter()
             
             # v2.6.0: Pasar retry_context al ejecutor
+            # v3.7.0: Pasar agent_metrics
             steps, answer = await _run_llm_task_single(
                 browser, sub_goal, max_steps, focus_entity=sub_focus_entity, reset_context=reset_ctx, 
                 sub_goal_index=idx, execution_profile=execution_profile, context_strategies=active_strategies, 
-                session_context=session_context, retry_context=retry_context if attempt_index > 0 else None
+                session_context=session_context, retry_context=retry_context if attempt_index > 0 else None,
+                agent_metrics=agent_metrics
             )
             t1 = time.perf_counter()
             
