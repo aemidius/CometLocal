@@ -6,7 +6,8 @@ y post-procesa resultados batch en informes CAE estructurados.
 """
 
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from datetime import datetime
 
 from backend.shared.models import (
     CAEBatchRequest,
@@ -17,7 +18,12 @@ from backend.shared.models import (
     BatchAgentGoalResult,
     CAEBatchResponse,
     CAEWorkerDocStatus,
+    WorkerMemory,
+    CompanyMemory,
+    PlatformMemory,
 )
+from backend.memory import MemoryStore
+from backend.config import MEMORY_BASE_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +97,7 @@ def build_batch_request_from_cae(cae_request: CAEBatchRequest) -> BatchAgentRequ
     
     v3.1.0: Convierte la petición CAE específica en una petición batch genérica
     que puede ser procesada por run_batch_agent.
+    v3.9.0: Carga memoria persistente para enriquecer objetivos (opcional).
     
     Args:
         cae_request: Petición batch CAE
@@ -100,6 +107,14 @@ def build_batch_request_from_cae(cae_request: CAEBatchRequest) -> BatchAgentRequ
     """
     goals: List[BatchAgentGoal] = []
     
+    # v3.9.0: Cargar memoria persistente (opcional, no crítico si falla)
+    memory_store: Optional[MemoryStore] = None
+    try:
+        memory_store = MemoryStore(MEMORY_BASE_DIR)
+        logger.debug(f"[cae-adapter] Memory store initialized at {MEMORY_BASE_DIR}")
+    except Exception as e:
+        logger.warning(f"[cae-adapter] Failed to initialize memory store: {e}")
+    
     # Asegurar que context_strategies incluye "cae" si no está especificado
     context_strategies = cae_request.context_strategies or ["cae"]
     if "cae" not in context_strategies:
@@ -108,6 +123,17 @@ def build_batch_request_from_cae(cae_request: CAEBatchRequest) -> BatchAgentRequ
     for worker in cae_request.workers:
         # Construir objetivo textual en español para el agente
         goal_text = _build_cae_goal_text(cae_request, worker)
+        
+        # v3.9.0: Enriquecer objetivo con memoria si está disponible (TODO: implementar enriquecimiento)
+        # Por ahora solo cargamos la memoria, el enriquecimiento se puede añadir más adelante
+        if memory_store:
+            try:
+                worker_memory = memory_store.load_worker(worker.id)
+                if worker_memory:
+                    logger.debug(f"[cae-adapter] Loaded memory for worker {worker.id}")
+                    # TODO: Enriquecer goal_text con información de memoria
+            except Exception as e:
+                logger.debug(f"[cae-adapter] Failed to load memory for worker {worker.id}: {e}")
         
         goals.append(
             BatchAgentGoal(
@@ -435,10 +461,169 @@ def build_cae_response_from_batch(
         f"{success_count} success, {failure_count} failures"
     )
     
+    # v3.9.0: Actualizar memoria persistente
+    memory_store: Optional[MemoryStore] = None
+    memory_summary: Dict[str, Any] = {}
+    
+    try:
+        memory_store = MemoryStore(MEMORY_BASE_DIR)
+        now = datetime.now()
+        
+        # Actualizar memoria por trabajador
+        for worker_status in worker_statuses:
+            try:
+                # Cargar memoria existente o crear nueva
+                worker_memory = memory_store.load_worker(worker_status.worker_id)
+                if not worker_memory:
+                    worker_memory = WorkerMemory(
+                        worker_id=worker_status.worker_id,
+                        full_name=worker_status.full_name,
+                        company_name=cae_request.company_name,
+                    )
+                
+                # Actualizar información
+                worker_memory.full_name = worker_status.full_name
+                worker_memory.company_name = cae_request.company_name
+                worker_memory.last_seen = now
+                
+                # Incrementar contadores de documentos exitosos
+                for doc_type in worker_status.uploaded_docs:
+                    worker_memory.successful_docs[doc_type] = worker_memory.successful_docs.get(doc_type, 0) + 1
+                
+                # Incrementar contadores de documentos fallidos
+                for doc_type in worker_status.missing_docs:
+                    worker_memory.failed_docs[doc_type] = worker_memory.failed_docs.get(doc_type, 0) + 1
+                
+                for error in worker_status.upload_errors:
+                    # Intentar extraer tipo de documento del error
+                    for doc_type in DOC_TYPE_NAMES.keys():
+                        if doc_type in error.lower():
+                            worker_memory.failed_docs[doc_type] = worker_memory.failed_docs.get(doc_type, 0) + 1
+                            break
+                    else:
+                        # Si no se puede identificar, usar "unknown"
+                        worker_memory.failed_docs["unknown"] = worker_memory.failed_docs.get("unknown", 0) + 1
+                
+                # Actualizar notas si hay errores repetidos
+                if worker_status.upload_errors:
+                    failed_doc_types = [doc for doc, count in worker_memory.failed_docs.items() if count > 1]
+                    if failed_doc_types:
+                        worker_memory.notes = f"Ha fallado repetidamente en: {', '.join(failed_doc_types)}"
+                
+                # Guardar memoria del trabajador
+                memory_store.save_worker(worker_memory)
+                
+                # Añadir resumen de memoria al worker_status
+                worker_status.memory_summary = {
+                    "worker_successful_docs": dict(worker_memory.successful_docs),
+                    "worker_failed_docs": dict(worker_memory.failed_docs),
+                }
+                
+            except Exception as e:
+                logger.warning(f"[cae-adapter] Failed to update memory for worker {worker_status.worker_id}: {e}")
+        
+        # Actualizar memoria de empresa
+        try:
+            company_memory = memory_store.load_company(cae_request.company_name, cae_request.platform)
+            if not company_memory:
+                company_memory = CompanyMemory(
+                    company_name=cae_request.company_name,
+                    platform=cae_request.platform,
+                )
+            
+            company_memory.last_seen = now
+            
+            # Contar documentos requeridos y faltantes por tipo
+            for worker_status in worker_statuses:
+                # Contar documentos requeridos (de la petición original)
+                worker = next((w for w in cae_request.workers if w.id == worker_status.worker_id), None)
+                if worker and worker.required_docs:
+                    for doc_type in worker.required_docs:
+                        company_memory.required_docs_counts[doc_type] = company_memory.required_docs_counts.get(doc_type, 0) + 1
+                
+                # Contar documentos faltantes
+                for doc_type in worker_status.missing_docs:
+                    company_memory.missing_docs_counts[doc_type] = company_memory.missing_docs_counts.get(doc_type, 0) + 1
+                
+                # Contar errores de upload
+                for error in worker_status.upload_errors:
+                    for doc_type in DOC_TYPE_NAMES.keys():
+                        if doc_type in error.lower():
+                            company_memory.upload_error_counts[doc_type] = company_memory.upload_error_counts.get(doc_type, 0) + 1
+                            break
+            
+            memory_store.save_company(company_memory)
+            
+            # Añadir resumen de empresa a memory_summary
+            memory_summary["company"] = {
+                "required_docs_counts": dict(company_memory.required_docs_counts),
+                "missing_docs_counts": dict(company_memory.missing_docs_counts),
+                "upload_error_counts": dict(company_memory.upload_error_counts),
+            }
+            
+        except Exception as e:
+            logger.warning(f"[cae-adapter] Failed to update company memory: {e}")
+        
+        # Actualizar memoria de plataforma
+        try:
+            platform_memory = memory_store.load_platform(cae_request.platform)
+            if not platform_memory:
+                platform_memory = PlatformMemory(platform=cae_request.platform)
+            
+            platform_memory.last_seen = now
+            
+            # Contar uso de características visuales y OCR desde métricas
+            total_visual_clicks = 0
+            total_visual_recoveries = 0
+            total_upload_errors = 0
+            total_ocr_usage = 0
+            
+            for worker_status in worker_statuses:
+                if worker_status.metrics_summary:
+                    summary_metrics = worker_status.metrics_summary.get("summary", {})
+                    
+                    # Visual clicks
+                    visual_click_info = summary_metrics.get("visual_click_info", {})
+                    total_visual_clicks += visual_click_info.get("visual_click_attempts", 0)
+                    
+                    # Visual recovery (aproximación: visual_flow_updates)
+                    visual_flow_info = summary_metrics.get("visual_flow_info", {})
+                    total_visual_recoveries += visual_flow_info.get("visual_flow_updates", 0)
+                    
+                    # Upload errors
+                    upload_info = summary_metrics.get("upload_info", {})
+                    total_upload_errors += upload_info.get("upload_attempts", 0) - upload_info.get("upload_successes", 0)
+                    
+                    # OCR usage
+                    ocr_info = summary_metrics.get("ocr_info", {})
+                    total_ocr_usage += ocr_info.get("ocr_calls", 0)
+            
+            platform_memory.visual_click_usage += total_visual_clicks
+            platform_memory.visual_recovery_usage += total_visual_recoveries
+            platform_memory.upload_error_counts += total_upload_errors
+            platform_memory.ocr_usage += total_ocr_usage
+            
+            memory_store.save_platform(platform_memory)
+            
+            # Añadir resumen de plataforma a memory_summary
+            memory_summary["platform"] = {
+                "visual_click_usage": platform_memory.visual_click_usage,
+                "visual_recovery_usage": platform_memory.visual_recovery_usage,
+                "upload_error_counts": platform_memory.upload_error_counts,
+                "ocr_usage": platform_memory.ocr_usage,
+            }
+            
+        except Exception as e:
+            logger.warning(f"[cae-adapter] Failed to update platform memory: {e}")
+        
+    except Exception as e:
+        logger.warning(f"[cae-adapter] Failed to initialize memory store: {e}")
+    
     return CAEBatchResponse(
         platform=cae_request.platform,
         company_name=cae_request.company_name,
         workers=worker_statuses,
         summary=summary,
+        memory_summary=memory_summary if memory_summary else None,  # v3.9.0
     )
 

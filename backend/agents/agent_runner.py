@@ -114,6 +114,10 @@ class AgentMetrics:
         self.ambiguity_count: int = 0
         self.high_risk_count: int = 0
         self.interpretation_count: int = 0
+        # v3.9.0: Contadores de memoria persistente
+        self.memory_reads: int = 0
+        self.memory_writes: int = 0
+        self.memory_errors: int = 0
     
     def register_visual_click(self, success: bool) -> None:
         """
@@ -194,6 +198,34 @@ class AgentMetrics:
         self.interpretation_count = len(spotlight.interpretations)
         self.ambiguity_count = len(spotlight.ambiguities)
         # Contar solo riesgos de alta severidad (high)
+    
+    def register_memory_read(self, ok: bool) -> None:
+        """
+        Registra una lectura de memoria persistente.
+        
+        v3.9.0: Actualiza los contadores de lectura de memoria.
+        
+        Args:
+            ok: True si la lectura fue exitosa, False si hubo error
+        """
+        if ok:
+            self.memory_reads += 1
+        else:
+            self.memory_errors += 1
+    
+    def register_memory_write(self, ok: bool) -> None:
+        """
+        Registra una escritura de memoria persistente.
+        
+        v3.9.0: Actualiza los contadores de escritura de memoria.
+        
+        Args:
+            ok: True si la escritura fue exitosa, False si hubo error
+        """
+        if ok:
+            self.memory_writes += 1
+        else:
+            self.memory_errors += 1
         self.high_risk_count = sum(
             1 for amb in spotlight.ambiguities if amb.severity == "high"
         )
@@ -482,6 +514,7 @@ class AgentMetrics:
                 "visual_expectation_info": visual_expectation_info,  # v3.6.0
                 "intent_info": intent_info,  # v3.7.0
                 "spotlight_info": spotlight_info,  # v3.8.0
+                "memory_info": memory_info,  # v3.9.0
                 "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }

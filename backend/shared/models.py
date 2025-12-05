@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional, Literal
+from datetime import datetime
 from pydantic import BaseModel, Field
 
 
@@ -322,6 +323,55 @@ class AgentIntent(BaseModel):
     sub_goal_index: Optional[int] = None
 
 
+# v3.9.0: Modelos para memoria persistente
+class WorkerMemory(BaseModel):
+    """
+    Memoria persistente de un trabajador.
+    
+    v3.9.0: Almacena historial de documentación CAE por trabajador,
+    incluyendo documentos exitosos, fallidos y notas.
+    """
+    worker_id: str
+    full_name: Optional[str] = None
+    company_name: Optional[str] = None
+    successful_docs: Dict[str, int] = Field(default_factory=dict)  # doc_type -> contador de éxitos
+    failed_docs: Dict[str, int] = Field(default_factory=dict)  # doc_type -> contador de fallos
+    last_seen: Optional[datetime] = None
+    notes: Optional[str] = None
+
+
+class CompanyMemory(BaseModel):
+    """
+    Memoria persistente de una empresa.
+    
+    v3.9.0: Almacena patrones de documentación por empresa y plataforma,
+    incluyendo qué documentos suelen requerirse, faltar o dar error.
+    """
+    company_name: str
+    platform: Optional[str] = None
+    required_docs_counts: Dict[str, int] = Field(default_factory=dict)  # doc_type -> veces requerido
+    missing_docs_counts: Dict[str, int] = Field(default_factory=dict)  # doc_type -> veces que faltó
+    upload_error_counts: Dict[str, int] = Field(default_factory=dict)  # doc_type -> veces con error
+    last_seen: Optional[datetime] = None
+    notes: Optional[str] = None
+
+
+class PlatformMemory(BaseModel):
+    """
+    Memoria persistente de una plataforma CAE.
+    
+    v3.9.0: Almacena patrones de comportamiento de la plataforma,
+    como uso de clicks visuales, recuperación visual, errores de upload, etc.
+    """
+    platform: str
+    visual_click_usage: int = 0
+    visual_recovery_usage: int = 0
+    upload_error_counts: int = 0
+    ocr_usage: int = 0
+    last_seen: Optional[datetime] = None
+    notes: Optional[str] = None
+
+
 class CAEWorkerDocStatus(BaseModel):
     """
     Estado de documentación de un trabajador tras procesamiento CAE.
@@ -329,6 +379,7 @@ class CAEWorkerDocStatus(BaseModel):
     v3.1.0: Contiene información detallada sobre documentos subidos, faltantes y errores.
     v3.2.0: Añade visual_actions para auditoría de acciones visuales.
     v3.3.0: Añade campos para estado CAE extraído desde OCR.
+    v3.9.0: Añade memory_summary con información resumida de memoria persistente.
     """
     worker_id: str
     full_name: str
@@ -343,6 +394,7 @@ class CAEWorkerDocStatus(BaseModel):
     cae_status: Optional[str] = None  # v3.3.0: Estado CAE extraído (vigente/caducado/pendiente/no_apto)
     cae_status_evidence: Optional[List[str]] = None  # v3.3.0: Fragmentos de texto que justifican el estado
     cae_expiry_dates: Optional[List[str]] = None  # v3.3.0: Fechas de caducidad detectadas (YYYY-MM-DD)
+    memory_summary: Optional[Dict[str, Any]] = None  # v3.9.0: Información resumida de memoria persistente
 
 
 class CAEBatchResponse(BaseModel):
@@ -350,11 +402,13 @@ class CAEBatchResponse(BaseModel):
     Respuesta completa de un batch CAE.
     
     v3.1.0: Contiene estado de documentación por trabajador y resumen agregado.
+    v3.9.0: Añade memory_summary con visión global de memoria persistente aplicada.
     """
     platform: str
     company_name: str
     workers: List[CAEWorkerDocStatus]
     summary: Dict[str, Any]
+    memory_summary: Optional[Dict[str, Any]] = None  # v3.9.0: Visión global de memoria persistente
 
 
 # v2.2.0: Modelos para gestión de documentos

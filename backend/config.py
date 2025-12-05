@@ -28,3 +28,6 @@ BATCH_RUNS_DIR = os.getenv("BATCH_RUNS_DIR", "runs")
 VISION_OCR_ENABLED = os.getenv("VISION_OCR_ENABLED", "true").lower() == "true"
 VISION_OCR_PROVIDER = os.getenv("VISION_OCR_PROVIDER", "lmstudio")
 
+# v3.9.0: Configuración para memoria persistente
+MEMORY_BASE_DIR = os.getenv("MEMORY_BASE_DIR", "memory")
+
