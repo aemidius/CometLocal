@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Optional, Literal
-from datetime import datetime
+from datetime import datetime, date
 from pydantic import BaseModel, Field
 
 
@@ -84,6 +84,27 @@ class FileUploadInstructionDTO(BaseModel):
     company: Optional[str] = None
     worker: Optional[str] = None
     doc_type: Optional[str] = None
+
+
+# v4.4.0: Modelos para análisis de documentos CAE
+class DocumentAnalysisResult(BaseModel):
+    """
+    Resultado del análisis de un documento PDF para CAE.
+    
+    v4.4.0: Fase 1 - Extracción básica de fechas y trabajador.
+    """
+    doc_type: Optional[str] = None  # ej: "reconocimiento_medico", "formacion_prl"
+    worker_name: Optional[str] = None
+    company_name: Optional[str] = None
+    
+    issue_date: Optional[date] = None  # Fecha de emisión/realización
+    expiry_date: Optional[date] = None  # Fecha de caducidad
+    
+    raw_dates: List[str] = Field(default_factory=list)  # Fechas encontradas en texto
+    warnings: List[str] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)  # 0.0–1.0
+    
+    source_path: Optional[str] = None
 
 
 # v3.8.0: Modelos para Reasoning Spotlight

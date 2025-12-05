@@ -284,6 +284,38 @@ def build_cae_response_from_batch(
         if upload_errors:
             notes_parts.append(f"Errores de subida: {', '.join(upload_errors)}")
         
+        # v4.4.0: Añadir información de análisis del documento si está disponible
+        document_analysis = None
+        if result.sections:
+            for section in result.sections:
+                if section.get("document_analysis"):
+                    document_analysis = section["document_analysis"]
+                    break
+        
+        # También buscar en file_upload_instructions
+        if not document_analysis and result.file_upload_instructions:
+            for instruction in result.file_upload_instructions:
+                if isinstance(instruction, dict) and instruction.get("document_analysis"):
+                    document_analysis = instruction["document_analysis"]
+                    break
+        
+        if document_analysis:
+            analysis_parts = []
+            if document_analysis.get("issue_date"):
+                analysis_parts.append(f"issue_date={document_analysis['issue_date']}")
+            if document_analysis.get("expiry_date"):
+                analysis_parts.append(f"expiry_date={document_analysis['expiry_date']}")
+            if document_analysis.get("worker_name"):
+                analysis_parts.append(f"worker_name={document_analysis['worker_name']}")
+            if document_analysis.get("confidence") is not None:
+                analysis_parts.append(f"confidence={document_analysis['confidence']:.2f}")
+            if document_analysis.get("warnings"):
+                warnings_str = ", ".join(document_analysis["warnings"][:3])  # Limitar a 3 warnings
+                analysis_parts.append(f"warnings=[{warnings_str}]")
+            
+            if analysis_parts:
+                notes_parts.append(f"Documento analizado: {', '.join(analysis_parts)}")
+        
         # v3.3.0: Añadir información de estado CAE a las notas
         if cae_status_info and cae_status_info.get("status") != "desconocido":
             status = cae_status_info["status"]

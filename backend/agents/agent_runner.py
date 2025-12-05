@@ -1836,9 +1836,20 @@ def _build_final_answer(
                 }
             else:
                 section["upload_verification"] = None
+            
+            # v4.4.0: Añadir información de análisis del documento si existe
+            document_analysis = None
+            for step in sub_goal_steps:
+                if step.info and "document_analysis" in step.info:
+                    document_analysis = step.info["document_analysis"]
+                    break
+            
+            if document_analysis:
+                section["document_analysis"] = document_analysis
         else:
             section["upload_summary"] = None
             section["upload_verification"] = None
+            section["document_analysis"] = None  # v4.4.0
         
         sections.append(section)
         
@@ -3556,11 +3567,16 @@ def build_execution_plan(
                 focus_entity = _extract_focus_entity_from_goal(sub_goal)
                 
                 # Intentar construir instrucción de upload (modo análisis)
+                # v4.4.0: Pasar parámetros opcionales para análisis de documentos
                 upload_instruction = _maybe_build_file_upload_instruction(
                     goal=sub_goal,
                     focus_entity=focus_entity,
                     session_context=session_context,
                     document_repository=document_repository,
+                    expected_doc_type=None,  # No disponible en planificación
+                    worker_full_name=None,  # No disponible en planificación
+                    company_name=None,  # No disponible en planificación
+                    ocr_service=None,  # No disponible en planificación
                 )
                 
                 if upload_instruction and upload_instruction.path:
@@ -4343,6 +4359,9 @@ async def _run_llm_task_single(
                 try:
                     upload_step = await _maybe_execute_file_upload(browser, upload_instruction, execution_mode=execution_mode)
                     if upload_step:
+                        # v4.4.0: Añadir document_analysis al step si está disponible
+                        if upload_instruction.document_analysis:
+                            upload_step.info["document_analysis"] = upload_instruction.document_analysis.model_dump()
                         steps_local.append(upload_step)
                         # v2.4.0: Extraer status del nuevo formato
                         upload_status = upload_step.info.get('upload_status', {})

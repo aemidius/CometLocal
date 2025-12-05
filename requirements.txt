@@ -3,3 +3,4 @@ uvicorn[standard]
 pydantic
 playwright
 openai>=1.0.0
+pypdf>=3.0.0  # v4.4.0: Para análisis de documentos PDF
