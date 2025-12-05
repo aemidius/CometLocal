@@ -62,6 +62,11 @@ class AgentAnswerRequest(BaseModel):
     execution_confirmed: Optional[bool] = None
     # v2.9.0: Sub-objetivos deshabilitados en el plan
     disabled_sub_goal_indices: Optional[List[int]] = None
+    # v4.3.0: Modo de ejecución (live por defecto, dry_run para simulación segura)
+    execution_mode: Optional[str] = Field(
+        default=None,
+        description="Modo de ejecución: 'live' (por defecto) o 'dry_run' (simulación segura)",
+    )
 
 
 class SourceInfo(BaseModel):
@@ -150,6 +155,8 @@ class AgentAnswerResponse(BaseModel):
     planner_hints: Optional["PlannerHints"] = None
     # v4.1.0: Outcome Judge (auto-evaluación post-ejecución)
     outcome_judge: Optional["OutcomeJudgeReport"] = None
+    # v4.3.0: Modo de ejecución usado
+    execution_mode: Optional[str] = None  # "live" o "dry_run"
 
 
 # v3.0.0: Modelos para ejecución batch autónoma
@@ -163,6 +170,8 @@ class BatchAgentGoal(BaseModel):
     goal: str  # texto completo del objetivo
     execution_profile_name: Optional[str] = None
     context_strategies: Optional[List[str]] = None
+    # v4.3.0: Modo de ejecución específico para este goal (opcional)
+    execution_mode: Optional[str] = None  # "live" o "dry_run"
 
 
 class BatchAgentRequest(BaseModel):
@@ -176,6 +185,8 @@ class BatchAgentRequest(BaseModel):
     default_execution_profile_name: Optional[str] = None
     default_context_strategies: Optional[List[str]] = None
     max_consecutive_failures: Optional[int] = 5  # para abortar si todo va muy mal
+    # v4.3.0: Modo de ejecución por defecto para todo el batch
+    default_execution_mode: Optional[str] = None  # "live" o "dry_run"
 
 
 class BatchAgentGoalResult(BaseModel):
@@ -233,6 +244,8 @@ class CAEBatchRequest(BaseModel):
     context_strategies: Optional[List[str]] = None  # Por defecto ["cae"]
     # opcional: límite de fallos igual que en batch genérico
     max_consecutive_failures: Optional[int] = 5
+    # v4.3.0: Modo de ejecución por defecto para todo el batch CAE
+    execution_mode: Optional[str] = None  # "live" o "dry_run"
 
 
 # v3.2.0: Modelo para confirmación visual de acciones

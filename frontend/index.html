@@ -756,6 +756,18 @@
           <label><input type="checkbox" class="context-strategy" value="cae"> CAE</label>
         </div>
       </div>
+      
+      <!-- v4.3.0: Control de modo simulación -->
+      <div class="config-section">
+        <div class="config-title">Modo seguro</div>
+        <div class="config-options">
+          <label class="config-checkbox">
+            <input type="checkbox" id="execution-mode-dry-run" />
+            <span>Simulación (no hacer clicks reales ni subidas)</span>
+          </label>
+        </div>
+      </div>
+      
       <div class="footer-actions">
         <button id="sendBtn">Enviar</button>
       </div>
@@ -1225,6 +1237,16 @@
         };
         const strategiesText = summary.context_strategies.map(s => strategyNames[s] || s).join(", ");
         html += `<div style="font-size: 11px; color: #d1d5db; margin-bottom: 4px;">Estrategias de contexto: <strong>${escapeHtml(strategiesText)}</strong></div>`;
+      }
+      
+      // v4.3.0: Mostrar modo de ejecución y información de dry_run
+      const execMode = summary.execution_mode || response.execution_mode || "live";
+      const dryRunInfo = summary.dry_run_info || {};
+      html += `<div style="font-size: 11px; color: #d1d5db; margin-bottom: 4px;">Modo de ejecución: <strong>${execMode === "dry_run" ? "Simulación (dry_run)" : "En vivo (live)"}</strong></div>`;
+      
+      if (execMode === "dry_run") {
+        html += `<div style="font-size: 11px; color: #fbbf24; margin-bottom: 4px;">Pasos simulados: <strong>${dryRunInfo.dry_run_steps ?? 0}</strong></div>`;
+        html += `<div style="font-size: 11px; color: #fbbf24; margin-bottom: 4px;">Acciones simuladas: <strong>${dryRunInfo.dry_run_actions ?? 0}</strong></div>`;
       }
       
       // v2.9.0: Mostrar sub-objetivos saltados si hay
@@ -1768,6 +1790,14 @@
       const strategiesToUse = confirmed ? currentContextStrategies : contextStrategies;
       if (strategiesToUse && strategiesToUse.length > 0) {
         payload.context_strategies = strategiesToUse;
+      }
+      
+      // v4.3.0: Añadir execution_mode (dry_run si está marcado el checkbox)
+      const dryRunCheckbox = document.getElementById("execution-mode-dry-run");
+      if (dryRunCheckbox && dryRunCheckbox.checked) {
+        payload.execution_mode = "dry_run";
+      } else {
+        payload.execution_mode = "live";
       }
       
       // v2.8.0: Primera request: solo plan

@@ -336,6 +336,16 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                 logger.warning(f"[app] Failed to generate planner hints: {e}", exc_info=True)
                 planner_hints = None
         
+        # v4.3.0: Normalizar execution_mode para plan_only también
+        execution_mode = payload.execution_mode
+        if execution_mode not in (None, "live", "dry_run"):
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"[agent-answer] Invalid execution_mode={execution_mode!r}, falling back to 'live'")
+            execution_mode = "live"
+        if execution_mode is None:
+            execution_mode = "live"
+        
         # Devolver solo el plan
         return AgentAnswerResponse(
             goal=payload.goal,
@@ -352,10 +362,21 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
             execution_cancelled=None,
             reasoning_spotlight=reasoning_spotlight,  # v3.8.0
             planner_hints=planner_hints,  # v4.0.0
+            execution_mode=execution_mode,  # v4.3.0
         )
     
     # v2.8.0: Manejar cancelación
     if payload.execution_confirmed is False:
+        # v4.3.0: Normalizar execution_mode
+        execution_mode = payload.execution_mode
+        if execution_mode not in (None, "live", "dry_run"):
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"[agent-answer] Invalid execution_mode={execution_mode!r}, falling back to 'live'")
+            execution_mode = "live"
+        if execution_mode is None:
+            execution_mode = "live"
+        
         return AgentAnswerResponse(
             goal=payload.goal,
             final_answer="La ejecución fue cancelada por el usuario antes de iniciarse.",
@@ -370,10 +391,22 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
             execution_plan=None,
             execution_cancelled=True,
             reasoning_spotlight=reasoning_spotlight,  # v3.8.0
+            execution_mode=execution_mode,  # v4.3.0
         )
+    
+    # v4.3.0: Normalizar execution_mode
+    import logging
+    logger = logging.getLogger(__name__)
+    execution_mode = payload.execution_mode
+    if execution_mode not in (None, "live", "dry_run"):
+        logger.warning(f"[agent-answer] Invalid execution_mode={execution_mode!r}, falling back to 'live'")
+        execution_mode = "live"
+    if execution_mode is None:
+        execution_mode = "live"
     
     # Ejecución normal (v2.7.0)
     # v2.9.0: Pasar disabled_sub_goal_indices
+    # v4.3.0: Pasar execution_mode
     steps, final_answer, source_url, source_title, sources = await run_llm_task_with_answer(
         goal=payload.goal,
         browser=browser,
@@ -381,6 +414,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
         context_strategies=payload.context_strategies,
         execution_profile_name=payload.execution_profile_name,
         disabled_sub_goal_indices=payload.disabled_sub_goal_indices,
+        execution_mode=execution_mode,
     )
     
     # v1.6.0: Extraer información estructurada del último step si está disponible
@@ -486,6 +520,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
         reasoning_spotlight=reasoning_spotlight,  # v3.8.0
         planner_hints=planner_hints,  # v4.0.0
         outcome_judge=outcome_judge,  # v4.1.0
+        execution_mode=execution_mode,  # v4.3.0
     )
 
 

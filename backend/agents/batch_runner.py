@@ -98,9 +98,15 @@ async def run_batch_agent(
             or batch_request.default_context_strategies
         )
         
+        # v4.3.0: Resolver execution_mode efectivo
+        goal_mode = batch_goal.execution_mode or batch_request.default_execution_mode or "live"
+        if goal_mode not in ("live", "dry_run"):
+            logger.warning(f"[batch] Invalid execution_mode={goal_mode!r} for goal {batch_goal.id}, falling back to 'live'")
+            goal_mode = "live"
+        
         logger.info(
             f"[batch] Executing goal {idx}/{total_goals}: id={batch_goal.id!r} "
-            f"goal={batch_goal.goal[:50]}..."
+            f"goal={batch_goal.goal[:50]}... execution_mode={goal_mode}"
         )
         
         goal_start_time = time.perf_counter()
@@ -115,6 +121,7 @@ async def run_batch_agent(
                     context_strategies=context_strategies,
                     execution_profile_name=execution_profile_name,
                     disabled_sub_goal_indices=None,  # En batch no hay selección manual
+                    execution_mode=goal_mode,  # v4.3.0
                 )
             )
             
@@ -168,6 +175,7 @@ async def run_batch_agent(
                 sections=sections,
                 structured_sources=structured_sources,
                 file_upload_instructions=file_upload_instructions_list if file_upload_instructions_list else None,
+                execution_mode=goal_mode,  # v4.3.0
             )
             
             results.append(result)

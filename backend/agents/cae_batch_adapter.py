@@ -154,6 +154,7 @@ def build_batch_request_from_cae(cae_request: CAEBatchRequest) -> BatchAgentRequ
         default_execution_profile_name=cae_request.execution_profile_name,
         default_context_strategies=context_strategies,
         max_consecutive_failures=cae_request.max_consecutive_failures,
+        default_execution_mode=cae_request.execution_mode,  # v4.3.0
     )
 
 
@@ -465,12 +466,20 @@ def build_cae_response_from_batch(
         worker_statuses.append(worker_status)
     
     # v4.2.0: Actualizar memoria con resultados de OutcomeJudge y detectar regresiones
+    # v4.3.0: No actualizar memoria en modo dry_run
     memory_store: Optional[MemoryStore] = None
     regressions_detected = 0
     regression_threshold = 0.20  # Umbral de regresión en escala 0-1 (delta <= -0.20, equivalente a -20 puntos porcentuales)
     
+    # v4.3.0: Determinar execution_mode efectivo
+    effective_execution_mode = cae_request.execution_mode or "live"
+    if effective_execution_mode not in ("live", "dry_run"):
+        effective_execution_mode = "live"
+    
     try:
-        memory_store = MemoryStore(MEMORY_BASE_DIR)
+        # v4.3.0: Solo inicializar memoria si no estamos en dry_run
+        if effective_execution_mode != "dry_run":
+            memory_store = MemoryStore(MEMORY_BASE_DIR)
         now = datetime.now()
         
         for i, result in enumerate(batch_response.goals):
@@ -503,58 +512,77 @@ def build_cae_response_from_batch(
             # Limitar a top 10 issues totales
             top_issues = top_issues[:10]
             
-            # Cargar memoria previa del worker para detectar regresión
-            prev_worker_memory = memory_store.load_worker(worker.id)
-            prev_score = prev_worker_memory.last_outcome_score if prev_worker_memory else None
+            # v4.3.0: Solo actualizar memoria si no estamos en dry_run
+            updated_worker_memory = None
+            if effective_execution_mode != "dry_run" and memory_store:
+                # Cargar memoria previa del worker para detectar regresión
+                prev_worker_memory = memory_store.load_worker(worker.id)
+                prev_score = prev_worker_memory.last_outcome_score if prev_worker_memory else None
+
+                # Detectar regresión
+                if prev_score is not None:
+                    delta = global_score - prev_score
+                    if delta <= -regression_threshold:
+                        regression_flag = {
+                            "type": "strong_regression",
+                            "previous_score": prev_score,
+                            "current_score": global_score,
+                            "delta": delta
+                        }
+                        worker_status.regression_flag = regression_flag
+                        regressions_detected += 1
+                        
+                        # Añadir nota de regresión
+                        if worker_status.notes:
+                            worker_status.notes += f" ⚠️ Posible regresión: la puntuación global ha bajado de {int(prev_score * 100)} → {int(global_score * 100)}."
+                        else:
+                            worker_status.notes = f"⚠️ Posible regresión: la puntuación global ha bajado de {int(prev_score * 100)} → {int(global_score * 100)}."
+
+                # Actualizar memoria del worker
+                updated_worker_memory = memory_store.update_worker_outcome(
+                    worker_id=worker.id,
+                    new_score=global_score,
+                    issues=top_issues,
+                    timestamp=now
+                )
+                
+                # Actualizar memoria de empresa
+                memory_store.update_company_outcome(
+                    company_name=cae_request.company_name,
+                    platform=cae_request.platform,
+                    worker_contribution_score=global_score,
+                    issues=top_issues,
+                    timestamp=now
+                )
+                
+                # Actualizar memoria de plataforma
+                memory_store.update_platform_outcome(
+                    platform_name=cae_request.platform,
+                    company_contribution_score=global_score,
+                    issues=top_issues,
+                    timestamp=now
+                )
+            else:
+                # v4.3.0: En dry_run, cargar memoria solo para lectura (no actualizar)
+                if memory_store:
+                    updated_worker_memory = memory_store.load_worker(worker.id)
             
-            # Detectar regresión
-            if prev_score is not None:
-                delta = global_score - prev_score
-                if delta <= -regression_threshold:
-                    regression_flag = {
-                        "type": "strong_regression",
-                        "previous_score": prev_score,
-                        "current_score": global_score,
-                        "delta": delta
-                    }
-                    worker_status.regression_flag = regression_flag
-                    regressions_detected += 1
-                    
-                    # Añadir nota de regresión
-                    if worker_status.notes:
-                        worker_status.notes += f" ⚠️ Posible regresión: la puntuación global ha bajado de {int(prev_score * 100)} → {int(global_score * 100)}."
-                    else:
-                        worker_status.notes = f"⚠️ Posible regresión: la puntuación global ha bajado de {int(prev_score * 100)} → {int(global_score * 100)}."
-            
-            # Actualizar memoria del worker
-            updated_worker_memory = memory_store.update_worker_outcome(
-                worker_id=worker.id,
-                new_score=global_score,
-                issues=top_issues,
-                timestamp=now
-            )
-            
-            # Actualizar memoria de empresa
-            memory_store.update_company_outcome(
-                company_name=cae_request.company_name,
-                platform=cae_request.platform,
-                worker_contribution_score=global_score,
-                issues=top_issues,
-                timestamp=now
-            )
-            
-            # Actualizar memoria de plataforma
-            memory_store.update_platform_outcome(
-                platform_name=cae_request.platform,
-                company_contribution_score=global_score,
-                issues=top_issues,
-                timestamp=now
-            )
+            # v4.3.0: En dry_run, añadir nota de simulación
+            if effective_execution_mode == "dry_run":
+                if worker_status.notes:
+                    worker_status.notes = f"(Simulación, no se han realizado acciones reales) {worker_status.notes}"
+                else:
+                    worker_status.notes = "(Simulación, no se han realizado acciones reales)"
             
             # Enriquecer worker_status con memory_summary_outcome
             if updated_worker_memory:
-                # Cargar también memoria de empresa para common_issues
-                company_memory = memory_store.load_company(cae_request.company_name, cae_request.platform)
+                # Cargar también memoria de empresa para common_issues (solo si no es dry_run)
+                company_memory = None
+                if effective_execution_mode != "dry_run" and memory_store:
+                    company_memory = memory_store.load_company(cae_request.company_name, cae_request.platform)
+                elif effective_execution_mode == "dry_run" and memory_store:
+                    # En dry_run, solo leer (no actualizar)
+                    company_memory = memory_store.load_company(cae_request.company_name, cae_request.platform)
                 
                 memory_summary_outcome = {
                     "last_outcome_score": updated_worker_memory.last_outcome_score,

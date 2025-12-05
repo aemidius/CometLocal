@@ -123,6 +123,9 @@ class AgentMetrics:
         self.memory_errors: int = 0
         # v4.2.0: Contadores de actualización de memoria con outcome
         self.memory_outcome_updates: int = 0
+        # v4.3.0: Contadores de modo dry_run
+        self.dry_run_steps: int = 0
+        self.dry_run_actions: int = 0
         # v4.0.0: Contadores de Planner Hints
         self.planner_hints_generated: bool = False
         self.planner_hints_subgoals_with_suggestions: int = 0
@@ -566,6 +569,14 @@ class AgentMetrics:
             "outcome_issues_total": self.outcome_issues_total,
         }
         
+        # v4.3.0: Información de modo de ejecución
+        # v4.3.1: Incluir execution_mode en dry_run_info
+        dry_run_info = {
+            "dry_run_steps": self.dry_run_steps,
+            "dry_run_actions": self.dry_run_actions,
+            "execution_mode": self.execution_mode,  # v4.3.1
+        }
+        
         # Serializar sub_goals
         sub_goals_data = []
         for m in self.sub_goals:
@@ -607,6 +618,8 @@ class AgentMetrics:
                 "memory_info": memory_info,  # v3.9.0
                 "planner_hints_info": planner_hints_info,  # v4.0.0
                 "outcome_judge_info": outcome_judge_info,  # v4.1.0
+                "execution_mode": self.execution_mode,  # v4.3.0
+                "dry_run_info": dry_run_info,  # v4.3.0
                 "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }
@@ -742,6 +755,7 @@ def _extract_sources_from_steps(steps: List[StepResult]) -> List[Dict[str, Any]]
 async def _maybe_execute_file_upload(
     browser: BrowserController,
     instruction: "FileUploadInstruction",
+    execution_mode: str = "live",  # v4.3.0
 ) -> Optional[StepResult]:
     """
     Intenta ejecutar un upload de archivo si hay un input[type='file'] disponible.
@@ -794,53 +808,92 @@ async def _maybe_execute_file_upload(
                     "file_upload_instruction": instruction.to_dict(),
                     "upload_status": upload_status,
                     "upload_verification": verification_result,
+                    "execution_mode": execution_mode,  # v4.3.1
                 }
             )
         
         logger.debug(
-            f"[file-upload] Attempting upload: file={file_path} selector={selector}"
+            f"[file-upload] Attempting upload: file={file_path} selector={selector} execution_mode={execution_mode}"
         )
         
-        # Ejecutar upload
-        obs = await browser.upload_file(selector, str(file_path))
-        
-        # v2.4.0: Estandarizar estructura de upload_status
-        upload_status = {
-            "status": "success",
-            "file_path": str(file_path),
-            "selector": selector,
-            "error_message": None,
-        }
-        
-        # v2.5.0: Verificar visualmente si el upload fue aceptado
-        verification_result = _verify_upload_visually(
-            observation=obs,
-            file_path=str(file_path),
-            goal="",  # El goal se puede obtener del contexto si es necesario
-        )
-        
-        # v3.2.0: Confirmación visual adicional con _verify_action_visually
-        file_name = os.path.basename(str(file_path))
-        file_name_base = os.path.splitext(file_name)[0]
-        visual_confirmation = _verify_action_visually(
-            observation=obs,
-            expected_effect=f"Confirmar que el archivo {file_name} ha sido subido correctamente",
-            keywords=[
-                file_name, file_name_base,
-                "documento subido", "archivo subido", "documento cargado", "archivo cargado",
-                "subido correctamente", "carga completada", "upload complete", "uploaded successfully",
-                "documento adjuntado", "archivo adjuntado", "guardado correctamente",
-            ],
-        )
-        visual_confirmation.action_type = "upload_file"
-        
-        # Construir StepResult con éxito
-        info_dict = {
-            "file_upload_instruction": instruction.to_dict(),
-            "upload_status": upload_status,
-            "upload_verification": verification_result,
-            "visual_confirmation": visual_confirmation.model_dump(),  # v3.2.0
-        }
+        # v4.3.0: En modo dry_run, simular upload sin ejecutarlo
+        if execution_mode == "dry_run":
+            logger.info(f"[dry-run] Simulating file upload: {file_path}")
+            # Obtener observación actual sin ejecutar upload
+            obs = await browser.get_observation()
+            
+            # v2.4.0: Estandarizar estructura de upload_status (simulado)
+            upload_status = {
+                "status": "simulated",
+                "file_path": str(file_path),
+                "selector": selector,
+                "error_message": None,
+            }
+            
+            # En dry_run, no hacer verificación visual real
+            verification_result = {
+                "status": "not_applicable",
+                "file_name": os.path.basename(str(file_path)),
+                "confidence": 0.0,
+                "evidence": "Simulated upload in dry_run mode",
+            }
+            
+            visual_confirmation = None
+            
+            # Construir StepResult con simulación
+            info_dict = {
+                "file_upload_instruction": instruction.to_dict(),
+                "upload_status": upload_status,
+                "upload_verification": verification_result,
+                "execution_mode": execution_mode,  # v4.3.1
+                "dry_run": True,  # v4.3.0
+                "dry_run_simulated": True,  # v4.3.1
+                "dry_run_note": "Acción simulada (no se ha ejecutado realmente en el navegador).",  # v4.3.1
+                "simulated_upload": True,  # v4.3.0
+            }
+        else:
+            # Modo live: ejecución normal
+            # Ejecutar upload
+            obs = await browser.upload_file(selector, str(file_path))
+            
+            # v2.4.0: Estandarizar estructura de upload_status
+            upload_status = {
+                "status": "success",
+                "file_path": str(file_path),
+                "selector": selector,
+                "error_message": None,
+            }
+            
+            # v2.5.0: Verificar visualmente si el upload fue aceptado
+            verification_result = _verify_upload_visually(
+                observation=obs,
+                file_path=str(file_path),
+                goal="",  # El goal se puede obtener del contexto si es necesario
+            )
+            
+            # v3.2.0: Confirmación visual adicional con _verify_action_visually
+            file_name = os.path.basename(str(file_path))
+            file_name_base = os.path.splitext(file_name)[0]
+            visual_confirmation = _verify_action_visually(
+                observation=obs,
+                expected_effect=f"Confirmar que el archivo {file_name} ha sido subido correctamente",
+                keywords=[
+                    file_name, file_name_base,
+                    "documento subido", "archivo subido", "documento cargado", "archivo cargado",
+                    "subido correctamente", "carga completada", "upload complete", "uploaded successfully",
+                    "documento adjuntado", "archivo adjuntado", "guardado correctamente",
+                ],
+            )
+            visual_confirmation.action_type = "upload_file"
+            
+            # Construir StepResult con éxito
+            info_dict = {
+                "file_upload_instruction": instruction.to_dict(),
+                "upload_status": upload_status,
+                "upload_verification": verification_result,
+                "visual_confirmation": visual_confirmation.model_dump(),  # v3.2.0
+                "execution_mode": execution_mode,  # v4.3.1
+            }
         
         return StepResult(
             observation=obs,
@@ -2217,11 +2270,73 @@ def _goal_is_satisfied(
     return False
 
 
-async def _execute_action(action: BrowserAction, browser: BrowserController) -> Optional[str]:
+def _is_critical_action(action: BrowserAction) -> bool:
+    """
+    v4.3.0: Determina si una acción es crítica (debe simularse en dry_run).
+    
+    Args:
+        action: BrowserAction a evaluar
+        
+    Returns:
+        True si la acción es crítica (clicks, uploads, etc.)
+    """
+    # Uploads siempre son críticos
+    if action.type == "upload_file":
+        return True
+    
+    # Clicks en botones potencialmente de envío/guardado
+    if action.type == "click_text":
+        text = (action.args.get("text", "") or "").lower()
+        critical_keywords = ["guardar", "enviar", "confirmar", "aceptar", "subir", "adjuntar", "finalizar"]
+        return any(k in text for k in critical_keywords)
+    
+    # Visual clicks también son críticos
+    if action.type == "visual_click":
+        return True
+    
+    return False
+
+
+async def _execute_action(
+    action: BrowserAction,
+    browser: BrowserController,
+    execution_mode: str = "live",
+    current_observation: Optional[BrowserObservation] = None,
+) -> tuple[Optional[str], Optional[BrowserObservation]]:
     """
     Executes a BrowserAction on the BrowserController.
-    Returns None if successful, or an error message string if it failed.
+    v4.3.0: Soporta execution_mode="dry_run" para simular acciones críticas.
+    
+    Returns:
+        Tuple de (error_message, observation)
+        - error_message: None si exitoso, string con error si falló
+        - observation: BrowserObservation después de la acción (o simulada en dry_run)
     """
+    # v4.3.0: En modo dry_run, simular acciones críticas
+    if execution_mode == "dry_run" and _is_critical_action(action):
+        # Simular la acción sin ejecutarla
+        logger.info(f"[dry-run] Simulating critical action: {action.type}")
+        
+        # Reutilizar observación actual o obtener una nueva (sin ejecutar la acción)
+        if current_observation:
+            simulated_observation = current_observation
+        else:
+            try:
+                simulated_observation = await browser.get_observation()
+            except Exception:
+                # Si no podemos obtener observación, crear una básica
+                simulated_observation = BrowserObservation(
+                    url=browser.page.url if browser.page else "",
+                    title="",
+                    visible_text_excerpt="",
+                    clickable_texts=[],
+                    input_hints=[],
+                )
+        
+        # Devolver sin error (simulación exitosa) y la observación
+        return None, simulated_observation
+    
+    # Modo live: ejecución normal
     try:
         if action.type == "open_url":
             url = action.args.get("url", "")
@@ -2241,7 +2356,7 @@ async def _execute_action(action: BrowserAction, browser: BrowserController) -> 
                     await locator.click(timeout=2000)
                     await locator.fill(text)
                 except Exception as e:
-                    return f"Failed to fill input with selector '{selector}': {str(e)}"
+                    return f"Failed to fill input with selector '{selector}': {str(e)}", None
             elif text:
                 # Fallback to type_text if no selector
                 await browser.type_text(text)
@@ -2271,12 +2386,19 @@ async def _execute_action(action: BrowserAction, browser: BrowserController) -> 
             try:
                 await browser.upload_file(selector, file_path)
             except Exception as e:
-                return f"Error uploading file: {e}"
+                return f"Error uploading file: {e}", None
         else:
-            return f"Unknown action type: {action.type}"
-        return None
+            return f"Unknown action type: {action.type}", None
+        
+        # Obtener observación después de la acción
+        try:
+            observation = await browser.get_observation()
+        except Exception:
+            observation = current_observation  # Reutilizar si no podemos obtener nueva
+        
+        return None, observation
     except Exception as exc:
-        return str(exc)
+        return str(exc), current_observation
 
 
 async def run_simple_agent(
@@ -2319,10 +2441,12 @@ async def run_simple_agent(
 
             # If there was an error, add step with error and break
             if error:
+                step_info = {"execution_mode": "live"}  # v4.3.1: run_simple_agent siempre usa live
                 steps.append(StepResult(
                     observation=observation,
                     last_action=action,
-                    error=error
+                    error=error,
+                    info=step_info
                 ))
                 break
 
@@ -2377,6 +2501,7 @@ async def run_llm_agent(
     execution_profile: Optional[ExecutionProfile] = None,
     sub_goal_index: Optional[int] = None,  # v3.7.0: Índice del sub-goal actual
     agent_metrics: Optional["AgentMetrics"] = None,  # v3.7.0: Métricas para registrar intenciones
+    execution_mode: str = "live",  # v4.3.0
 ) -> List[StepResult]:
     """
     Runs an agent loop on top of BrowserController using the LLMPlanner.
@@ -2537,44 +2662,57 @@ async def run_llm_agent(
             
             if reorientation_action:
                 # Execute reorientation action immediately
-                error = await _execute_action(reorientation_action, browser)
+                error, new_observation = await _execute_action(
+                    reorientation_action, browser, execution_mode=execution_mode, current_observation=observation
+                )
                 if error:
                     # If reorientation failed, add error step and continue anyway
+                    step_info = {"execution_mode": execution_mode}  # v4.3.1
                     steps.append(StepResult(
                         observation=observation,
                         last_action=reorientation_action,
                         error=f"Failed to reorient context: {error}",
-                        info={}
+                        info=step_info
                     ))
                 else:
-                    # Get new observation after reorientation
-                    try:
-                        observation = await browser.get_observation()
-                        # v3.3.0: Enriquecer con OCR
-                        if observation:
-                            observation = await _maybe_enrich_observation_with_ocr(observation, ocr_service)
-                        steps.append(StepResult(
-                            observation=observation,
-                            last_action=reorientation_action,
-                            error=None,
-                            info={}
-                        ))
-                        
-                        # v1.4.5: early-stop después de reorientación si el objetivo ya está satisfecho
-                        if _goal_is_satisfied(goal, observation, focus_entity, context_strategies=context_strategies):
-                            early_stop_reason = EarlyStopReason.GOAL_SATISFIED_AFTER_REORIENTATION
-                            logger.info(
-                                "[early-stop] goal satisfied after reorientation for goal=%r focus_entity=%r step_idx=%d url=%r title=%r",
-                                goal,
-                                focus_entity,
-                                step_idx,
-                                observation.url if observation else None,
-                                observation.title if observation else None,
-                            )
-                            break
-                    except Exception:
-                        # If we can't get observation, continue with previous one
-                        pass
+                    # v4.3.0: Usar observación devuelta (puede ser simulada en dry_run)
+                    observation = new_observation or observation
+                    # v3.3.0: Enriquecer con OCR
+                    if observation:
+                        observation = await _maybe_enrich_observation_with_ocr(observation, ocr_service)
+                    
+                    # v4.3.0: Marcar como simulado si está en dry_run y es acción crítica
+                    step_info = {}
+                    if execution_mode == "dry_run" and _is_critical_action(reorientation_action):
+                        step_info["dry_run"] = True
+                        step_info["simulated_action"] = {
+                            "type": reorientation_action.type,
+                            "target": {
+                                "text": reorientation_action.args.get("text"),
+                                "url": reorientation_action.args.get("url"),
+                            },
+                            "reason": "execution_mode=dry_run",
+                        }
+                    
+                    steps.append(StepResult(
+                        observation=observation,
+                        last_action=reorientation_action,
+                        error=None,
+                        info=step_info
+                    ))
+                    
+                    # v1.4.5: early-stop después de reorientación si el objetivo ya está satisfecho
+                    if _goal_is_satisfied(goal, observation, focus_entity, context_strategies=context_strategies):
+                        early_stop_reason = EarlyStopReason.GOAL_SATISFIED_AFTER_REORIENTATION
+                        logger.info(
+                            "[early-stop] goal satisfied after reorientation for goal=%r focus_entity=%r step_idx=%d url=%r title=%r",
+                            goal,
+                            focus_entity,
+                            step_idx,
+                            observation.url if observation else None,
+                            observation.title if observation else None,
+                        )
+                        break
                 
                 # IMPORTANT: After reorientation, continue loop without consulting LLMPlanner
                 # This ensures we don't skip the reorientation step
@@ -2624,11 +2762,12 @@ async def run_llm_agent(
 
             # If stop action (and context is OK), add final step and break
             if action.type == "stop":
+                step_info = {"execution_mode": execution_mode}  # v4.3.1
                 steps.append(StepResult(
                     observation=observation,
                     last_action=action,
                     error=None,
-                    info={}
+                    info=step_info
                 ))
                 break
 
@@ -2642,7 +2781,12 @@ async def run_llm_agent(
 
             # Execute the action
             try:
-                error = await _execute_action(action, browser)
+                error, new_observation = await _execute_action(
+                    action, browser, execution_mode=execution_mode, current_observation=observation
+                )
+                # v4.3.0: Usar observación devuelta (puede ser simulada en dry_run)
+                if new_observation:
+                    observation = new_observation
             except Exception as exc:
                 # If there was an exception executing the action
                 steps.append(StepResult(
@@ -2663,14 +2807,34 @@ async def run_llm_agent(
                 ))
                 break
 
-            # Get a new observation after the action
-            try:
-                observation_after = await browser.get_observation()
-            except Exception:
-                # If we can't get a new observation, use the previous one
-                observation_after = observation
+            # v4.3.0: En dry_run con acción crítica, usar observación simulada; en live, obtener nueva
+            if execution_mode == "dry_run" and _is_critical_action(action) and new_observation:
+                observation_after = new_observation
+            else:
+                # Get a new observation after the action
+                try:
+                    observation_after = await browser.get_observation()
+                except Exception:
+                    # If we can't get a new observation, use the previous one
+                    observation_after = observation
 
-            # v3.2.0: Confirmación visual para acciones críticas
+            # v4.3.0: Marcar step como simulado si es necesario (se añadirá a step_info más abajo)
+            dry_run_info = {}
+            if execution_mode == "dry_run" and _is_critical_action(action):
+                dry_run_info["dry_run"] = True
+                dry_run_info["dry_run_simulated"] = True
+                dry_run_info["dry_run_note"] = "Acción simulada (no se ha ejecutado realmente en el navegador)."
+                dry_run_info["simulated_action"] = {
+                    "type": action.type,
+                    "target": {
+                        "text": action.args.get("text"),
+                        "url": action.args.get("url"),
+                        "selector": action.args.get("selector"),
+                    },
+                    "reason": "execution_mode=dry_run",
+                }
+
+            # v3.2.0: Confirmación visual para acciones críticas (solo en live)
             visual_confirmation = None
             visual_recovery_result = None  # v3.4.0: Resultado de recuperación visual
             if action.type == "click_text":
@@ -2758,6 +2922,18 @@ async def run_llm_agent(
             
             # Add step result
             step_info = {}
+            
+            # v4.3.1: Asegurar que execution_mode esté siempre presente
+            step_info["execution_mode"] = execution_mode
+            
+            # v4.3.0: Añadir información de dry_run si existe
+            if dry_run_info:
+                step_info.update(dry_run_info)
+                # v4.3.1: Añadir flags claros de simulación
+                if execution_mode == "dry_run" and _is_critical_action(action):
+                    step_info["dry_run_simulated"] = True
+                    step_info["dry_run_note"] = "Acción simulada (no se ha ejecutado realmente en el navegador)."
+            
             if visual_confirmation:
                 step_info["visual_confirmation"] = visual_confirmation.model_dump()
             if visual_recovery_result:
@@ -3142,7 +3318,7 @@ async def _process_single_subgoal(
         forced_action = BrowserAction(type="open_url", args={"url": wikipedia_url})
 
         try:
-            error = await _execute_action(forced_action, browser)
+            error, new_obs = await _execute_action(forced_action, browser, execution_mode="live", current_observation=None)
             if error:
                 try:
                     current_obs = await browser.get_observation()
@@ -3164,7 +3340,7 @@ async def _process_single_subgoal(
                     )
                 )
             else:
-                obs = await browser.get_observation()
+                obs = new_obs or await browser.get_observation()
                 steps.append(
                     StepResult(
                         observation=obs,
@@ -3869,6 +4045,7 @@ async def _run_llm_task_single(
     session_context: Optional[SessionContext] = None,
     retry_context: Optional[Dict[str, Any]] = None,
     agent_metrics: Optional["AgentMetrics"] = None,  # v3.7.0: Métricas para registrar intenciones
+    execution_mode: str = "live",  # v4.3.0
 ) -> Tuple[List[StepResult], str]:
     """
     Ejecuta el agente LLM para un único objetivo (sin descomposición)
@@ -3903,7 +4080,7 @@ async def _run_llm_task_single(
                 forced_action = BrowserAction(type="open_url", args={"url": wikipedia_url})
 
                 try:
-                    error = await _execute_action(forced_action, browser)
+                    error, new_obs = await _execute_action(forced_action, browser, execution_mode=execution_mode, current_observation=None)
                     if error:
                         try:
                             current_obs = await browser.get_observation()
@@ -3925,7 +4102,7 @@ async def _run_llm_task_single(
                             )
                         )
                     else:
-                        obs = await browser.get_observation()
+                        obs = new_obs or await browser.get_observation()
                         steps_local.append(
                             StepResult(
                                 observation=obs,
@@ -4164,7 +4341,7 @@ async def _run_llm_task_single(
             
             if has_upload_intent:
                 try:
-                    upload_step = await _maybe_execute_file_upload(browser, upload_instruction)
+                    upload_step = await _maybe_execute_file_upload(browser, upload_instruction, execution_mode=execution_mode)
                     if upload_step:
                         steps_local.append(upload_step)
                         # v2.4.0: Extraer status del nuevo formato
@@ -4189,6 +4366,7 @@ async def run_llm_task_with_answer(
     context_strategies: Optional[List[str]] = None,
     execution_profile_name: Optional[str] = None,
     disabled_sub_goal_indices: Optional[List[int]] = None,
+    execution_mode: Optional[str] = None,  # v4.3.0
 ) -> tuple[List[StepResult], str, str, str, List[SourceInfo]]:
     """
     Orquesta la ejecución del agente para uno o varios sub-objetivos.
@@ -4202,6 +4380,7 @@ async def run_llm_task_with_answer(
     v1.9.0: Infiere y aplica ExecutionProfile desde el texto del objetivo.
     v2.1.0: Acepta context_strategies para selección de estrategias por petición.
     v2.7.0: Acepta execution_profile_name para selección explícita del perfil de ejecución.
+    v4.3.0: Acepta execution_mode para modo de ejecución (live/dry_run).
     
     Args:
         goal: Objetivo del usuario
@@ -4209,7 +4388,15 @@ async def run_llm_task_with_answer(
         max_steps: Número máximo de pasos por sub-objetivo
         context_strategies: Lista opcional de nombres de estrategias de contexto
         execution_profile_name: Nombre del perfil de ejecución ("fast", "balanced", "thorough") o None
+        execution_mode: Modo de ejecución ("live" o "dry_run") o None (por defecto "live")
     """
+    # v4.3.0: Normalizar execution_mode
+    if execution_mode not in (None, "live", "dry_run"):
+        logger.warning(f"[agent-runner] Invalid execution_mode={execution_mode!r}, falling back to 'live'")
+        execution_mode = "live"
+    if execution_mode is None:
+        execution_mode = "live"
+    
     # v2.7.0: Determinar ExecutionProfile desde execution_profile_name o inferirlo
     if execution_profile_name:
         valid_profiles = {"fast", "balanced", "thorough"}
@@ -4258,6 +4445,7 @@ async def run_llm_task_with_answer(
     # v1.5.0: Inicializar métricas
     # v2.9.0: Inicializar contadores de sub-goals saltados
     agent_metrics = AgentMetrics()
+    agent_metrics.execution_mode = execution_mode  # v4.3.0
     agent_metrics.start()
     agent_metrics.skipped_sub_goals_count = len(disabled_sub_goal_indices or [])
     agent_metrics.skipped_sub_goal_indices = sorted(list(disabled_sub_goal_indices or []))
@@ -4345,13 +4533,20 @@ async def run_llm_task_with_answer(
         # v2.9.0: Usar índice original del sub-goal filtrado
         t0 = time.perf_counter()
         steps, final_answer = await _run_llm_task_single(
-            browser, sub_goal, max_steps, focus_entity=focus_entity, reset_context=True, sub_goal_index=original_idx, execution_profile=execution_profile, context_strategies=active_strategies, session_context=session_context, agent_metrics=agent_metrics
+            browser, sub_goal, max_steps, focus_entity=focus_entity, reset_context=True, sub_goal_index=original_idx, execution_profile=execution_profile, context_strategies=active_strategies, session_context=session_context, agent_metrics=agent_metrics, execution_mode=execution_mode
         )
         t1 = time.perf_counter()
         
         # v1.7.0: Actualizar contexto con la entidad confirmada
         if focus_entity:
             session_context.update_entity(focus_entity)
+        
+        # v4.3.0: Contar steps y acciones simuladas en dry_run
+        for step in steps:
+            if step.info and step.info.get("dry_run"):
+                agent_metrics.dry_run_steps += 1
+                if step.info.get("simulated_action") or step.info.get("simulated_upload"):
+                    agent_metrics.dry_run_actions += 1
         
         # v1.5.0: Extraer métricas del último step y añadirlas a AgentMetrics
         metrics_data = None
@@ -4553,7 +4748,7 @@ async def run_llm_task_with_answer(
                 forced_action = BrowserAction(type="open_url", args={"url": wikipedia_search_url})
                 
                 try:
-                    error = await _execute_action(forced_action, browser)
+                    error, new_obs = await _execute_action(forced_action, browser, execution_mode=execution_mode, current_observation=None)
                     if error:
                         try:
                             current_obs = await browser.get_observation()
@@ -4575,7 +4770,7 @@ async def run_llm_task_with_answer(
                             )
                         )
                     else:
-                        obs = await browser.get_observation()
+                        obs = new_obs or await browser.get_observation()
                         context_steps.append(
                             StepResult(
                                 observation=obs,
@@ -4633,7 +4828,7 @@ async def run_llm_task_with_answer(
                 browser, sub_goal, max_steps, focus_entity=sub_focus_entity, reset_context=reset_ctx, 
                 sub_goal_index=original_idx, execution_profile=execution_profile, context_strategies=active_strategies, 
                 session_context=session_context, retry_context=retry_context if attempt_index > 0 else None,
-                agent_metrics=agent_metrics
+                agent_metrics=agent_metrics, execution_mode=execution_mode
             )
             t1 = time.perf_counter()
             

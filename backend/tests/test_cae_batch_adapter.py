@@ -1,5 +1,6 @@
 """
 Tests para cae_batch_adapter v3.1.0
+v4.3.1: Tests para execution_mode en CAE batch
 """
 
 import pytest
@@ -312,4 +313,81 @@ class TestCAEBatchAdapter:
         
         # Restaurar valor original
         monkeypatch.setattr(backend.config, "MEMORY_BASE_DIR", original_memory_dir)
+    
+    # v4.3.1: Tests para execution_mode
+    def test_cae_dry_run_does_not_write_memory(self):
+        """CAE batch con execution_mode='dry_run' no debe escribir memoria persistente"""
+        from unittest.mock import MagicMock, patch
+        from backend.memory import MemoryStore
+        
+        cae_request = CAEBatchRequest(
+            platform="test_platform",
+            company_name="EmpresaTest",
+            workers=[
+                CAEWorker(id="worker_1", full_name="Juan Pérez"),
+            ],
+            execution_mode="dry_run",
+        )
+        
+        batch_response = BatchAgentResponse(
+            goals=[
+                BatchAgentGoalResult(
+                    id="worker_1",
+                    goal="Test goal",
+                    success=True,
+                    final_answer="Test answer",
+                    metrics_summary={"summary": {}},
+                    outcome_judge=OutcomeJudgeReport(
+                        goal="Test goal",
+                        global_review=OutcomeGlobalReview(
+                            overall_success=True,
+                            global_score=0.85,
+                            main_issues=[],
+                            main_strengths=[],
+                            recommendations=[],
+                        ),
+                        sub_goals=[],
+                        next_run_profile_suggestion=None,
+                        next_run_notes=None,
+                        llm_raw_notes="Test notes",
+                    ),
+                ),
+            ],
+            summary={"total_goals": 1, "success_count": 1, "failure_count": 0},
+        )
+        
+        # Mock MemoryStore para detectar llamadas a save
+        with patch('backend.agents.cae_batch_adapter.MemoryStore') as mock_memory_class:
+            mock_memory = MagicMock(spec=MemoryStore)
+            mock_memory_class.return_value = mock_memory
+            mock_memory.load_worker = MagicMock(return_value=None)
+            mock_memory.load_company = MagicMock(return_value=None)
+            
+            cae_response = build_cae_response_from_batch(cae_request, batch_response)
+            
+            # Verificar que NO se llamó a update_worker_outcome, update_company_outcome, update_platform_outcome
+            assert not hasattr(mock_memory, 'update_worker_outcome') or not mock_memory.update_worker_outcome.called
+            assert not hasattr(mock_memory, 'update_company_outcome') or not mock_memory.update_company_outcome.called
+            assert not hasattr(mock_memory, 'update_platform_outcome') or not mock_memory.update_platform_outcome.called
+            
+            # Verificar que las notas contienen mención a simulación
+            if cae_response.workers:
+                worker_status = cae_response.workers[0]
+                assert worker_status.notes is not None
+                assert "simulación" in worker_status.notes.lower() or "dry_run" in worker_status.notes.lower()
+    
+    def test_cae_batch_request_includes_execution_mode(self):
+        """build_batch_request_from_cae debe incluir execution_mode en BatchAgentRequest"""
+        cae_request = CAEBatchRequest(
+            platform="test_platform",
+            company_name="EmpresaTest",
+            workers=[
+                CAEWorker(id="worker_1", full_name="Juan Pérez"),
+            ],
+            execution_mode="dry_run",
+        )
+        
+        batch_request = build_batch_request_from_cae(cae_request)
+        
+        assert batch_request.default_execution_mode == "dry_run"
 
