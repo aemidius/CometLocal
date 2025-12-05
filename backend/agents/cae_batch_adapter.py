@@ -376,6 +376,26 @@ def build_cae_response_from_batch(
             if intent_types:
                 notes_parts.append(f"Intenciones detectadas: {', '.join(intent_types)}.")
         
+        # v4.1.0: Usar OutcomeJudgeReport si está disponible para enriquecer notas y success
+        if result.outcome_judge:
+            outcome_judge = result.outcome_judge
+            if outcome_judge.global_review:
+                global_review = outcome_judge.global_review
+                # Añadir información de puntuación global
+                if global_review.global_score is not None:
+                    score_percent = int(global_review.global_score * 100)
+                    notes_parts.append(f"OutcomeJudge: Puntuación global {score_percent}%")
+                
+                # Añadir problemas principales si hay
+                if global_review.main_issues:
+                    issues_str = "; ".join(global_review.main_issues[:3])  # Limitar a 3
+                    notes_parts.append(f"Issues detectados: {issues_str}")
+                
+                # Actualizar success si overall_success está definido y es False
+                if global_review.overall_success is False:
+                    # No cambiar result.success directamente, pero añadir nota
+                    notes_parts.append("OutcomeJudge indica que la ejecución fue problemática")
+        
         notes = "; ".join(notes_parts) if notes_parts else None
         
         # v3.2.0: Extraer visual_actions de las secciones

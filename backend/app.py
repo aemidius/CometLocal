@@ -228,6 +228,8 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
     
     # v3.8.0: Generar Reasoning Spotlight antes de planificar o ejecutar
     reasoning_spotlight = None
+    # v4.0.0: Planner Hints (se genera en plan_only, pero inicializamos aquí)
+    planner_hints = None
     try:
         from backend.agents.reasoning_spotlight import build_reasoning_spotlight
         
@@ -294,7 +296,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
         )
         
         # v4.0.0: Generar Planner Hints si estamos en modo pre-flight
-        planner_hints = None
+        planner_hints: Optional["PlannerHints"] = None
         if payload.plan_only and not is_batch_request:
             try:
                 from backend.agents.llm_planner_hints import build_planner_hints
@@ -403,6 +405,59 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                     metrics_summary["summary"] = {}
                 metrics_summary["summary"]["spotlight_info"] = spotlight_info
     
+    # v4.1.0: Generar Outcome Judge Report después de la ejecución
+    outcome_judge = None
+    if not is_batch_request and steps and metrics_summary:
+        try:
+            from backend.agents.outcome_judge import build_outcome_judge_report
+            # Construir MemoryStore si estamos en contexto CAE (opcional)
+            memory_store = None
+            platform = None
+            company_name = None
+            
+            # Intentar extraer platform/company_name del goal si es contexto CAE
+            goal_lower = payload.goal.lower()
+            if "cae" in goal_lower or "plataforma" in goal_lower:
+                try:
+                    from backend.memory import MemoryStore
+                    from backend.config import MEMORY_BASE_DIR
+                    memory_store = MemoryStore(MEMORY_BASE_DIR)
+                    # TODO: Extraer platform y company_name del goal o de otro lugar si está disponible
+                except Exception as e:
+                    logger.debug(f"[app] Failed to initialize memory store for outcome judge: {e}")
+            
+            # En ejecución normal, no tenemos execution_plan (solo se genera en plan_only)
+            execution_plan_obj = None
+            
+            outcome_judge = await build_outcome_judge_report(
+                llm_client=llm_client,
+                goal=payload.goal,
+                execution_plan=execution_plan_obj,
+                steps=steps,
+                final_answer=final_answer,
+                metrics_summary=metrics_summary,
+                planner_hints=planner_hints,
+                spotlight=reasoning_spotlight,
+                memory_store=memory_store,
+                platform=platform,
+                company_name=company_name,
+            )
+            
+            # Actualizar métricas con outcome judge
+            if outcome_judge and metrics_summary:
+                from backend.agents.agent_runner import AgentMetrics
+                temp_metrics = AgentMetrics()
+                temp_metrics.register_outcome_judge(outcome_judge)
+                outcome_judge_info = temp_metrics.to_summary_dict()["summary"]["outcome_judge_info"]
+                if "summary" not in metrics_summary:
+                    metrics_summary["summary"] = {}
+                metrics_summary["summary"]["outcome_judge_info"] = outcome_judge_info
+            
+            logger.info("[app] Generated outcome judge report for execution")
+        except Exception as e:
+            logger.warning(f"[app] Failed to generate outcome judge report: {e}", exc_info=True)
+            outcome_judge = None
+    
     # v2.2.0: Recoger instrucciones de file upload de todos los steps
     file_upload_instructions: List[FileUploadInstructionDTO] = []
     seen_paths = set()
@@ -429,6 +484,8 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
         execution_plan=None,
         execution_cancelled=None,
         reasoning_spotlight=reasoning_spotlight,  # v3.8.0
+        planner_hints=planner_hints,  # v4.0.0
+        outcome_judge=outcome_judge,  # v4.1.0
     )
 
 

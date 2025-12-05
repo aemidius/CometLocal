@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Dict, Any
+from typing import List, Optional, Tuple, Dict, Any, TYPE_CHECKING
 import re
 import time
 import logging
@@ -10,6 +10,9 @@ from collections import defaultdict
 from urllib.parse import quote_plus, urlparse, parse_qs
 
 from openai import AsyncOpenAI
+
+if TYPE_CHECKING:
+    from backend.shared.models import ReasoningSpotlight, PlannerHints, OutcomeJudgeReport
 
 from backend.browser.browser import BrowserController
 from backend.shared.models import BrowserAction, BrowserObservation, StepResult, SourceInfo
@@ -122,6 +125,11 @@ class AgentMetrics:
         self.planner_hints_generated: bool = False
         self.planner_hints_subgoals_with_suggestions: int = 0
         self.planner_hints_profile_changed_recommendation: bool = False
+        # v4.1.0: Contadores de Outcome Judge
+        self.outcome_judge_generated: bool = False
+        self.outcome_global_score: Optional[float] = None
+        self.outcome_subgoals_reviewed: int = 0
+        self.outcome_issues_total: int = 0
     
     def register_visual_click(self, success: bool) -> None:
         """
@@ -253,6 +261,30 @@ class AgentMetrics:
         )
         if hints.profile_suggestion and hints.profile_suggestion.suggested_profile:
             self.planner_hints_profile_changed_recommendation = True
+    
+    def register_outcome_judge(self, report: Optional["OutcomeJudgeReport"]) -> None:
+        """
+        Registra Outcome Judge Report generado.
+        
+        v4.1.0: Actualiza los contadores de outcome judge.
+        
+        Args:
+            report: OutcomeJudgeReport a registrar (None se ignora)
+        """
+        if not report:
+            return
+        
+        self.outcome_judge_generated = True
+        if report.global_review and report.global_review.global_score is not None:
+            self.outcome_global_score = report.global_review.global_score
+        
+        self.outcome_subgoals_reviewed = len(report.sub_goals)
+        
+        issues = 0
+        for sg in report.sub_goals:
+            issues += len(sg.issues or [])
+            issues += len(sg.warnings or [])
+        self.outcome_issues_total = issues
     
     def start(self):
         """Marca el inicio de la ejecución completa."""
@@ -514,6 +546,14 @@ class AgentMetrics:
             "planner_hints_profile_changed_recommendation": self.planner_hints_profile_changed_recommendation,
         }
         
+        # v4.1.0: Información de Outcome Judge
+        outcome_judge_info = {
+            "outcome_judge_generated": self.outcome_judge_generated,
+            "outcome_global_score": self.outcome_global_score,
+            "outcome_subgoals_reviewed": self.outcome_subgoals_reviewed,
+            "outcome_issues_total": self.outcome_issues_total,
+        }
+        
         # Serializar sub_goals
         sub_goals_data = []
         for m in self.sub_goals:
@@ -554,6 +594,7 @@ class AgentMetrics:
                 "spotlight_info": spotlight_info,  # v3.8.0
                 "memory_info": memory_info,  # v3.9.0
                 "planner_hints_info": planner_hints_info,  # v4.0.0
+                "outcome_judge_info": outcome_judge_info,  # v4.1.0
                 "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }
@@ -4273,8 +4314,10 @@ async def run_llm_task_with_answer(
                 break
 
     # Caso simple: un solo objetivo → comportamiento actual
-    if len(sub_goals) == 1:
-        sub_goal = sub_goals[0]
+    # v2.9.0: Verificar sub_goals_to_execute (filtrado) en lugar de sub_goals (original)
+    if len(sub_goals_to_execute) == 1:
+        # v2.9.0: Usar el sub-goal filtrado y su índice original
+        original_idx, sub_goal = effective_sub_goals[0]
         session_context.update_goal(goal, sub_goal)
         
         # v1.7.0: Resolver focus_entity usando SessionContext si hay pronombres
@@ -4287,8 +4330,7 @@ async def run_llm_task_with_answer(
                 focus_entity = global_focus_entity
         
         # v1.4: Primer sub-goal siempre resetea contexto
-        # v2.9.0: Usar índice original del sub-goal (en caso simple, es 1)
-        original_idx = 1
+        # v2.9.0: Usar índice original del sub-goal filtrado
         t0 = time.perf_counter()
         steps, final_answer = await _run_llm_task_single(
             browser, sub_goal, max_steps, focus_entity=focus_entity, reset_context=True, sub_goal_index=original_idx, execution_profile=execution_profile, context_strategies=active_strategies, session_context=session_context, agent_metrics=agent_metrics
@@ -4427,12 +4469,14 @@ async def run_llm_task_with_answer(
                 break
         
         # v1.6.0: Construir respuesta estructurada
+        # v2.9.0: Pasar skipped_sub_goal_indices para incluir información de sub-goals deshabilitados
         structured_answer = _build_final_answer(
             original_goal=goal,
             sub_goals=sub_goals,
             sub_goal_answers=[final_answer],
             all_steps=steps,
             agent_metrics=agent_metrics,
+            skipped_sub_goal_indices=disabled_sub_goal_indices,
         )
         
         # v1.5.0 y v1.7.0: Añadir métricas, estructura y contexto al último step
@@ -4765,12 +4809,14 @@ async def run_llm_task_with_answer(
     metrics_summary = agent_metrics.to_summary_dict()
     logger.info("[metrics] summary=%r", metrics_summary)
     
+    # v2.9.0: Pasar skipped_sub_goal_indices para incluir información de sub-goals deshabilitados
     structured_answer = _build_final_answer(
         original_goal=goal,
         sub_goals=sub_goals,
         sub_goal_answers=answers,
         all_steps=all_steps,
         agent_metrics=agent_metrics,
+        skipped_sub_goal_indices=disabled_sub_goal_indices,
     )
     
     # v1.6.0: Usar answer_text estructurado como final_answer (mantiene compatibilidad)

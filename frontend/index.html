@@ -533,6 +533,145 @@
     .planner-notes-content.expanded {
       display: block;
     }
+    /* v4.1.0: Estilos para Outcome Judge */
+    .outcome-panel {
+      margin-top: 16px;
+      padding: 16px;
+      background: #1e293b;
+      border-radius: 8px;
+      border: 1px solid #334155;
+    }
+    .outcome-header {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e5e7eb;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .outcome-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #9ca3af;
+      margin-top: 12px;
+      margin-bottom: 6px;
+    }
+    .outcome-item {
+      font-size: 12px;
+      color: #d1d5db;
+      margin-bottom: 4px;
+      line-height: 1.5;
+    }
+    .outcome-score-bar {
+      position: relative;
+      width: 100%;
+      height: 24px;
+      background: #0f172a;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .outcome-score-fill {
+      height: 100%;
+      transition: width 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .outcome-score-fill.high { background: #22c55e; }
+    .outcome-score-fill.medium { background: #facc15; }
+    .outcome-score-fill.low { background: #ef4444; }
+    .outcome-score-text {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 11px;
+      font-weight: 600;
+      color: #0f172a;
+      z-index: 1;
+    }
+    .outcome-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-right: 6px;
+      margin-bottom: 4px;
+    }
+    .outcome-badge-score {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-right: 6px;
+      margin-bottom: 4px;
+    }
+    .outcome-badge-score.high { background: #22c55e; color: #0f172a; }
+    .outcome-badge-score.medium { background: #facc15; color: #0f172a; }
+    .outcome-badge-score.low { background: #ef4444; color: white; }
+    .badge-success { background: #22c55e; color: #0f172a; }
+    .badge-failure { background: #ef4444; color: white; }
+    .outcome-subgoal-card {
+      margin-top: 12px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .outcome-subgoal-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #e5e7eb;
+      margin-bottom: 8px;
+    }
+    .outcome-subgoal-section {
+      font-size: 11px;
+      font-weight: 600;
+      color: #9ca3af;
+      margin-top: 8px;
+      margin-bottom: 4px;
+    }
+    .outcome-notes-toggle {
+      cursor: pointer;
+      user-select: none;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .outcome-notes-toggle:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .outcome-notes-toggle::before {
+      content: "▶";
+      font-size: 8px;
+      transition: transform 0.2s;
+    }
+    .outcome-notes-toggle.expanded::before {
+      transform: rotate(90deg);
+    }
+    .outcome-notes-content {
+      display: none;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 4px;
+      margin-top: 4px;
+      font-size: 11px;
+      color: #d1d5db;
+      white-space: pre-wrap;
+    }
+    .outcome-notes-content.expanded {
+      display: block;
+    }
     .metrics-content {
       display: none;
       margin-top: 8px;
@@ -1305,6 +1444,166 @@
     }
     window.togglePlannerNotes = togglePlannerNotes;
 
+    // v4.1.0: Renderizar Outcome Judge Report
+    function renderOutcomeJudge(report) {
+      if (!report) return "";
+
+      let html = '<div class="outcome-panel">';
+      html += '<div class="outcome-header">🎯 AUTOEVALUACIÓN DEL AGENTE (OUTCOME JUDGE)</div>';
+
+      // Bloque global
+      if (report.global_review) {
+        const gr = report.global_review;
+        
+        // Puntuación global
+        if (gr.global_score !== null && gr.global_score !== undefined) {
+          const scorePercent = Math.round(gr.global_score * 100);
+          const scoreClass = gr.global_score >= 0.7 ? "high" : gr.global_score >= 0.4 ? "medium" : "low";
+          html += '<div class="outcome-section-title">Puntuación global:</div>';
+          html += `<div class="outcome-score-bar"><div class="outcome-score-fill ${scoreClass}" style="width: ${scorePercent}%"></div><span class="outcome-score-text">${scorePercent}%</span></div>`;
+        }
+        
+        // Overall success
+        if (gr.overall_success !== null && gr.overall_success !== undefined) {
+          const successClass = gr.overall_success ? "badge-success" : "badge-failure";
+          const successText = gr.overall_success ? "✅ Evaluación global: Exitosa" : "❌ Evaluación global: Problemática";
+          html += `<div class="outcome-item"><span class="outcome-badge ${successClass}">${successText}</span></div>`;
+        }
+        
+        // Main strengths
+        if (gr.main_strengths && gr.main_strengths.length > 0) {
+          html += '<div class="outcome-section-title">✅ Fortalezas principales:</div>';
+          gr.main_strengths.forEach(strength => {
+            html += `<div class="outcome-item">✅ ${escapeHtml(strength)}</div>`;
+          });
+        }
+        
+        // Main issues
+        if (gr.main_issues && gr.main_issues.length > 0) {
+          html += '<div class="outcome-section-title">⚠️ Problemas principales:</div>';
+          gr.main_issues.forEach(issue => {
+            html += `<div class="outcome-item">⚠️ ${escapeHtml(issue)}</div>`;
+          });
+        }
+        
+        // Recommendations
+        if (gr.recommendations && gr.recommendations.length > 0) {
+          html += '<div class="outcome-section-title">💡 Recomendaciones:</div>';
+          gr.recommendations.forEach(rec => {
+            html += `<div class="outcome-item">💡 ${escapeHtml(rec)}</div>`;
+          });
+        }
+      }
+
+      // Bloque por sub-objetivo
+      if (report.sub_goals && report.sub_goals.length > 0) {
+        html += '<div class="outcome-section-title">Revisión por sub-objetivo:</div>';
+        report.sub_goals.forEach(sg => {
+          html += '<div class="outcome-subgoal-card">';
+          html += `<div class="outcome-subgoal-title">Sub-objetivo ${sg.sub_goal_index}: "${escapeHtml(sg.sub_goal_text)}"</div>`;
+          
+          // Score
+          if (sg.score !== null && sg.score !== undefined) {
+            const scorePercent = Math.round(sg.score * 100);
+            const scoreClass = sg.score >= 0.7 ? "high" : sg.score >= 0.4 ? "medium" : "low";
+            html += `<div class="outcome-item"><span class="outcome-badge-score ${scoreClass}">Nota: ${scorePercent}%</span></div>`;
+          }
+          
+          // Success
+          if (sg.success !== null && sg.success !== undefined) {
+            const successIcon = sg.success ? "✅" : "❌";
+            html += `<div class="outcome-item"><span class="outcome-badge">${successIcon}</span></div>`;
+          }
+          
+          // Suggested profile
+          if (sg.suggested_profile) {
+            const profileNames = {
+              "fast": "Rápido",
+              "balanced": "Equilibrado",
+              "thorough": "Exhaustivo"
+            };
+            const profileName = profileNames[sg.suggested_profile] || sg.suggested_profile;
+            html += `<div class="outcome-item"><span class="outcome-badge">Perfil sugerido: ${escapeHtml(profileName)}</span></div>`;
+          }
+          
+          // Suggested retries
+          if (sg.suggested_retries !== null && sg.suggested_retries !== undefined) {
+            const retryText = sg.suggested_retries 
+              ? "El agente recomienda reintentar este sub-objetivo en el futuro"
+              : "No recomienda reintentar este sub-objetivo";
+            html += `<div class="outcome-item">${escapeHtml(retryText)}</div>`;
+          }
+          
+          // Strengths
+          if (sg.strengths && sg.strengths.length > 0) {
+            html += '<div class="outcome-subgoal-section">✅ Fortalezas:</div>';
+            sg.strengths.forEach(strength => {
+              html += `<div class="outcome-item">✅ ${escapeHtml(strength)}</div>`;
+            });
+          }
+          
+          // Issues
+          if (sg.issues && sg.issues.length > 0) {
+            html += '<div class="outcome-subgoal-section">⚠️ Problemas:</div>';
+            sg.issues.forEach(issue => {
+              html += `<div class="outcome-item">⚠️ ${escapeHtml(issue)}</div>`;
+            });
+          }
+          
+          // Warnings
+          if (sg.warnings && sg.warnings.length > 0) {
+            html += '<div class="outcome-subgoal-section">🟡 Advertencias:</div>';
+            sg.warnings.forEach(warning => {
+              html += `<div class="outcome-item">🟡 ${escapeHtml(warning)}</div>`;
+            });
+          }
+          
+          // Suggested changes
+          if (sg.suggested_changes) {
+            html += '<div class="outcome-subgoal-section">💡 Sugerencias de mejora:</div>';
+            html += `<div class="outcome-item">${escapeHtml(sg.suggested_changes)}</div>`;
+          }
+          
+          html += '</div>';
+        });
+      }
+
+      // Next run suggestions
+      if (report.next_run_profile_suggestion) {
+        const profileNames = {
+          "fast": "Rápido",
+          "balanced": "Equilibrado",
+          "thorough": "Exhaustivo"
+        };
+        const profileName = profileNames[report.next_run_profile_suggestion] || report.next_run_profile_suggestion;
+        html += '<div class="outcome-section-title">Sugerencia para próxima ejecución:</div>';
+        html += `<div class="outcome-item">El LLM sugiere usar perfil: <strong>${escapeHtml(profileName)}</strong></div>`;
+      }
+      
+      if (report.next_run_notes) {
+        html += '<div class="outcome-section-title">Notas para próxima ejecución:</div>';
+        html += `<div class="outcome-item">${escapeHtml(report.next_run_notes)}</div>`;
+      }
+
+      // LLM Raw Notes (collapsible)
+      if (report.llm_raw_notes) {
+        html += '<div class="outcome-notes-toggle" onclick="toggleOutcomeNotes(this)">Mostrar notas internas del juez (solo para diagnóstico)</div>';
+        html += `<pre class="outcome-notes-content">${escapeHtml(report.llm_raw_notes)}</pre>`;
+      }
+
+      html += '</div>';
+      return html;
+    }
+
+    function toggleOutcomeNotes(toggle) {
+      const content = toggle.nextElementSibling;
+      if (content) {
+        content.classList.toggle("expanded");
+        toggle.classList.toggle("expanded");
+      }
+    }
+    window.toggleOutcomeNotes = toggleOutcomeNotes;
+
     function renderExecutionPlan(plan, thinkingMsg) {
       if (!plan) return "";
       
@@ -1568,6 +1867,11 @@
         // Renderizar métricas
         if (metricsSummary) {
           extraHtml += renderMetrics(metricsSummary);
+        }
+        
+        // v4.1.0: Renderizar Outcome Judge después de métricas
+        if (data.outcome_judge) {
+          extraHtml += renderOutcomeJudge(data.outcome_judge);
         }
       } else {
         // Comportamiento legacy (v1.7.0 y anteriores)

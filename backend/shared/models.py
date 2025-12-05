@@ -148,6 +148,8 @@ class AgentAnswerResponse(BaseModel):
     reasoning_spotlight: Optional[ReasoningSpotlight] = None
     # v4.0.0: Planner Hints (recomendaciones del LLM sobre el plan)
     planner_hints: Optional["PlannerHints"] = None
+    # v4.1.0: Outcome Judge (auto-evaluación post-ejecución)
+    outcome_judge: Optional["OutcomeJudgeReport"] = None
 
 
 # v3.0.0: Modelos para ejecución batch autónoma
@@ -181,6 +183,7 @@ class BatchAgentGoalResult(BaseModel):
     Resultado de ejecutar un objetivo individual del batch.
     
     v3.0.0: Contiene toda la información de ejecución de un objetivo.
+    v4.1.0: Añade outcome_judge para auto-evaluación post-ejecución.
     """
     id: str
     goal: str
@@ -191,6 +194,7 @@ class BatchAgentGoalResult(BaseModel):
     sections: Optional[List[Dict[str, Any]]] = None  # secciones estructuradas si existen
     structured_sources: Optional[List[Dict[str, Any]]] = None
     file_upload_instructions: Optional[List[Dict[str, Any]]] = None
+    outcome_judge: Optional["OutcomeJudgeReport"] = None  # v4.1.0: Auto-evaluación post-ejecución
 
 
 class BatchAgentResponse(BaseModel):
@@ -425,6 +429,59 @@ class PlannerHints(BaseModel):
     profile_suggestion: Optional[PlannerHintProfileSuggestion] = None
     global_insights: Optional[PlannerHintGlobal] = None
     llm_raw_notes: Optional[str] = None  # dump del razonamiento que queramos conservar
+
+
+# v4.1.0: Modelos para Outcome Judge (auto-evaluación post-ejecución)
+class OutcomeSubGoalReview(BaseModel):
+    """
+    Revisión de un sub-objetivo individual por el Outcome Judge.
+    
+    v4.1.0: Contiene evaluación de éxito, puntuación, problemas detectados,
+    fortalezas y sugerencias de mejora para ese sub-objetivo específico.
+    """
+    sub_goal_index: int
+    sub_goal_text: str
+    success: Optional[bool] = None
+    score: Optional[float] = None  # 0.0–1.0
+    issues: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    strengths: List[str] = Field(default_factory=list)
+    suggested_retries: Optional[bool] = None
+    suggested_profile: Optional[str] = None  # "fast" | "balanced" | "thorough" | None
+    suggested_changes: Optional[str] = None  # Texto breve
+
+
+class OutcomeGlobalReview(BaseModel):
+    """
+    Revisión global de la ejecución completa.
+    
+    v4.1.0: Contiene evaluación general de éxito, puntuación global,
+    problemas principales, fortalezas y recomendaciones de alto nivel.
+    """
+    overall_success: Optional[bool] = None
+    global_score: Optional[float] = None  # 0.0–1.0
+    main_issues: List[str] = Field(default_factory=list)
+    main_strengths: List[str] = Field(default_factory=list)
+    recommendations: List[str] = Field(default_factory=list)
+
+
+class OutcomeJudgeReport(BaseModel):
+    """
+    Informe completo del Outcome Judge tras la ejecución.
+    
+    v4.1.0: El LLM analiza pasos, métricas, planner_hints, spotlight y memoria
+    para generar un informe estructurado de calidad, problemas detectados
+    y recomendaciones para futuras ejecuciones.
+    """
+    goal: str
+    execution_profile_name: Optional[str] = None
+    context_strategies: Optional[List[str]] = None
+    global_review: Optional[OutcomeGlobalReview] = None
+    sub_goals: List[OutcomeSubGoalReview] = Field(default_factory=list)
+    # Pistas sobre qué cambiar la próxima vez (no lo aplicamos automáticamente)
+    next_run_profile_suggestion: Optional[str] = None
+    next_run_notes: Optional[str] = None
+    llm_raw_notes: Optional[str] = None
 
 
 class CAEWorkerDocStatus(BaseModel):
