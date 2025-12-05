@@ -436,6 +436,14 @@ class AgentMetrics:
             "critical_intent_count": self.critical_intent_count,
         }
         
+        # v3.8.0: Información de Reasoning Spotlight
+        spotlight_info = {
+            "spotlight_generated": self.spotlight_generated,
+            "ambiguity_count": self.ambiguity_count,
+            "high_risk_count": self.high_risk_count,
+            "interpretation_count": self.interpretation_count,
+        }
+        
         # Serializar sub_goals
         sub_goals_data = []
         for m in self.sub_goals:
@@ -2268,6 +2276,14 @@ async def run_llm_agent(
     # v3.5.0: Inicializar estado visual del flujo
     visual_flow_engine = VisualFlowEngine()
     visual_flow_state = None
+    
+    # v3.3.0: Inicializar OCR service
+    from backend.vision.ocr_service import OCRService
+    from backend.config import VISION_OCR_ENABLED
+    ocr_service = OCRService(enabled=VISION_OCR_ENABLED)
+    
+    # v2.1.0: Inicializar context_strategies (usar defaults si no se proporciona)
+    context_strategies = DEFAULT_CONTEXT_STRATEGIES
     
     # v1.4: Calcular focus_entity si no se proporciona
     if focus_entity is None:
@@ -4199,7 +4215,8 @@ async def run_llm_task_with_answer(
                 focus_entity = global_focus_entity
         
         # v1.4: Primer sub-goal siempre resetea contexto
-        # v2.9.0: Usar índice original del sub-goal
+        # v2.9.0: Usar índice original del sub-goal (en caso simple, es 1)
+        original_idx = 1
         t0 = time.perf_counter()
         steps, final_answer = await _run_llm_task_single(
             browser, sub_goal, max_steps, focus_entity=focus_entity, reset_context=True, sub_goal_index=original_idx, execution_profile=execution_profile, context_strategies=active_strategies, session_context=session_context, agent_metrics=agent_metrics
@@ -4391,7 +4408,7 @@ async def run_llm_task_with_answer(
         
         # v1.7.0: Logging con información de contexto
         logger.info(
-            f"[cometlocal] sub_goal_index={idx} sub_goal={sub_goal!r} focus_entity={sub_focus_entity!r} "
+            f"[cometlocal] sub_goal_index={original_idx} sub_goal={sub_goal!r} focus_entity={sub_focus_entity!r} "
             f"context_entity={session_context.current_focus_entity!r}"
         )
         
@@ -4486,7 +4503,7 @@ async def run_llm_task_with_answer(
             # v3.7.0: Pasar agent_metrics
             steps, answer = await _run_llm_task_single(
                 browser, sub_goal, max_steps, focus_entity=sub_focus_entity, reset_context=reset_ctx, 
-                sub_goal_index=idx, execution_profile=execution_profile, context_strategies=active_strategies, 
+                sub_goal_index=original_idx, execution_profile=execution_profile, context_strategies=active_strategies, 
                 session_context=session_context, retry_context=retry_context if attempt_index > 0 else None,
                 agent_metrics=agent_metrics
             )
