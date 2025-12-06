@@ -163,12 +163,14 @@ class MappedField(BaseModel):
     Campo de formulario mapeado heurísticamente a un campo semántico.
     
     v4.6.0: Resultado del mapeo automático sin LLM basado en keywords y heurísticas.
+    v4.7.0: Extendido con source para indicar origen del mapeo (dom, ocr, hybrid).
     """
     semantic_field: str  # "issue_date", "expiry_date", "worker_name"
     selector: str  # Selector CSS del campo encontrado
     label_text: Optional[str] = None  # Texto de la etiqueta asociada
     score: float  # Score heurístico (positivas - negativas)
     confidence: float  # Confianza en el mapeo (0.0 a 1.0)
+    source: str = "dom"  # v4.7.0: "dom", "ocr", "hybrid"
 
 
 # v3.8.0: Modelos para Reasoning Spotlight

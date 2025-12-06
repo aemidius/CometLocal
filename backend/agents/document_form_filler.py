@@ -5,7 +5,7 @@ v4.5.0: Fase 2 - Uso del análisis de documentos para rellenar campos de formula
 """
 
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import date
 
 from backend.shared.models import (

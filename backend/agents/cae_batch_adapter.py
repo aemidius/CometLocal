@@ -316,8 +316,9 @@ def build_cae_response_from_batch(
             if analysis_parts:
                 notes_parts.append(f"Documento analizado: {', '.join(analysis_parts)}")
         
-        # v4.5.0: Añadir información de rellenado automático de formulario
+        # v4.5.0/v4.7.0: Añadir información de rellenado automático de formulario
         form_fill_detected = False
+        form_mapped_fields = None
         if result.sections:
             for section in result.sections:
                 if section.get("form_fill"):
@@ -331,6 +332,24 @@ def build_cae_response_from_batch(
                             f"({', '.join(field_names)}) con los datos del documento. "
                             f"Estado: {status}"
                         )
+                        
+                        # v4.7.0: Añadir información sobre método de detección
+                        if section.get("form_mapped_fields"):
+                            form_mapped_fields = section["form_mapped_fields"]
+                            sources = [mf.get("source", "unknown") for mf in form_mapped_fields if mf]
+                            if "hybrid" in sources:
+                                notes_parts.append("form_detection: hybrid (DOM + OCR)")
+                            elif "ocr" in sources:
+                                notes_parts.append("form_detection: ocr")
+                            elif "dom" in sources:
+                                notes_parts.append("form_detection: dom")
+                            
+                            # Confianza promedio
+                            confidences = [mf.get("confidence", 0.0) for mf in form_mapped_fields if mf and mf.get("confidence")]
+                            if confidences:
+                                avg_confidence = sum(confidences) / len(confidences)
+                                notes_parts.append(f"Confianza promedio del mapeo: {avg_confidence:.2f}")
+                        
                         form_fill_detected = True
                         break
         

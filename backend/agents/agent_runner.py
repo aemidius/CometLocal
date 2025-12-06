@@ -142,6 +142,11 @@ class AgentMetrics:
         self.mapper_fields_mapped_count: int = 0
         self.mapper_confidence_avg: float = 0.0
         self.mapper_failures: int = 0
+        # v4.7.0: Contadores de mapeo híbrido DOM + OCR
+        self.hybrid_mapper_used: int = 0
+        self.hybrid_mapper_fields_mapped_count: int = 0
+        self.hybrid_mapper_confidence_avg: float = 0.0
+        self.hybrid_mapper_failures: int = 0
     
     def register_visual_click(self, success: bool) -> None:
         """
