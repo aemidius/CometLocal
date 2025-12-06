@@ -45,12 +45,21 @@ class TestDocumentFormFiller:
         assert "issue_date" in field_dict
         assert field_dict["issue_date"].value == "2025-03-01"
         assert field_dict["issue_date"].source == "document_analysis"
+        # v4.6.0: Verificar que possible_labels se generan
+        assert len(field_dict["issue_date"].possible_labels) > 0
+        assert "Fecha de expedición" in field_dict["issue_date"].possible_labels
         
         assert "expiry_date" in field_dict
         assert field_dict["expiry_date"].value == "2026-03-01"
+        # v4.6.0: Verificar que possible_labels se generan
+        assert len(field_dict["expiry_date"].possible_labels) > 0
+        assert "Fecha de caducidad" in field_dict["expiry_date"].possible_labels
         
         assert "worker_name" in field_dict
         assert field_dict["worker_name"].value == "Juan Pérez García"
+        # v4.6.0: Verificar que possible_labels se generan
+        assert len(field_dict["worker_name"].possible_labels) > 0
+        assert "Trabajador" in field_dict["worker_name"].possible_labels
         
         # Confidence debería ser > 0
         assert plan.confidence > 0.0
@@ -100,6 +109,7 @@ class TestDocumentFormFiller:
         filler = DocumentFormFiller()
         
         from backend.shared.models import FormFieldValue
+        from backend.agents.document_form_filler import SEMANTIC_FIELD_LABELS
         
         plan = DocumentFormFillPlan(
             doc_type="reconocimiento_medico",
@@ -109,16 +119,19 @@ class TestDocumentFormFiller:
                     semantic_field="issue_date",
                     value="2025-03-01",
                     source="document_analysis",
+                    possible_labels=SEMANTIC_FIELD_LABELS.get("issue_date", []),  # v4.6.0
                 ),
                 FormFieldValue(
                     semantic_field="expiry_date",
                     value="2026-03-01",
                     source="document_analysis",
+                    possible_labels=SEMANTIC_FIELD_LABELS.get("expiry_date", []),  # v4.6.0
                 ),
                 FormFieldValue(
                     semantic_field="worker_name",
                     value="Juan Pérez García",
                     source="document_analysis",
+                    possible_labels=SEMANTIC_FIELD_LABELS.get("worker_name", []),  # v4.6.0
                 ),
             ],
             confidence=0.85,
@@ -132,6 +145,11 @@ class TestDocumentFormFiller:
         assert "issue_date" in instruction.field_selectors
         assert "expiry_date" in instruction.field_selectors
         assert "worker_name" in instruction.field_selectors
+        # v4.6.0: Verificar que label_hints se generan
+        assert len(instruction.label_hints) == 3
+        assert "issue_date" in instruction.label_hints
+        assert "expiry_date" in instruction.label_hints
+        assert "worker_name" in instruction.label_hints
         assert instruction.plan == plan
         assert instruction.form_context == "cae_upload_default"
     

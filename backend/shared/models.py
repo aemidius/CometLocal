@@ -113,11 +113,13 @@ class FormFieldValue(BaseModel):
     Valor a rellenar en un campo de formulario.
     
     v4.5.0: Representa un valor semántico (ej. issue_date) con su valor formateado.
+    v4.6.0: Añade possible_labels para rellenado por etiquetas.
     """
     semantic_field: str  # "issue_date", "expiry_date", "worker_name", etc.
     value: str  # Ya formateado para meter en el input (ej. "2025-03-01")
     source: Optional[str] = None  # "document_analysis", "fallback", etc.
     confidence: Optional[float] = None  # Confianza en este valor específico
+    possible_labels: List[str] = Field(default_factory=list)  # v4.6.0: Posibles textos de etiqueta
 
 
 class DocumentFormFillPlan(BaseModel):
@@ -139,6 +141,7 @@ class FormFillInstruction(BaseModel):
     Instrucción ejecutable para rellenar un formulario.
     
     v4.5.0: Mapea campos semánticos a selectores CSS del formulario actual.
+    v4.6.0: Añade label_hints para rellenado por etiquetas.
     """
     # Mapeo de semantic_field -> selector CSS del formulario actual
     # Ejemplo: {"issue_date": "#issue_date", "expiry_date": "#expiry_date", "worker_name": "#worker_name"}
@@ -149,6 +152,9 @@ class FormFillInstruction(BaseModel):
     
     # Contexto opcional (para debug / auditoría)
     form_context: Optional[str] = None  # ej: "cae_upload_form_v1"
+    
+    # v4.6.0: Mapeo semántico -> lista de posibles labels para rellenado por etiquetas
+    label_hints: Dict[str, List[str]] = Field(default_factory=dict)
 
 
 # v3.8.0: Modelos para Reasoning Spotlight

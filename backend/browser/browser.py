@@ -298,6 +298,167 @@ class BrowserController:
             results[selector] = await self.fill_field_by_selector(selector, value)
         return results
     
+    async def fill_field_by_label(self, label_text: str, value: str) -> tuple[bool, "BrowserObservation"]:
+        """
+        Busca un <label> cuyo texto contenga label_text (case-insensitive),
+        localiza el input asociado (via atributo 'for' o proximidad en el DOM)
+        y rellena el valor.
+        
+        v4.6.0: Método para rellenar campos por etiqueta de texto.
+        
+        Args:
+            label_text: Texto a buscar en las etiquetas
+            value: Valor a escribir en el campo
+            
+        Returns:
+            Tupla (success: bool, observation: BrowserObservation)
+        """
+        if not self.page:
+            raise RuntimeError("BrowserController no está iniciado. Llama a start() primero.")
+        
+        try:
+            # Ejecutar JavaScript para encontrar el label y su input asociado
+            result = await self.page.evaluate("""
+                (labelText) => {
+                    // Buscar todos los labels
+                    const labels = Array.from(document.querySelectorAll('label'));
+                    const labelTextLower = labelText.toLowerCase();
+                    
+                    // Buscar label cuyo texto contenga labelText (case-insensitive)
+                    let foundLabel = null;
+                    for (const label of labels) {
+                        const labelInnerText = (label.innerText || label.textContent || '').toLowerCase().trim();
+                        if (labelInnerText.includes(labelTextLower)) {
+                            foundLabel = label;
+                            break;
+                        }
+                    }
+                    
+                    if (!foundLabel) {
+                        return { found: false, reason: 'label_not_found' };
+                    }
+                    
+                    // Intentar encontrar el input asociado
+                    let input = null;
+                    
+                    // Método 1: Si el label tiene atributo 'for', buscar por ID
+                    if (foundLabel.hasAttribute('for')) {
+                        const forValue = foundLabel.getAttribute('for');
+                        input = document.getElementById(forValue);
+                        if (input && (input.tagName === 'INPUT' || input.tagName === 'TEXTAREA')) {
+                            return { found: true, selector: `#${forValue}`, method: 'for_attribute' };
+                        }
+                    }
+                    
+                    // Método 2: Buscar input dentro del label
+                    input = foundLabel.querySelector('input, textarea');
+                    if (input) {
+                        // Construir selector único si es posible
+                        let selector = '';
+                        if (input.id) {
+                            selector = `#${input.id}`;
+                        } else if (input.name) {
+                            selector = `input[name="${input.name}"]`;
+                        } else {
+                            selector = input.tagName.toLowerCase();
+                        }
+                        return { found: true, selector: selector, method: 'inside_label' };
+                    }
+                    
+                    // Método 3: Buscar input adyacente (siguiente hermano)
+                    let nextSibling = foundLabel.nextElementSibling;
+                    while (nextSibling) {
+                        if (nextSibling.tagName === 'INPUT' || nextSibling.tagName === 'TEXTAREA') {
+                            let selector = '';
+                            if (nextSibling.id) {
+                                selector = `#${nextSibling.id}`;
+                            } else if (nextSibling.name) {
+                                selector = `input[name="${nextSibling.name}"]`;
+                            } else {
+                                selector = nextSibling.tagName.toLowerCase();
+                            }
+                            return { found: true, selector: selector, method: 'adjacent_sibling' };
+                        }
+                        nextSibling = nextSibling.nextElementSibling;
+                    }
+                    
+                    // Método 4: Buscar en el contenedor padre
+                    let parent = foundLabel.parentElement;
+                    if (parent) {
+                        input = parent.querySelector('input, textarea');
+                        if (input) {
+                            let selector = '';
+                            if (input.id) {
+                                selector = `#${input.id}`;
+                            } else if (input.name) {
+                                selector = `input[name="${input.name}"]`;
+                            } else {
+                                selector = input.tagName.toLowerCase();
+                            }
+                            return { found: true, selector: selector, method: 'parent_container' };
+                        }
+                    }
+                    
+                    return { found: false, reason: 'input_not_found' };
+                }
+            """, label_text)
+            
+            if not result.get("found"):
+                obs = await self.get_observation()
+                return (False, obs)
+            
+            # Usar el selector encontrado para rellenar el campo
+            selector = result["selector"]
+            success = await self.fill_field_by_selector(selector, value)
+            obs = await self.get_observation()
+            
+            if success:
+                logger.debug(f"[browser] Filled field by label '{label_text}' using selector '{selector}' (method: {result.get('method')})")
+            
+            return (success, obs)
+            
+        except Exception as e:
+            logger.warning(f"[browser] Error filling field by label '{label_text}': {e}", exc_info=True)
+            obs = await self.get_observation()
+            return (False, obs)
+    
+    async def fill_by_label_candidates(self, label_candidates: list[str], value: str) -> tuple[bool, "BrowserObservation"]:
+        """
+        Intenta, en orden, fill_field_by_label para cada label_candidate.
+        
+        v4.6.0: Método para intentar múltiples etiquetas hasta encontrar una que funcione.
+        
+        Args:
+            label_candidates: Lista de textos de etiqueta a probar en orden
+            value: Valor a escribir en el campo
+            
+        Returns:
+            Tupla (success: bool, last_observation: BrowserObservation)
+        """
+        if not self.page:
+            raise RuntimeError("BrowserController no está iniciado. Llama a start() primero.")
+        
+        last_observation = None
+        
+        for label_candidate in label_candidates:
+            try:
+                success, obs = await self.fill_field_by_label(label_candidate, value)
+                last_observation = obs
+                
+                if success:
+                    logger.debug(f"[browser] Successfully filled field using label candidate '{label_candidate}'")
+                    return (True, obs)
+            except Exception as e:
+                logger.debug(f"[browser] Label candidate '{label_candidate}' failed: {e}")
+                continue
+        
+        # Ningún candidato funcionó
+        if last_observation is None:
+            last_observation = await self.get_observation()
+        
+        logger.debug(f"[browser] All label candidates failed for value '{value}'")
+        return (False, last_observation)
+    
     async def press_enter(self) -> None:
         """Pulsa la tecla Enter en la página actual."""
         if not self.page:

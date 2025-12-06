@@ -135,6 +135,9 @@ class AgentMetrics:
         self.outcome_global_score: Optional[float] = None
         self.outcome_subgoals_reviewed: int = 0
         self.outcome_issues_total: int = 0
+        # v4.6.0: Contadores de rellenado de formulario
+        self.form_fill_by_selector_count: int = 0
+        self.form_fill_by_label_count: int = 0
     
     def register_visual_click(self, success: bool) -> None:
         """
@@ -750,6 +753,143 @@ def _extract_sources_from_steps(steps: List[StepResult]) -> List[Dict[str, Any]]
         })
     
     return sources
+
+
+async def _execute_form_fill(
+    browser: BrowserController,
+    instruction: "FormFillInstruction",
+    execution_mode: str = "live",
+) -> Optional[Dict[str, Any]]:
+    """
+    Ejecuta el rellenado de campos de formulario según una FormFillInstruction.
+    
+    v4.5.0: Rellena campos de formulario usando valores del análisis de documento.
+    v4.6.0: Añade soporte para rellenado por etiquetas con fallback.
+    
+    Args:
+        browser: Instancia de BrowserController
+        instruction: FormFillInstruction con los campos y selectores/labels
+        execution_mode: Modo de ejecución ("live" o "dry_run")
+        
+    Returns:
+        Diccionario con información del rellenado, o None si no se pudo ejecutar
+    """
+    from backend.shared.models import FormFillInstruction
+    
+    if not instruction.plan.fields:
+        return {
+            "status": "skipped",
+            "reason": "No hay campos para rellenar",
+            "fields": [],
+        }
+    
+    form_fill_info = {
+        "fields": [],
+        "field_selectors": instruction.field_selectors,
+        "label_hints": instruction.label_hints,  # v4.6.0
+        "form_context": instruction.form_context,
+        "mode": "selector_first_label_fallback",  # v4.6.0
+    }
+    
+    # v4.3.0: En modo dry_run, simular rellenado sin ejecutarlo
+    if execution_mode == "dry_run":
+        logger.info("[dry-run] Simulating form fill")
+        form_fill_info["status"] = "simulated"
+        form_fill_info["dry_run_simulated"] = True
+        form_fill_info["dry_run_note"] = "Rellenado de formulario simulado (no se han modificado campos reales)."
+        form_fill_info["filled_fields"] = {}
+        
+        # Simular field_results
+        for field in instruction.plan.fields:
+            form_fill_info["fields"].append({
+                "semantic_field": field.semantic_field,
+                "value": field.value,
+                "used_selector": instruction.field_selectors.get(field.semantic_field),
+                "used_label": None,  # En simulación no se usa label
+                "status": "simulated",
+            })
+        
+        return form_fill_info
+    
+    # Modo live: ejecutar rellenado real
+    field_results = []
+    filled_fields = {}
+    errors = []
+    selector_success_count = 0
+    label_success_count = 0
+    
+    for field in instruction.plan.fields:
+        semantic_field = field.semantic_field
+        value = field.value
+        field_result = {
+            "semantic_field": semantic_field,
+            "value": value,
+            "used_selector": None,
+            "used_label": None,
+            "status": "failed",
+        }
+        
+        success = False
+        
+        # v4.6.0: Intentar primero por selector (si existe)
+        if semantic_field in instruction.field_selectors:
+            selector = instruction.field_selectors[semantic_field]
+            try:
+                success = await browser.fill_field_by_selector(selector, value)
+                if success:
+                    field_result["used_selector"] = selector
+                    field_result["status"] = "filled"
+                    selector_success_count += 1
+                    logger.debug(f"[form-fill] Filled {semantic_field} by selector: {selector}")
+                else:
+                    logger.debug(f"[form-fill] Selector failed for {semantic_field}: {selector}")
+            except Exception as e:
+                logger.debug(f"[form-fill] Error with selector for {semantic_field}: {e}")
+        
+        # v4.6.0: Si el selector falló o no existe, intentar por label
+        if not success and semantic_field in instruction.label_hints:
+            label_candidates = instruction.label_hints[semantic_field]
+            try:
+                label_success, obs = await browser.fill_by_label_candidates(label_candidates, value)
+                if label_success:
+                    # Encontrar qué label funcionó (el primero que tenga éxito)
+                    # Por ahora, usamos el primer candidato que funcionó
+                    field_result["used_label"] = label_candidates[0] if label_candidates else None
+                    field_result["status"] = "filled"
+                    label_success_count += 1
+                    success = True
+                    logger.debug(f"[form-fill] Filled {semantic_field} by label: {field_result['used_label']}")
+                else:
+                    logger.debug(f"[form-fill] All label candidates failed for {semantic_field}")
+            except Exception as e:
+                logger.debug(f"[form-fill] Error with labels for {semantic_field}: {e}")
+        
+        if not success:
+            errors.append(f"Failed to fill {semantic_field}")
+            field_result["status"] = "failed"
+        
+        field_results.append(field_result)
+        
+        if success:
+            filled_fields[semantic_field] = {
+                "value": value,
+                "status": "filled",
+                "method": "selector" if field_result["used_selector"] else "label",
+            }
+    
+    if errors:
+        form_fill_info["status"] = "partial" if filled_fields else "failed"
+        form_fill_info["errors"] = errors
+    else:
+        form_fill_info["status"] = "executed"
+    
+    form_fill_info["fields"] = field_results
+    form_fill_info["filled_fields"] = filled_fields
+    form_fill_info["execution_mode"] = execution_mode
+    form_fill_info["selector_success_count"] = selector_success_count  # v4.6.0
+    form_fill_info["label_success_count"] = label_success_count  # v4.6.0
+    
+    return form_fill_info
 
 
 async def _maybe_execute_file_upload(

@@ -20,6 +20,37 @@ logger = logging.getLogger(__name__)
 # v4.5.0: Formato estándar para fechas en formularios (configurable)
 DATE_FORMAT = "YYYY-MM-DD"  # Formato ISO estándar para inputs de tipo date
 
+# v4.6.0: Mapeo de campos semánticos a posibles textos de etiqueta (heurístico, extensible)
+SEMANTIC_FIELD_LABELS = {
+    "issue_date": [
+        "Fecha de expedición",
+        "Data d'expedició",
+        "Fecha emisión",
+        "Fecha de emisión",
+        "Fecha de realización",
+        "Fecha de reconocimiento",
+        "Fecha",
+    ],
+    "expiry_date": [
+        "Fecha de caducidad",
+        "Data de caducitat",
+        "Válido hasta",
+        "Validez hasta",
+        "Caduca el",
+        "Válido hasta el",
+        "Fecha de vencimiento",
+    ],
+    "worker_name": [
+        "Trabajador",
+        "Treballador",
+        "Nombre del trabajador",
+        "Nom del treballador",
+        "Nombre",
+        "Nom",
+        "Trabajador/a",
+    ],
+}
+
 
 def format_date_for_form(d: date, format_str: str = DATE_FORMAT) -> str:
     """
@@ -79,11 +110,14 @@ class DocumentFormFiller:
         # issue_date
         if analysis.issue_date:
             issue_value = format_date_for_form(analysis.issue_date)
+            # v4.6.0: Añadir possible_labels para rellenado por etiquetas
+            possible_labels = SEMANTIC_FIELD_LABELS.get("issue_date", [])
             plan.fields.append(FormFieldValue(
                 semantic_field="issue_date",
                 value=issue_value,
                 source="document_analysis",
                 confidence=analysis.confidence,
+                possible_labels=possible_labels,
             ))
             fields_added += 1
         else:
@@ -92,11 +126,14 @@ class DocumentFormFiller:
         # expiry_date
         if analysis.expiry_date:
             expiry_value = format_date_for_form(analysis.expiry_date)
+            # v4.6.0: Añadir possible_labels para rellenado por etiquetas
+            possible_labels = SEMANTIC_FIELD_LABELS.get("expiry_date", [])
             plan.fields.append(FormFieldValue(
                 semantic_field="expiry_date",
                 value=expiry_value,
                 source="document_analysis",
                 confidence=analysis.confidence,
+                possible_labels=possible_labels,
             ))
             fields_added += 1
         else:
@@ -104,11 +141,14 @@ class DocumentFormFiller:
         
         # worker_name
         if analysis.worker_name:
+            # v4.6.0: Añadir possible_labels para rellenado por etiquetas
+            possible_labels = SEMANTIC_FIELD_LABELS.get("worker_name", [])
             plan.fields.append(FormFieldValue(
                 semantic_field="worker_name",
                 value=analysis.worker_name,
                 source="document_analysis",
                 confidence=analysis.confidence,
+                possible_labels=possible_labels,
             ))
             fields_added += 1
         else:
@@ -178,14 +218,21 @@ class DocumentFormFiller:
                 selector = field_selectors[semantic_field].split(',')[0].strip()
                 available_selectors[semantic_field] = selector
         
-        if not available_selectors:
-            logger.debug("[form-filler] No hay selectores disponibles para los campos del plan")
+        # v4.6.0: Construir label_hints desde possible_labels de los campos
+        label_hints: Dict[str, List[str]] = {}
+        for field in plan.fields:
+            if field.possible_labels:
+                label_hints[field.semantic_field] = field.possible_labels
+        
+        if not available_selectors and not label_hints:
+            logger.debug("[form-filler] No hay selectores ni labels disponibles para los campos del plan")
             return None
         
         instruction = FormFillInstruction(
             field_selectors=available_selectors,
             plan=plan,
             form_context=f"cae_upload_{form_variant}",
+            label_hints=label_hints,  # v4.6.0
         )
         
         logger.info(
