@@ -401,10 +401,74 @@ class HybridPlanner:
                         nodes_to_execute.insert(0, prereq)
                 continue
             
+            # v5.1.0: Si hay RL engine, construir estado y sugerir acción
+            if self.rl_engine:
+                try:
+                    # Obtener snapshots actuales
+                    dom_snapshot = await self.dom_explorer.take_snapshot()
+                    visual_snapshot = await self.visual_explorer.take_snapshot()
+                    
+                    # Construir estado
+                    rl_state = self.rl_engine.build_state(
+                        dom_snapshot=dom_snapshot,
+                        visual_snapshot=visual_snapshot,
+                        current_node=node,
+                    )
+                    
+                    # Obtener nodos disponibles
+                    available_nodes = [
+                        graph.nodes[nid] for nid in graph.nodes.keys()
+                        if nid not in executed_set and all(prereq in executed_set for prereq in graph.nodes[nid].prereqs)
+                    ]
+                    
+                    # Sugerir acción RL
+                    rl_suggested_node_id = self.rl_engine.suggest_action(
+                        state=rl_state,
+                        available_nodes=available_nodes,
+                    )
+                    
+                    # Si RL sugiere un nodo diferente y está disponible, usarlo
+                    if rl_suggested_node_id and rl_suggested_node_id in graph.nodes:
+                        if rl_suggested_node_id not in executed_set:
+                            node = graph.nodes[rl_suggested_node_id]
+                            node_id = rl_suggested_node_id
+                            logger.debug(f"[hybrid-planner] RL suggested node: {node_id}")
+                except Exception as e:
+                    logger.warning(f"[hybrid-planner] Error in RL suggestion: {e}", exc_info=True)
+            
             # Ejecutar nodo
             result = await self.execute_node(node, graph)
             results.append(result)
             executed_set.add(node_id)
+            
+            # v5.1.0: Actualizar RL después de ejecutar nodo
+            if self.rl_engine:
+                try:
+                    # Obtener snapshots después de ejecución
+                    dom_snapshot = await self.dom_explorer.take_snapshot()
+                    visual_snapshot = await self.visual_explorer.take_snapshot()
+                    
+                    # Construir estado
+                    rl_state = self.rl_engine.build_state(
+                        dom_snapshot=dom_snapshot,
+                        visual_snapshot=visual_snapshot,
+                        current_node=node,
+                    )
+                    
+                    # Calcular recompensa (simplificado)
+                    visual_success = result.success
+                    contract_match = result.success  # Simplificado
+                    
+                    # Actualizar RL
+                    self.rl_engine.update_from_result(
+                        state=rl_state,
+                        action=node_id,
+                        node_result=result,
+                        visual_success=visual_success,
+                        contract_match=contract_match,
+                    )
+                except Exception as e:
+                    logger.warning(f"[hybrid-planner] Error updating RL: {e}", exc_info=True)
             
             # Si falla, intentar generar nodos dinámicos
             if not result.success and self.dynamic_nodes_count < self.settings.max_dynamic_nodes:
