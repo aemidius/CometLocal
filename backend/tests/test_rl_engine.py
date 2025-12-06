@@ -264,6 +264,9 @@ class TestRLEngine:
         rl_engine.memory.update_q_value("test_platform", "state1", "action1", 0.5)
         rl_engine.memory.update_q_value("test_platform", "state1", "action2", -0.3)
         
+        # Recargar política para que tenga los Q-values actualizados
+        rl_engine.current_policy = rl_engine.memory.load_policy("test_platform")
+        
         stats = rl_engine.get_policy_stats()
         
         assert "total_q_values" in stats
