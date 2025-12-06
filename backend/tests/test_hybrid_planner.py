@@ -3,6 +3,7 @@ Tests para Hybrid Planner v5.0.0
 """
 
 import pytest
+pytestmark = pytest.mark.asyncio
 from unittest.mock import MagicMock, AsyncMock, patch
 from backend.agents.hybrid_planner import HybridPlanner
 from backend.agents.dom_explorer import DOMExplorer, DOMSnapshot
