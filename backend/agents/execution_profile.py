@@ -23,6 +23,7 @@ class ExecutionProfile:
     stop_on_first_success: bool = False
     confidence_threshold: Optional[float] = None  # No usado aún, preparado para futuro
     allow_auto_form_fill: bool = True  # v4.6.0: Permitir mapeo automático de formularios
+    use_hybrid_planner: bool = False  # v5.0.0: Usar planificador híbrido autónomo
     
     @classmethod
     def default(cls) -> "ExecutionProfile":
