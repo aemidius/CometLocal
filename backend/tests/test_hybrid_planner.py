@@ -3,7 +3,6 @@ Tests para Hybrid Planner v5.0.0
 """
 
 import pytest
-pytestmark = pytest.mark.asyncio
 from unittest.mock import MagicMock, AsyncMock, patch
 from backend.agents.hybrid_planner import HybridPlanner
 from backend.agents.dom_explorer import DOMExplorer, DOMSnapshot
@@ -81,7 +80,7 @@ class TestHybridPlanner:
         assert "dom_explore_root" not in graph.nodes
         assert "visual_explore_root" in graph.nodes
     
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_execute_node_explore_dom(self, planner, mock_browser):
         """Test ejecución de nodo explore_dom"""
         # Mock DOMExplorer
@@ -108,7 +107,7 @@ class TestHybridPlanner:
             assert "links_count" in result.details
             assert "cae_keywords" in result.details
     
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_execute_node_explore_visual(self, planner, mock_browser):
         """Test ejecución de nodo explore_visual"""
         visual_snapshot = VisualSnapshot(
@@ -243,7 +242,7 @@ class TestDOMExplorer:
         browser.page = MagicMock()
         return browser
     
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_extract_all_links(self, mock_browser):
         """Test extracción de enlaces"""
         explorer = DOMExplorer(mock_browser)
@@ -257,7 +256,7 @@ class TestDOMExplorer:
         assert len(links) > 0
         assert links[0]["href"] == "/test"
     
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_take_snapshot(self, mock_browser):
         """Test toma de snapshot completo"""
         explorer = DOMExplorer(mock_browser)
@@ -289,7 +288,7 @@ class TestVisualExplorer:
         ocr_service.enabled = True
         return ocr_service
     
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_detect_visual_buttons(self, mock_browser, mock_ocr_service):
         """Test detección de botones visuales"""
         explorer = VisualExplorer(mock_browser, mock_ocr_service)
@@ -312,7 +311,7 @@ class TestVisualExplorer:
         assert len(buttons) > 0
         assert any("subir" in b["text"].lower() for b in buttons)
     
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_take_snapshot(self, mock_browser, mock_ocr_service):
         """Test toma de snapshot visual"""
         explorer = VisualExplorer(mock_browser, mock_ocr_service)
