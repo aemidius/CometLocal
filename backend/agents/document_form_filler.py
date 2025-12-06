@@ -81,6 +81,7 @@ class DocumentFormFiller:
         self,
         analysis: DocumentAnalysisResult,
         expected_doc_type: Optional[str] = None,
+        prefer_deep_analysis: bool = True,  # v4.8.0
     ) -> DocumentFormFillPlan:
         """
         Construye un plan de rellenado a partir del análisis de un documento.

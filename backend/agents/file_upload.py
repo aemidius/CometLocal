@@ -11,7 +11,7 @@ import logging
 
 from backend.agents.document_repository import DocumentRepository, DocumentDescriptor
 from backend.agents.session_context import SessionContext
-from backend.shared.models import DocumentAnalysisResult, FormFillInstruction
+from backend.shared.models import DocumentAnalysisResult, FormFillInstruction, DeepDocumentAnalysis
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ class FileUploadInstruction:
     doc_type: Optional[str] = None
     document_analysis: Optional[DocumentAnalysisResult] = field(default=None)  # v4.4.0
     form_fill_instruction: Optional[FormFillInstruction] = field(default=None)  # v4.5.0
+    deep_document_analysis: Optional[DeepDocumentAnalysis] = field(default=None)  # v4.8.0
     
     def to_dict(self) -> dict:
         """Convierte a diccionario para serialización."""
@@ -47,6 +48,9 @@ class FileUploadInstruction:
         # v4.5.0: Incluir instrucción de rellenado de formulario si está disponible
         if self.form_fill_instruction:
             result["form_fill_instruction"] = self.form_fill_instruction.model_dump()
+        # v4.8.0: Incluir análisis profundo si está disponible
+        if self.deep_document_analysis:
+            result["deep_document_analysis"] = self.deep_document_analysis.model_dump()
         return result
 
 

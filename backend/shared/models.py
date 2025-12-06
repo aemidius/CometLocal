@@ -105,6 +105,7 @@ class DocumentAnalysisResult(BaseModel):
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)  # 0.0–1.0
     
     source_path: Optional[str] = None
+    deep_analysis: Optional["DeepDocumentAnalysis"] = None  # v4.8.0: Análisis profundo extendido
 
 
 # v4.5.0: Modelos para rellenado automático de formularios CAE
@@ -171,6 +172,58 @@ class MappedField(BaseModel):
     score: float  # Score heurístico (positivas - negativas)
     confidence: float  # Confianza en el mapeo (0.0 a 1.0)
     source: str = "dom"  # v4.7.0: "dom", "ocr", "hybrid"
+
+
+# v4.8.0: Modelos para análisis profundo de documentos CAE
+class DeepDocumentField(BaseModel):
+    """
+    Campo extraído de un documento con información detallada.
+    
+    v4.8.0: Representa un campo con múltiples fuentes y matches.
+    """
+    field_name: str  # Nombre del campo (ej: "document_code", "training_hours")
+    value: Optional[str] = None  # Valor extraído
+    confidence: float = 0.0  # Confianza en este campo específico
+    raw_matches: List[str] = Field(default_factory=list)  # Matches crudos encontrados
+    warnings: List[str] = Field(default_factory=list)  # Advertencias específicas del campo
+    source: Literal["pdf_text", "ocr", "table", "heuristic"] = "heuristic"  # Fuente del campo
+
+
+class DeepDocumentAnalysis(BaseModel):
+    """
+    Análisis profundo de un documento CAE con campos estructurados y tablas.
+    
+    v4.8.0: Extiende DocumentAnalysisResult con información detallada de:
+    - Múltiples fechas (issue, expiry, completion, revision)
+    - Códigos de documento
+    - Horas de formación
+    - Nivel de formación
+    - Entidad emisora
+    - Tablas extraídas del PDF
+    """
+    doc_type: Optional[str] = None
+    worker_name: Optional[str] = None
+    company_name: Optional[str] = None
+    
+    # Fechas múltiples
+    issue_date: Optional[str] = None  # Fecha de emisión/expedición
+    expiry_date: Optional[str] = None  # Fecha de caducidad
+    completion_date: Optional[str] = None  # Fecha de finalización/completado
+    revision_date: Optional[str] = None  # Fecha de revisión/próxima revisión
+    
+    # Campos adicionales
+    document_code: Optional[str] = None  # Código/referencia del documento
+    training_hours: Optional[str] = None  # Horas de formación (ej: "60h")
+    training_level: Optional[str] = None  # Nivel (ej: "Básico", "Avanzado")
+    issuer_name: Optional[str] = None  # Entidad emisora/centro
+    
+    # Campos estructurados
+    extracted_fields: List[DeepDocumentField] = Field(default_factory=list)
+    tables: List[Dict[str, Any]] = Field(default_factory=list)  # Tablas encontradas en PDF
+    
+    confidence: float = 0.0  # Confianza global del análisis
+    warnings: List[str] = Field(default_factory=list)
+    source_path: Optional[str] = None  # Ruta del archivo analizado
 
 
 # v3.8.0: Modelos para Reasoning Spotlight

@@ -147,6 +147,11 @@ class AgentMetrics:
         self.hybrid_mapper_fields_mapped_count: int = 0
         self.hybrid_mapper_confidence_avg: float = 0.0
         self.hybrid_mapper_failures: int = 0
+        # v4.8.0: Contadores de análisis profundo
+        self.deep_analysis_used: int = 0
+        self.deep_analysis_confidence_avg: float = 0.0
+        self.deep_analysis_fields_extracted: int = 0
+        self.deep_analysis_table_detected: int = 0
     
     def register_visual_click(self, success: bool) -> None:
         """
@@ -1089,6 +1094,10 @@ async def _maybe_execute_file_upload(
             # Esto se hará después del upload, cuando ya estemos en el formulario
             info_dict["auto_form_fill_available"] = True
             logger.debug("[form-fill] Document analysis available, auto form fill will be attempted after upload")
+        
+        # v4.8.0: Añadir deep_document_analysis al step si está disponible
+        if instruction.deep_document_analysis:
+            info_dict["deep_document_analysis"] = instruction.deep_document_analysis.model_dump()
         
         return StepResult(
             observation=obs,
@@ -4568,6 +4577,18 @@ async def _run_llm_task_single(
                         # v4.4.0: Añadir document_analysis al step si está disponible
                         if upload_instruction.document_analysis:
                             upload_step.info["document_analysis"] = upload_instruction.document_analysis.model_dump()
+                        # v4.8.0: Añadir deep_document_analysis al step si está disponible
+                        if upload_instruction.deep_document_analysis:
+                            upload_step.info["deep_document_analysis"] = upload_instruction.deep_document_analysis.model_dump()
+                            
+                            # Registrar métricas de deep analysis
+                            if agent_metrics:
+                                agent_metrics.deep_analysis_used += 1
+                                agent_metrics.deep_analysis_confidence_avg = upload_instruction.deep_document_analysis.confidence
+                                agent_metrics.deep_analysis_fields_extracted = len(upload_instruction.deep_document_analysis.extracted_fields)
+                                if upload_instruction.deep_document_analysis.tables:
+                                    agent_metrics.deep_analysis_table_detected += 1
+                        
                         steps_local.append(upload_step)
                         # v2.4.0: Extraer status del nuevo formato
                         upload_status = upload_step.info.get('upload_status', {})
