@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form Sandbox - CometLocal v4.6.0</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .variant-selector {
+            margin-bottom: 30px;
+            padding: 15px;
+            background: #e8f4f8;
+            border-radius: 5px;
+        }
+        .variant-selector button {
+            margin: 5px;
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .variant-selector button:hover {
+            background: #45a049;
+        }
+        .variant-selector button.active {
+            background: #2196F3;
+        }
+        .form-variant {
+            display: none;
+        }
+        .form-variant.active {
+            display: block;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            border-radius: 4px;
+        }
+        .info h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Form Sandbox - CometLocal v4.6.0</h1>
+        <p>Sandbox para probar el mapeo heurístico de campos de formulario</p>
+        
+        <div class="variant-selector">
+            <strong>Seleccionar variante:</strong>
+            <button onclick="showVariant('A')" id="btn-A" class="active">Variante A</button>
+            <button onclick="showVariant('B')" id="btn-B">Variante B</button>
+            <button onclick="showVariant('C')" id="btn-C">Variante C</button>
+        </div>
+        
+        <!-- Variante A -->
+        <form class="form-variant active" id="variant-A">
+            <div class="form-group">
+                <label for="emision_doc">Fecha de emisión del documento</label>
+                <input id="emision_doc" type="text" name="emision_doc">
+            </div>
+            <div class="form-group">
+                <label for="caducidad">Fecha de caducidad</label>
+                <input id="caducidad" type="text" name="caducidad">
+            </div>
+            <div class="form-group">
+                <label for="nombre_trabajador">Trabajador/a</label>
+                <input id="nombre_trabajador" type="text" name="nombre_trabajador">
+            </div>
+        </form>
+        
+        <!-- Variante B -->
+        <form class="form-variant" id="variant-B">
+            <div class="form-group">
+                <label for="fecha_rm">Fecha reconocimiento médico</label>
+                <input id="fecha_rm" type="text" name="fecha_rm">
+            </div>
+            <div class="form-group">
+                <label for="valido_hasta">Válido hasta</label>
+                <input id="valido_hasta" type="text" name="valido_hasta">
+            </div>
+            <div class="form-group">
+                <label for="empleado">Empleado</label>
+                <input id="empleado" type="text" name="empleado">
+            </div>
+        </form>
+        
+        <!-- Variante C -->
+        <form class="form-variant" id="variant-C">
+            <div class="form-group">
+                <label for="expedicion">Fecha expedición</label>
+                <input id="expedicion" type="text" name="expedicion">
+            </div>
+            <div class="form-group">
+                <label for="expira_el">Expira el</label>
+                <input id="expira_el" type="text" name="expira_el">
+            </div>
+            <div class="form-group">
+                <label for="nombre_completo">Nombre completo</label>
+                <input id="nombre_completo" type="text" name="nombre_completo">
+            </div>
+        </form>
+        
+        <div class="info">
+            <h3>Información</h3>
+            <p>Este sandbox permite probar el mapeo heurístico de campos de formulario sin usar LLM.</p>
+            <p>El agente debería poder detectar automáticamente qué campo corresponde a cada campo semántico (issue_date, expiry_date, worker_name) basándose únicamente en las etiquetas visibles.</p>
+        </div>
+    </div>
+    
+    <script>
+        function showVariant(variant) {
+            // Ocultar todas las variantes
+            document.querySelectorAll('.form-variant').forEach(form => {
+                form.classList.remove('active');
+            });
+            
+            // Mostrar la variante seleccionada
+            document.getElementById('variant-' + variant).classList.add('active');
+            
+            // Actualizar botones
+            document.querySelectorAll('.variant-selector button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById('btn-' + variant).classList.add('active');
+        }
+    </script>
+</body>
+</html>
+

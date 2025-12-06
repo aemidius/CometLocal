@@ -22,6 +22,7 @@ class ExecutionProfile:
     allow_images: bool = True
     stop_on_first_success: bool = False
     confidence_threshold: Optional[float] = None  # No usado aún, preparado para futuro
+    allow_auto_form_fill: bool = True  # v4.6.0: Permitir mapeo automático de formularios
     
     @classmethod
     def default(cls) -> "ExecutionProfile":
@@ -178,6 +179,7 @@ class ExecutionProfile:
             "allow_images": self.allow_images,
             "stop_on_first_success": self.stop_on_first_success,
             "confidence_threshold": self.confidence_threshold,
+            "allow_auto_form_fill": self.allow_auto_form_fill,  # v4.6.0
         }
 
 

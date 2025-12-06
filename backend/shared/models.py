@@ -157,6 +157,20 @@ class FormFillInstruction(BaseModel):
     label_hints: Dict[str, List[str]] = Field(default_factory=dict)
 
 
+# v4.6.0: Modelo para campos mapeados heurísticamente
+class MappedField(BaseModel):
+    """
+    Campo de formulario mapeado heurísticamente a un campo semántico.
+    
+    v4.6.0: Resultado del mapeo automático sin LLM basado en keywords y heurísticas.
+    """
+    semantic_field: str  # "issue_date", "expiry_date", "worker_name"
+    selector: str  # Selector CSS del campo encontrado
+    label_text: Optional[str] = None  # Texto de la etiqueta asociada
+    score: float  # Score heurístico (positivas - negativas)
+    confidence: float  # Confianza en el mapeo (0.0 a 1.0)
+
+
 # v3.8.0: Modelos para Reasoning Spotlight
 class ReasoningInterpretation(BaseModel):
     """

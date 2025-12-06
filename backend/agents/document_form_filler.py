@@ -5,7 +5,7 @@ v4.5.0: Fase 2 - Uso del análisis de documentos para rellenar campos de formula
 """
 
 import logging
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 from datetime import date
 
 from backend.shared.models import (
@@ -169,10 +169,55 @@ class DocumentFormFiller:
         
         return plan
     
+    def build_instruction_via_mapper(
+        self,
+        plan: DocumentFormFillPlan,
+        mapped_fields: Dict[str, "MappedField"],
+    ) -> Optional[FormFillInstruction]:
+        """
+        Construye una FormFillInstruction usando campos mapeados heurísticamente.
+        
+        v4.6.0: Crea instrucción desde mapeo automático sin LLM.
+        
+        Args:
+            plan: Plan de rellenado con campos semánticos
+            mapped_fields: Diccionario de semantic_field -> MappedField
+            
+        Returns:
+            FormFillInstruction o None si no hay campos mapeados
+        """
+        field_selectors: Dict[str, str] = {}
+        label_hints: Dict[str, List[str]] = {}
+        
+        for field in plan.fields:
+            semantic_field = field.semantic_field
+            mapped = mapped_fields.get(semantic_field)
+            
+            if mapped and mapped.selector:
+                field_selectors[semantic_field] = mapped.selector
+                if mapped.label_text:
+                    # Añadir el label encontrado como hint
+                    label_hints[semantic_field] = [mapped.label_text]
+        
+        if not field_selectors:
+            logger.debug("[form-filler] No se encontraron campos mapeados")
+            return None
+        
+        instruction = FormFillInstruction(
+            field_selectors=field_selectors,
+            plan=plan,
+            form_context="cae_upload_auto",  # v4.6.0: Mapeo automático
+            label_hints=label_hints,
+        )
+        
+        logger.info(f"[form-filler] Instruction built via mapper: {len(field_selectors)} fields")
+        return instruction
+    
     def build_instruction_for_cae_upload_form(
         self,
         plan: DocumentFormFillPlan,
         form_variant: str = "default",
+        dom_structure: Optional[Dict[str, Any]] = None,  # v4.6.0
     ) -> Optional[FormFillInstruction]:
         """
         Construye una instrucción ejecutable para un formulario CAE de subida.

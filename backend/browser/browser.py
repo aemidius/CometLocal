@@ -459,6 +459,76 @@ class BrowserController:
         logger.debug(f"[browser] All label candidates failed for value '{value}'")
         return (False, last_observation)
     
+    async def extract_dom_structure(self) -> Dict[str, Any]:
+        """
+        Extrae la estructura DOM del formulario actual.
+        
+        v4.6.0: Extrae labels e inputs para mapeo heurístico de campos.
+        
+        Returns:
+            Diccionario con estructura DOM:
+            {
+                "labels": [{"text": "...", "for": "#selector"}],
+                "inputs": [{"selector": "#selector", "name": "...", "id": "..."}]
+            }
+        """
+        if not self.page:
+            raise RuntimeError("BrowserController no está iniciado. Llama a start() primero.")
+        
+        try:
+            dom_structure = await self.page.evaluate("""
+                () => {
+                    const result = {
+                        labels: [],
+                        inputs: []
+                    };
+                    
+                    // Extraer todos los labels
+                    const labels = document.querySelectorAll('label');
+                    labels.forEach(label => {
+                        const labelText = (label.innerText || label.textContent || '').trim();
+                        const forAttr = label.getAttribute('for');
+                        
+                        if (labelText) {
+                            result.labels.push({
+                                text: labelText,
+                                for: forAttr ? (forAttr.startsWith('#') ? forAttr : '#' + forAttr) : null
+                            });
+                        }
+                    });
+                    
+                    // Extraer todos los inputs y textareas
+                    const inputs = document.querySelectorAll('input[type="text"], input[type="date"], input:not([type]), textarea');
+                    inputs.forEach(input => {
+                        let selector = '';
+                        if (input.id) {
+                            selector = '#' + input.id;
+                        } else if (input.name) {
+                            selector = `input[name="${input.name}"]`;
+                        } else {
+                            // Selector genérico
+                            selector = input.tagName.toLowerCase();
+                        }
+                        
+                        result.inputs.push({
+                            selector: selector,
+                            name: input.name || '',
+                            id: input.id || '',
+                            type: input.type || 'text'
+                        });
+                    });
+                    
+                    return result;
+                }
+            """)
+            
+            logger.debug(f"[browser] Extracted DOM structure: {len(dom_structure.get('labels', []))} labels, {len(dom_structure.get('inputs', []))} inputs")
+            return dom_structure
+            
+        except Exception as e:
+            logger.warning(f"[browser] Error extracting DOM structure: {e}", exc_info=True)
+            return {"labels": [], "inputs": []}
+    
     async def press_enter(self) -> None:
         """Pulsa la tecla Enter en la página actual."""
         if not self.page:

@@ -138,6 +138,10 @@ class AgentMetrics:
         # v4.6.0: Contadores de rellenado de formulario
         self.form_fill_by_selector_count: int = 0
         self.form_fill_by_label_count: int = 0
+        # v4.6.0: Contadores de mapeo automático de formularios
+        self.mapper_fields_mapped_count: int = 0
+        self.mapper_confidence_avg: float = 0.0
+        self.mapper_failures: int = 0
     
     def register_visual_click(self, success: bool) -> None:
         """
@@ -1040,7 +1044,9 @@ async def _maybe_execute_file_upload(
             }
         
         # v4.5.0: Intentar rellenar formulario si hay instrucción de rellenado
+        # v4.6.0: Si no hay instrucción pero hay análisis y allow_auto_form_fill, intentar mapeo automático
         form_fill_info = None
+        
         if instruction.form_fill_instruction:
             try:
                 form_fill_info = await _execute_form_fill(
@@ -1062,6 +1068,11 @@ async def _maybe_execute_file_upload(
                     "fields": [],
                 }
                 info_dict["form_fill"] = form_fill_info
+        elif instruction.document_analysis:
+            # v4.6.0: Intentar mapeo automático si no hay instrucción pero hay análisis
+            # Esto se hará después del upload, cuando ya estemos en el formulario
+            info_dict["auto_form_fill_available"] = True
+            logger.debug("[form-fill] Document analysis available, auto form fill will be attempted after upload")
         
         return StepResult(
             observation=obs,
