@@ -174,6 +174,31 @@ class MappedField(BaseModel):
     source: str = "dom"  # v4.7.0: "dom", "ocr", "hybrid"
 
 
+# v5.1.0: Modelos para aprendizaje por refuerzo simplificado (RL-lite)
+class RLStateActionValue(BaseModel):
+    """
+    Valor Q para un par estado-acción.
+    
+    v5.1.0: Representa el valor aprendido de tomar una acción en un estado.
+    """
+    state: str  # Ej: "page:upload_form"
+    action: str  # Ej: "click_button:adjuntar"
+    value: float = 0.0  # Q-value
+    visits: int = 0  # Número de veces que se ha visitado
+    success_rate: float = 0.0  # Tasa de éxito (0.0 a 1.0)
+
+
+class RLPolicy(BaseModel):
+    """
+    Política de aprendizaje por refuerzo para una plataforma.
+    
+    v5.1.0: Contiene la tabla Q y metadatos de la política aprendida.
+    """
+    platform: str  # Nombre de la plataforma CAE
+    q_table: List[RLStateActionValue] = Field(default_factory=list)
+    last_updated: Optional[str] = None  # Timestamp de última actualización
+
+
 # v5.0.0: Modelos para planificación híbrida autónoma
 class PlannerNode(BaseModel):
     """

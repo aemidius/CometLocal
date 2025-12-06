@@ -34,6 +34,7 @@ class HybridPlanner:
         ocr_service: Optional[Any] = None,
         memory_store: Optional[Any] = None,
         settings: Optional[HybridPlannerSettings] = None,
+        rl_engine: Optional[Any] = None,  # v5.1.0
     ):
         """
         Inicializa el planificador híbrido.
@@ -43,11 +44,13 @@ class HybridPlanner:
             ocr_service: Servicio OCR opcional
             memory_store: Almacén de memoria opcional
             settings: Configuración del planificador
+            rl_engine: Motor RL opcional (v5.1.0)
         """
         self.browser = browser_controller
         self.ocr_service = ocr_service
         self.memory = memory_store
         self.settings = settings or HybridPlannerSettings()
+        self.rl_engine = rl_engine  # v5.1.0
         
         self.dom_explorer = DOMExplorer(browser_controller)
         self.visual_explorer = VisualExplorer(browser_controller, ocr_service)

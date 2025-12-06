@@ -159,6 +159,15 @@ class AgentMetrics:
         self.hybrid_replans: int = 0
         self.hybrid_loop_preventions: int = 0
         self.hybrid_dead_end_detections: int = 0
+        # v5.1.0: Contadores de aprendizaje por refuerzo
+        self.rl_updates: int = 0
+        self.rl_policy_loads: int = 0
+        self.rl_policy_saves: int = 0
+        self.rl_actions_suggested: int = 0
+        self.rl_actions_executed: int = 0
+        self.rl_rewards_positive: int = 0
+        self.rl_rewards_negative: int = 0
+        self.rl_exploration_rate: float = 0.0
     
     def register_visual_click(self, success: bool) -> None:
         """

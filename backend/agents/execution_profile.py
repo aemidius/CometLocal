@@ -24,6 +24,10 @@ class ExecutionProfile:
     confidence_threshold: Optional[float] = None  # No usado aún, preparado para futuro
     allow_auto_form_fill: bool = True  # v4.6.0: Permitir mapeo automático de formularios
     use_hybrid_planner: bool = False  # v5.0.0: Usar planificador híbrido autónomo
+    use_rl_learning: bool = True  # v5.1.0: Usar aprendizaje por refuerzo
+    rl_policy_exploration_rate: float = 0.30  # v5.1.0: Tasa de exploración RL (0.0 a 1.0)
+    rl_policy_learning_rate: float = 0.10  # v5.1.0: Tasa de aprendizaje RL
+    rl_policy_discount_factor: float = 0.85  # v5.1.0: Factor de descuento RL
     
     @classmethod
     def default(cls) -> "ExecutionProfile":
