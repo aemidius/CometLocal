@@ -623,6 +623,10 @@ class AgentMetrics:
                 "outcome_judge_info": outcome_judge_info,  # v4.1.0
                 "execution_mode": self.execution_mode,  # v4.3.0
                 "dry_run_info": dry_run_info,  # v4.3.0
+                "form_fill_info": {  # v4.6.0
+                    "form_fill_by_selector_count": self.form_fill_by_selector_count,
+                    "form_fill_by_label_count": self.form_fill_by_label_count,
+                },
                 "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }
