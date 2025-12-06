@@ -729,6 +729,86 @@ class AgentMetrics:
         }
 
 
+def build_page_signature(observation: "BrowserObservation") -> str:
+    """
+    Construye una firma estable de la página.
+    
+    v5.2.0: Combina dominio + path principal y keywords OCR para crear una firma única.
+    
+    Args:
+        observation: Observación del navegador
+        
+    Returns:
+        Firma de página (string corto)
+    """
+    import hashlib
+    import unicodedata
+    from urllib.parse import urlparse
+    
+    try:
+        # Extraer dominio y path de la URL
+        url = observation.url or ""
+        parsed = urlparse(url)
+        netloc = parsed.netloc or ""
+        path = parsed.path or ""
+        
+        # Limpiar path (quitar query params, fragmentos)
+        path_clean = path.split("?")[0].split("#")[0]
+        
+        # Extraer keywords del texto visible o OCR
+        keywords = []
+        
+        # De título
+        if observation.title:
+            title_words = observation.title.lower().split()[:3]
+            keywords.extend(title_words)
+        
+        # De texto visible
+        if observation.visible_text_excerpt:
+            text_words = observation.visible_text_excerpt.lower().split()[:5]
+            # Filtrar stopwords comunes
+            stopwords = {"el", "la", "de", "en", "y", "a", "que", "es", "un", "una", "por", "con", "para"}
+            text_words = [w for w in text_words if w not in stopwords and len(w) > 2]
+            keywords.extend(text_words[:3])
+        
+        # De OCR text si está disponible
+        if hasattr(observation, 'ocr_text') and observation.ocr_text:
+            ocr_words = observation.ocr_text.lower().split()[:5]
+            ocr_words = [w for w in ocr_words if w not in stopwords and len(w) > 2]
+            keywords.extend(ocr_words[:2])
+        
+        # Normalizar keywords (sin acentos, minúsculas)
+        normalized_keywords = []
+        for kw in keywords:
+            # Remover acentos
+            kw_norm = unicodedata.normalize('NFD', kw)
+            kw_norm = ''.join(c for c in kw_norm if unicodedata.category(c) != 'Mn')
+            normalized_keywords.append(kw_norm)
+        
+        # Construir string base
+        keywords_str = " ".join(normalized_keywords[:5])
+        base_string = f"{netloc}{path_clean} | {keywords_str}"
+        
+        # Hash corto
+        hash_obj = hashlib.sha1(base_string.encode('utf-8'))
+        hash_short = hash_obj.hexdigest()[:10]
+        
+        # Firma final: netloc + hash
+        signature = f"{netloc}{hash_short}"
+        
+        return signature
+    
+    except Exception as e:
+        logger.warning(f"[page-signature] Error building signature: {e}", exc_info=True)
+        # Fallback: usar URL simple
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(observation.url or "")
+            return f"{parsed.netloc}{parsed.path[:20]}"
+        except:
+            return "unknown_page"
+
+
 def _goal_mentions_wikipedia(goal: str) -> bool:
     text = goal.lower()
     return "wikipedia" in text
