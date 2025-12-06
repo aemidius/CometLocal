@@ -316,6 +316,59 @@ def build_cae_response_from_batch(
             if analysis_parts:
                 notes_parts.append(f"Documento analizado: {', '.join(analysis_parts)}")
         
+        # v4.8.0: Añadir información de análisis profundo si está disponible
+        deep_analysis = None
+        if result.sections:
+            for section in result.sections:
+                if section.get("deep_document_analysis"):
+                    deep_analysis = section["deep_document_analysis"]
+                    break
+        
+        # También buscar en file_upload_instructions
+        if not deep_analysis and result.file_upload_instructions:
+            for instruction in result.file_upload_instructions:
+                if isinstance(instruction, dict) and instruction.get("deep_document_analysis"):
+                    deep_analysis = instruction["deep_document_analysis"]
+                    break
+        
+        if deep_analysis:
+            deep_parts = []
+            
+            # Tipo de documento y nivel
+            if deep_analysis.get("doc_type"):
+                doc_type_name = DOC_TYPE_NAMES.get(deep_analysis["doc_type"], deep_analysis["doc_type"])
+                deep_parts.append(f"Documento {doc_type_name}")
+            
+            if deep_analysis.get("training_level"):
+                deep_parts.append(f"Nivel {deep_analysis['training_level']}")
+            
+            if deep_analysis.get("training_hours"):
+                deep_parts.append(f"{deep_analysis['training_hours']}")
+            
+            if deep_analysis.get("document_code"):
+                deep_parts.append(f"Código {deep_analysis['document_code']}")
+            
+            if deep_parts:
+                notes_parts.append(" — ".join(deep_parts))
+            
+            # Fechas
+            date_parts = []
+            if deep_analysis.get("issue_date"):
+                date_parts.append(f"Emitido: {deep_analysis['issue_date']}")
+            if deep_analysis.get("expiry_date"):
+                date_parts.append(f"Caduca: {deep_analysis['expiry_date']}")
+            
+            if date_parts:
+                notes_parts.append(" — ".join(date_parts))
+            
+            # Centro emisor
+            if deep_analysis.get("issuer_name"):
+                notes_parts.append(f"Centro: {deep_analysis['issuer_name']}")
+            
+            # Confianza
+            if deep_analysis.get("confidence"):
+                notes_parts.append(f"Confianza del análisis: {deep_analysis['confidence']:.2f}")
+        
         # v4.5.0/v4.7.0: Añadir información de rellenado automático de formulario
         form_fill_detected = False
         form_mapped_fields = None
