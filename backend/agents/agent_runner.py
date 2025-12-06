@@ -682,6 +682,22 @@ class AgentMetrics:
                     "hybrid_loop_preventions": self.hybrid_loop_preventions,
                     "hybrid_dead_end_detections": self.hybrid_dead_end_detections,
                 },
+                "rl_info": {  # v5.1.0
+                    "rl_updates": self.rl_updates,
+                    "rl_policy_loads": self.rl_policy_loads,
+                    "rl_policy_saves": self.rl_policy_saves,
+                    "rl_actions_suggested": self.rl_actions_suggested,
+                    "rl_actions_executed": self.rl_actions_executed,
+                    "rl_rewards_positive": self.rl_rewards_positive,
+                    "rl_rewards_negative": self.rl_rewards_negative,
+                    "rl_exploration_rate": round(self.rl_exploration_rate, 3),
+                    "exploration_vs_exploitation": round(
+                        self.rl_actions_suggested / max(1, self.rl_actions_executed), 3
+                    ) if self.rl_actions_executed > 0 else 0.0,
+                    "avg_reward": round(
+                        (self.rl_rewards_positive - self.rl_rewards_negative) / max(1, self.rl_updates), 3
+                    ) if self.rl_updates > 0 else 0.0,
+                },
                 "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }
