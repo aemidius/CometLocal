@@ -665,6 +665,14 @@ class AgentMetrics:
                     "deep_analysis_fields_extracted": self.deep_analysis_fields_extracted,
                     "deep_analysis_table_detected": self.deep_analysis_table_detected,
                 },
+                "hybrid_planner_info": {  # v5.0.0
+                    "hybrid_nodes_generated": self.hybrid_nodes_generated,
+                    "hybrid_dom_explorations": self.hybrid_dom_explorations,
+                    "hybrid_visual_explorations": self.hybrid_visual_explorations,
+                    "hybrid_replans": self.hybrid_replans,
+                    "hybrid_loop_preventions": self.hybrid_loop_preventions,
+                    "hybrid_dead_end_detections": self.hybrid_dead_end_detections,
+                },
                 "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }
