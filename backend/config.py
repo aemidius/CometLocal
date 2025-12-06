@@ -31,3 +31,7 @@ VISION_OCR_PROVIDER = os.getenv("VISION_OCR_PROVIDER", "lmstudio")
 # v3.9.0: Configuración para memoria persistente
 MEMORY_BASE_DIR = os.getenv("MEMORY_BASE_DIR", "memory")
 
+# v5.2.0: Configuración de memoria visual
+VISUAL_MEMORY_BASE_DIR = os.getenv("VISUAL_MEMORY_BASE_DIR", "memory/visual")
+VISUAL_MEMORY_ENABLED = bool(int(os.getenv("VISUAL_MEMORY_ENABLED", "1")))
+
