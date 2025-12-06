@@ -174,6 +174,72 @@ class MappedField(BaseModel):
     source: str = "dom"  # v4.7.0: "dom", "ocr", "hybrid"
 
 
+# v5.2.0: Modelos para memoria visual (heatmaps y landmarks)
+class VisualHeatmapCell(BaseModel):
+    """
+    Celda de un heatmap visual.
+    
+    v5.2.0: Representa una celda de una rejilla que rastrea clicks y éxitos/fallos.
+    """
+    row: int
+    col: int
+    clicks: int = 0
+    successes: int = 0
+    failures: int = 0
+    last_used_at: Optional[str] = None  # ISO timestamp
+    score: float = 0.0  # Valor derivado (ej. successes - failures * peso)
+
+
+class VisualHeatmap(BaseModel):
+    """
+    Heatmap visual de una vista/página.
+    
+    v5.2.0: Rejilla de celdas que rastrea zonas interactivas exitosas.
+    """
+    platform: str  # Ej: "cetaima", "ecoordina", "generic"
+    page_signature: str  # Hash estable de la vista
+    rows: int = 4  # Rejilla coarse-grained (ej. 4x6)
+    cols: int = 6
+    cells: List[VisualHeatmapCell] = Field(default_factory=list)
+    last_updated_at: Optional[str] = None
+
+
+class VisualLandmark(BaseModel):
+    """
+    Landmark visual (punto de referencia).
+    
+    v5.2.0: Representa un elemento visual importante con posición y texto asociado.
+    """
+    platform: str
+    page_signature: str
+    # Bounding box normalizado 0-1 respecto al viewport
+    x_center: float
+    y_center: float
+    width: float
+    height: float
+    text_snippet: str  # Fragmento de texto OCR/visible asociado
+    landmark_type: str  # Ej: "button", "tab", "link", "label"
+    role: Optional[str] = None  # Ej: "upload", "save", "confirm"
+    uses: int = 0
+    successes: int = 0
+    failures: int = 0
+    score: float = 0.0
+    last_used_at: Optional[str] = None
+
+
+class VisualMemorySnapshot(BaseModel):
+    """
+    Snapshot de memoria visual agregada.
+    
+    v5.2.0: Contiene heatmap y landmarks para una vista específica.
+    """
+    platform: str
+    page_signature: str
+    heatmap: Optional[VisualHeatmap] = None
+    landmarks: List[VisualLandmark] = Field(default_factory=list)
+    version: int = 1
+
+
 # v5.1.0: Modelos para aprendizaje por refuerzo simplificado (RL-lite)
 class RLStateActionValue(BaseModel):
     """

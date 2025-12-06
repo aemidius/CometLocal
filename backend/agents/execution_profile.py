@@ -28,6 +28,8 @@ class ExecutionProfile:
     rl_policy_exploration_rate: float = 0.30  # v5.1.0: Tasa de exploración RL (0.0 a 1.0)
     rl_policy_learning_rate: float = 0.10  # v5.1.0: Tasa de aprendizaje RL
     rl_policy_discount_factor: float = 0.85  # v5.1.0: Factor de descuento RL
+    use_visual_heatmap: bool = True  # v5.2.0: Usar memoria visual (heatmaps y landmarks)
+    visual_memory_max_clicks_per_recovery: int = 2  # v5.2.0: Máximo clicks extra basados en memoria
     
     @classmethod
     def default(cls) -> "ExecutionProfile":

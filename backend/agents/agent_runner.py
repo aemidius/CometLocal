@@ -168,6 +168,12 @@ class AgentMetrics:
         self.rl_rewards_positive: int = 0
         self.rl_rewards_negative: int = 0
         self.rl_exploration_rate: float = 0.0
+        # v5.2.0: Contadores de memoria visual
+        self.visual_heatmap_updates: int = 0
+        self.visual_heatmap_uses: int = 0
+        self.visual_landmarks_created: int = 0
+        self.visual_landmarks_used: int = 0
+        self.visual_clicks_from_memory: int = 0
     
     def register_visual_click(self, success: bool) -> None:
         """
@@ -435,6 +441,26 @@ class AgentMetrics:
         v2.6.0: Helper para actualizar contadores de retry.
         """
         self.retry_exhausted_count += 1
+    
+    def register_visual_heatmap_update(self) -> None:
+        """v5.2.0: Registra actualización de heatmap visual."""
+        self.visual_heatmap_updates += 1
+    
+    def register_visual_heatmap_use(self) -> None:
+        """v5.2.0: Registra uso de heatmap visual."""
+        self.visual_heatmap_uses += 1
+    
+    def register_visual_landmark_created(self) -> None:
+        """v5.2.0: Registra creación de landmark visual."""
+        self.visual_landmarks_created += 1
+    
+    def register_visual_landmark_use(self) -> None:
+        """v5.2.0: Registra uso de landmark visual."""
+        self.visual_landmarks_used += 1
+    
+    def register_visual_click_from_memory(self) -> None:
+        """v5.2.0: Registra click basado en memoria visual."""
+        self.visual_clicks_from_memory += 1
     
     def to_summary_dict(self) -> Dict[str, Any]:
         """
