@@ -174,3 +174,5 @@ class VisualTargetDetector:
         return matches >= len(important_words) * 0.7  # Al menos 70% de las palabras importantes
 
 
+
+

@@ -166,3 +166,5 @@ def build_agent_intent_for_action(
     # Para otras acciones (scroll, navegación, etc.), no hay intención específica
     return None
 
+
+

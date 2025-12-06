@@ -316,6 +316,39 @@ def build_cae_response_from_batch(
             if analysis_parts:
                 notes_parts.append(f"Documento analizado: {', '.join(analysis_parts)}")
         
+        # v4.5.0: Añadir información de rellenado automático de formulario
+        form_fill_detected = False
+        if result.sections:
+            for section in result.sections:
+                if section.get("form_fill"):
+                    form_fill = section["form_fill"]
+                    status = form_fill.get("status", "unknown")
+                    fields = form_fill.get("fields", [])
+                    if fields:
+                        field_names = [f.get("semantic_field", "") for f in fields]
+                        notes_parts.append(
+                            f"Se ha intentado rellenar automáticamente los campos del formulario "
+                            f"({', '.join(field_names)}) con los datos del documento. "
+                            f"Estado: {status}"
+                        )
+                        form_fill_detected = True
+                        break
+        
+        # También buscar en file_upload_instructions
+        if not form_fill_detected and result.file_upload_instructions:
+            for instruction in result.file_upload_instructions:
+                if isinstance(instruction, dict) and instruction.get("form_fill_instruction"):
+                    form_fill_inst = instruction["form_fill_instruction"]
+                    plan = form_fill_inst.get("plan", {})
+                    fields = plan.get("fields", [])
+                    if fields:
+                        field_names = [f.get("semantic_field", "") for f in fields]
+                        notes_parts.append(
+                            f"Se ha intentado rellenar automáticamente los campos del formulario "
+                            f"({', '.join(field_names)}) con los datos del documento."
+                        )
+                        break
+        
         # v3.3.0: Añadir información de estado CAE a las notas
         if cae_status_info and cae_status_info.get("status") != "desconocido":
             status = cae_status_info["status"]

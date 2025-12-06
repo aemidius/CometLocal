@@ -253,6 +253,51 @@ class BrowserController:
 
         return False
 
+    async def fill_field_by_selector(self, selector: str, value: str) -> bool:
+        """
+        Rellena un campo de formulario usando un selector CSS.
+        
+        v4.5.0: Método para rellenar campos específicos por selector.
+        
+        Args:
+            selector: Selector CSS del campo (ej. "#issue_date", 'input[name="issue_date"]')
+            value: Valor a escribir en el campo
+            
+        Returns:
+            True si se rellenó correctamente, False en caso contrario
+        """
+        if not self.page:
+            raise RuntimeError("BrowserController no está iniciado. Llama a start() primero.")
+        
+        try:
+            # Intentar encontrar el elemento por selector
+            locator = self.page.locator(selector)
+            await locator.wait_for(state="visible", timeout=2000)
+            await locator.click()
+            await locator.fill(value)
+            return True
+        except PlaywrightTimeoutError:
+            return False
+        except Exception:
+            return False
+    
+    async def fill_fields(self, fields: dict[str, str]) -> dict[str, bool]:
+        """
+        Rellena múltiples campos de formulario.
+        
+        v4.5.0: Método para rellenar varios campos a la vez.
+        
+        Args:
+            fields: Diccionario de selector -> value
+            
+        Returns:
+            Diccionario de selector -> éxito (True/False)
+        """
+        results = {}
+        for selector, value in fields.items():
+            results[selector] = await self.fill_field_by_selector(selector, value)
+        return results
+    
     async def press_enter(self) -> None:
         """Pulsa la tecla Enter en la página actual."""
         if not self.page:

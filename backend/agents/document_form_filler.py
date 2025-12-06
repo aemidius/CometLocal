@@ -1,0 +1,197 @@
+"""
+DocumentFormFiller para rellenar formularios CAE usando DocumentAnalysisResult.
+
+v4.5.0: Fase 2 - Uso del análisis de documentos para rellenar campos de formulario.
+"""
+
+import logging
+from typing import Optional, Dict
+from datetime import date
+
+from backend.shared.models import (
+    DocumentAnalysisResult,
+    DocumentFormFillPlan,
+    FormFieldValue,
+    FormFillInstruction,
+)
+
+logger = logging.getLogger(__name__)
+
+# v4.5.0: Formato estándar para fechas en formularios (configurable)
+DATE_FORMAT = "YYYY-MM-DD"  # Formato ISO estándar para inputs de tipo date
+
+
+def format_date_for_form(d: date, format_str: str = DATE_FORMAT) -> str:
+    """
+    Formatea una fecha para usar en un campo de formulario.
+    
+    Args:
+        d: Fecha a formatear
+        format_str: Formato deseado (por ahora solo "YYYY-MM-DD")
+        
+    Returns:
+        Fecha formateada como string (ej. "2025-03-01")
+    """
+    if format_str == "YYYY-MM-DD":
+        return d.strftime("%Y-%m-%d")
+    else:
+        # Fallback a ISO format
+        return d.isoformat()
+
+
+class DocumentFormFiller:
+    """
+    Constructor de planes e instrucciones para rellenar formularios CAE.
+    
+    v4.5.0: Convierte DocumentAnalysisResult en instrucciones ejecutables.
+    """
+    
+    def build_plan_from_analysis(
+        self,
+        analysis: DocumentAnalysisResult,
+        expected_doc_type: Optional[str] = None,
+    ) -> DocumentFormFillPlan:
+        """
+        Construye un plan de rellenado a partir del análisis de un documento.
+        
+        Args:
+            analysis: Resultado del análisis del documento
+            expected_doc_type: Tipo de documento esperado (opcional, para validación)
+            
+        Returns:
+            DocumentFormFillPlan con los campos a rellenar
+        """
+        plan = DocumentFormFillPlan(
+            doc_type=analysis.doc_type or expected_doc_type,
+            worker_name=analysis.worker_name,
+            fields=[],
+            warnings=[],
+            confidence=0.0,
+        )
+        
+        # Arrastrar warnings del análisis
+        plan.warnings.extend(analysis.warnings)
+        
+        # Construir campos a rellenar
+        fields_added = 0
+        target_fields = 3  # issue_date, expiry_date, worker_name
+        
+        # issue_date
+        if analysis.issue_date:
+            issue_value = format_date_for_form(analysis.issue_date)
+            plan.fields.append(FormFieldValue(
+                semantic_field="issue_date",
+                value=issue_value,
+                source="document_analysis",
+                confidence=analysis.confidence,
+            ))
+            fields_added += 1
+        else:
+            plan.warnings.append("No se encontró fecha de emisión en el documento")
+        
+        # expiry_date
+        if analysis.expiry_date:
+            expiry_value = format_date_for_form(analysis.expiry_date)
+            plan.fields.append(FormFieldValue(
+                semantic_field="expiry_date",
+                value=expiry_value,
+                source="document_analysis",
+                confidence=analysis.confidence,
+            ))
+            fields_added += 1
+        else:
+            plan.warnings.append("No se encontró fecha de caducidad en el documento")
+        
+        # worker_name
+        if analysis.worker_name:
+            plan.fields.append(FormFieldValue(
+                semantic_field="worker_name",
+                value=analysis.worker_name,
+                source="document_analysis",
+                confidence=analysis.confidence,
+            ))
+            fields_added += 1
+        else:
+            plan.warnings.append("No se encontró nombre del trabajador en el documento")
+        
+        # Calcular confidence del plan
+        # Basado en la confidence del análisis y la proporción de campos rellenos
+        if target_fields > 0:
+            fields_ratio = fields_added / target_fields
+            plan.confidence = analysis.confidence * fields_ratio
+        else:
+            plan.confidence = 0.0
+        
+        logger.debug(
+            f"[form-filler] Plan construido: {fields_added}/{target_fields} campos, "
+            f"confidence={plan.confidence:.2f}"
+        )
+        
+        return plan
+    
+    def build_instruction_for_cae_upload_form(
+        self,
+        plan: DocumentFormFillPlan,
+        form_variant: str = "default",
+    ) -> Optional[FormFillInstruction]:
+        """
+        Construye una instrucción ejecutable para un formulario CAE de subida.
+        
+        Args:
+            plan: Plan de rellenado con los campos y valores
+            form_variant: Variante del formulario (por ahora solo "default")
+            
+        Returns:
+            FormFillInstruction si hay campos a rellenar, None en caso contrario
+        """
+        if not plan.fields:
+            logger.debug("[form-filler] Plan vacío, no se genera instrucción")
+            return None
+        
+        # v4.5.0: Mapeo fijo para formulario CAE genérico de ejemplo
+        # Más adelante podremos leer esto desde configuración o detectarlo dinámicamente
+        field_selectors: Dict[str, str] = {}
+        
+        if form_variant == "default":
+            # Mapeo genérico para formulario CAE de ejemplo
+            # En producción, esto podría venir de configuración o detección automática
+            field_selectors = {
+                "issue_date": 'input[name="issue_date"], input[id="issue_date"], #issue_date',
+                "expiry_date": 'input[name="expiry_date"], input[id="expiry_date"], #expiry_date',
+                "worker_name": 'input[name="worker_name"], input[id="worker_name"], #worker_name',
+            }
+        else:
+            logger.warning(f"[form-filler] Form variant '{form_variant}' no reconocido, usando default")
+            field_selectors = {
+                "issue_date": 'input[name="issue_date"], input[id="issue_date"], #issue_date',
+                "expiry_date": 'input[name="expiry_date"], input[id="expiry_date"], #expiry_date',
+                "worker_name": 'input[name="worker_name"], input[id="worker_name"], #worker_name',
+            }
+        
+        # Filtrar solo los campos que están en el plan y tienen selector
+        available_selectors: Dict[str, str] = {}
+        for field in plan.fields:
+            semantic_field = field.semantic_field
+            if semantic_field in field_selectors:
+                # Para v4.5.0, usamos el primer selector de la lista (separados por coma)
+                # Más adelante podríamos intentar varios selectores
+                selector = field_selectors[semantic_field].split(',')[0].strip()
+                available_selectors[semantic_field] = selector
+        
+        if not available_selectors:
+            logger.debug("[form-filler] No hay selectores disponibles para los campos del plan")
+            return None
+        
+        instruction = FormFillInstruction(
+            field_selectors=available_selectors,
+            plan=plan,
+            form_context=f"cae_upload_{form_variant}",
+        )
+        
+        logger.info(
+            f"[form-filler] Instrucción generada para {len(available_selectors)} campos "
+            f"(form_variant={form_variant})"
+        )
+        
+        return instruction
+

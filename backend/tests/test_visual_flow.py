@@ -229,3 +229,5 @@ def test_visual_flow_maintains_previous_state():
     assert state.confidence < previous_state.confidence  # Confianza reducida
 
 
+
+

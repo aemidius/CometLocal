@@ -895,6 +895,30 @@ async def _maybe_execute_file_upload(
                 "execution_mode": execution_mode,  # v4.3.1
             }
         
+        # v4.5.0: Intentar rellenar formulario si hay instrucción de rellenado
+        form_fill_info = None
+        if instruction.form_fill_instruction:
+            try:
+                form_fill_info = await _execute_form_fill(
+                    browser=browser,
+                    instruction=instruction.form_fill_instruction,
+                    execution_mode=execution_mode,
+                )
+                if form_fill_info:
+                    info_dict["form_fill"] = form_fill_info
+                    logger.info(
+                        f"[form-fill] Form fill executed: {form_fill_info.get('status', 'unknown')}"
+                    )
+            except Exception as e:
+                logger.warning(f"[form-fill] Error executing form fill: {e}", exc_info=True)
+                # No romper el upload si el rellenado falla
+                form_fill_info = {
+                    "status": "error",
+                    "error_message": str(e),
+                    "fields": [],
+                }
+                info_dict["form_fill"] = form_fill_info
+        
         return StepResult(
             observation=obs,
             last_action=BrowserAction(
@@ -1846,10 +1870,21 @@ def _build_final_answer(
             
             if document_analysis:
                 section["document_analysis"] = document_analysis
+            
+            # v4.5.0: Añadir información de rellenado de formulario si existe
+            form_fill = None
+            for step in sub_goal_steps:
+                if step.info and "form_fill" in step.info:
+                    form_fill = step.info["form_fill"]
+                    break
+            
+            if form_fill:
+                section["form_fill"] = form_fill
         else:
             section["upload_summary"] = None
             section["upload_verification"] = None
             section["document_analysis"] = None  # v4.4.0
+            section["form_fill"] = None  # v4.5.0
         
         sections.append(section)
         

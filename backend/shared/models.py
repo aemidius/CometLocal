@@ -107,6 +107,50 @@ class DocumentAnalysisResult(BaseModel):
     source_path: Optional[str] = None
 
 
+# v4.5.0: Modelos para rellenado automático de formularios CAE
+class FormFieldValue(BaseModel):
+    """
+    Valor a rellenar en un campo de formulario.
+    
+    v4.5.0: Representa un valor semántico (ej. issue_date) con su valor formateado.
+    """
+    semantic_field: str  # "issue_date", "expiry_date", "worker_name", etc.
+    value: str  # Ya formateado para meter en el input (ej. "2025-03-01")
+    source: Optional[str] = None  # "document_analysis", "fallback", etc.
+    confidence: Optional[float] = None  # Confianza en este valor específico
+
+
+class DocumentFormFillPlan(BaseModel):
+    """
+    Plan de rellenado de formulario basado en análisis de documento.
+    
+    v4.5.0: Define qué campos semánticos se van a rellenar y con qué valores.
+    """
+    doc_type: Optional[str] = None
+    worker_name: Optional[str] = None
+    
+    fields: List[FormFieldValue] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)  # Confianza global del plan
+
+
+class FormFillInstruction(BaseModel):
+    """
+    Instrucción ejecutable para rellenar un formulario.
+    
+    v4.5.0: Mapea campos semánticos a selectores CSS del formulario actual.
+    """
+    # Mapeo de semantic_field -> selector CSS del formulario actual
+    # Ejemplo: {"issue_date": "#issue_date", "expiry_date": "#expiry_date", "worker_name": "#worker_name"}
+    field_selectors: Dict[str, str] = Field(default_factory=dict)
+    
+    # Plan de valores a rellenar
+    plan: DocumentFormFillPlan
+    
+    # Contexto opcional (para debug / auditoría)
+    form_context: Optional[str] = None  # ej: "cae_upload_form_v1"
+
+
 # v3.8.0: Modelos para Reasoning Spotlight
 class ReasoningInterpretation(BaseModel):
     """

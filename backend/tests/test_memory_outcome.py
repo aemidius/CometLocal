@@ -236,3 +236,5 @@ class TestMemoryOutcome:
         assert len(updated.last_outcome_issues) == 5
         assert updated.last_outcome_issues == many_issues[:5]
 
+
+
