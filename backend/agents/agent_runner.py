@@ -152,6 +152,13 @@ class AgentMetrics:
         self.deep_analysis_confidence_avg: float = 0.0
         self.deep_analysis_fields_extracted: int = 0
         self.deep_analysis_table_detected: int = 0
+        # v5.0.0: Contadores de planificador híbrido
+        self.hybrid_nodes_generated: int = 0
+        self.hybrid_dom_explorations: int = 0
+        self.hybrid_visual_explorations: int = 0
+        self.hybrid_replans: int = 0
+        self.hybrid_loop_preventions: int = 0
+        self.hybrid_dead_end_detections: int = 0
     
     def register_visual_click(self, success: bool) -> None:
         """

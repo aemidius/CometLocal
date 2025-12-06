@@ -174,6 +174,59 @@ class MappedField(BaseModel):
     source: str = "dom"  # v4.7.0: "dom", "ocr", "hybrid"
 
 
+# v5.0.0: Modelos para planificación híbrida autónoma
+class PlannerNode(BaseModel):
+    """
+    Nodo de planificación en el grafo híbrido.
+    
+    v5.0.0: Representa una tarea o paso en el plan autónomo.
+    """
+    node_id: str
+    title: str
+    type: str  # explore_dom, explore_visual, detect_forms, detect_buttons, fill_form, upload_file, navigate, confirm
+    description: Optional[str] = None
+    prereqs: List[str] = Field(default_factory=list)  # IDs de nodos que deben ejecutarse antes
+    actions_suggested: List[str] = Field(default_factory=list)  # Acciones sugeridas para este nodo
+    dynamic: bool = False  # Si fue generado dinámicamente
+    metadata: Dict[str, Any] = Field(default_factory=dict)  # Metadatos adicionales
+
+
+class PlannerGraph(BaseModel):
+    """
+    Grafo de planificación híbrido.
+    
+    v5.0.0: Contiene todos los nodos y la estructura del plan autónomo.
+    """
+    nodes: Dict[str, PlannerNode] = Field(default_factory=dict)
+    entrypoint: str  # ID del nodo de entrada
+    goal: str  # Objetivo del plan
+
+
+class PlannerNodeResult(BaseModel):
+    """
+    Resultado de la ejecución de un nodo.
+    
+    v5.0.0: Contiene información sobre el éxito/fallo y nodos descubiertos.
+    """
+    node_id: str
+    success: bool
+    details: Dict[str, Any] = Field(default_factory=dict)
+    discovered_nodes: List[str] = Field(default_factory=list)  # Nuevos nodos descubiertos durante la ejecución
+
+
+class HybridPlannerSettings(BaseModel):
+    """
+    Configuración del planificador híbrido.
+    
+    v5.0.0: Controla qué capacidades están habilitadas.
+    """
+    enable: bool = False
+    max_dynamic_nodes: int = 10
+    allow_visual_exploration: bool = True
+    allow_dom_exploration: bool = True
+    allow_llm_planning: bool = True
+
+
 # v4.8.0: Modelos para análisis profundo de documentos CAE
 class DeepDocumentField(BaseModel):
     """
