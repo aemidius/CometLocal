@@ -652,6 +652,12 @@ class AgentMetrics:
                     "hybrid_mapper_confidence_avg": round(self.hybrid_mapper_confidence_avg, 3),
                     "hybrid_mapper_failures": self.hybrid_mapper_failures,
                 },
+                "deep_analysis_info": {  # v4.8.0
+                    "deep_analysis_used": self.deep_analysis_used,
+                    "deep_analysis_confidence_avg": round(self.deep_analysis_confidence_avg, 3),
+                    "deep_analysis_fields_extracted": self.deep_analysis_fields_extracted,
+                    "deep_analysis_table_detected": self.deep_analysis_table_detected,
+                },
                 "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }
