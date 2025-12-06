@@ -636,6 +636,17 @@ class AgentMetrics:
                     "form_fill_by_selector_count": self.form_fill_by_selector_count,
                     "form_fill_by_label_count": self.form_fill_by_label_count,
                 },
+                "mapper_info": {  # v4.6.0
+                    "mapper_fields_mapped_count": self.mapper_fields_mapped_count,
+                    "mapper_confidence_avg": round(self.mapper_confidence_avg, 3),
+                    "mapper_failures": self.mapper_failures,
+                },
+                "hybrid_mapper_info": {  # v4.7.0
+                    "hybrid_mapper_used": self.hybrid_mapper_used,
+                    "hybrid_mapper_fields_mapped_count": self.hybrid_mapper_fields_mapped_count,
+                    "hybrid_mapper_confidence_avg": round(self.hybrid_mapper_confidence_avg, 3),
+                    "hybrid_mapper_failures": self.hybrid_mapper_failures,
+                },
                 "mode": "interactive",  # v3.0.0: Marcar modo interactivo
             }
         }
