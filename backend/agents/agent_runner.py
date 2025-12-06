@@ -1729,12 +1729,75 @@ async def _attempt_visual_recovery(
                     allowed_labels = ["adjuntar"]
                     logger.debug("[visual-recovery] Using visual flow state: focusing on 'adjuntar' button")
             
+            # v5.2.0: Cargar memoria visual si está habilitada
+            visual_memory_snapshot = None
+            best_cells = []
+            best_landmarks = []
+            
+            # Obtener execution_profile si está disponible (pasar como parámetro o desde contexto)
+            # Por ahora, asumimos que use_visual_heatmap está habilitado si VISUAL_MEMORY_ENABLED
+            from backend.config import VISUAL_MEMORY_ENABLED
+            if VISUAL_MEMORY_ENABLED:
+                try:
+                    from backend.vision.visual_memory import VisualMemoryStore
+                    from urllib.parse import urlparse
+                    
+                    visual_memory = VisualMemoryStore()
+                    page_sig = build_page_signature(final_observation)
+                    parsed = urlparse(final_observation.url or "")
+                    platform = parsed.netloc.replace(".", "_") if parsed.netloc else "generic"
+                    
+                    visual_memory_snapshot = visual_memory.load_snapshot(platform, page_sig)
+                    
+                    if visual_memory_snapshot:
+                        # Obtener mejores celdas y landmarks
+                        best_cells = visual_memory.get_best_cells(platform, page_sig, top_k=5)
+                        best_landmarks = visual_memory.get_best_landmarks(
+                            platform, page_sig, role=None, top_k=5
+                        )
+                        
+                        if agent_metrics:
+                            agent_metrics.visual_heatmap_uses += 1
+                            agent_metrics.register_visual_heatmap_use()
+                        
+                        logger.debug(
+                            f"[visual-recovery] Loaded visual memory: {len(best_cells)} cells, {len(best_landmarks)} landmarks"
+                        )
+                except Exception as e:
+                    logger.warning(f"[visual-recovery] Error loading visual memory: {e}", exc_info=True)
+            
             # Buscar botón visual de alta confianza
             visual_target = _find_high_confidence_visual_button(
                 observation=final_observation,
                 allowed_labels=allowed_labels,
                 min_confidence=0.85,
             )
+            
+            # v5.2.0: Si hay memoria visual, priorizar candidatos basados en landmarks
+            if visual_memory_snapshot and best_landmarks and visual_target:
+                # Reordenar visual_target si coincide con un landmark de alta score
+                for landmark in best_landmarks[:3]:  # Top 3 landmarks
+                    # Calcular distancia entre visual_target y landmark
+                    if hasattr(visual_target, 'x') and hasattr(visual_target, 'y'):
+                        # Normalizar coordenadas del target (asumir viewport estándar)
+                        viewport_w = 1920
+                        viewport_h = 1080
+                        target_x_norm = visual_target.x / viewport_w
+                        target_y_norm = visual_target.y / viewport_h
+                        
+                        # Calcular distancia
+                        dist = ((target_x_norm - landmark.x_center) ** 2 + 
+                                (target_y_norm - landmark.y_center) ** 2) ** 0.5
+                        
+                        # Si está cerca de un landmark exitoso, aumentar confianza
+                        if dist < 0.1 and landmark.score > 0.5:
+                            visual_target.confidence = min(1.0, visual_target.confidence + 0.1)
+                            if agent_metrics:
+                                agent_metrics.visual_landmarks_used += 1
+                                agent_metrics.register_visual_landmark_use()
+                            logger.debug(
+                                f"[visual-recovery] Boosted confidence for target near landmark: {landmark.text_snippet}"
+                            )
             
             if visual_target and visual_target.x is not None and visual_target.y is not None:
                 logger.debug(
