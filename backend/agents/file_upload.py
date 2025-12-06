@@ -220,6 +220,45 @@ def _maybe_build_file_upload_instruction(
                         company_name=analysis_company,
                     ))
                     instruction.document_analysis = analysis_result
+                    
+                    # v4.8.0: Ejecutar análisis profundo (async dentro de asyncio.run)
+                    try:
+                        from backend.agents.document_analyzer_deep import DeepDocumentAnalyzer
+                        deep_analyzer = DeepDocumentAnalyzer()
+                        # Ejecutar análisis profundo dentro del mismo contexto async
+                        async def run_deep_analysis():
+                            return await deep_analyzer.analyze_pdf_deep(
+                                pdf_path=doc_descriptor.path,
+                                ocr_service=ocr_service,
+                            )
+                        deep_analysis = asyncio.run(run_deep_analysis())
+                        
+                        # Fusionar deep_analysis con analysis_result
+                        analysis_result.deep_analysis = deep_analysis
+                        instruction.deep_document_analysis = deep_analysis
+                        
+                        # Si deep_analysis tiene fechas mejor clasificadas, preferirlas
+                        if deep_analysis.issue_date and not analysis_result.issue_date:
+                            try:
+                                from datetime import datetime
+                                parsed_date = datetime.strptime(deep_analysis.issue_date, "%Y-%m-%d").date()
+                                analysis_result.issue_date = parsed_date
+                            except (ValueError, AttributeError):
+                                pass
+                        
+                        if deep_analysis.expiry_date and not analysis_result.expiry_date:
+                            try:
+                                from datetime import datetime
+                                parsed_date = datetime.strptime(deep_analysis.expiry_date, "%Y-%m-%d").date()
+                                analysis_result.expiry_date = parsed_date
+                            except (ValueError, AttributeError):
+                                pass
+                        
+                        logger.info(f"[file-upload] Deep analysis completed: confidence={deep_analysis.confidence:.2f}, fields={len(deep_analysis.extracted_fields)}")
+                    except Exception as e:
+                        logger.warning(f"[file-upload] Error in deep analysis: {e}", exc_info=True)
+                        # No romper el flujo si el análisis profundo falla
+                    
                     logger.info(
                         f"[file-upload] Document analyzed: confidence={analysis_result.confidence:.2f}, "
                         f"issue_date={analysis_result.issue_date}, expiry_date={analysis_result.expiry_date}, "
