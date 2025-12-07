@@ -68,7 +68,14 @@ class AgentMetrics:
     v1.5.0: Infraestructura de observabilidad para medir eficiencia y patrones.
     v2.3.0: Añade contadores de uploads de archivos.
     """
-    def __init__(self):
+    def __init__(self, execution_mode: str = "live"):
+        """
+        Inicializa las métricas del agente.
+        
+        Args:
+            execution_mode: Modo de ejecución ("live" o "dry_run"), default: "live"
+        """
+        self.execution_mode = execution_mode  # v4.3.1: Modo de ejecución
         self.sub_goals: List[SubGoalMetrics] = []
         self.start_time: Optional[float] = None
         self.end_time: Optional[float] = None

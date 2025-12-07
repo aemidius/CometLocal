@@ -432,7 +432,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
             if reasoning_spotlight and metrics_summary:
                 # Registrar spotlight en métricas
                 from backend.agents.agent_runner import AgentMetrics
-                temp_metrics = AgentMetrics()
+                temp_metrics = AgentMetrics(execution_mode=execution_mode or "live")
                 temp_metrics.register_reasoning_spotlight(reasoning_spotlight)
                 spotlight_info = temp_metrics.to_summary_dict()["summary"]["spotlight_info"]
                 # Añadir spotlight_info a metrics_summary (crear copia para no modificar el original)
@@ -482,7 +482,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
             # Actualizar métricas con outcome judge
             if outcome_judge and metrics_summary:
                 from backend.agents.agent_runner import AgentMetrics
-                temp_metrics = AgentMetrics()
+                temp_metrics = AgentMetrics(execution_mode=execution_mode or "live")
                 temp_metrics.register_outcome_judge(outcome_judge)
                 outcome_judge_info = temp_metrics.to_summary_dict()["summary"]["outcome_judge_info"]
                 if "summary" not in metrics_summary:
