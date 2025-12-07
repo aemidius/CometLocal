@@ -221,6 +221,9 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
     Runs the LLM-based agent and generates a final natural-language answer
     based on the last observation and the original goal.
     """
+    # Este endpoint es siempre interactivo, nunca batch
+    is_batch_request = False
+    
     # v2.8.0: Manejar flujo de planificación
     from backend.agents.agent_runner import build_execution_plan, _decompose_goal, ExecutionProfile
     from backend.agents.document_repository import DocumentRepository
