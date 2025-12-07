@@ -313,3 +313,5 @@ class VisualExplorer:
         
         return snapshot
 
+
+

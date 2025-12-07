@@ -297,3 +297,5 @@ class PathFinder:
             if attempts >= 3:
                 self.dead_ends.append(path)
 
+
+

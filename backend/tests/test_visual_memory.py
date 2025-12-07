@@ -310,3 +310,5 @@ class TestVisualMemoryStore:
         assert saved_landmark.uses == 2
         assert saved_landmark.successes == 2
 
+
+

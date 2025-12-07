@@ -17,6 +17,8 @@ from backend.shared.models import (
     AgentAnswerResponse,
     SourceInfo,
     FileUploadInstructionDTO,
+    BatchAgentRequest,
+    BatchAgentResponse,
     CAEBatchRequest,
     CAEBatchResponse,
 )

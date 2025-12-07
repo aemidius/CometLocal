@@ -296,3 +296,5 @@ class TestHybridFormMapper:
         assert results["issue_date"] is not None
         # expiry_date y worker_name pueden ser None si no se encuentran
 
+
+
