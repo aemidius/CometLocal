@@ -4942,7 +4942,7 @@ async def run_llm_task_with_answer(
         empty_answer = "No se ha ejecutado ningún sub-objetivo porque todos han sido desactivados en el plan."
         
         # Crear métricas básicas
-        agent_metrics = AgentMetrics()
+        agent_metrics = AgentMetrics(execution_mode=execution_mode or "live")
         agent_metrics.start()
         agent_metrics.plan_confirmed = True
         agent_metrics.skipped_sub_goals_count = len(disabled_sub_goal_indices or [])
