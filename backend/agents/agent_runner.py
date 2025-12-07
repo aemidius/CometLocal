@@ -4912,8 +4912,8 @@ async def run_llm_task_with_answer(
     
     # v1.5.0: Inicializar métricas
     # v2.9.0: Inicializar contadores de sub-goals saltados
-    agent_metrics = AgentMetrics()
-    agent_metrics.execution_mode = execution_mode  # v4.3.0
+    # v4.3.0: Pasar execution_mode al crear AgentMetrics
+    agent_metrics = AgentMetrics(execution_mode=execution_mode)
     agent_metrics.start()
     agent_metrics.skipped_sub_goals_count = len(disabled_sub_goal_indices or [])
     agent_metrics.skipped_sub_goal_indices = sorted(list(disabled_sub_goal_indices or []))
