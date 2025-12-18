@@ -208,7 +208,25 @@ Responde SOLO con el objeto JSON, sin texto adicional.
             temperature=0.3,
             response_format={"type": "json_object"},
         )
-        
+    except (TypeError, ValueError, AttributeError) as e:
+        # Capturar errores específicos de response_format.type incompatibility
+        error_msg = str(e).lower()
+        if "response_format" in error_msg or "json_object" in error_msg or "type" in error_msg:
+            logger.info("[PlannerHints] disabled due to response_format incompatibility")
+            # Devolver PlannerHints vacío sin traceback ruidoso
+            return PlannerHints(
+                goal=goal,
+                execution_profile_name=execution_plan.execution_profile.get("name"),
+                context_strategies=execution_plan.context_strategies,
+                sub_goals=[],
+                profile_suggestion=None,
+                global_insights=None,
+                llm_raw_notes=None,
+            )
+        # Si no es un error de response_format, re-lanzar para el catch general
+        raise
+    
+    try:
         # Parsear respuesta JSON
         response_text = response.choices[0].message.content
         if not response_text:

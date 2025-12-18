@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Portal CAE A - Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+</head>
+<body class="bg-gray-100">
+  <div class="min-h-screen flex flex-col items-center py-10">
+    <div class="w-full max-w-4xl bg-white shadow-md rounded-lg p-6">
+      <h1 class="text-2xl font-semibold text-gray-800 mb-2">Portal CAE A - Panel de empresa</h1>
+      <p class="text-sm text-gray-500 mb-4">
+        Dashboard simulado para pruebas de navegación del agente CAE.
+      </p>
+
+      <div id="company_info" class="mb-6 text-sm text-gray-600">
+        <!-- Se rellenará con los parámetros de la URL si existen -->
+      </div>
+
+      <h2 class="text-lg font-semibold text-gray-800 mb-3">Trabajadores</h2>
+
+      <table class="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Puesto</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 text-sm">
+          <tr>
+            <td class="px-4 py-2">W-001</td>
+            <td class="px-4 py-2">Ana Pérez</td>
+            <td class="px-4 py-2">Técnico de laboratorio</td>
+            <td class="px-4 py-2">
+              <a
+                href="/simulation/portal_a/upload.html?worker_id=W-001&worker_name=Ana%20P%C3%A9rez"
+                class="text-blue-600 hover:text-blue-800 underline"
+              >
+                Subir documentación
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2">W-002</td>
+            <td class="px-4 py-2">Luis García</td>
+            <td class="px-4 py-2">Mantenimiento</td>
+            <td class="px-4 py-2">
+              <a
+                href="/simulation/portal_a/upload.html?worker_id=W-002&worker_name=Luis%20Garc%C3%ADa"
+                class="text-blue-600 hover:text-blue-800 underline"
+              >
+                Subir documentación
+              </a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // Mostrar información básica de la empresa/usuario a partir de la querystring, si existe
+    function getQueryParams() {
+      const params = {};
+      const qs = window.location.search.substring(1);
+      const pairs = qs.split("&").filter(Boolean);
+      for (const p of pairs) {
+        const [key, value] = p.split("=");
+        params[decodeURIComponent(key)] = decodeURIComponent(value || "");
+      }
+      return params;
+    }
+
+    const params = getQueryParams();
+    const infoEl = document.getElementById("company_info");
+    if (infoEl && Object.keys(params).length > 0) {
+      const parts = [];
+      if (params.company_code) parts.push("Empresa: " + params.company_code);
+      if (params.username) parts.push("Usuario: " + params.username);
+      infoEl.textContent = parts.join(" · ");
+    }
+  </script>
+</body>
+</html>

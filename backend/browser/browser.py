@@ -33,6 +33,11 @@ class BrowserController:
 
     async def goto(self, url: str):
         """Navega a una URL en la pestaña actual."""
+        import logging
+        logger = logging.getLogger(__name__)
+        print(f"[DEBUG_BROWSER] Navegando a URL: {url}")
+        logger.info("[BrowserController] Navegando a %s", url)
+        
         if not self.page:
             raise RuntimeError("BrowserController no está iniciado. Llama a start() primero.")
         await self.page.goto(url, wait_until="networkidle")

@@ -417,6 +417,37 @@ class TestDefaultContextStrategies:
         assert image_strategy.goal_applies(goal, None) is True
         # Wikipedia también aplica, pero ImageSearch tiene prioridad
         assert wiki_strategy.goal_applies(goal, None) is True
+    
+    def test_strategy_name_attribute(self):
+        """Todas las estrategias tienen el atributo name correctamente definido"""
+        from backend.agents.context_strategies import (
+            WikipediaContextStrategy,
+            ImageSearchContextStrategy,
+            CAEContextStrategy,
+        )
+        
+        # Verificar estrategias por defecto
+        image_strategy = DEFAULT_CONTEXT_STRATEGIES[0]
+        wiki_strategy = DEFAULT_CONTEXT_STRATEGIES[1]
+        
+        assert hasattr(image_strategy, 'name')
+        assert hasattr(wiki_strategy, 'name')
+        assert image_strategy.name == "images"
+        assert wiki_strategy.name == "wikipedia"
+        
+        # Verificar instancias nuevas
+        wiki = WikipediaContextStrategy()
+        image = ImageSearchContextStrategy()
+        cae = CAEContextStrategy()
+        
+        assert wiki.name == "wikipedia"
+        assert image.name == "images"
+        assert cae.name == "cae"
+        
+        # Verificar que se puede usar en list comprehension (como en agent_runner.py)
+        strategy_names = [s.name for s in DEFAULT_CONTEXT_STRATEGIES]
+        assert "images" in strategy_names
+        assert "wikipedia" in strategy_names
 
 
 class TestCAEContextStrategy:

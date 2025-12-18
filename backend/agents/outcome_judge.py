@@ -116,7 +116,7 @@ async def build_outcome_judge_report(
     memory_store: Optional["MemoryStore"] = None,
     platform: Optional[str] = None,
     company_name: Optional[str] = None,
-) -> OutcomeJudgeReport:
+) -> Optional[OutcomeJudgeReport]:
     """
     Genera un informe de Outcome Judge basado en la ejecución completa.
     
@@ -211,6 +211,15 @@ async def build_outcome_judge_report(
         logger.info(f"[OutcomeJudge] Report built for goal: {goal}")
         return report
         
+    except (TypeError, ValueError, AttributeError) as e:
+        # Capturar errores específicos de response_model incompatibility
+        error_msg = str(e).lower()
+        if "response_model" in error_msg or "pydantic" in error_msg or "validation" in error_msg:
+            logger.info("[OutcomeJudge] skipped due to client incompatibility")
+            # Devolver None sin traceback ruidoso
+            return None
+        # Si no es un error de response_model, re-lanzar para el catch general
+        raise
     except ValidationError as e:
         logger.warning(f"[OutcomeJudge] LLM returned invalid JSON for goal '{goal}': {e}", exc_info=True)
         return OutcomeJudgeReport(
@@ -265,6 +274,13 @@ def _build_steps_summary(steps: List["StepResult"]) -> List[Dict[str, Any]]:
         summary.append(step_info)
     
     return summary
+
+
+
+
+
+
+
 
 
 

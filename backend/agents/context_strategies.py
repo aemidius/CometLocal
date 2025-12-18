@@ -24,6 +24,17 @@ class ContextStrategy(ABC):
     Cada estrategia maneja un tipo específico de objetivo (Wikipedia, imágenes, etc.).
     """
     
+    # Nombre simbólico de la estrategia (se usará en métricas, configuración, etc.)
+    STRATEGY_NAME: str = "base"
+    
+    @property
+    def name(self) -> str:
+        """
+        Nombre estándar de la estrategia, usado para métricas y configuración.
+        Permite que el código pueda hacer `strategy.name` aunque no conozca la subclase.
+        """
+        return self.STRATEGY_NAME
+    
     @abstractmethod
     def goal_applies(self, goal: str, focus_entity: Optional[str]) -> bool:
         """
@@ -85,6 +96,8 @@ class WikipediaContextStrategy(ContextStrategy):
     Estrategia para objetivos relacionados con Wikipedia.
     Maneja la navegación a artículos de Wikipedia y verificación de satisfacción.
     """
+    
+    STRATEGY_NAME: str = "wikipedia"
     
     def goal_applies(self, goal: str, focus_entity: Optional[str]) -> bool:
         """Detecta objetivos que mencionan Wikipedia."""
@@ -213,6 +226,8 @@ class ImageSearchContextStrategy(ContextStrategy):
     Estrategia para objetivos relacionados con búsqueda de imágenes.
     Maneja la navegación a DuckDuckGo imágenes y verificación de satisfacción.
     """
+    
+    STRATEGY_NAME: str = "images"
     
     def goal_applies(self, goal: str, focus_entity: Optional[str]) -> bool:
         """Detecta objetivos que mencionan imágenes."""
@@ -463,6 +478,8 @@ class CAEContextStrategy(ContextStrategy):
     Maneja la navegación a plataformas CAE y verificación de satisfacción.
     v2.1.0: Estrategia básica para plataformas tipo CAE.
     """
+    
+    STRATEGY_NAME: str = "cae"
     
     def __init__(self, base_url: str = "https://example-cae.local", platform_name: str = "Plataforma CAE Demo"):
         """

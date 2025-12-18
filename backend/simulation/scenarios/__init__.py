@@ -1,0 +1,9 @@
+"""
+Escenarios de simulación disponibles.
+"""
+
+
+
+
+
+

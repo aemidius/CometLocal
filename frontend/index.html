@@ -726,6 +726,12 @@
   </style>
 </head>
 <body>
+  <div style="background:#111827;color:#e5e7eb;padding:0.4rem 0.8rem;font-size:0.85rem;">
+    <span style="font-weight:600;margin-right:0.6rem;">CometLocal · Navegación rápida:</span>
+    <a href="/form-sandbox" style="color:#bfdbfe;margin-right:0.6rem;text-decoration:none;">Form Sandbox</a>
+    <a href="/training" style="color:#bfdbfe;margin-right:0.6rem;text-decoration:none;">CAE Training</a>
+    <a href="/simulation/portal_a/login.html" style="color:#bfdbfe;text-decoration:none;">Portal CAE A</a>
+  </div>
   <div class="sidebar">
     <div class="header">
       <div>CometLocal</div>
@@ -771,6 +777,9 @@
       <div class="footer-actions">
         <button id="sendBtn">Enviar</button>
       </div>
+      <div id="agent_status" style="margin-top:0.25rem;font-size:0.8rem;color:#9CA3AF;">
+        Listo.
+      </div>
     </div>
   </div>
   <div class="main-hint">
@@ -792,6 +801,7 @@
     const sendBtn = document.getElementById("sendBtn");
     const statusDot = document.getElementById("statusDot");
     const statusText = document.getElementById("statusText");
+    const agentStatusEl = document.getElementById("agent_status");
 
     // Initialize
     checkBackendHealth();
@@ -887,8 +897,20 @@
     }
 
     async function sendMessage() {
-      const text = inputEl.value.trim();
-      if (!text || isWaiting) return;
+      console.log("[CometLocal] sendMessage() llamado");
+      
+      if (isWaiting) {
+        console.warn("[CometLocal] Ya hay una petición en curso, se ignora el envío");
+        return;
+      }
+      
+      const text = (inputEl.value || "").trim();
+      if (!text) {
+        console.warn("[CometLocal] No hay texto en el input, se ignora el envío");
+        return;
+      }
+      
+      console.log("[CometLocal] Enviando instrucción al agente:", text);
 
       // Add user message
       addMessage("user", text);
@@ -902,18 +924,36 @@
       isWaiting = true;
       sendBtn.disabled = true;
       inputEl.disabled = true;
+      
+      // Actualizar estado
+      if (agentStatusEl) {
+        agentStatusEl.textContent = "Procesando petición...";
+      }
 
       // Add thinking message
       const thinkingMsg = addMessage("agent", "Pensando...", "");
       thinkingMsg.classList.add("thinking");
 
       try {
+        console.log("[CometLocal] Llamando a sendAgentMessage...");
         await sendAgentMessage(text, thinkingMsg);
+        console.log("[CometLocal] sendAgentMessage completado exitosamente");
+        
+        // Actualizar estado a completado
+        if (agentStatusEl) {
+          agentStatusEl.textContent = "Ejecución completada.";
+        }
       } catch (err) {
+        console.error("[CometLocal] Error al consultar el agente:", err);
         const errorText = `Error al consultar el agente: ${err.message}`;
         updateMessage(thinkingMsg, errorText, "");
         thinkingMsg.classList.remove("thinking");
         thinkingMsg.classList.add("error");
+        
+        // Actualizar estado con error
+        if (agentStatusEl) {
+          agentStatusEl.textContent = `Error: ${err.message}`;
+        }
       } finally {
         isWaiting = false;
         sendBtn.disabled = false;
@@ -1627,9 +1667,23 @@
     window.toggleOutcomeNotes = toggleOutcomeNotes;
 
     function renderExecutionPlan(plan, thinkingMsg) {
-      if (!plan) return "";
+      if (!plan) {
+        console.warn("[CometLocal] renderExecutionPlan: plan es null o undefined");
+        return "";
+      }
       
+      console.log("[CometLocal] Renderizando plan de sub-goals en la UI", plan);
       const subGoals = plan.sub_goals || [];
+      console.log("[CometLocal] subGoals extraídos del plan:", subGoals);
+      console.log("[CometLocal] subGoals es array?", Array.isArray(subGoals));
+      console.log("[CometLocal] subGoals.length:", subGoals.length);
+      
+      // Guardar los steps usando exactamente la misma fuente de datos que se usa para renderizar
+      // Este es el array EXACTO que se itera en el forEach de abajo
+      currentExecutionPlanSteps = Array.isArray(subGoals) ? subGoals : [];
+      console.log("[CometLocal] Steps del plan guardados (desde renderExecutionPlan, usando subGoals reales):", currentExecutionPlanSteps);
+      console.log("[CometLocal] currentExecutionPlanSteps.length:", currentExecutionPlanSteps.length);
+      
       const strategyNames = {
         "wikipedia": "Wikipedia",
         "images": "Imágenes",
@@ -1690,8 +1744,17 @@
     // v2.8.0: Confirmar ejecución
     // v2.9.0: Leer checkboxes de sub-goals y enviar disabled_sub_goal_indices
     window.confirmExecution = function(button) {
+      console.log("[CometLocal] onExecutePlanClick() llamado");
+      console.log("[CometLocal] currentExecutionPlanSteps:", currentExecutionPlanSteps);
+      
       const msgElement = button.closest('.msg');
       if (!msgElement) return;
+      
+      if (!currentExecutionPlanSteps || currentExecutionPlanSteps.length === 0) {
+        console.warn("[CometLocal] No hay steps en el plan actual; no se enviará ejecución.");
+        alert("No hay pasos definidos en el plan actual. Vuelve a generar el plan o revisa la respuesta del agente.");
+        return;
+      }
       
       // v2.9.0: Recoger índices de sub-goals deshabilitados
       const enabledInputs = document.querySelectorAll('.plan-subgoal-enabled');
@@ -1752,6 +1815,7 @@
       currentGoal = null;
       currentExecutionProfile = null;
       currentContextStrategies = null;
+      currentExecutionPlanSteps = [];
     };
 
     // v2.8.0: Estado para el plan
@@ -1759,8 +1823,11 @@
     let currentGoal = null;
     let currentExecutionProfile = null;
     let currentContextStrategies = null;
+    let currentExecutionPlanSteps = [];
     
     async function sendAgentMessage(text, thinkingMsg, confirmed = false) {
+      console.log("[CometLocal] sendAgentMessage() llamado con text:", text, "confirmed:", confirmed);
+      
       // v2.7.0: Leer configuración de execution profile y context strategies
       const execProfileInput = document.querySelector('input[name="execProfile"]:checked');
       const executionProfileName = execProfileInput ? execProfileInput.value : null;
@@ -1803,19 +1870,46 @@
       // v2.8.0: Primera request: solo plan
       if (!confirmed) {
         payload.plan_only = true;
+        payload.execution_confirmed = false; // Explícitamente false para primera llamada
       } else {
         // Segunda request: ejecutar con confirmación
-        payload.execution_confirmed = true;
+        payload.execution_confirmed = true; // Boolean true, no string
+        payload.plan_only = false; // Explícitamente false para segunda llamada
+        // Añadir steps del plan guardado
+        if (currentExecutionPlanSteps && currentExecutionPlanSteps.length > 0) {
+          payload.steps = currentExecutionPlanSteps;
+          console.log("[CometLocal] Añadiendo steps al payload de ejecución:", currentExecutionPlanSteps.length, "sub-goals");
+        } else {
+          payload.steps = [];
+          console.warn("[CometLocal] No hay steps guardados, enviando array vacío");
+        }
       }
       
-      const res = await fetch(API_AGENT_ANSWER, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      // Asegurar que confirmed es siempre boolean
+      payload.execution_confirmed = confirmed === true;
+      
+      console.log("[CometLocal] Payload final ANTES de enviar:", JSON.stringify(payload, null, 2));
+      console.log("[CometLocal] confirmed (boolean):", payload.execution_confirmed, "tipo:", typeof payload.execution_confirmed);
+      
+      console.log("[CometLocal] Enviando petición POST a", API_AGENT_ANSWER, "con payload:", payload);
+      
+      let res;
+      try {
+        res = await fetch(API_AGENT_ANSWER, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        
+        console.log("[CometLocal] Respuesta recibida:", res.status, res.statusText);
+      } catch (err) {
+        console.error("[CometLocal] Error de red al hacer fetch:", err);
+        throw new Error(`Error de red: ${err.message}`);
+      }
 
       if (!res.ok) {
         const errorText = await res.text();
+        console.error("[CometLocal] Error HTTP en /agent/answer:", res.status, res.statusText, errorText);
         throw new Error(`HTTP ${res.status}: ${errorText}`);
       }
 
@@ -1830,6 +1924,10 @@
       
       // v2.8.0: Manejar plan de ejecución
       if (data.execution_plan && !confirmed) {
+        console.log("[CometLocal] Respuesta del planner (raw):", data);
+        console.log("[CometLocal] data.execution_plan:", data.execution_plan);
+        console.log("[CometLocal] data.execution_plan.sub_goals:", data.execution_plan.sub_goals);
+        
         currentPlan = data.execution_plan;
         thinkingMsg.classList.remove("thinking");
         
@@ -1842,7 +1940,12 @@
         if (data.planner_hints) {
           contentHtml += renderPlannerHints(data.planner_hints);
         }
+        // renderExecutionPlan guardará los steps automáticamente usando la misma fuente que el render
         contentHtml += renderExecutionPlan(data.execution_plan, thinkingMsg);
+        
+        // Verificar que los steps se guardaron correctamente después del render
+        console.log("[CometLocal] Después de renderExecutionPlan, currentExecutionPlanSteps:", currentExecutionPlanSteps);
+        console.log("[CometLocal] Después de renderExecutionPlan, currentExecutionPlanSteps.length:", currentExecutionPlanSteps.length);
         
         updateMessage(thinkingMsg, "PLAN DE EJECUCIÓN PROPUESTO", contentHtml);
         return;
@@ -1863,8 +1966,6 @@
       const metricsSummary = data.metrics_summary || null;
       // v2.2.0: Leer instrucciones de file upload
       const fileUploadInstructions = data.file_upload_instructions || null;
-      // v3.8.0: Leer Reasoning Spotlight
-      const reasoningSpotlight = data.reasoning_spotlight || null;
 
       // Update thinking message with final answer
       thinkingMsg.classList.remove("thinking");

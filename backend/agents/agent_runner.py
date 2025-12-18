@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Optional, Tuple, Dict, Any, TYPE_CHECKING
 import re
 import time
@@ -3085,6 +3086,8 @@ async def run_llm_agent(
         pass
 
     for step_idx in range(effective_max_steps):
+        print(f"[DEBUG_AGENT] Ejecutando step {step_idx+1}/{effective_max_steps}: {goal[:100] if goal else 'N/A'}")
+        logger.info("[AgentRunner] Ejecutando step %d/%d para goal: %r", step_idx + 1, effective_max_steps, goal)
         try:
             # Get observation
             observation = await browser.get_observation()
@@ -4046,6 +4049,1701 @@ def build_execution_plan(
     )
     
     return plan
+
+
+def _has_executable_actions(steps: List[Dict[str, Any]]) -> bool:
+    """
+    Verifica si los steps contienen acciones ejecutables (fill, click, submit).
+    
+    Args:
+        steps: Lista de steps (PlannedSubGoal serializados)
+        
+    Returns:
+        True si hay al menos una acción ejecutable, False en caso contrario
+    """
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        
+        # Verificar action explícita
+        action = step.get("action", "").lower() if step.get("action") else ""
+        if action in ("fill", "click", "submit"):
+            return True
+        
+        # Verificar expected_actions
+        expected_actions = step.get("expected_actions", [])
+        if isinstance(expected_actions, list):
+            if any(a in ("fill", "click", "submit") for a in expected_actions):
+                return True
+        
+        # Verificar si hay selector/value (indica acción ejecutable)
+        if step.get("selector") or step.get("value"):
+            return True
+    
+    return False
+
+
+async def generate_executable_actions_from_dom(
+    goal: str,
+    browser: BrowserController,
+    llm_client: Optional[Any] = None,
+    phase: int = 1,
+    previous_url: Optional[str] = None,
+) -> Optional[List[Dict[str, Any]]]:
+    """
+    Genera acciones ejecutables desde el DOM actual usando el LLM.
+    
+    v2.8.0+: Cuando los steps confirmados no tienen acciones ejecutables,
+    analiza el DOM actual y genera un plan de acciones (fill, click, submit)
+    usando el LLM.
+    
+    Args:
+        goal: Objetivo del usuario
+        browser: Controlador del navegador (debe tener página abierta)
+        llm_client: Cliente LLM (opcional, si no se proporciona se intenta obtener)
+        
+    Returns:
+        Lista de acciones ejecutables en formato:
+        [{"action": "fill", "selector": "#empresa", "value": "123"}, ...]
+        None si falla
+    """
+    import json
+    import re
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    # Verificar que hay página abierta
+    if not browser.page:
+        logger.warning("[ACTION_PLANNER] No hay página abierta para generar acciones")
+        return None
+    
+    # Obtener cliente LLM si no se proporciona
+    if llm_client is None:
+        try:
+            from openai import AsyncOpenAI
+            from backend.config import LLM_API_BASE, LLM_API_KEY
+            llm_client = AsyncOpenAI(
+                base_url=LLM_API_BASE,
+                api_key=LLM_API_KEY,
+            )
+        except Exception as e:
+            logger.warning(f"[ACTION_PLANNER] No se pudo obtener cliente LLM: {e}")
+            return None
+    
+    try:
+        logger.info(f"[ACTION_PLANNER] Generating executable actions from DOM (Phase {phase})...")
+        
+        # Obtener HTML de la página actual
+        html = await browser.page.content()
+        current_url = browser.page.url
+        
+        # Limitar tamaño del HTML para no exceder límites del LLM (primeros 50000 caracteres)
+        if len(html) > 50000:
+            html = html[:50000] + "\n... (truncado)"
+        
+        # Construir prompt para el LLM
+        system_prompt = """Eres un asistente experto que analiza HTML de formularios y genera acciones ejecutables.
+
+Tu tarea es analizar el HTML proporcionado y el objetivo del usuario, y generar una lista de acciones ejecutables en formato JSON estricto.
+
+Formato de salida (devuelve SOLO JSON, sin texto adicional):
+{
+  "actions": [
+    {"action": "fill", "selector": "#empresa", "value": "123"},
+    {"action": "fill", "selector": "#usuario", "value": "demo"},
+    {"action": "fill", "selector": "#password", "value": "demo"},
+    {"action": "click", "selector": "button[type='submit']"},
+    {"action": "navigate", "url": "/simulation/portal_a/upload.html?worker_id=W-001"},
+    {"action": "upload", "selector": "input[type='file']", "filepath": "USE_SAMPLE_FILE"}
+  ]
+}
+
+Tipos de acción:
+- "fill": Rellena un campo de formulario (requiere selector y value)
+- "fill_date": Rellena un campo de fecha input[type='date'] (requiere selector y value en formato yyyy-mm-dd, o "hoy" para hoy, o "hoy + 365" para dentro de un año)
+- "select": Selecciona una opción en un elemento <select> (requiere selector y value; value puede ser el label de la opción o el value)
+- "click": Hace click en un elemento (requiere selector CSS robusto)
+- "navigate": Navega a una URL (requiere url, puede ser relativa como "/path" o absoluta como "http://...")
+- "submit": Envía un formulario (requiere selector, o usa button[type='submit'] si no se especifica)
+- "upload": Sube un archivo (requiere selector de input[type='file'] y filepath; usa "USE_SAMPLE_FILE" si no se especifica archivo)
+
+Reglas:
+1. Usa selectores CSS específicos y robustos (preferir #id, luego input[name="..."], luego otros)
+2. Para fill, extrae el value del objetivo del usuario
+3. Para fill_date (campos de fecha como #issue_date, #expiry_date):
+   - Usa formato yyyy-mm-dd (ej: "2025-12-18")
+   - Si el objetivo dice "hoy" o "today", usa la fecha actual
+   - Si dice "dentro de 1 año" o "hoy + 365 días", calcula la fecha futura
+4. Para select (elementos <select> como #doc_type):
+   - Usa el label de la opción como value (ej: "Reconocimiento médico")
+   - O usa el value del option si es más específico
+5. Para submit, busca button[type='submit'] o botones con texto relevante
+4. Para upload:
+   - Si el objetivo menciona "sube un documento", "sube documento", "selecciona un archivo", "selecciona archivo", "sube archivo":
+     * Genera una acción: {"action":"upload","selector":"input[type='file']","filepath":"USE_SAMPLE_FILE"}
+     * Luego genera la acción de click/submit para enviar el formulario
+   - Busca input[type='file'] y usa "USE_SAMPLE_FILE" como filepath si no se especifica archivo
+   - IMPORTANTE: NUNCA generes acciones "click" para:
+     * input[type='file'] o #file_input
+     * botones/labels con texto "Seleccionar archivo", "Select file", "Elegir archivo"
+     * Cualquier elemento que pueda abrir el diálogo de selección de archivos
+     * Para adjuntar archivo usa SOLO action=upload con set_input_files.
+5. Para formularios completos de subida de documentación (upload.html):
+   - Si el objetivo menciona "rellena fechas", "sube documentación completa", "reconocimiento médico", o similar:
+     * Genera acciones en este orden:
+       1) {"action":"select","selector":"#doc_type","value":"Reconocimiento médico"} (o el tipo mencionado)
+       2) {"action":"fill_date","selector":"#issue_date","value":"hoy"} (o fecha de emisión mencionada)
+       3) {"action":"fill_date","selector":"#expiry_date","value":"hoy + 365"} (o fecha de caducidad mencionada)
+       4) {"action":"upload","selector":"input[type='file']","filepath":"USE_SAMPLE_FILE"}
+       5) {"action":"click","selector":"button:has-text('Simular subida')"} o {"action":"submit",...}
+5. Para navegar a enlaces en tablas (ej. dashboard de trabajadores):
+   - Si el objetivo menciona "sube documentación", "Subir documentación", un ID de trabajador (ej. "W-001") o nombre (ej. "Ana Pérez"):
+     * Busca en el HTML el enlace <a> dentro de la fila <tr> que contenga ese trabajador
+     * Puedes usar EITHER:
+       A) click con selector robusto: {"action":"click","selector":"tr:has-text('W-001') a:has-text('Subir documentación')"}
+       B) navigate con URL del href: {"action":"navigate","url":"/simulation/portal_a/upload.html?worker_id=W-001&worker_name=Ana%20P%C3%A9rez"}
+     * Preferir navigate si encuentras el href completo, click si no
+6. Si estás en una segunda fase (dashboard después de login), NO repitas acciones de login
+7. Devuelve SOLO el JSON, sin markdown, sin explicaciones, sin texto adicional
+8. Si no puedes determinar acciones, devuelve {"actions": []}"""
+
+        # Ajustar prompt según la fase
+        phase_instruction = ""
+        if phase == 2:
+            phase_instruction = f"\n\nIMPORTANTE: Esta es la FASE 2 (página actual: {current_url}). Ya se ejecutaron acciones de login en la fase anterior. Genera SOLO acciones que falten en la página actual (dashboard/panel), NO repitas acciones de login."
+        elif phase == 3:
+            phase_instruction = f"\n\nIMPORTANTE: Esta es la FASE 3 (página actual: {current_url}). Ya se ejecutaron acciones de login y navegación al dashboard. Estás en la pantalla de subida de documentación. Genera SOLO acciones que falten en esta pantalla. Si el objetivo menciona 'rellena fechas', 'sube documentación completa', 'reconocimiento médico', o similar, genera acciones en este orden: 1) select para #doc_type, 2) fill_date para #issue_date (usar 'hoy' si no se especifica), 3) fill_date para #expiry_date (usar 'hoy + 365' si no se especifica), 4) upload con input[type='file'] y filepath='USE_SAMPLE_FILE', 5) click/submit para 'Simular subida'. Si solo menciona 'sube un documento', genera upload y click/submit. NO repitas acciones anteriores. NUNCA generes acciones 'click' para input[type='file'], #file_input, botones/labels con texto 'Seleccionar archivo' o 'Select file' - para adjuntar archivo usa SOLO action=upload."
+        
+        user_prompt = f"""Objetivo del usuario:
+{goal}
+{phase_instruction}
+
+HTML de la página actual:
+{html}
+
+Genera las acciones ejecutables necesarias para cumplir el objetivo. Devuelve SOLO el JSON con el formato especificado."""
+
+        # Llamar al LLM (sin response_format para evitar problemas de compatibilidad)
+        response = await llm_client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.2,
+        )
+        
+        response_text = response.choices[0].message.content
+        if not response_text:
+            logger.warning("[ACTION_PLANNER] Respuesta vacía del LLM")
+            return None
+        
+        # Intentar parsear JSON
+        actions_data = None
+        try:
+            actions_data = json.loads(response_text)
+        except json.JSONDecodeError:
+            # Intentar extraer JSON con regex
+            json_match = re.search(r'\{[^{}]*"actions"[^{}]*\[[^\]]*\][^{}]*\}', response_text, re.DOTALL)
+            if json_match:
+                try:
+                    actions_data = json.loads(json_match.group(0))
+                except json.JSONDecodeError:
+                    pass
+        
+        if not actions_data or "actions" not in actions_data:
+            logger.warning(f"[ACTION_PLANNER] No se pudo parsear respuesta del LLM: {response_text[:200]}")
+            return None
+        
+        actions = actions_data.get("actions", [])
+        if not isinstance(actions, list):
+            logger.warning("[ACTION_PLANNER] 'actions' no es una lista")
+            return None
+        
+        # Validar y filtrar acciones
+        valid_actions = []
+        for action in actions:
+            if not isinstance(action, dict):
+                continue
+            
+            action_type = action.get("action", "").lower()
+            if action_type not in ("fill", "fill_date", "select", "click", "submit", "upload", "navigate"):
+                continue
+            
+            # Validar que fill/fill_date tenga selector y value
+            if action_type == "fill" or action_type == "fill_date":
+                if not action.get("selector") or not action.get("value"):
+                    continue
+            
+            # Validar que select tenga selector y value
+            if action_type == "select":
+                if not action.get("selector") or not action.get("value"):
+                    continue
+            
+            # Validar que click tenga selector
+            if action_type == "click":
+                if not action.get("selector"):
+                    continue
+                
+                # Guardrail: Si el selector es un file input, transformar a upload
+                selector_click = action.get("selector", "").lower()
+                file_input_patterns = [
+                    "input[type='file']",
+                    "input[type=\"file\"]",
+                    "#file_input",
+                    "input#file_input",
+                ]
+                
+                if any(pattern.lower() in selector_click for pattern in file_input_patterns):
+                    # Transformar click en upload
+                    logger.info(f"[ACTION_PLANNER] Transformando click en file input a upload: {action.get('selector')}")
+                    action["action"] = "upload"
+                    action["filepath"] = action.get("filepath", "USE_SAMPLE_FILE")
+                    action_type = "upload"  # Actualizar para que pase la validación de upload
+            
+            # Validar que upload tenga selector
+            if action_type == "upload":
+                if not action.get("selector"):
+                    # Intentar usar selector por defecto
+                    action["selector"] = "input[type='file']"
+                # filepath puede ser "USE_SAMPLE_FILE" o una ruta real
+                if not action.get("filepath"):
+                    action["filepath"] = "USE_SAMPLE_FILE"
+            
+            # Validar que navigate tenga url
+            if action_type == "navigate":
+                if not action.get("url"):
+                    continue
+            
+            # submit puede no tener selector (se usará fallback)
+            valid_actions.append(action)
+        
+        logger.info(f"[ACTION_PLANNER] Phase {phase} actions: {len(valid_actions)}")
+        return valid_actions
+        
+    except Exception as e:
+        logger.error(f"[ACTION_PLANNER] Error al generar acciones desde DOM: {e}", exc_info=True)
+        return None
+
+
+async def execute_step_with_playwright(
+    step: Dict[str, Any],
+    step_index: int,
+    browser: BrowserController,
+    execution_context: Optional[Dict[str, Any]] = None,
+) -> Optional[str]:
+    """
+    Ejecutor determinista de acciones con Playwright para steps confirmados.
+    
+    v2.8.0+: Ejecuta acciones de forma imperativa cuando un step requiere navegación, fill, click o submit,
+    sin depender del LLM. Esta función se ejecuta ANTES de que el LLM procese el step.
+    
+    Soporta acciones:
+    - navigate: Navega a una URL
+    - fill: Rellena un campo con un valor
+    - click: Hace click en un elemento
+    - submit: Envía un formulario
+    
+    Args:
+        step: Diccionario con la información del step (PlannedSubGoal serializado)
+        step_index: Índice del step (para naming de screenshots)
+        browser: Controlador del navegador
+        execution_context: Contexto opcional de ejecución
+        
+    Returns:
+        String descriptivo de la acción ejecutada, None si no se ejecutó ninguna acción
+    """
+    import re
+    from pathlib import Path
+    
+    # Asegurar que el navegador esté iniciado
+    if not browser.page:
+        logger.info("[EXECUTOR] Iniciando navegador para ejecución determinista")
+        await browser.start(headless=False)
+    
+    screenshots_dir = Path("screenshots")
+    screenshots_dir.mkdir(exist_ok=True)
+    
+    # Verificar expected_actions y action
+    expected_actions = step.get("expected_actions", [])
+    if not isinstance(expected_actions, list):
+        expected_actions = []
+    action = step.get("action", "").lower() if step.get("action") else ""
+    
+    # 1. NAVEGACIÓN
+    requires_navigation = False
+    if "navigate" in expected_actions or action == "navigate":
+        requires_navigation = True
+    # También detectar navigate si hay url en el step (viene del ActionPlanner)
+    if step.get("url") or step.get("target_url"):
+        requires_navigation = True
+    
+    if requires_navigation:
+        return await _execute_navigation(step, step_index, browser, screenshots_dir)
+    
+    # 2. SELECT
+    requires_select = False
+    if "select" in expected_actions or action == "select":
+        requires_select = True
+    
+    if requires_select:
+        return await _execute_select(step, step_index, browser, screenshots_dir)
+    
+    # 3. FILL (incluye fill_date)
+    requires_fill = False
+    if "fill" in expected_actions or action == "fill" or action == "fill_date":
+        requires_fill = True
+    
+    if requires_fill:
+        return await _execute_fill(step, step_index, browser, screenshots_dir)
+    
+    # 4. CLICK
+    requires_click = False
+    if "click" in expected_actions or action == "click":
+        requires_click = True
+    
+    if requires_click:
+        return await _execute_click(step, step_index, browser, screenshots_dir)
+    
+    # 4. SUBMIT
+    requires_submit = False
+    if "submit" in expected_actions or action == "submit":
+        requires_submit = True
+    
+    if requires_submit:
+        return await _execute_submit(step, step_index, browser, screenshots_dir)
+    
+    # 5. UPLOAD
+    requires_upload = False
+    if "upload" in expected_actions or action == "upload":
+        requires_upload = True
+    
+    if requires_upload:
+        return await _execute_upload(step, step_index, browser, screenshots_dir)
+    
+    # Si no se ejecutó ninguna acción, retornar None
+    return None
+
+
+async def _execute_navigation(
+    step: Dict[str, Any],
+    step_index: int,
+    browser: BrowserController,
+    screenshots_dir: "Path",
+) -> Optional[str]:
+    """Ejecuta navegación determinista."""
+    import re
+    from pathlib import Path
+    
+    # Resolver la URL con prioridad: step.url > step.target_url > primer http(s) en step.text/sub_goal
+    url = None
+    
+    # Prioridad 1: step.url
+    if step.get("url"):
+        url = str(step["url"]).strip()
+    # Prioridad 2: step.target_url
+    elif step.get("target_url"):
+        url = str(step["target_url"]).strip()
+    # Prioridad 3: Extraer primer http(s) de step.text o sub_goal
+    else:
+        text_to_search = ""
+        if step.get("text"):
+            text_to_search = str(step["text"])
+        elif step.get("sub_goal"):
+            text_to_search = str(step["sub_goal"])
+        
+        # Buscar URLs http(s) en el texto (patrón más robusto)
+        url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+[^\s<>"{}|\\^`\[\].,;!?]'
+        matches = re.findall(url_pattern, text_to_search)
+        if matches:
+            url = matches[0].strip()
+    
+    # Si no se encontró URL, retornar None
+    if not url:
+        logger.warning(f"[EXECUTOR] Step {step_index} requiere navegación pero no se encontró URL")
+        return None
+    
+    # Ejecutar navegación
+    try:
+        # Normalizar URL: decodificar entidades HTML (p.ej. &amp; -> &) y strip
+        import html
+        original_url = url
+        url = html.unescape(url).strip()
+        if url != original_url:
+            logger.info(f"[EXECUTOR] Unescaped URL: {original_url} -> {url}")
+            print(f"[EXECUTOR] Unescaped URL: {original_url} -> {url}")
+        
+        # Si la URL es relativa (empieza por "/"), convertir a absoluta
+        if url.startswith("/"):
+            current_url = browser.page.url
+            from urllib.parse import urlparse, urlunparse
+            parsed = urlparse(current_url)
+            # Construir URL absoluta con el mismo origin
+            url = urlunparse((parsed.scheme, parsed.netloc, url, "", "", ""))
+            logger.info(f"[EXECUTOR] Normalized relative URL {original_url} -> {url}")
+            print(f"[EXECUTOR] Normalized relative URL {original_url} -> {url}")
+        
+        # Dedupe: No navegar si ya estamos en esa URL
+        current_url = browser.page.url
+        # Normalizar URLs para comparación (sin trailing slash)
+        url_normalized = url.rstrip("/")
+        current_url_normalized = current_url.rstrip("/")
+        
+        if url_normalized == current_url_normalized:
+            logger.info(f"[EXECUTOR] Skip navigate (already at URL): {url}")
+            print(f"[EXECUTOR] Skip navigate (already at URL): {url}")
+            return f"Already at {url}"
+        
+        logger.info(f"[EXECUTOR] Navigated to {url}")
+        print(f"[EXECUTOR] Navigated to {url}")
+        
+        # Navegar a la URL
+        await browser.page.goto(url, wait_until="networkidle")
+        
+        # Esperar 2 segundos adicionales
+        await browser.page.wait_for_timeout(2000)
+        
+        # Guardar screenshot
+        screenshot_path = screenshots_dir / f"step_{step_index}_navigate.png"
+        await browser.page.screenshot(path=str(screenshot_path), full_page=True)
+        logger.info(f"[EXECUTOR] Screenshot guardado en {screenshot_path}")
+        
+        return f"Navigated to {url}"
+        
+    except Exception as e:
+        logger.error(f"[EXECUTOR] Error al navegar a {url}: {e}", exc_info=True)
+        return None
+
+
+async def _execute_fill(
+    step: Dict[str, Any],
+    step_index: int,
+    browser: BrowserController,
+    screenshots_dir: "Path",
+) -> Optional[str]:
+    """Ejecuta fill determinista (incluye fill_date para input type=date)."""
+    from pathlib import Path
+    # Extraer selector y value
+    selector = step.get("selector") or step.get("field_selector")
+    value = step.get("value") or step.get("field_value")
+    
+    # Detectar si es fill_date (action == "fill_date" o selector es campo de fecha)
+    is_date_fill = step.get("action", "").lower() == "fill_date"
+    if not is_date_fill and selector:
+        # Verificar si el selector parece un campo de fecha
+        date_selectors = ["#issue_date", "#expiry_date", "input[type='date']", "input[type=\"date\"]"]
+        if any(ds in selector.lower() for ds in date_selectors):
+            is_date_fill = True
+    
+    # Si es fill_date, resolver selectores de fecha de forma robusta
+    if is_date_fill:
+        # Usar la función helper que resuelve todos los inputs de fecha
+        issue_selector, expiry_selector = await resolve_date_inputs(browser.page)
+        
+        # Determinar qué campo necesitamos
+        selector_lower = (selector or "").lower()
+        value_lower = (value or "").lower()
+        
+        is_issue = False
+        is_expiry = False
+        
+        # Detectar por selector
+        if "issue" in selector_lower or "emisión" in selector_lower or "emision" in selector_lower:
+            is_issue = True
+        elif "expiry" in selector_lower or "caducidad" in selector_lower or "vencimiento" in selector_lower:
+            is_expiry = True
+        
+        # Detectar por value
+        if not is_issue and not is_expiry:
+            if "hoy" in value_lower or "today" in value_lower:
+                if "+" not in value_lower and "365" not in value_lower and "año" not in value_lower:
+                    is_issue = True
+                else:
+                    is_expiry = True
+        
+        # Asignar selector resuelto
+        if is_issue and issue_selector:
+            selector = issue_selector
+            logger.info(f"[EXECUTOR] Resolved issue_date selector: {selector}")
+        elif is_expiry and expiry_selector:
+            selector = expiry_selector
+            logger.info(f"[EXECUTOR] Resolved expiry_date selector: {selector}")
+        elif issue_selector:
+            # Si no sabemos cuál, usar el primero (issue)
+            selector = issue_selector
+            logger.info(f"[EXECUTOR] Resolved date selector (default to issue): {selector}")
+        
+        if not selector:
+            logger.warning(f"[EXECUTOR] Step {step_index} requiere fill_date pero no se encontraron inputs de fecha")
+            return None
+    
+    # Si no hay selector, intentar inferirlo del sub_goal
+    if not selector and step.get("sub_goal"):
+        sub_goal = str(step["sub_goal"]).lower()
+        # Intentar inferir selector común del texto
+        if "empresa" in sub_goal or "company" in sub_goal:
+            selector = "#empresa, input[name='empresa'], input[id='empresa']"
+        elif "usuario" in sub_goal or "user" in sub_goal or "username" in sub_goal:
+            selector = "#usuario, input[name='usuario'], input[id='usuario'], input[name='username']"
+        elif "password" in sub_goal or "contraseña" in sub_goal or "pass" in sub_goal:
+            selector = "#password, input[name='password'], input[type='password']"
+    
+    # Si no hay value, intentar inferirlo del sub_goal o usar un valor por defecto
+    if not value and step.get("sub_goal"):
+        sub_goal = str(step["sub_goal"]).lower()
+        # Para login simulado, usar valores de prueba
+        if "empresa" in sub_goal:
+            value = "test_empresa"
+        elif "usuario" in sub_goal or "user" in sub_goal:
+            value = "test_usuario"
+        elif "password" in sub_goal or "contraseña" in sub_goal:
+            value = "test_password"
+    
+    if not selector:
+        logger.warning(f"[EXECUTOR] Step {step_index} requiere fill pero no se encontró selector")
+        return None
+    
+    if not value:
+        logger.warning(f"[EXECUTOR] Step {step_index} requiere fill pero no se encontró value")
+        return None
+    
+    try:
+        # Si es fill_date y el selector es #issue_date o #expiry_date, verificar si existe
+        if is_date_fill and (selector == "#issue_date" or selector == "#expiry_date"):
+            try:
+                locator = browser.page.locator(selector).first
+                count = await locator.count()
+                if count == 0:
+                    # Fallback automático: usar input[type='date'] por posición
+                    logger.info(f"[EXECUTOR] Date fallback: selector {selector} not found, using input[type='date'] by position")
+                    success = await _fill_date_with_fallback(browser.page, selector, value, step_index)
+                    if success:
+                        # Para campos de fecha, usar formato yyyy-mm-dd
+                        from datetime import datetime, timedelta
+                        if value.lower() == "hoy" or value.lower() == "today":
+                            value = datetime.now().strftime("%Y-%m-%d")
+                        elif "hoy" in value.lower() or "today" in value.lower():
+                            try:
+                                if "+" in value or "más" in value.lower() or "plus" in value.lower():
+                                    import re
+                                    days_match = re.search(r'(\d+)', value)
+                                    if days_match:
+                                        days = int(days_match.group(1))
+                                        value = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
+                                    else:
+                                        value = datetime.now().strftime("%Y-%m-%d")
+                                else:
+                                    value = datetime.now().strftime("%Y-%m-%d")
+                            except Exception:
+                                value = datetime.now().strftime("%Y-%m-%d")
+                        
+                        logger.info(f"[EXECUTOR] Filled date {selector} with {value}")
+                        print(f"[EXECUTOR] Filled date {selector} with {value}")
+                        
+                        # Esperar un momento
+                        await browser.page.wait_for_timeout(500)
+                        
+                        # Guardar screenshot
+                        screenshot_path = screenshots_dir / f"step_{step_index}_fill.png"
+                        try:
+                            await browser.page.screenshot(path=str(screenshot_path), full_page=True, timeout=5000)
+                            logger.info(f"[EXECUTOR] Screenshot guardado en {screenshot_path}")
+                        except Exception as e:
+                            if "timeout" in str(e).lower() or "timeout" in type(e).__name__.lower():
+                                logger.warning(f"[EXECUTOR] Screenshot skipped (timeout) after fill_date: {selector}")
+                            else:
+                                logger.warning(f"[EXECUTOR] Screenshot failed after fill_date: {selector} - {e}")
+                        
+                        return f"Filled date {selector} with {value}"
+                    else:
+                        logger.warning(f"[EXECUTOR] Step {step_index}: Date fallback failed for {selector}")
+                        return None
+            except Exception:
+                pass  # Continuar con el flujo normal
+        
+        # Intentar con el primer selector si hay múltiples separados por coma
+        selectors = [s.strip() for s in selector.split(",")]
+        success = False
+        
+        for sel in selectors:
+            try:
+                locator = browser.page.locator(sel).first
+                await locator.wait_for(state="visible", timeout=2000)
+                await locator.click()
+                await locator.fill(value)
+                success = True
+                selector = sel  # Usar el selector que funcionó
+                break
+            except Exception:
+                continue
+        
+        if not success:
+            # FALLBACK QUIRÚRGICO: Si el selector es #issue_date o #expiry_date y no se encontró, usar input[type='date'] por posición
+            if selector in ["#issue_date", "#expiry_date"] or "issue_date" in selector or "expiry_date" in selector:
+                try:
+                    # Buscar todos los inputs date
+                    date_inputs = await browser.page.query_selector_all("input[type='date']")
+                    
+                    if len(date_inputs) >= 2:
+                        issue_el = date_inputs[0]
+                        expiry_el = date_inputs[1]
+                    elif len(date_inputs) == 1:
+                        issue_el = date_inputs[0]
+                        expiry_el = None
+                    else:
+                        issue_el = None
+                        expiry_el = None
+                    
+                    # Calcular fechas
+                    from datetime import datetime, timedelta
+                    hoy = datetime.now().strftime("%Y-%m-%d")
+                    cad = (datetime.now() + timedelta(days=365)).strftime("%Y-%m-%d")
+                    
+                    # Determinar qué campo necesitamos
+                    is_issue = "#issue_date" in selector or "issue_date" in selector
+                    is_expiry = "#expiry_date" in selector or "expiry_date" in selector
+                    
+                    # Rellenar según el selector
+                    if is_issue and issue_el:
+                        await issue_el.evaluate(
+                            """(el, v) => {
+                                el.value = v;
+                                el.dispatchEvent(new Event('input', {bubbles: true}));
+                                el.dispatchEvent(new Event('change', {bubbles: true}));
+                            }""",
+                            hoy
+                        )
+                        logger.info(f"[EXECUTOR] Date fallback filled issue_date using input[type=date][0] = {hoy}")
+                        print(f"[EXECUTOR] Date fallback filled issue_date using input[type=date][0] = {hoy}")
+                        
+                        # Esperar un momento
+                        await browser.page.wait_for_timeout(500)
+                        
+                        # Guardar screenshot
+                        screenshot_path = screenshots_dir / f"step_{step_index}_fill.png"
+                        try:
+                            await browser.page.screenshot(path=str(screenshot_path), full_page=True, timeout=5000)
+                            logger.info(f"[EXECUTOR] Screenshot guardado en {screenshot_path}")
+                        except Exception as e:
+                            if "timeout" in str(e).lower() or "timeout" in type(e).__name__.lower():
+                                logger.warning(f"[EXECUTOR] Screenshot skipped (timeout) after date fallback")
+                            else:
+                                logger.warning(f"[EXECUTOR] Screenshot failed after date fallback: {e}")
+                        
+                        return f"Filled date issue_date with {hoy} (fallback)"
+                    
+                    elif is_expiry and expiry_el:
+                        await expiry_el.evaluate(
+                            """(el, v) => {
+                                el.value = v;
+                                el.dispatchEvent(new Event('input', {bubbles: true}));
+                                el.dispatchEvent(new Event('change', {bubbles: true}));
+                            }""",
+                            cad
+                        )
+                        logger.info(f"[EXECUTOR] Date fallback filled expiry_date using input[type=date][1] = {cad}")
+                        print(f"[EXECUTOR] Date fallback filled expiry_date using input[type=date][1] = {cad}")
+                        
+                        # Esperar un momento
+                        await browser.page.wait_for_timeout(500)
+                        
+                        # Guardar screenshot
+                        screenshot_path = screenshots_dir / f"step_{step_index}_fill.png"
+                        try:
+                            await browser.page.screenshot(path=str(screenshot_path), full_page=True, timeout=5000)
+                            logger.info(f"[EXECUTOR] Screenshot guardado en {screenshot_path}")
+                        except Exception as e:
+                            if "timeout" in str(e).lower() or "timeout" in type(e).__name__.lower():
+                                logger.warning(f"[EXECUTOR] Screenshot skipped (timeout) after date fallback")
+                            else:
+                                logger.warning(f"[EXECUTOR] Screenshot failed after date fallback: {e}")
+                        
+                        return f"Filled date expiry_date with {cad} (fallback)"
+                    
+                    else:
+                        # No hay suficiente inputs date o no se pudo determinar qué campo
+                        if is_issue and not issue_el:
+                            logger.warning(f"[EXECUTOR] Date fallback: no date inputs found for issue_date")
+                        elif is_expiry and not expiry_el:
+                            logger.warning(f"[EXECUTOR] Date fallback: not enough date inputs for expiry_date (found {len(date_inputs)})")
+                except Exception as e:
+                    logger.warning(f"[EXECUTOR] Date fallback error: {e}", exc_info=True)
+                    # Continuar para loggear el error original
+            
+            logger.warning(f"[EXECUTOR] Step {step_index}: No se pudo encontrar elemento con selector: {selector}")
+            return None
+        
+        # Para campos de fecha, usar formato yyyy-mm-dd
+        if is_date_fill:
+            # Si el value no está en formato yyyy-mm-dd, intentar convertir
+            # Por ahora, asumimos que viene en formato correcto o es "hoy" / "hoy + 365 días"
+            from datetime import datetime, timedelta
+            if value.lower() == "hoy" or value.lower() == "today":
+                value = datetime.now().strftime("%Y-%m-%d")
+            elif "hoy" in value.lower() or "today" in value.lower():
+                # Intentar parsear "hoy + 365 días" o similar
+                try:
+                    days_match = None
+                    if "+" in value or "más" in value.lower() or "plus" in value.lower():
+                        # Buscar número de días
+                        import re
+                        days_match = re.search(r'(\d+)', value)
+                        if days_match:
+                            days = int(days_match.group(1))
+                            value = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
+                        else:
+                            value = datetime.now().strftime("%Y-%m-%d")
+                    else:
+                        value = datetime.now().strftime("%Y-%m-%d")
+                except Exception:
+                    value = datetime.now().strftime("%Y-%m-%d")
+            
+            logger.info(f"[EXECUTOR] Filled date {selector} with {value}")
+            print(f"[EXECUTOR] Filled date {selector} with {value}")
+        else:
+            logger.info(f"[EXECUTOR] Filled {selector} with value: {value[:20]}...")
+            print(f"[EXECUTOR] Filled {selector} with value: {value[:20]}...")
+        
+        # Esperar un momento
+        await browser.page.wait_for_timeout(500)
+        
+        # Guardar screenshot
+        screenshot_path = screenshots_dir / f"step_{step_index}_fill.png"
+        await browser.page.screenshot(path=str(screenshot_path), full_page=True)
+        logger.info(f"[EXECUTOR] Screenshot guardado en {screenshot_path}")
+        
+        if is_date_fill:
+            return f"Filled date {selector} with {value}"
+        else:
+            return f"Filled {selector} with {value[:20]}..."
+        
+    except Exception as e:
+        logger.error(f"[EXECUTOR] Error al hacer fill en step {step_index}: {e}", exc_info=True)
+        return None
+
+
+async def _fill_date_with_fallback(
+    page,
+    selector: str,
+    value: str,
+    step_index: int,
+) -> bool:
+    """
+    Rellena fechas usando fallback por posición cuando los IDs no existen.
+    Retorna True si tuvo éxito, False si no.
+    """
+    try:
+        from datetime import datetime, timedelta
+        
+        # Determinar qué campo necesitamos
+        is_issue = selector == "#issue_date"
+        is_expiry = selector == "#expiry_date"
+        
+        # Obtener todos los inputs date visibles
+        date_inputs = await page.query_selector_all("input[type='date']")
+        
+        if len(date_inputs) == 0:
+            logger.warning(f"[EXECUTOR] Date fallback: no input[type='date'] found on page")
+            return False
+        
+        # Determinar qué input usar
+        target_input = None
+        if is_issue:
+            if len(date_inputs) >= 1:
+                target_input = date_inputs[0]
+                logger.info(f"[EXECUTOR] Date fallback: using input[type=date][0] for issue_date")
+            else:
+                logger.warning(f"[EXECUTOR] Date fallback: not enough date inputs for issue_date")
+                return False
+        elif is_expiry:
+            if len(date_inputs) >= 2:
+                target_input = date_inputs[1]
+                logger.info(f"[EXECUTOR] Date fallback: using input[type=date][1] for expiry_date")
+            elif len(date_inputs) == 1:
+                logger.warning(f"[EXECUTOR] Date fallback: only one date input found, expiry_date will not be filled")
+                return False
+            else:
+                logger.warning(f"[EXECUTOR] Date fallback: not enough date inputs for expiry_date")
+                return False
+        
+        if not target_input:
+            return False
+        
+        # Generar valor de fecha
+        date_value = None
+        if value.lower() == "hoy" or value.lower() == "today":
+            date_value = datetime.now().strftime("%Y-%m-%d")
+        elif "hoy" in value.lower() or "today" in value.lower():
+            try:
+                if "+" in value or "más" in value.lower() or "plus" in value.lower():
+                    import re
+                    days_match = re.search(r'(\d+)', value)
+                    if days_match:
+                        days = int(days_match.group(1))
+                        date_value = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
+                    else:
+                        date_value = datetime.now().strftime("%Y-%m-%d")
+                else:
+                    date_value = datetime.now().strftime("%Y-%m-%d")
+            except Exception:
+                date_value = datetime.now().strftime("%Y-%m-%d")
+        else:
+            # Asumir que viene en formato YYYY-MM-DD
+            date_value = value
+        
+        # Rellenar usando evaluate para setear value y disparar eventos
+        await target_input.evaluate(
+            """(el, v) => {
+                el.value = v;
+                el.dispatchEvent(new Event('input', {bubbles: true}));
+                el.dispatchEvent(new Event('change', {bubbles: true}));
+            }""",
+            date_value
+        )
+        
+        logger.info(f"[EXECUTOR] Filled date {'issue' if is_issue else 'expiry'} with {date_value}")
+        print(f"[EXECUTOR] Filled date {'issue' if is_issue else 'expiry'} with {date_value}")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"[EXECUTOR] Error en date fallback: {e}", exc_info=True)
+        return False
+
+
+async def resolve_date_inputs(page) -> tuple[Optional[str], Optional[str]]:
+    """
+    Resuelve los selectores de inputs de fecha de forma robusta.
+    Retorna (issue_selector, expiry_selector) donde cada uno puede ser None.
+    """
+    try:
+        issue_selector = None
+        expiry_selector = None
+        
+        # 1) Probar IDs conocidos
+        try:
+            issue_loc = page.locator("#issue_date").first
+            if await issue_loc.count() > 0:
+                input_type = await issue_loc.get_attribute("type")
+                if input_type == "date":
+                    issue_selector = "#issue_date"
+                    logger.info(f"[EXECUTOR] Found issue_date by ID: #issue_date")
+        except Exception:
+            pass
+        
+        try:
+            expiry_loc = page.locator("#expiry_date").first
+            if await expiry_loc.count() > 0:
+                input_type = await expiry_loc.get_attribute("type")
+                if input_type == "date":
+                    expiry_selector = "#expiry_date"
+                    logger.info(f"[EXECUTOR] Found expiry_date by ID: #expiry_date")
+        except Exception:
+            pass
+        
+        # 2) Si no existen, buscar todos los input[type='date'] en la página
+        if not issue_selector or not expiry_selector:
+            try:
+                date_inputs = page.locator("input[type='date']")
+                count = await date_inputs.count()
+                
+                if count >= 2:
+                    # Si hay >=2: usar el primero como issue y el segundo como expiry
+                    if not issue_selector:
+                        issue_selector = "input[type='date']:nth-of-type(1)"
+                        logger.info(f"[EXECUTOR] Resolved issue_date by position: first input[type='date']")
+                    if not expiry_selector:
+                        expiry_selector = "input[type='date']:nth-of-type(2)"
+                        logger.info(f"[EXECUTOR] Resolved expiry_date by position: second input[type='date']")
+                elif count == 1:
+                    # Si hay ==1: usar el único como issue y no rellenar expiry (pero loggear)
+                    if not issue_selector:
+                        issue_selector = "input[type='date']:nth-of-type(1)"
+                        logger.info(f"[EXECUTOR] Resolved issue_date by position: only input[type='date']")
+                    if not expiry_selector:
+                        logger.warning(f"[EXECUTOR] Only one date input found, expiry_date will not be filled")
+            except Exception as e:
+                logger.warning(f"[EXECUTOR] Could not resolve date inputs by position: {e}")
+        
+        return (issue_selector, expiry_selector)
+        
+    except Exception as e:
+        logger.error(f"[EXECUTOR] Error al resolver inputs de fecha: {e}", exc_info=True)
+        return (None, None)
+
+
+async def _execute_select(
+    step: Dict[str, Any],
+    step_index: int,
+    browser: BrowserController,
+    screenshots_dir: "Path",
+) -> Optional[str]:
+    """Ejecuta select determinista."""
+    from pathlib import Path
+    
+    # Extraer selector y value
+    selector = step.get("selector") or step.get("select_selector")
+    value = step.get("value") or step.get("select_value")
+    
+    # Si no hay selector, usar fallback
+    if not selector:
+        selector = "select"
+    
+    if not value:
+        logger.warning(f"[EXECUTOR] Step {step_index} requiere select pero no se encontró value")
+        return None
+    
+    try:
+        # Intentar con el primer selector si hay múltiples separados por coma
+        selectors = [s.strip() for s in selector.split(",")]
+        success = False
+        
+        for sel in selectors:
+            try:
+                locator = browser.page.locator(sel).first
+                await locator.wait_for(state="visible", timeout=2000)
+                
+                # Intentar seleccionar por label primero (más robusto)
+                try:
+                    await locator.select_option(label=value)
+                    success = True
+                    selector = sel  # Usar el selector que funcionó
+                    logger.info(f"[EXECUTOR] Selected {value} on {selector} (by label)")
+                    break
+                except Exception:
+                    # Si falla por label, intentar por value
+                    try:
+                        await locator.select_option(value=value)
+                        success = True
+                        selector = sel
+                        logger.info(f"[EXECUTOR] Selected {value} on {selector} (by value)")
+                        break
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+        
+        if not success:
+            logger.warning(f"[EXECUTOR] Step {step_index}: No se pudo seleccionar {value} en {selector}")
+            return None
+        
+        logger.info(f"[EXECUTOR] Selected {value} on {selector}")
+        print(f"[EXECUTOR] Selected {value} on {selector}")
+        
+        # Esperar un momento
+        await browser.page.wait_for_timeout(500)
+        
+        # Guardar screenshot (opcional, con timeout corto)
+        screenshot_path = screenshots_dir / f"step_{step_index}_select.png"
+        try:
+            await browser.page.screenshot(path=str(screenshot_path), full_page=True, timeout=5000)
+            logger.info(f"[EXECUTOR] Screenshot guardado en {screenshot_path}")
+        except Exception as e:
+            if "timeout" in str(e).lower() or "timeout" in type(e).__name__.lower():
+                logger.warning(f"[EXECUTOR] Screenshot skipped (timeout) after select: {selector}")
+            else:
+                logger.warning(f"[EXECUTOR] Screenshot failed after select: {selector} - {e}")
+        
+        return f"Selected {value} on {selector}"
+        
+    except Exception as e:
+        logger.error(f"[EXECUTOR] Error al hacer select en step {step_index}: {e}", exc_info=True)
+        return None
+
+
+async def _execute_click(
+    step: Dict[str, Any],
+    step_index: int,
+    browser: BrowserController,
+    screenshots_dir: "Path",
+) -> Optional[str]:
+    """Ejecuta click determinista."""
+    from pathlib import Path
+    # Extraer selector
+    selector = step.get("selector") or step.get("button_selector")
+    
+    # Si el selector parece una URL, convertir a navigate
+    if selector and (selector.startswith("http://") or selector.startswith("https://") or selector.startswith("/")):
+        # Convertir a step de navigate
+        step_nav = step.copy()
+        step_nav["url"] = selector
+        step_nav["action"] = "navigate"
+        return await _execute_navigation(step_nav, step_index, browser, screenshots_dir)
+    
+    # Si no hay selector, intentar inferirlo del sub_goal
+    if not selector and step.get("sub_goal"):
+        sub_goal = str(step["sub_goal"]).lower()
+        # Intentar inferir selector común del texto
+        if "botón" in sub_goal or "button" in sub_goal or "enviar" in sub_goal or "submit" in sub_goal:
+            selector = "button[type='submit'], button:has-text('Acceder'), button:has-text('Enviar'), button:has-text('Submit')"
+    
+    if not selector:
+        logger.warning(f"[EXECUTOR] Step {step_index} requiere click pero no se encontró selector")
+        return None
+    
+    # Inicializar is_file_input siempre (evitar UnboundLocalError)
+    is_file_input = False
+    selector_lower = (selector or "").lower()
+    
+    # EXCEPCIÓN CRÍTICA: Nunca bloquear botones de acción importantes (ANTES de cualquier otra verificación)
+    allowed_buttons = ["simular subida", "enviar", "acceder", "submit", "send"]
+    is_allowed_button = any(btn in selector_lower for btn in allowed_buttons)
+    
+    if is_allowed_button:
+        # Permitir click en estos botones sin aplicar guardrail - NUNCA bloquear
+        logger.info(f"[EXECUTOR] Allowed button click (bypassing file dialog guardrail): {selector}")
+        is_file_input = False  # Asegurar que no se bloquee
+    else:
+        # Calcular is_file_input de forma segura (sin depender de ramas)
+        is_file_input = (
+            "input[type='file']" in selector_lower
+            or "input[type=\"file\"]" in selector_lower
+            or "#file_input" in selector_lower
+            or "file_input" in selector_lower
+            or "#file" in selector_lower
+            or "seleccionar archivo" in selector_lower
+            or "seleccionararchivo" in selector_lower
+            or "select file" in selector_lower
+            or "selectfile" in selector_lower
+            or "elegir archivo" in selector_lower
+            or "button:has-text(\"seleccionar archivo\")" in selector_lower
+            or "label:has-text(\"seleccionar archivo\")" in selector_lower
+            or "text=seleccionar archivo" in selector_lower
+            or "text=select file" in selector_lower
+        )
+        
+        # Si no se detectó por patrón, verificar el elemento antes de hacer click
+        if not is_file_input:
+            try:
+                # Verificar si el elemento es un input file o label asociado
+                for sel in [s.strip() for s in selector.split(",")]:
+                    try:
+                        locator = browser.page.locator(sel).first
+                        await locator.wait_for(state="visible", timeout=1000)
+                        
+                        # Verificar si es input[type='file']
+                        tag_name = await locator.evaluate("el => el.tagName.toLowerCase()")
+                        if tag_name == "input":
+                            input_type = await locator.get_attribute("type")
+                            if input_type == "file":
+                                is_file_input = True
+                                break
+                        
+                        # Verificar si es label asociado a input file
+                        if tag_name == "label":
+                            # Buscar el input asociado por 'for' o dentro del label
+                            input_for = await locator.get_attribute("for")
+                            if input_for:
+                                input_locator = browser.page.locator(f"input#{input_for}").first
+                                try:
+                                    input_type = await input_locator.get_attribute("type")
+                                    if input_type == "file":
+                                        is_file_input = True
+                                        break
+                                except Exception:
+                                    pass
+                            
+                            # Verificar si hay input[type='file'] dentro del label
+                            file_input_inside = browser.page.locator(f"{sel} input[type='file']").first
+                            try:
+                                if await file_input_inside.count() > 0:
+                                    is_file_input = True
+                                    break
+                            except Exception:
+                                pass
+                        
+                        # Verificar texto del elemento (botón/label con "Seleccionar archivo")
+                        element_text = await locator.text_content()
+                        if element_text:
+                            text_lower = element_text.lower().strip()
+                            file_text_patterns = [
+                                "seleccionar archivo",
+                                "seleccionararchivo",
+                                "select file",
+                                "selectfile",
+                                "elegir archivo",
+                                "elegirarchivo",
+                                "choose file",
+                                "choosefile",
+                            ]
+                            if any(phrase in text_lower for phrase in file_text_patterns):
+                                # Si el texto contiene "seleccionar archivo", bloquear directamente
+                                is_file_input = True
+                                logger.info(f"[EXECUTOR] Detected file selection element by text: {text_lower}")
+                                break
+                            
+                            # También verificar si está asociado a un input file (más robusto)
+                            try:
+                                # Buscar input file en el mismo form o contenedor
+                                form_or_parent = await locator.evaluate("""
+                                    el => {
+                                        const form = el.closest('form');
+                                        if (form) {
+                                            const fileInput = form.querySelector('input[type=\"file\"]');
+                                            if (fileInput) return true;
+                                        }
+                                        const parent = el.parentElement;
+                                        if (parent) {
+                                            const fileInput = parent.querySelector('input[type=\"file\"]');
+                                            if (fileInput) return true;
+                                        }
+                                        // Verificar si es label y su htmlFor apunta a input file
+                                        if (el.tagName === 'LABEL' && el.htmlFor) {
+                                            const targetInput = document.getElementById(el.htmlFor);
+                                            if (targetInput && targetInput.type === 'file') return true;
+                                        }
+                                        return false;
+                                    }
+                                """)
+                                if form_or_parent:
+                                    is_file_input = True
+                                    logger.info(f"[EXECUTOR] Detected file selection element by association")
+                                    break
+                            except Exception:
+                                pass
+                    except Exception:
+                        continue
+            except Exception:
+                pass  # Continuar si no se puede verificar
+        try:
+            # Verificar si el elemento es un input file o label asociado
+            for sel in [s.strip() for s in selector.split(",")]:
+                try:
+                    locator = browser.page.locator(sel).first
+                    await locator.wait_for(state="visible", timeout=1000)
+                    
+                    # Verificar si es input[type='file']
+                    tag_name = await locator.evaluate("el => el.tagName.toLowerCase()")
+                    if tag_name == "input":
+                        input_type = await locator.get_attribute("type")
+                        if input_type == "file":
+                            is_file_input = True
+                            break
+                    
+                    # Verificar si es label asociado a input file
+                    if tag_name == "label":
+                        # Buscar el input asociado por 'for' o dentro del label
+                        input_for = await locator.get_attribute("for")
+                        if input_for:
+                            input_locator = browser.page.locator(f"input#{input_for}").first
+                            try:
+                                input_type = await input_locator.get_attribute("type")
+                                if input_type == "file":
+                                    is_file_input = True
+                                    break
+                            except Exception:
+                                pass
+                        
+                        # Verificar si hay input[type='file'] dentro del label
+                        file_input_inside = browser.page.locator(f"{sel} input[type='file']").first
+                        try:
+                            if await file_input_inside.count() > 0:
+                                is_file_input = True
+                                break
+                        except Exception:
+                            pass
+                    
+                    # Verificar texto del elemento (botón/label con "Seleccionar archivo")
+                    element_text = await locator.text_content()
+                    if element_text:
+                        text_lower = element_text.lower().strip()
+                        file_text_patterns = [
+                            "seleccionar archivo",
+                            "seleccionararchivo",
+                            "select file",
+                            "selectfile",
+                            "elegir archivo",
+                            "elegirarchivo",
+                            "choose file",
+                            "choosefile",
+                        ]
+                        if any(phrase in text_lower for phrase in file_text_patterns):
+                            # Si el texto contiene "seleccionar archivo", bloquear directamente
+                            is_file_input = True
+                            logger.info(f"[EXECUTOR] Detected file selection element by text: {text_lower}")
+                            break
+                        
+                        # También verificar si está asociado a un input file (más robusto)
+                        try:
+                            # Buscar input file en el mismo form o contenedor
+                            form_or_parent = await locator.evaluate("""
+                                el => {
+                                    const form = el.closest('form');
+                                    if (form) {
+                                        const fileInput = form.querySelector('input[type=\"file\"]');
+                                        if (fileInput) return true;
+                                    }
+                                    const parent = el.parentElement;
+                                    if (parent) {
+                                        const fileInput = parent.querySelector('input[type=\"file\"]');
+                                        if (fileInput) return true;
+                                    }
+                                    // Verificar si es label y su htmlFor apunta a input file
+                                    if (el.tagName === 'LABEL' && el.htmlFor) {
+                                        const targetInput = document.getElementById(el.htmlFor);
+                                        if (targetInput && targetInput.type === 'file') return true;
+                                    }
+                                    return false;
+                                }
+                            """)
+                            if form_or_parent:
+                                is_file_input = True
+                                logger.info(f"[EXECUTOR] Detected file selection element by association")
+                                break
+                        except Exception:
+                            pass
+                except Exception:
+                    continue
+        except Exception:
+            pass  # Continuar si no se puede verificar
+    
+    # Si es un file input o elemento asociado, convertir a upload o ignorar
+    # (solo si NO es un botón permitido)
+    if is_file_input and not is_allowed_button:
+        logger.info(f"[EXECUTOR] Skipped click that would open file dialog: {selector}")
+        print(f"[EXECUTOR] Skipped click that would open file dialog: {selector}")
+        
+        # Guardrail: Transformar click en file input a upload (solo si no se ha hecho upload aún)
+        execution_context = step.get("execution_context") or {}
+        execution_flags = execution_context.get("execution_flags", {})
+        upload_done = execution_flags.get("upload_done", False)
+        
+        if not upload_done:
+            step_upload = step.copy()
+            step_upload["action"] = "upload"
+            # Si el selector es un label o botón, buscar el input file real
+            if "label" in selector.lower() or "button" in selector.lower():
+                step_upload["selector"] = "input[type='file']"
+            else:
+                step_upload["selector"] = selector
+            step_upload["filepath"] = "USE_SAMPLE_FILE"
+            
+            # Ejecutar upload en lugar de click
+            return await _execute_upload(step_upload, step_index, browser, screenshots_dir)
+        else:
+            # Si ya se hizo upload, simplemente retornar sin error
+            logger.info(f"[EXECUTOR] Upload already done, skipping click on file input")
+            return None
+    
+    try:
+        # Intentar con el primer selector si hay múltiples separados por coma
+        selectors = [s.strip() for s in selector.split(",")]
+        success = False
+        
+        for sel in selectors:
+            try:
+                locator = browser.page.locator(sel).first
+                await locator.wait_for(state="visible", timeout=2000)
+                await locator.click()
+                success = True
+                selector = sel  # Usar el selector que funcionó
+                break
+            except Exception:
+                continue
+        
+        if not success:
+            # Fallback: Intentar encontrar botones comunes si el selector original falló
+            fallback_selectors = [
+                'button:has-text("Simular subida")',
+                'text=Simular subida',
+                'button:has-text("Enviar")',
+                'text=Enviar',
+                'button[type="submit"]',
+                'input[type="submit"]',
+            ]
+            
+            for fallback_sel in fallback_selectors:
+                try:
+                    locator = browser.page.locator(fallback_sel).first
+                    await locator.wait_for(state="visible", timeout=2000)
+                    await locator.click()
+                    success = True
+                    selector = fallback_sel
+                    logger.info(f"[EXECUTOR] Step {step_index}: Usado fallback selector: {fallback_sel}")
+                    break
+                except Exception:
+                    continue
+            
+            if not success:
+                logger.warning(f"[EXECUTOR] Step {step_index}: No se pudo encontrar elemento con selector: {selector}")
+                return None
+        
+        logger.info(f"[EXECUTOR] Clicked {selector}")
+        print(f"[EXECUTOR] Clicked {selector}")
+        
+        # Esperar un momento
+        await browser.page.wait_for_timeout(500)
+        
+        # Guardar screenshot (robusto, con timeout corto para evitar bloqueos)
+        screenshot_path = screenshots_dir / f"step_{step_index}_click.png"
+        try:
+            await browser.page.screenshot(path=str(screenshot_path), full_page=True, timeout=5000)
+            logger.info(f"[EXECUTOR] Screenshot guardado en {screenshot_path}")
+        except Exception as e:
+            # Si hay timeout o error (p.ej. diálogo abierto), loggear y continuar
+            if "timeout" in str(e).lower() or "timeout" in type(e).__name__.lower():
+                logger.warning(f"[EXECUTOR] Screenshot skipped (timeout) after click: {selector}")
+                print(f"[EXECUTOR] Screenshot skipped (timeout) after click: {selector}")
+            else:
+                logger.warning(f"[EXECUTOR] Screenshot failed after click: {selector} - {e}")
+            # Continuar sin lanzar excepción
+        
+        return f"Clicked {selector}"
+        
+    except Exception as e:
+        logger.error(f"[EXECUTOR] Error al hacer click en step {step_index}: {e}", exc_info=True)
+        return None
+
+
+async def _execute_upload(
+    step: Dict[str, Any],
+    step_index: int,
+    browser: BrowserController,
+    screenshots_dir: "Path",
+) -> Optional[str]:
+    """Ejecuta upload determinista."""
+    from pathlib import Path
+    import os
+    
+    # Verificar si ya se hizo upload en esta ejecución (evitar doble upload)
+    execution_context = step.get("execution_context") or {}
+    execution_flags = execution_context.get("execution_flags", {})
+    upload_done = execution_flags.get("upload_done", False)
+    
+    if upload_done:
+        logger.info(f"[EXECUTOR] Skipped upload (already done)")
+        print(f"[EXECUTOR] Skipped upload (already done)")
+        return "Upload already done (skipped)"
+    
+    # Extraer selector y filepath
+    selector = step.get("selector") or step.get("file_selector")
+    filepath = step.get("filepath") or step.get("file_path") or step.get("value")
+    
+    # Si filepath es "USE_SAMPLE_FILE" o no viene, usar archivo de muestra
+    if not filepath or filepath == "USE_SAMPLE_FILE":
+        # Crear directorio si no existe
+        sample_dir = Path("backend/simulation")
+        sample_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Usar sample_upload.txt
+        sample_file = sample_dir / "sample_upload.txt"
+        if not sample_file.exists():
+            # Crear archivo de texto simple
+            sample_file.write_text("sample upload\n")
+        
+        filepath = str(sample_file.resolve())
+    
+    # Si no hay selector, usar fallback: input[type='file']
+    if not selector:
+        selector = "input[type='file']"
+    
+    # Verificar que el archivo existe
+    file_path_obj = Path(filepath)
+    if not file_path_obj.exists():
+        logger.warning(f"[EXECUTOR] Step {step_index}: Archivo no encontrado: {filepath}")
+        return None
+    
+    try:
+        # Intentar con el primer selector si hay múltiples separados por coma
+        selectors = [s.strip() for s in selector.split(",")]
+        success = False
+        filename = file_path_obj.name
+        
+        for sel in selectors:
+            try:
+                locator = browser.page.locator(sel).first
+                await locator.wait_for(state="visible", timeout=2000)
+                
+                # Verificar que es un input file
+                input_type = await locator.get_attribute("type")
+                if input_type != "file":
+                    logger.warning(f"[EXECUTOR] Step {step_index}: Elemento con selector '{sel}' no es input[type='file']")
+                    continue
+                
+                # Subir el archivo
+                await locator.set_input_files(str(file_path_obj.resolve()))
+                success = True
+                selector = sel
+                break
+            except Exception as e:
+                logger.debug(f"[EXECUTOR] Step {step_index}: Error con selector '{sel}': {e}")
+                continue
+        
+        if not success:
+            logger.warning(f"[EXECUTOR] Step {step_index}: No se pudo encontrar input[type='file'] con selector: {selector}")
+            return None
+        
+        # Obtener solo el nombre del archivo (basename) para el log
+        from os.path import basename
+        filename_basename = basename(filepath)
+        
+        logger.info(f"[EXECUTOR] Uploaded file to {selector}: {filename_basename}")
+        print(f"[EXECUTOR] Uploaded file to {selector}: {filename_basename}")
+        
+        # Marcar upload_done INMEDIATAMENTE después de set_input_files exitoso
+        if execution_flags:
+            execution_flags["upload_done"] = True
+            logger.info(f"[EXECUTOR] Flag upload_done establecido tras upload exitoso")
+        else:
+            # Si no hay execution_flags, crear uno nuevo
+            execution_context = step.get("execution_context") or {}
+            execution_context["execution_flags"] = {"upload_done": True}
+            step["execution_context"] = execution_context
+            logger.info(f"[EXECUTOR] Flag upload_done establecido tras upload exitoso (nuevo contexto)")
+        
+        # Esperar un momento para que la página actualice
+        await browser.page.wait_for_timeout(500)
+        
+        # Verificar que el archivo quedó seleccionado (condición de éxito)
+        upload_success = False
+        try:
+            # Verificar que "Ningún archivo seleccionado" ya NO aparece
+            page_text = await browser.page.content()
+            if "ningún archivo seleccionado" not in page_text.lower() and "ningun archivo seleccionado" not in page_text.lower():
+                # También verificar que el input tiene un archivo seleccionado
+                file_input = browser.page.locator(selector).first
+                files = await file_input.input_value()
+                if files:
+                    upload_success = True
+                    logger.info(f"[EXECUTOR] Upload verificado: archivo seleccionado correctamente")
+                    # Marcar upload_done en execution_flags
+                    if execution_flags:
+                        execution_flags["upload_done"] = True
+                        logger.info(f"[EXECUTOR] Flag upload_done establecido")
+                else:
+                    # Verificar por el nombre del archivo en la página
+                    if filename_basename.lower() in page_text.lower():
+                        upload_success = True
+                        logger.info(f"[EXECUTOR] Upload verificado: nombre de archivo encontrado en la página")
+        except Exception as e:
+            logger.debug(f"[EXECUTOR] No se pudo verificar upload (continuando): {e}")
+            # Si no se puede verificar, asumir éxito si no hay error
+            upload_success = True
+        
+        # Guardar flag en execution_context si está disponible
+        # Nota: execution_context se pasa como parámetro separado, no en step
+        # Los flags se actualizan en app.py basándose en el resultado
+        
+        # Guardar screenshot (robusto, con timeout corto para evitar bloqueos)
+        screenshot_path = screenshots_dir / f"step_{step_index}_upload.png"
+        try:
+            await browser.page.screenshot(path=str(screenshot_path), full_page=True, timeout=5000)
+            logger.info(f"[EXECUTOR] Screenshot guardado en {screenshot_path}")
+        except Exception as e:
+            # Si hay timeout o error (p.ej. diálogo abierto), loggear y continuar
+            if "timeout" in str(e).lower() or "timeout" in type(e).__name__.lower():
+                logger.warning(f"[EXECUTOR] Screenshot skipped (timeout) after upload: {selector}")
+                print(f"[EXECUTOR] Screenshot skipped (timeout) after upload: {selector}")
+            else:
+                logger.warning(f"[EXECUTOR] Screenshot failed after upload: {selector} - {e}")
+            # Continuar sin lanzar excepción
+        
+        return f"Uploaded file to {selector}: {filename_basename}"
+        
+    except Exception as e:
+        logger.error(f"[EXECUTOR] Error al hacer upload en step {step_index}: {e}", exc_info=True)
+        return None
+
+
+async def _execute_submit(
+    step: Dict[str, Any],
+    step_index: int,
+    browser: BrowserController,
+    screenshots_dir: "Path",
+) -> Optional[str]:
+    """Ejecuta submit determinista."""
+    from pathlib import Path
+    # Inicializar success al principio para evitar UnboundLocalError
+    success = False
+    
+    # Extraer selector si viene
+    selector = step.get("selector") or step.get("submit_selector")
+    
+    try:
+        # Si hay selector, intentar click en él
+        if selector:
+            selectors = [s.strip() for s in selector.split(",")]
+            
+            for sel in selectors:
+                try:
+                    locator = browser.page.locator(sel).first
+                    await locator.wait_for(state="visible", timeout=2000)
+                    await locator.click()
+                    success = True
+                    selector = sel
+                    break
+                except Exception:
+                    continue
+            
+            if not success:
+                logger.warning(f"[EXECUTOR] Step {step_index}: No se pudo encontrar elemento submit con selector: {selector}")
+                # Continuar con fallbacks (success ya es False)
+        
+        # Si no hay selector o el selector original falló, usar fallbacks
+        if not success:
+            # Fallback: Intentar encontrar botones comunes en orden de prioridad
+            fallback_selectors = [
+                'button:has-text("Simular subida")',
+                'text=Simular subida',
+                'button:has-text("Enviar")',
+                'text=Enviar',
+                'button[type="submit"]',
+                'input[type="submit"]',
+                'button:has-text("Acceder")',
+                'button:has-text("Submit")',
+            ]
+            
+            for fallback_sel in fallback_selectors:
+                try:
+                    submit_button = browser.page.locator(fallback_sel).first
+                    await submit_button.wait_for(state="visible", timeout=2000)
+                    await submit_button.click()
+                    selector = fallback_sel
+                    success = True
+                    logger.info(f"[EXECUTOR] Step {step_index}: Usado fallback selector: {fallback_sel}")
+                    break
+                except Exception:
+                    continue
+            
+            if not success:
+                logger.warning(f"[EXECUTOR] Step {step_index}: Submit failed: no selector worked")
+                print(f"[EXECUTOR] Step {step_index}: Submit failed: no selector worked")
+                return None
+        
+        # Si llegamos aquí, success es True
+        logger.info(f"[EXECUTOR] Submitted form using {selector}")
+        print(f"[EXECUTOR] Submitted form using {selector}")
+        
+        # Verificar si se pulsó "Simular subida" (condición de éxito)
+        submit_success = False
+        try:
+            # Verificar si aparece mensaje de "subida simulada" o similar
+            await browser.page.wait_for_timeout(1000)  # Esperar un momento para que aparezca el mensaje
+            page_text = await browser.page.content()
+            page_text_lower = page_text.lower()
+            
+            # Buscar indicadores de éxito
+            success_indicators = [
+                "subida simulada",
+                "subida exitosa",
+                "archivo subido",
+                "documento subido",
+                "simulado",
+                "éxito",
+                "exito",
+            ]
+            
+            for indicator in success_indicators:
+                if indicator in page_text_lower:
+                    submit_success = True
+                    logger.info(f"[EXECUTOR] Submit verificado: mensaje de éxito encontrado ('{indicator}')")
+                    break
+            
+            # Si no se encuentra mensaje, verificar que el botón ya no está visible o está deshabilitado
+            if not submit_success:
+                try:
+                    submit_button = browser.page.locator(selector).first
+                    is_visible = await submit_button.is_visible()
+                    is_enabled = await submit_button.is_enabled()
+                    if not is_visible or not is_enabled:
+                        submit_success = True
+                        logger.info(f"[EXECUTOR] Submit verificado: botón ya no está activo")
+                except Exception:
+                    # Si no se puede verificar el botón, asumir éxito si no hay error
+                    submit_success = True
+        except Exception as e:
+            logger.debug(f"[EXECUTOR] No se pudo verificar submit (continuando): {e}")
+            # Si no se puede verificar, asumir éxito si no hay error
+            submit_success = True
+        
+        # Guardar flag en execution_context si está disponible
+        # Nota: execution_context se pasa como parámetro separado, no en step
+        # Los flags se actualizan en app.py basándose en el resultado
+        
+        # Esperar a que la página cargue después del submit
+        await browser.page.wait_for_timeout(2000)
+        try:
+            await browser.page.wait_for_load_state("networkidle", timeout=3000)
+        except Exception:
+            pass  # Ignorar timeout
+        
+        # Guardar screenshot (robusto, con timeout corto para evitar bloqueos)
+        screenshot_path = screenshots_dir / f"step_{step_index}_submit.png"
+        try:
+            await browser.page.screenshot(path=str(screenshot_path), full_page=True, timeout=5000)
+            logger.info(f"[EXECUTOR] Screenshot guardado en {screenshot_path}")
+        except Exception as e:
+            # Si hay timeout o error (p.ej. diálogo abierto), loggear y continuar
+            if "timeout" in str(e).lower() or "timeout" in type(e).__name__.lower():
+                logger.warning(f"[EXECUTOR] Screenshot skipped (timeout) after submit: {selector}")
+                print(f"[EXECUTOR] Screenshot skipped (timeout) after submit: {selector}")
+            else:
+                logger.warning(f"[EXECUTOR] Screenshot failed after submit: {selector} - {e}")
+            # Continuar sin lanzar excepción
+        
+        return f"Submitted form using {selector}"
+        
+    except Exception as e:
+        logger.error(f"[EXECUTOR] Error al hacer submit en step {step_index}: {e}", exc_info=True)
+        return None
+    
+    # Resolver la URL con prioridad: step.url > step.target_url > primer http(s) en step.text/sub_goal
+    url = None
+    
+    # Prioridad 1: step.url
+    if step.get("url"):
+        url = str(step["url"]).strip()
+    # Prioridad 2: step.target_url
+    elif step.get("target_url"):
+        url = str(step["target_url"]).strip()
+    # Prioridad 3: Extraer primer http(s) de step.text o sub_goal
+    else:
+        text_to_search = ""
+        if step.get("text"):
+            text_to_search = str(step["text"])
+        elif step.get("sub_goal"):
+            text_to_search = str(step["sub_goal"])
+        
+        # Buscar URLs http(s) en el texto (patrón más robusto)
+        url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+[^\s<>"{}|\\^`\[\].,;!?]'
+        matches = re.findall(url_pattern, text_to_search)
+        if matches:
+            url = matches[0].strip()
+    
+    # Si no se encontró URL, retornar None
+    if not url:
+        logger.warning(f"[EXECUTOR] Step {step_index} requiere navegación pero no se encontró URL")
+        return None
+    
+    # Asegurar que el navegador esté iniciado
+    if not browser.page:
+        logger.info("[EXECUTOR] Iniciando navegador para ejecución determinista")
+        await browser.start(headless=False)
+    
+    # Ejecutar navegación
+    try:
+        logger.info(f"[EXECUTOR] Navigated to {url}")
+        print(f"[EXECUTOR] Navigated to {url}")
+        
+        # Navegar a la URL
+        await browser.page.goto(url, wait_until="networkidle")
+        
+        # Esperar 2 segundos adicionales
+        await browser.page.wait_for_timeout(2000)
+        
+        # Guardar screenshot
+        screenshots_dir = Path("screenshots")
+        screenshots_dir.mkdir(exist_ok=True)
+        screenshot_path = screenshots_dir / f"step_{step_index}_navigate.png"
+        await browser.page.screenshot(path=str(screenshot_path), full_page=True)
+        logger.info(f"[EXECUTOR] Screenshot guardado en {screenshot_path}")
+        
+        return url
+        
+    except Exception as e:
+        logger.error(f"[EXECUTOR] Error al navegar a {url}: {e}", exc_info=True)
+        return None
 
 
 def _normalize_text_for_comparison(s: str) -> str:
@@ -5557,4 +7255,59 @@ async def run_llm_task_with_answer(
             metrics_summary["summary"]["context_strategies"] = default_strategy_names
 
     return all_steps, final_answer, source_url, source_title, sources
+
+
+async def run_training_scenario_agent(
+    scenario_id: str,
+    browser: BrowserController,
+    max_steps: int = 10,
+) -> Tuple[List[StepResult], str, str, str, List[SourceInfo]]:
+    """
+    Ejecuta el agente en modo training/dry_run sobre un escenario de simulación.
+
+    - Carga el escenario.
+    - Construye una petición al agente en modo dry_run.
+    - Devuelve la misma respuesta que usaría /agent/answer.
+
+    Args:
+        scenario_id: ID del escenario de simulación
+        browser: Controlador del navegador
+        max_steps: Número máximo de pasos
+
+    Returns:
+        Tupla con (steps, final_answer, source_url, source_title, sources)
+
+    Raises:
+        ValueError: Si el escenario no se encuentra
+    """
+    from backend.simulation.simulator import load_scenario
+    from backend.shared.models import SimulationScenario
+
+    scenario: Optional[SimulationScenario] = load_scenario(scenario_id)
+    if scenario is None:
+        raise ValueError(f"Simulation scenario not found: {scenario_id}")
+
+    # Construir un objetivo razonable para el agente
+    instruction_text = (
+        f"Entrenas en un portal CAE de simulación.\n"
+        f"Escenario: {scenario.id} ({scenario.name}).\n"
+        f"Descripción: {scenario.description}\n"
+        "Objetivo: validar el flujo básico de navegación (login simulado, acceso al dashboard "
+        "y apertura del formulario de subida de documentación) en modo seguro.\n"
+        "No subas documentos reales ni hagas acciones destructivas. Trabaja siempre en modo dry_run.\n"
+        f"URL de inicio: {scenario.entry_path}\n"
+        "Navega por el portal simulado y verifica que puedes acceder a las diferentes secciones."
+    )
+
+    # Ejecutar el agente en modo dry_run con estrategia CAE
+    steps, final_answer, source_url, source_title, sources = await run_llm_task_with_answer(
+        goal=instruction_text,
+        browser=browser,
+        max_steps=max_steps,
+        context_strategies=["cae"],  # Usar estrategia CAE para portales CAE
+        execution_profile_name="balanced",  # Perfil equilibrado para training
+        execution_mode="dry_run",  # Siempre en modo dry_run para training
+    )
+
+    return steps, final_answer, source_url, source_title, sources
 

@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>CometLocal - CAE Training Console</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color-scheme: light dark;
+    }
+    body {
+      margin: 0;
+      background: #f3f4f6;
+      color: #111827;
+    }
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background: #111827;
+      color: #f9fafb;
+      padding: 0.8rem 1.4rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header .title {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    header nav a {
+      color: #e5e7eb;
+      text-decoration: none;
+      font-size: 0.85rem;
+      margin-left: 0.9rem;
+      opacity: 0.9;
+    }
+    header nav a:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+    main {
+      flex: 1;
+      padding: 1.4rem;
+      max-width: 1120px;
+      margin: 0 auto;
+      box-sizing: border-box;
+    }
+    h1 {
+      font-size: 1.25rem;
+      margin: 0 0 0.3rem;
+    }
+    .subtitle {
+      margin: 0 0 1.2rem;
+      font-size: 0.9rem;
+      color: #6b7280;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 1.1fr) minmax(320px, 1.3fr);
+      gap: 1.2rem;
+      align-items: flex-start;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+      padding: 1rem 1.1rem;
+      box-sizing: border-box;
+    }
+    .card h2 {
+      font-size: 0.95rem;
+      margin: 0 0 0.6rem;
+    }
+    .card p {
+      margin: 0 0 0.6rem;
+      font-size: 0.85rem;
+      color: #6b7280;
+    }
+    .scenarios-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .scenarios-table th,
+    .scenarios-table td {
+      padding: 0.45rem 0.4rem;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .scenarios-table th {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #6b7280;
+    }
+    .scenarios-table tr {
+      cursor: pointer;
+    }
+    .scenarios-table tr:hover {
+      background: #f9fafb;
+    }
+    .scenarios-table tr.selected {
+      background: #dbeafe;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.1rem 0.35rem;
+      border-radius: 999px;
+      font-size: 0.73rem;
+      background: #eff6ff;
+      color: #1d4ed8;
+      margin-right: 0.3rem;
+      margin-bottom: 0.2rem;
+    }
+    .detail-row {
+      margin-bottom: 0.4rem;
+      font-size: 0.85rem;
+    }
+    .detail-label {
+      font-weight: 600;
+      color: #374151;
+      margin-right: 0.25rem;
+    }
+    .detail-value {
+      color: #111827;
+    }
+    .actions {
+      margin-top: 0.9rem;
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .btn {
+      border-radius: 999px;
+      border: none;
+      padding: 0.4rem 0.9rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: #ffffff;
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #374151;
+    }
+    .btn-secondary:hover {
+      background: #d1d5db;
+    }
+    .btn[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+    .status.error {
+      color: #b91c1c;
+    }
+    .status.ok {
+      color: #16a34a;
+    }
+    .empty {
+      font-size: 0.85rem;
+      color: #6b7280;
+      padding: 0.4rem 0.2rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header>
+      <div class="title">CometLocal · CAE Training Console (v4.7)</div>
+      <nav>
+        <a href="/index.html">UI principal</a>
+        <a href="/form-sandbox">Form Sandbox</a>
+        <a href="/simulation/portal_a/login.html">Portal CAE A</a>
+      </nav>
+    </header>
+
+    <main>
+      <h1>Escenarios de simulación CAE</h1>
+      <p class="subtitle">
+        Utiliza estos escenarios controlados para entrenar y evaluar el agente CAE
+        antes de conectarlo a portales reales.
+      </p>
+
+      <div class="layout">
+        <!-- Lista de escenarios -->
+        <section class="card">
+          <h2>Escenarios disponibles</h2>
+          <p>Selecciona un escenario para ver detalles y abrir el portal simulado.</p>
+          <div id="scenarios_container">
+            <div class="empty">Cargando escenarios…</div>
+          </div>
+        </section>
+
+        <!-- Detalle de escenario -->
+        <section class="card">
+          <h2>Detalle del escenario</h2>
+          <p id="scenario_detail_placeholder">
+            Selecciona un escenario en la tabla de la izquierda.
+          </p>
+          <div id="scenario_detail" style="display:none;">
+            <div class="detail-row">
+              <span class="detail-label">ID:</span>
+              <span class="detail-value" id="detail_id"></span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Nombre:</span>
+              <span class="detail-value" id="detail_name"></span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Descripción:</span>
+              <span class="detail-value" id="detail_description"></span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Versión escenario:</span>
+              <span class="detail-value" id="detail_version"></span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Ruta de entrada:</span>
+              <span class="detail-value" id="detail_entry_path"></span>
+            </div>
+            <div class="detail-row" id="detail_tags_row" style="margin-top:0.4rem;">
+              <span class="detail-label">Tags:</span>
+              <span class="detail-value" id="detail_tags"></span>
+            </div>
+
+            <div class="actions">
+              <button class="btn btn-secondary" type="button" id="btn_open_portal">
+                Abrir portal simulado
+              </button>
+              <button class="btn btn-primary" type="button" id="btn_run_agent" disabled>
+                Ejecutar agente (dry_run)
+              </button>
+            </div>
+
+            <div class="status" id="training_status">
+              El botón de ejecución se conectará al agente en los siguientes bloques de v4.7.
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const scenariosContainer = document.getElementById("scenarios_container");
+    const detailSection = document.getElementById("scenario_detail");
+    const detailPlaceholder = document.getElementById("scenario_detail_placeholder");
+
+    const detailId = document.getElementById("detail_id");
+    const detailName = document.getElementById("detail_name");
+    const detailDescription = document.getElementById("detail_description");
+    const detailVersion = document.getElementById("detail_version");
+    const detailEntryPath = document.getElementById("detail_entry_path");
+    const detailTags = document.getElementById("detail_tags");
+    const detailTagsRow = document.getElementById("detail_tags_row");
+
+    const btnOpenPortal = document.getElementById("btn_open_portal");
+    const btnRunAgent = document.getElementById("btn_run_agent");
+    const trainingStatus = document.getElementById("training_status");
+
+    let scenarios = [];
+    let selectedScenarioId = null;
+
+    function renderScenariosTable() {
+      if (!scenarios || scenarios.length === 0) {
+        scenariosContainer.innerHTML = '<div class="empty">No hay escenarios de simulación definidos.</div>';
+        return;
+      }
+
+      const table = document.createElement("table");
+      table.className = "scenarios-table";
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Versión</th>
+            <th>Tags</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+
+      const tbody = table.querySelector("tbody");
+
+      scenarios.forEach((scenario) => {
+        const tr = document.createElement("tr");
+        tr.dataset.scenarioId = scenario.id;
+
+        const tags = (scenario.tags || []).slice(0, 2).join(", ");
+
+        tr.innerHTML = `
+          <td>${scenario.id}</td>
+          <td>${scenario.name}</td>
+          <td>${scenario.version || "-"}</td>
+          <td>${tags || "-"}</td>
+        `;
+
+        tr.addEventListener("click", () => {
+          selectScenario(scenario.id);
+        });
+
+        tbody.appendChild(tr);
+      });
+
+      scenariosContainer.innerHTML = "";
+      scenariosContainer.appendChild(table);
+      refreshSelectedRow();
+    }
+
+    function refreshSelectedRow() {
+      const rows = scenariosContainer.querySelectorAll("tr[data-scenario-id]");
+      rows.forEach((row) => {
+        if (row.dataset.scenarioId === selectedScenarioId) {
+          row.classList.add("selected");
+        } else {
+          row.classList.remove("selected");
+        }
+      });
+    }
+
+    function selectScenario(id) {
+      const scenario = scenarios.find((s) => s.id === id);
+      if (!scenario) return;
+
+      selectedScenarioId = id;
+      refreshSelectedRow();
+
+      detailId.textContent = scenario.id;
+      detailName.textContent = scenario.name;
+      detailDescription.textContent = scenario.description || "";
+      detailVersion.textContent = scenario.version || "-";
+      detailEntryPath.textContent = scenario.entry_path || "-";
+
+      const tags = scenario.tags || [];
+      if (tags.length === 0) {
+        detailTagsRow.style.display = "none";
+      } else {
+        detailTagsRow.style.display = "block";
+        detailTags.innerHTML = "";
+        tags.forEach((t) => {
+          const span = document.createElement("span");
+          span.className = "tag";
+          span.textContent = t;
+          detailTags.appendChild(span);
+        });
+      }
+
+      detailPlaceholder.style.display = "none";
+      detailSection.style.display = "block";
+
+      trainingStatus.className = "status";
+      trainingStatus.textContent = "Listo para ejecutar el escenario en modo dry_run (stub).";
+
+      // Ahora permitimos usar el botón de ejecución
+      btnRunAgent.disabled = false;
+    }
+
+    async function loadScenarios() {
+      scenariosContainer.innerHTML = '<div class="empty">Cargando escenarios…</div>';
+      try {
+        const resp = await fetch("/simulation/scenarios");
+        if (!resp.ok) {
+          throw new Error("HTTP " + resp.status);
+        }
+        const data = await resp.json();
+        scenarios = data.scenarios || [];
+        renderScenariosTable();
+      } catch (err) {
+        console.error("Error cargando escenarios", err);
+        scenariosContainer.innerHTML =
+          '<div class="empty" style="color:#b91c1c;">Error al cargar escenarios de simulación.</div>';
+      }
+    }
+
+    btnOpenPortal.addEventListener("click", () => {
+      if (!selectedScenarioId) return;
+      const scenario = scenarios.find((s) => s.id === selectedScenarioId);
+      if (!scenario || !scenario.entry_path) return;
+      window.open(scenario.entry_path, "_blank");
+    });
+
+    btnRunAgent.addEventListener("click", async () => {
+      if (!selectedScenarioId) {
+        return;
+      }
+
+      trainingStatus.className = "status";
+      trainingStatus.textContent = "Lanzando ejecución de entrenamiento (stub)…";
+
+      try {
+        const resp = await fetch("/training/run-scenario", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            scenario_id: selectedScenarioId,
+            execution_mode: "dry_run",
+          }),
+        });
+
+        if (!resp.ok) {
+          throw new Error("HTTP " + resp.status);
+        }
+
+        const data = await resp.json();
+        const status = data.status || "desconocido";
+        const msg = data.message || "";
+
+        if (status === "not_implemented") {
+          trainingStatus.className = "status";
+        } else {
+          trainingStatus.className = "status ok";
+        }
+
+        trainingStatus.textContent =
+          "Respuesta del backend: [" + status + "] " + msg;
+      } catch (err) {
+        console.error("Error ejecutando escenario de entrenamiento", err);
+        trainingStatus.className = "status error";
+        trainingStatus.textContent =
+          "Error al ejecutar el escenario de entrenamiento. Revisa la consola del navegador y el backend.";
+      }
+    });
+
+    document.addEventListener("DOMContentLoaded", loadScenarios);
+  </script>
+</body>
+</html>
+

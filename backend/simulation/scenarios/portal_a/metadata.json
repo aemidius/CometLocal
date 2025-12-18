@@ -1,0 +1,14 @@
+{
+  "id": "portal_a",
+  "name": "Portal CAE A — Básico",
+  "description": "Portal CAE simulado con login, dashboard y subida de documentación para trabajadores.",
+  "entry_path": "/simulation/portal_a/login.html",
+  "version": "v4.7-mvp",
+  "tags": ["cae", "simulation", "training", "portal_a"]
+}
+
+
+
+
+
+

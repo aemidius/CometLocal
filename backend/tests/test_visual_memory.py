@@ -312,3 +312,10 @@ class TestVisualMemoryStore:
 
 
 
+
+
+
+
+
+
+

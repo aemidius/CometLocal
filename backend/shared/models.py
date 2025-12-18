@@ -67,6 +67,11 @@ class AgentAnswerRequest(BaseModel):
         default=None,
         description="Modo de ejecución: 'live' (por defecto) o 'dry_run' (simulación segura)",
     )
+    # v2.8.0: Steps del plan de ejecución (PlannedSubGoal serializados)
+    steps: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Lista de steps del plan de ejecución confirmado",
+    )
 
 
 class SourceInfo(BaseModel):
@@ -861,4 +866,25 @@ class UploadInstruction(BaseModel):
     document: DocumentRequest
     target: str  # Descripción del destino, ej. "input_subir_documento" o "zona subir CAE"
     resolved_path: Optional[str] = None  # Ruta resuelta del documento (solo para debug interno)
+
+
+# v4.7.0: Modelos para simulación de escenarios CAE
+class SimulationScenario(BaseModel):
+    """
+    Escenario de simulación de un portal CAE.
+    Se obtiene típicamente desde metadata.json en backend/simulation/scenarios/<scenario_id>/.
+    """
+    id: str
+    name: str
+    description: str
+    entry_path: str  # Ruta relativa dentro de frontend (ej: /simulation/portal_a/login.html)
+    version: Optional[str] = None
+    tags: List[str] = []
+
+
+class SimulationScenarioList(BaseModel):
+    """
+    Contenedor para listar escenarios de simulación disponibles.
+    """
+    scenarios: List[SimulationScenario]
 
