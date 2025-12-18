@@ -4327,6 +4327,64 @@ Genera las acciones ejecutables necesarias para cumplir el objetivo. Devuelve SO
         return None
 
 
+class ExecutionPolicyState:
+    """
+    Estado de política de ejecución para evitar loops y repeticiones.
+    Se crea una instancia por ejecución (en memoria).
+    """
+    def __init__(self):
+        self.visited_urls: set[str] = set()
+        self.click_counts: dict[str, int] = {}
+        self.action_counts: dict[str, int] = {}
+        self.max_same_url = 1
+        self.max_same_click = 2
+        self.stop_on_success = True
+        self.success_detected = False
+        self.stop_logged = False
+    
+    def should_skip_navigate(self, url: str) -> bool:
+        """Verifica si se debe saltar una navegación."""
+        url_normalized = url.rstrip("/").lower()
+        if url_normalized in self.visited_urls:
+            return True
+        return False
+    
+    def record_navigate(self, url: str):
+        """Registra una navegación."""
+        url_normalized = url.rstrip("/").lower()
+        self.visited_urls.add(url_normalized)
+    
+    def should_skip_click(self, selector: str) -> bool:
+        """Verifica si se debe saltar un click."""
+        selector_normalized = selector.lower().strip()
+        count = self.click_counts.get(selector_normalized, 0)
+        if count >= self.max_same_click:
+            return True
+        return False
+    
+    def record_click(self, selector: str):
+        """Registra un click."""
+        selector_normalized = selector.lower().strip()
+        self.click_counts[selector_normalized] = self.click_counts.get(selector_normalized, 0) + 1
+    
+    def record_success(self):
+        """Registra que se detectó un éxito."""
+        self.success_detected = True
+    
+    def should_stop(self) -> bool:
+        """Verifica si se debe detener la ejecución."""
+        if self.stop_on_success and self.success_detected:
+            return True
+        return False
+    
+    def log_stop_once(self) -> bool:
+        """Loguea el stop solo una vez. Retorna True si fue la primera vez."""
+        if not self.stop_logged:
+            self.stop_logged = True
+            return True
+        return False
+
+
 async def execute_step_with_playwright(
     step: Dict[str, Any],
     step_index: int,
@@ -4338,6 +4396,8 @@ async def execute_step_with_playwright(
     
     v2.8.0+: Ejecuta acciones de forma imperativa cuando un step requiere navegación, fill, click o submit,
     sin depender del LLM. Esta función se ejecuta ANTES de que el LLM procese el step.
+    
+    v4.8+: Navigation Policy Engine para evitar loops y repeticiones.
     
     Soporta acciones:
     - navigate: Navega a una URL
@@ -4356,6 +4416,22 @@ async def execute_step_with_playwright(
     """
     import re
     from pathlib import Path
+    
+    # Inicializar o obtener ExecutionPolicyState del contexto
+    if execution_context is None:
+        execution_context = {}
+    
+    policy_state = execution_context.get("policy_state")
+    if policy_state is None:
+        policy_state = ExecutionPolicyState()
+        execution_context["policy_state"] = policy_state
+    
+    # Verificar si debemos detener la ejecución (corte por éxito)
+    if policy_state.should_stop():
+        if policy_state.log_stop_once():
+            logger.info("[POLICY] Stop execution early due to SUCCESS result.")
+            print("[POLICY] Stop execution early due to SUCCESS result.")
+        return "Execution stopped (success detected)|POLICY_STOP=True"
     
     # Asegurar que el navegador esté iniciado
     if not browser.page:
@@ -4380,7 +4456,43 @@ async def execute_step_with_playwright(
         requires_navigation = True
     
     if requires_navigation:
-        return await _execute_navigation(step, step_index, browser, screenshots_dir)
+        # Policy check: verificar si ya visitamos esta URL
+        url = step.get("url") or step.get("target_url")
+        if url:
+            # Normalizar URL (similar a _execute_navigation)
+            import html
+            url_normalized = html.unescape(url.strip()).rstrip("/")
+            # Si es relativa, convertir a absoluta para la comparación
+            if url_normalized.startswith("/"):
+                current_url = browser.page.url if browser.page else ""
+                from urllib.parse import urlparse, urlunparse
+                parsed = urlparse(current_url)
+                url_abs = urlunparse((parsed.scheme, parsed.netloc, url_normalized, "", "", ""))
+            else:
+                url_abs = url_normalized
+            
+            if policy_state.should_skip_navigate(url_abs):
+                logger.info(f"[POLICY] Skip navigate (already visited): {url_abs}")
+                print(f"[POLICY] Skip navigate (already visited): {url_abs}")
+                return f"Skipped navigate (already visited): {url_abs}"
+            
+            # Registrar la navegación antes de ejecutarla
+            policy_state.record_navigate(url_abs)
+        
+        result = await _execute_navigation(step, step_index, browser, screenshots_dir)
+        
+        # Verificar si el resultado indica éxito y detener si es necesario
+        if result and "Result: SUCCESS" in result:
+            policy_state.record_success()
+            if policy_state.should_stop():
+                if policy_state.log_stop_once():
+                    logger.info("[POLICY] Stop execution early due to SUCCESS result.")
+                    print("[POLICY] Stop execution early due to SUCCESS result.")
+                # Añadir flag al resultado
+                if result and "|POLICY_STOP=" not in result:
+                    result = result + "|POLICY_STOP=True"
+        
+        return result
     
     # 2. SELECT
     requires_select = False
@@ -4404,7 +4516,31 @@ async def execute_step_with_playwright(
         requires_click = True
     
     if requires_click:
-        return await _execute_click(step, step_index, browser, screenshots_dir)
+        # Policy check: verificar si ya hicimos demasiados clicks en este selector
+        selector = step.get("selector") or step.get("button_selector")
+        if selector:
+            if policy_state.should_skip_click(selector):
+                logger.info(f"[POLICY] Skip click (too many repeats): {selector}")
+                print(f"[POLICY] Skip click (too many repeats): {selector}")
+                return f"Skipped click (too many repeats): {selector}"
+            
+            # Registrar el click antes de ejecutarlo
+            policy_state.record_click(selector)
+        
+        result = await _execute_click(step, step_index, browser, screenshots_dir)
+        
+        # Verificar si el resultado indica éxito y detener si es necesario
+        if result and "Result: SUCCESS" in result:
+            policy_state.record_success()
+            if policy_state.should_stop():
+                if policy_state.log_stop_once():
+                    logger.info("[POLICY] Stop execution early due to SUCCESS result.")
+                    print("[POLICY] Stop execution early due to SUCCESS result.")
+                # Añadir flag al resultado
+                if result and "|POLICY_STOP=" not in result:
+                    result = result + "|POLICY_STOP=True"
+        
+        return result
     
     # 4. SUBMIT
     requires_submit = False
@@ -4412,7 +4548,32 @@ async def execute_step_with_playwright(
         requires_submit = True
     
     if requires_submit:
-        return await _execute_submit(step, step_index, browser, screenshots_dir)
+        # Policy check: verificar si ya hicimos demasiados submits en este selector
+        selector = step.get("selector") or step.get("submit_selector")
+        if selector:
+            # Usar la misma lógica que click para submit
+            if policy_state.should_skip_click(selector):
+                logger.info(f"[POLICY] Skip submit (too many repeats): {selector}")
+                print(f"[POLICY] Skip submit (too many repeats): {selector}")
+                return f"Skipped submit (too many repeats): {selector}"
+            
+            # Registrar el submit como click (mismo contador)
+            policy_state.record_click(selector)
+        
+        result = await _execute_submit(step, step_index, browser, screenshots_dir)
+        
+        # Verificar si el resultado indica éxito y detener si es necesario
+        if result and "Result: SUCCESS" in result:
+            policy_state.record_success()
+            if policy_state.should_stop():
+                if policy_state.log_stop_once():
+                    logger.info("[POLICY] Stop execution early due to SUCCESS result.")
+                    print("[POLICY] Stop execution early due to SUCCESS result.")
+                # Añadir flag al resultado
+                if result and "|POLICY_STOP=" not in result:
+                    result = result + "|POLICY_STOP=True"
+        
+        return result
     
     # 5. UPLOAD
     requires_upload = False

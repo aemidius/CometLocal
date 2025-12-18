@@ -622,6 +622,14 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                         logger.info(f"[agent_answer_endpoint] Phase 1 actions: {len(generated_actions)}")
                         print(f"[DEBUG_AGENT] Phase 1 actions: {len(generated_actions)}")
                         
+                        # v2.8.0+: Inicializar flags de ejecución (en memoria para esta ejecución)
+                        execution_flags = {"upload_done": False, "submit_done": False, "sim_clicked": False}
+                        
+                        # v4.8+: Inicializar ExecutionPolicyState (una vez por ejecución)
+                        from backend.agents.agent_runner import ExecutionPolicyState
+                        policy_state = ExecutionPolicyState()
+                        execution_context_base = {"goal": payload.goal, "execution_mode": execution_mode, "execution_flags": execution_flags, "policy_state": policy_state}
+                        
                         # Guardar URL antes de ejecutar acciones
                         previous_url = browser.page.url if browser.page else None
                         
@@ -642,11 +650,8 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                             }
                             
                             try:
-                                # Inicializar execution_context con flags si no existen
-                                exec_ctx = {"goal": payload.goal, "execution_mode": execution_mode}
-                                # Preservar flags existentes si hay
-                                if hasattr(payload, 'execution_context') and payload.execution_context:
-                                    exec_ctx.update(payload.execution_context)
+                                # Usar execution_context_base que ya tiene policy_state inicializado
+                                exec_ctx = execution_context_base.copy()
                                 
                                 action_result = await execute_step_with_playwright(
                                     step=step,
@@ -655,22 +660,27 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                                     execution_context=exec_ctx,
                                 )
                                 
+                                # Verificar si debemos detener la ejecución (corte por éxito)
+                                if policy_state.should_stop():
+                                    if policy_state.log_stop_once():
+                                        logger.info("[POLICY] Stop execution early due to SUCCESS result.")
+                                        print("[POLICY] Stop execution early due to SUCCESS result.")
+                                    break  # Salir del bucle de acciones
+                                
                                 # Actualizar flags en el contexto
                                 if action_result and "upload" in action_result.lower():
-                                    exec_ctx["upload_done"] = True
+                                    execution_flags["upload_done"] = True
                                 if action_result and ("submit" in action_result.lower() or "clicked" in action_result.lower()):
                                     # Verificar si fue click en "Simular subida"
                                     if "simular subida" in str(step.get("selector", "")).lower() or "simular subida" in str(action_result).lower():
-                                        exec_ctx["submit_done"] = True
+                                        execution_flags["submit_done"] = True
+                                        execution_flags["sim_clicked"] = True
                                 if action_result:
                                     logger.info(f"[agent_answer_endpoint] Acción generada {action_idx} ejecutada: {action_result}")
                                     print(f"[DEBUG_AGENT] Acción generada {action_idx} ejecutada: {action_result}")
                             except Exception as e:
                                 logger.warning(f"[agent_answer_endpoint] Error al ejecutar acción generada {action_idx}: {e}", exc_info=True)
                                 # Continuar con la siguiente acción aunque haya error
-                        
-                        # v2.8.0+: Inicializar flags de ejecución (en memoria para esta ejecución)
-                        execution_flags = {"upload_done": False, "submit_done": False, "sim_clicked": False}
                         
                         # v2.8.0+: Segunda pasada - Verificar si la página cambió
                         if browser.page:
@@ -730,8 +740,8 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                                                 }
                                                 
                                                 try:
-                                                    # Pasar execution_flags en el contexto
-                                                    exec_ctx_phase2 = {"goal": payload.goal, "execution_mode": execution_mode, "execution_flags": execution_flags}
+                                                    # Usar execution_context_base que ya tiene policy_state
+                                                    exec_ctx_phase2 = execution_context_base.copy()
                                                     
                                                     action_result = await execute_step_with_playwright(
                                                         step=step,
@@ -739,6 +749,13 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                                                         browser=browser,
                                                         execution_context=exec_ctx_phase2,
                                                     )
+                                                    
+                                                    # Verificar si debemos detener la ejecución (corte por éxito)
+                                                    if policy_state.should_stop():
+                                                        if policy_state.log_stop_once():
+                                                            logger.info("[POLICY] Stop execution early due to SUCCESS result.")
+                                                            print("[POLICY] Stop execution early due to SUCCESS result.")
+                                                        break  # Salir del bucle de acciones
                                                     
                                                     # Actualizar flags según el resultado
                                                     if action_result:
@@ -813,8 +830,8 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                                                                     }
                                                                     
                                                                     try:
-                                                                        # Pasar execution_flags en el contexto
-                                                                        exec_ctx_phase3 = {"goal": payload.goal, "execution_mode": execution_mode, "execution_flags": execution_flags}
+                                                                        # Usar execution_context_base que ya tiene policy_state
+                                                                        exec_ctx_phase3 = execution_context_base.copy()
                                                                         
                                                                         action_result = await execute_step_with_playwright(
                                                                             step=step,
@@ -822,6 +839,13 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                                                                             browser=browser,
                                                                             execution_context=exec_ctx_phase3,
                                                                         )
+                                                                        
+                                                                        # Verificar si debemos detener la ejecución (corte por éxito)
+                                                                        if policy_state.should_stop():
+                                                                            if policy_state.log_stop_once():
+                                                                                logger.info("[POLICY] Stop execution early due to SUCCESS result.")
+                                                                                print("[POLICY] Stop execution early due to SUCCESS result.")
+                                                                            break  # Salir del bucle de acciones
                                                                         
                                                                         # Actualizar flags según el resultado
                                                                         if action_result:
@@ -859,21 +883,44 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                 logger.warning(f"[agent_answer_endpoint] Error en ActionPlanner: {e}", exc_info=True)
                 # Continuar sin romper el flujo
     
+    # v4.8+: Verificar si hubo policy_stop (SUCCESS detectado)
+    policy_stop_detected = False
+    try:
+        # policy_state debería estar definido si se ejecutaron acciones
+        if 'policy_state' in locals() and policy_state and policy_state.should_stop():
+            policy_stop_detected = True
+            logger.info("[agent_answer_endpoint] Policy stop detectado (SUCCESS), saltando run_llm_task_with_answer")
+            print("[DEBUG_AGENT] Policy stop detectado (SUCCESS), saltando run_llm_task_with_answer")
+    except NameError:
+        # policy_state no está definido (no se ejecutaron acciones), continuar normal
+        pass
+    
     # v2.9.0: Pasar disabled_sub_goal_indices
     # v4.3.0: Pasar execution_mode
-    print(f"[DEBUG_AGENT] Llamando a run_llm_task_with_answer con goal={repr(payload.goal[:100])}, execution_mode={execution_mode}")
-    steps, final_answer, source_url, source_title, sources = await run_llm_task_with_answer(
-        goal=payload.goal,
-        browser=browser,
-        max_steps=payload.max_steps,
-        context_strategies=payload.context_strategies,
-        execution_profile_name=payload.execution_profile_name,
-        disabled_sub_goal_indices=payload.disabled_sub_goal_indices,
-        execution_mode=execution_mode,
-    )
-    
-    print(f"[DEBUG_AGENT] run_llm_task_with_answer() completado, steps={len(steps)}, final_answer={repr(final_answer[:100]) if final_answer else None}")
-    logger.info("[agent_answer_endpoint] Ejecución completada: steps=%d, final_answer=%r", len(steps), final_answer[:100] if final_answer else None)
+    # v4.8+: Saltar run_llm_task_with_answer si hubo policy_stop
+    if not policy_stop_detected:
+        print(f"[DEBUG_AGENT] Llamando a run_llm_task_with_answer con goal={repr(payload.goal[:100])}, execution_mode={execution_mode}")
+        steps, final_answer, source_url, source_title, sources = await run_llm_task_with_answer(
+            goal=payload.goal,
+            browser=browser,
+            max_steps=payload.max_steps,
+            context_strategies=payload.context_strategies,
+            execution_profile_name=payload.execution_profile_name,
+            disabled_sub_goal_indices=payload.disabled_sub_goal_indices,
+            execution_mode=execution_mode,
+        )
+        
+        print(f"[DEBUG_AGENT] run_llm_task_with_answer() completado, steps={len(steps)}, final_answer={repr(final_answer[:100]) if final_answer else None}")
+        logger.info("[agent_answer_endpoint] Ejecución completada: steps=%d, final_answer=%r", len(steps), final_answer[:100] if final_answer else None)
+    else:
+        # Construir respuesta final simple cuando hay policy_stop
+        steps = []
+        final_answer = "Ejecución completada: subida correcta (SUCCESS)."
+        source_url = None
+        source_title = None
+        sources = []
+        logger.info("[agent_answer_endpoint] Ejecución completada con policy_stop: %s", final_answer)
+        print(f"[DEBUG_AGENT] Ejecución completada con policy_stop: {final_answer}")
     
     # v1.6.0: Extraer información estructurada del último step si está disponible
     structured_answer = None
