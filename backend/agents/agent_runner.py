@@ -4484,8 +4484,17 @@ async def _execute_navigation(
             logger.info(f"[EXECUTOR] Normalized relative URL {original_url} -> {url}")
             print(f"[EXECUTOR] Normalized relative URL {original_url} -> {url}")
         
-        # Dedupe: No navegar si ya estamos en esa URL
+        # Regla de navegación segura: No volver a login.html si ya estamos en dashboard o upload
         current_url = browser.page.url
+        url_lower = url.lower()
+        current_url_lower = current_url.lower()
+        
+        if "/login.html" in url_lower and ("/dashboard.html" in current_url_lower or "/upload.html" in current_url_lower):
+            logger.info(f"[EXECUTOR] Skip navigate to login (already past login): {url}")
+            print(f"[EXECUTOR] Skip navigate to login (already past login): {url}")
+            return f"Skipped navigate to login (already past login): {url}"
+        
+        # Dedupe: No navegar si ya estamos en esa URL
         # Normalizar URLs para comparación (sin trailing slash)
         url_normalized = url.rstrip("/")
         current_url_normalized = current_url.rstrip("/")
@@ -5372,8 +5381,27 @@ async def _execute_click(
         logger.info(f"[EXECUTOR] Clicked {selector}")
         print(f"[EXECUTOR] Clicked {selector}")
         
-        # Esperar un momento
-        await browser.page.wait_for_timeout(500)
+        # Detectar si se hizo click en "Simular subida" y verificar resultado
+        is_simular_subida = "simular subida" in selector.lower()
+        result_status = None
+        result_message = None
+        
+        if is_simular_subida:
+            # Esperar un momento para que aparezca el resultado
+            await browser.page.wait_for_timeout(1000)
+            
+            # Detectar resultado del upload
+            result_status, result_message = await _detect_upload_result(browser.page)
+            
+            if result_status:
+                logger.info(f"[EXECUTOR] Upload result: {result_status.upper()} - {result_message}")
+                print(f"[EXECUTOR] Upload result: {result_status.upper()} - {result_message}")
+            else:
+                logger.info(f"[EXECUTOR] Upload result: UNKNOWN (no status message found)")
+                print(f"[EXECUTOR] Upload result: UNKNOWN (no status message found)")
+        else:
+            # Esperar un momento normal
+            await browser.page.wait_for_timeout(500)
         
         # Guardar screenshot (robusto, con timeout corto para evitar bloqueos)
         screenshot_path = screenshots_dir / f"step_{step_index}_click.png"
@@ -5389,11 +5417,137 @@ async def _execute_click(
                 logger.warning(f"[EXECUTOR] Screenshot failed after click: {selector} - {e}")
             # Continuar sin lanzar excepción
         
-        return f"Clicked {selector}"
+        result_text = f"Clicked {selector}"
+        if result_status:
+            result_text += f" | Result: {result_status.upper()} - {result_message}"
+        
+        return result_text
         
     except Exception as e:
         logger.error(f"[EXECUTOR] Error al hacer click en step {step_index}: {e}", exc_info=True)
         return None
+
+
+async def _detect_upload_result(page) -> tuple[Optional[str], Optional[str]]:
+    """
+    Detecta el resultado del upload después de hacer click en "Simular subida".
+    Retorna (status, message) donde status puede ser "success", "error", o None.
+    """
+    try:
+        # 1) Buscar elementos típicos de status
+        status_selectors = [
+            ".alert-success",
+            ".success",
+            "#success",
+            "[role='alert']",
+            ".alert-danger",
+            ".error",
+            "#error",
+            ".alert",
+            ".message",
+            ".status",
+        ]
+        
+        for sel in status_selectors:
+            try:
+                elements = await page.query_selector_all(sel)
+                for el in elements:
+                    if el:
+                        text = await el.inner_text()
+                        if text and text.strip():
+                            text_lower = text.lower().strip()
+                            
+                            # Determinar si es éxito o error
+                            if any(word in text_lower for word in ["success", "éxito", "exito", "correcto", "ok", "subida", "enviado"]):
+                                return ("success", text.strip())
+                            elif any(word in text_lower for word in ["error", "falló", "fallo", "invalido", "invalid", "failed"]):
+                                return ("error", text.strip())
+            except Exception:
+                continue
+        
+        # 2) Fallback: buscar por texto en toda la página
+        try:
+            page_text = await page.content()
+            page_text_lower = page_text.lower()
+            
+            # Buscar indicadores de éxito
+            success_patterns = [
+                "subida",
+                "enviado",
+                "correcto",
+                "ok",
+                "éxito",
+                "exito",
+                "success",
+            ]
+            
+            # Buscar indicadores de error
+            error_patterns = [
+                "error",
+                "falló",
+                "fallo",
+                "invalido",
+                "invalid",
+                "failed",
+            ]
+            
+            # Buscar texto visible que contenga estos patrones
+            try:
+                visible_text = await page.evaluate("""
+                    () => {
+                        const walker = document.createTreeWalker(
+                            document.body,
+                            NodeFilter.SHOW_TEXT,
+                            null,
+                            false
+                        );
+                        const texts = [];
+                        let node;
+                        while (node = walker.nextNode()) {
+                            const text = node.textContent.trim();
+                            if (text && text.length > 0 && text.length < 200) {
+                                const parent = node.parentElement;
+                                if (parent && window.getComputedStyle(parent).display !== 'none') {
+                                    texts.push(text);
+                                }
+                            }
+                        }
+                        return texts.join(' ');
+                    }
+                """)
+                
+                visible_text_lower = visible_text.lower()
+                
+                # Buscar patrones de éxito
+                for pattern in success_patterns:
+                    if pattern in visible_text_lower:
+                        # Extraer el mensaje completo
+                        import re
+                        match = re.search(rf'.*{re.escape(pattern)}.*', visible_text, re.IGNORECASE)
+                        if match:
+                            message = match.group(0).strip()[:100]  # Limitar a 100 caracteres
+                            return ("success", message)
+                
+                # Buscar patrones de error
+                for pattern in error_patterns:
+                    if pattern in visible_text_lower:
+                        # Extraer el mensaje completo
+                        import re
+                        match = re.search(rf'.*{re.escape(pattern)}.*', visible_text, re.IGNORECASE)
+                        if match:
+                            message = match.group(0).strip()[:100]  # Limitar a 100 caracteres
+                            return ("error", message)
+            except Exception:
+                pass
+        except Exception:
+            pass
+        
+        # 3) No se encontró ningún mensaje de status
+        return (None, None)
+        
+    except Exception as e:
+        logger.debug(f"[EXECUTOR] Error al detectar resultado de upload: {e}")
+        return (None, None)
 
 
 async def _execute_upload(
@@ -5615,11 +5769,30 @@ async def _execute_submit(
         logger.info(f"[EXECUTOR] Submitted form using {selector}")
         print(f"[EXECUTOR] Submitted form using {selector}")
         
-        # Verificar si se pulsó "Simular subida" (condición de éxito)
+        # Detectar si se hizo submit en "Simular subida" y verificar resultado
+        is_simular_subida = "simular subida" in selector.lower()
+        result_status = None
+        result_message = None
+        
+        if is_simular_subida:
+            # Esperar un momento para que aparezca el resultado
+            await browser.page.wait_for_timeout(1000)
+            
+            # Detectar resultado del upload
+            result_status, result_message = await _detect_upload_result(browser.page)
+            
+            if result_status:
+                logger.info(f"[EXECUTOR] Upload result: {result_status.upper()} - {result_message}")
+                print(f"[EXECUTOR] Upload result: {result_status.upper()} - {result_message}")
+            else:
+                logger.info(f"[EXECUTOR] Upload result: UNKNOWN (no status message found)")
+                print(f"[EXECUTOR] Upload result: UNKNOWN (no status message found)")
+        
+        # Verificar si se pulsó "Simular subida" (condición de éxito) - mantener compatibilidad
         submit_success = False
         try:
             # Verificar si aparece mensaje de "subida simulada" o similar
-            await browser.page.wait_for_timeout(1000)  # Esperar un momento para que aparezca el mensaje
+            await browser.page.wait_for_timeout(500)  # Esperar un momento adicional
             page_text = await browser.page.content()
             page_text_lower = page_text.lower()
             
@@ -5682,7 +5855,11 @@ async def _execute_submit(
                 logger.warning(f"[EXECUTOR] Screenshot failed after submit: {selector} - {e}")
             # Continuar sin lanzar excepción
         
-        return f"Submitted form using {selector}"
+        result_text = f"Submitted form using {selector}"
+        if result_status:
+            result_text += f" | Result: {result_status.upper()} - {result_message}"
+        
+        return result_text
         
     except Exception as e:
         logger.error(f"[EXECUTOR] Error al hacer submit en step {step_index}: {e}", exc_info=True)
