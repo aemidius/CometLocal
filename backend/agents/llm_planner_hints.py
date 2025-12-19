@@ -199,6 +199,8 @@ Responde SOLO con el objeto JSON, sin texto adicional.
 """
     
     try:
+        # v4.7 FIX: Usar response_format={"type": "text"} para evitar errores de compatibilidad
+        # Luego parsear JSON de forma tolerante
         response = await llm_client.chat.completions.create(
             model=LLM_MODEL,
             messages=[
@@ -206,14 +208,44 @@ Responde SOLO con el objeto JSON, sin texto adicional.
                 {"role": "user", "content": user_content},
             ],
             temperature=0.3,
-            response_format={"type": "json_object"},
+            response_format={"type": "text"},
         )
     except (TypeError, ValueError, AttributeError) as e:
         # Capturar errores específicos de response_format.type incompatibility
         error_msg = str(e).lower()
-        if "response_format" in error_msg or "json_object" in error_msg or "type" in error_msg:
-            logger.info("[PlannerHints] disabled due to response_format incompatibility")
-            # Devolver PlannerHints vacío sin traceback ruidoso
+        if "response_format" in error_msg or "type" in error_msg:
+            logger.info("[PlannerHints] disabled due to response_format incompatibility, trying without response_format")
+            # Intentar sin response_format
+            try:
+                response = await llm_client.chat.completions.create(
+                    model=LLM_MODEL,
+                    messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT_PLANNER_HINTS},
+                        {"role": "user", "content": user_content},
+                    ],
+                    temperature=0.3,
+                )
+            except Exception as e2:
+                logger.warning(f"[PlannerHints] Error al llamar LLM: {e2}")
+                # Devolver PlannerHints vacío sin traceback ruidoso
+                return PlannerHints(
+                    goal=goal,
+                    execution_profile_name=execution_plan.execution_profile.get("name"),
+                    context_strategies=execution_plan.context_strategies,
+                    sub_goals=[],
+                    profile_suggestion=None,
+                    global_insights=None,
+                    llm_raw_notes=None,
+                )
+        else:
+            # Si no es un error de response_format, re-lanzar para el catch general
+            raise
+    
+    try:
+        # Parsear respuesta JSON de forma tolerante
+        response_text = response.choices[0].message.content
+        if not response_text:
+            logger.warning("[PlannerHints] Empty response from LLM")
             return PlannerHints(
                 goal=goal,
                 execution_profile_name=execution_plan.execution_profile.get("name"),
@@ -223,14 +255,12 @@ Responde SOLO con el objeto JSON, sin texto adicional.
                 global_insights=None,
                 llm_raw_notes=None,
             )
-        # Si no es un error de response_format, re-lanzar para el catch general
-        raise
-    
-    try:
-        # Parsear respuesta JSON
-        response_text = response.choices[0].message.content
-        if not response_text:
-            raise ValueError("Empty response from LLM")
+        
+        # Intentar extraer JSON del texto (puede venir con markdown o texto adicional)
+        import re
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            response_text = json_match.group(0)
         
         response_data = json.loads(response_text)
         

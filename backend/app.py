@@ -596,7 +596,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
             if password_match:
                 parsed_creds['password'] = password_match.group(1).strip(',;')
     
-    # Si detectamos credenciales, guardarlas y devolver respuesta sin ejecutar
+    # Si detectamos credenciales, guardarlas pero continuar con ejecución si hay objetivo
     if parsed_creds and ('company_code' in parsed_creds or 'username' in parsed_creds or 'password' in parsed_creds):
         logger.info(f"[agent_answer_endpoint] Credenciales detectadas en goal, guardando en memoria...")
         print(f"[DEBUG_AGENT] Credenciales detectadas: {parsed_creds}")
@@ -634,27 +634,49 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
             except Exception as e:
                 logger.error(f"[agent_answer_endpoint] Error al guardar credenciales: {e}")
         
-        # Devolver respuesta válida sin ejecutar Playwright ni planner
-        return AgentAnswerResponse(
-            goal=payload.goal,
-            final_answer="Credenciales guardadas. Ahora dime qué acción quieres ejecutar en el Portal A.",
-            steps=[],
-            source_url=None,
-            source_title=None,
-            sources=[],
-            sections=None,
-            structured_sources=None,
-            metrics_summary={
-                "needs_user_input": False,
-            },
-            file_upload_instructions=None,
-            execution_plan=None,
-            execution_cancelled=None,
-            reasoning_spotlight=None,
-            planner_hints=None,
-            outcome_judge=None,
-            execution_mode=execution_mode,
-        )
+        # Detectar si el goal contiene SOLO credenciales (sin objetivo) o credenciales + objetivo
+        # Palabras clave que indican un objetivo de ejecución (excluyendo palabras de credenciales)
+        objective_keywords = [
+            "accede", "navega", "entra", "sube", "subir", "reconocimiento", 
+            "simula subida", "simular subida", "portal", "login", "dashboard", "upload", 
+            "documento", "trabajador", "worker", "w-", "para w-", "médico", "caducidad",
+            "emisión", "fecha", "sube", "subir archivo"
+        ]
+        # Si el goal contiene credenciales pero también palabras clave de objetivo, continuar ejecución
+        # Si el goal es SOLO credenciales (sin objetivo), devolver early
+        has_objective = any(keyword in goal_lower for keyword in objective_keywords)
+        
+        # Si el goal contiene palabras clave de objetivo, continuar con ejecución
+        # Si NO contiene objetivo, devolver early pidiendo el objetivo
+        if not has_objective:
+            logger.info(f"[agent_answer_endpoint] Goal contiene solo credenciales sin objetivo, solicitando objetivo...")
+            print(f"[DEBUG_AGENT] Goal contiene solo credenciales sin objetivo, solicitando objetivo...")
+            return AgentAnswerResponse(
+                goal=payload.goal,
+                final_answer="Credenciales guardadas. ¿Qué acción quieres ejecutar en el Portal A? (ej: sube un reconocimiento médico para W-001)",
+                steps=[],
+                source_url=None,
+                source_title=None,
+                sources=[],
+                sections=None,
+                structured_sources=None,
+                metrics_summary={
+                    "needs_user_input": True,
+                    "missing_fields": ["objetivo"],
+                },
+                file_upload_instructions=None,
+                execution_plan=None,
+                execution_cancelled=None,
+                reasoning_spotlight=None,
+                planner_hints=None,
+                outcome_judge=None,
+                execution_mode=execution_mode,
+            )
+        else:
+            # Credenciales + objetivo: guardar credenciales y continuar con ejecución
+            logger.info(f"[agent_answer_endpoint] Credenciales guardadas, continuando con ejecución del objetivo...")
+            print(f"[DEBUG_AGENT] Credenciales guardadas, continuando con ejecución del objetivo...")
+            # NO hacer return, continuar con el flujo normal
     
     # v4.9.0 FIX: Gating - Verificar credenciales ANTES de iniciar Playwright
     # Esto evita abrir el navegador si faltan credenciales
@@ -799,6 +821,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
         
         # Ejecutar primero todos los steps de navegación
         navigation_executed = False
+        did_real_action = False  # v4.7 FIX: Detectar si se ejecutaron acciones reales (fill/click/select/upload/submit)
         for step_index, step in enumerate(payload.steps, start=1):
             # Verificar que no sea Wikipedia o Images (no tocarlos)
             strategy = step.get("strategy", "").lower() if isinstance(step, dict) else ""
@@ -817,15 +840,40 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                 if action_result:
                     logger.info(f"[agent_answer_endpoint] Step {step_index} ejecutado: {action_result}")
                     print(f"[DEBUG_AGENT] Step {step_index} ejecutado: {action_result}")
+                    action_result_lower = action_result.lower()
+                    
                     # Si fue navegación, marcar que se navegó
-                    if "navigated" in action_result.lower():
+                    if "navigated" in action_result_lower:
                         navigation_executed = True
+                    
+                    # v4.7 FIX: Detectar acciones reales (no skips)
+                    # Si la acción fue skip, no cuenta como acción real
+                    is_skip = (
+                        "skip" in action_result_lower or
+                        "already at" in action_result_lower or
+                        "already past" in action_result_lower
+                    )
+                    if not is_skip:
+                        # Detectar si fue una acción real (fill/click/select/upload/submit)
+                        if any(keyword in action_result_lower for keyword in [
+                            "filled", "clicked", "selected", "uploaded", "submitted",
+                            "fill", "click", "select", "upload", "submit"
+                        ]):
+                            did_real_action = True
             except Exception as e:
                 logger.warning(f"[agent_answer_endpoint] Error al ejecutar step {step_index} con executor determinista: {e}", exc_info=True)
                 # Continuar con el siguiente step aunque haya error
         
         # v2.8.0+: ActionPlanner - Generar acciones ejecutables si no las hay
-        if navigation_executed and not _has_executable_actions(payload.steps):
+        # v4.7 FIX: Continuar con DOM actions si:
+        # - Se navegó Y no hay acciones ejecutables, O
+        # - NO se ejecutaron acciones reales (aunque se haya skippeado navegación)
+        should_generate_dom_actions = (
+            (navigation_executed and not _has_executable_actions(payload.steps)) or
+            (not did_real_action and browser.page is not None)
+        )
+        
+        if should_generate_dom_actions:
             logger.info("[agent_answer_endpoint] Steps no tienen acciones ejecutables, generando desde DOM...")
             print("[DEBUG_AGENT] Steps no tienen acciones ejecutables, generando desde DOM...")
             

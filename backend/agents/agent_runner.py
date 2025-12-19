@@ -4795,6 +4795,16 @@ async def _execute_fill(
     selector = step.get("selector") or step.get("field_selector")
     value = step.get("value") or step.get("field_value")
     
+    
+    # v4.7 FIX: Si el selector es #doc_type, redirigir a _execute_select
+    # (el generador a veces genera "fill" en lugar de "select" para doc_type)
+    if selector and ("#doc_type" in selector.lower() or "doc_type" in selector.lower()):
+        logger.info(f"[EXECUTOR] Selector {selector} es doc_type, redirigiendo a _execute_select...")
+        # Convertir el step a formato de select
+        select_step = step.copy()
+        select_step["action"] = "select"
+        return await _execute_select(select_step, step_index, browser, screenshots_dir)
+    
     # Detectar si es fill_date (action == "fill_date" o selector es campo de fecha)
     is_date_fill = step.get("action", "").lower() == "fill_date"
     if not is_date_fill and selector:
@@ -5240,6 +5250,163 @@ async def resolve_date_inputs(page) -> tuple[Optional[str], Optional[str]]:
         return (None, None)
 
 
+async def resolve_doc_type_select(page) -> Optional[str]:
+    """
+    Resuelve el selector CSS del <select> del tipo de documento de forma robusta.
+    
+    v4.7 FIX: Implementa múltiples fallbacks para encontrar el select de doc_type
+    cuando #doc_type no existe.
+    
+    Returns:
+        Selector CSS válido del <select>, o None si no se encuentra
+    """
+    try:
+        # Esperar a que el DOM esté listo (networkidle o DOMContentLoaded)
+        try:
+            await page.wait_for_load_state("networkidle", timeout=2000)
+        except Exception:
+            try:
+                await page.wait_for_load_state("domcontentloaded", timeout=2000)
+            except Exception:
+                pass  # Continuar aunque no se pueda esperar
+        
+        # A) Si existe y es visible "#doc_type" -> return "#doc_type"
+        try:
+            await page.wait_for_selector("#doc_type", timeout=2000)
+            doc_type_locator = page.locator("#doc_type").first
+            await doc_type_locator.wait_for(state="visible", timeout=1500)
+            logger.info("[EXECUTOR] doc_type found via #doc_type selector=#doc_type")
+            return "#doc_type"
+        except Exception:
+            pass  # Continuar con fallbacks
+        
+        # B) Fallback 1: select[name*='doc' i], select[id*='doc' i]
+        try:
+            # Buscar select con name o id que contenga "doc" (case-insensitive)
+            candidates = [
+                "select[name*='doc' i]",
+                "select[id*='doc' i]",
+                "select[name*='doc']",
+                "select[id*='doc']",
+            ]
+            for candidate in candidates:
+                try:
+                    await page.wait_for_selector(candidate, timeout=1000)
+                    select_locator = page.locator(candidate).first
+                    if await select_locator.count() > 0:
+                        await select_locator.wait_for(state="visible", timeout=1500)
+                        select_id = await select_locator.get_attribute("id")
+                        select_name = await select_locator.get_attribute("name")
+                        if select_id:
+                            logger.info(f"[EXECUTOR] doc_type found via name/id fallback selector=#{select_id}")
+                            return f"#{select_id}"
+                        elif select_name:
+                            logger.info(f"[EXECUTOR] doc_type found via name/id fallback selector=select[name='{select_name}']")
+                            return f"select[name='{select_name}']"
+                except Exception:
+                    continue
+        except Exception as e:
+            logger.debug(f"[EXECUTOR] Name/id fallback falló: {e}")
+        
+        # C) Fallback 2: select:has(option:has-text("Reconocimiento"))
+        try:
+            await page.wait_for_selector("select", timeout=2000)
+            # Buscar select que tenga una opción con texto "Reconocimiento"
+            select_locator = page.locator('select:has(option:has-text("Reconocimiento")), select:has(option:has-text("reconocimiento"))').first
+            if await select_locator.count() > 0:
+                await select_locator.wait_for(state="visible", timeout=1500)
+                select_id = await select_locator.get_attribute("id")
+                select_name = await select_locator.get_attribute("name")
+                if select_id:
+                    logger.info(f"[EXECUTOR] doc_type found via option-text fallback selector=#{select_id}")
+                    return f"#{select_id}"
+                elif select_name:
+                    logger.info(f"[EXECUTOR] doc_type found via option-text fallback selector=select[name='{select_name}']")
+                    return f"select[name='{select_name}']"
+                else:
+                    logger.info("[EXECUTOR] doc_type found via option-text fallback selector=select:has(option:has-text('Reconocimiento'))")
+                    return 'select:has(option:has-text("Reconocimiento"))'
+        except Exception as e:
+            logger.debug(f"[EXECUTOR] Option-text fallback falló: {e}")
+        
+        # D) Fallback 3: localizar por label "Tipo de documento" y asociar al select
+        try:
+            # Estrategia preferida: <label for="..."> con texto "Tipo de documento"
+            label_locator = page.locator('label:has-text("Tipo de documento"), label:has-text("tipo de documento")').first
+            await label_locator.wait_for(state="visible", timeout=2000)
+            
+            # Obtener el atributo "for" del label
+            label_for = await label_locator.get_attribute("for")
+            if label_for:
+                # Verificar que el elemento existe y es visible
+                await page.wait_for_selector(f"#{label_for}", timeout=2000)
+                select_locator = page.locator(f"#{label_for}").first
+                await select_locator.wait_for(state="visible", timeout=1500)
+                logger.info(f"[EXECUTOR] doc_type found via label fallback selector=#{label_for}")
+                return f"#{label_for}"
+            else:
+                # Si no hay "for", buscar el select más cercano al label
+                # Buscar en el contenedor padre (div, td, section, etc.)
+                parent_locator = label_locator.locator("..")
+                select_locator = parent_locator.locator("select").first
+                if await select_locator.count() > 0:
+                    await select_locator.wait_for(state="visible", timeout=1500)
+                    # Obtener un selector único (id o name)
+                    select_id = await select_locator.get_attribute("id")
+                    select_name = await select_locator.get_attribute("name")
+                    if select_id:
+                        logger.info(f"[EXECUTOR] doc_type found via label fallback selector=#{select_id}")
+                        return f"#{select_id}"
+                    elif select_name:
+                        logger.info(f"[EXECUTOR] doc_type found via label fallback selector=select[name='{select_name}']")
+                        return f"select[name='{select_name}']"
+                    else:
+                        # Usar un selector más específico basado en la posición
+                        logger.info("[EXECUTOR] doc_type found via label fallback selector=select (near label)")
+                        return "select"  # Fallback genérico, se usará el primero
+        except Exception as e:
+            logger.debug(f"[EXECUTOR] Label fallback falló: {e}")
+        
+        # E) Último fallback: en el form principal de upload, selecciona el primer "select" visible
+        # que contenga una option con texto "Reconocimiento médico"
+        try:
+            # Esperar a que aparezca algún select
+            await page.wait_for_selector("select", timeout=2000)
+            
+            # Buscar en el form principal
+            form_locator = page.locator("form").first
+            if await form_locator.count() > 0:
+                # Buscar el primer select dentro del form que tenga la opción "Reconocimiento médico"
+                select_locator = form_locator.locator("select").first
+                if await select_locator.count() > 0:
+                    await select_locator.wait_for(state="visible", timeout=1500)
+                    # Verificar que tiene la opción "Reconocimiento médico"
+                    options = await select_locator.locator("option").all()
+                    for option in options:
+                        option_text = await option.text_content()
+                        if option_text and "reconocimiento médico" in option_text.lower():
+                            select_id = await select_locator.get_attribute("id")
+                            select_name = await select_locator.get_attribute("name")
+                            if select_id:
+                                logger.info(f"[EXECUTOR] doc_type found via first-select fallback selector=#{select_id}")
+                                return f"#{select_id}"
+                            elif select_name:
+                                logger.info(f"[EXECUTOR] doc_type found via first-select fallback selector=select[name='{select_name}']")
+                                return f"select[name='{select_name}']"
+                            else:
+                                logger.info("[EXECUTOR] doc_type found via first-select fallback selector=select (first in form)")
+                                return "select"  # Fallback genérico
+        except Exception as e:
+            logger.debug(f"[EXECUTOR] First-select fallback falló: {e}")
+        
+        logger.info("[EXECUTOR] doc_type not present; skipping selection")
+        return None
+        
+    except Exception as e:
+        logger.error(f"[EXECUTOR] Error en resolve_doc_type_select: {e}", exc_info=True)
+        return None
+
+
 async def _execute_select(
     step: Dict[str, Any],
     step_index: int,
@@ -5260,6 +5427,21 @@ async def _execute_select(
     if not value:
         logger.warning(f"[EXECUTOR] Step {step_index} requiere select pero no se encontró value")
         return None
+    
+    # v4.7 FIX: Detectar si es doc_type para aplicar fallbacks
+    original_selector = selector
+    is_doc_type = "#doc_type" in selector.lower() or "doc_type" in selector.lower()
+    
+    
+    
+    # v4.7 FIX: Si es doc_type, intentar resolver automáticamente antes de usar el selector original
+    if is_doc_type:
+        logger.info(f"[EXECUTOR] Selector {original_selector} detectado como doc_type, resolviendo automáticamente...")
+        resolved_selector = await resolve_doc_type_select(browser.page)
+        if resolved_selector and resolved_selector != "#doc_type":
+            # Usar el selector resuelto en lugar del original
+            selector = resolved_selector
+            logger.info(f"[EXECUTOR] Selector resuelto: {original_selector} -> {selector}")
     
     try:
         # Intentar con el primer selector si hay múltiples separados por coma
@@ -5290,6 +5472,37 @@ async def _execute_select(
                         continue
             except Exception:
                 continue
+        
+        
+        # v4.7 FIX: Si falló y es doc_type, intentar con resolve_doc_type_select
+        if not success and is_doc_type:
+            logger.info(f"[EXECUTOR] Selector {original_selector} falló, intentando resolve_doc_type_select...")
+            fallback_selector = await resolve_doc_type_select(browser.page)
+            if fallback_selector:
+                try:
+                    locator = browser.page.locator(fallback_selector).first
+                    await locator.wait_for(state="visible", timeout=2000)
+                    try:
+                        await locator.select_option(label=value)
+                        success = True
+                        selector = fallback_selector
+                        logger.info(f"[EXECUTOR] Selected {value} on {selector} (via doc_type fallback, by label)")
+                    except Exception:
+                        try:
+                            await locator.select_option(value=value)
+                            success = True
+                            selector = fallback_selector
+                            logger.info(f"[EXECUTOR] Selected {value} on {selector} (via doc_type fallback, by value)")
+                        except Exception:
+                            pass
+                except Exception as e:
+                    logger.debug(f"[EXECUTOR] Fallback selector {fallback_selector} también falló: {e}")
+        
+        # v4.7 FIX: Si es doc_type y no se encontró, tratar como warning (no error)
+        if not success and is_doc_type:
+            logger.warning(f"[EXECUTOR] Step {step_index}: doc_type not present; skipping selection (no error)")
+            # NO retornar None, continuar con el flujo
+            return f"Skipped doc_type selection (not present in page)"
         
         if not success:
             logger.warning(f"[EXECUTOR] Step {step_index}: No se pudo seleccionar {value} en {selector}")
