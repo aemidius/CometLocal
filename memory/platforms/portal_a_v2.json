@@ -1,0 +1,22 @@
+{
+  "platform": "portal_a_v2",
+  "visual_click_usage": 0,
+  "visual_recovery_usage": 0,
+  "upload_error_counts": 0,
+  "ocr_usage": 0,
+  "last_seen": null,
+  "notes": "Versión más realista del portal A con componentes custom: combobox para tipo de documento, datepicker JS para fechas, dropzone para archivos, y delay de renderizado. Diseñado para entrenar y validar la robustez del agente frente a portales reales.",
+  "avg_outcome_score": null,
+  "outcome_run_count": 0,
+  "last_outcome_timestamp": null,
+  "common_issues": null,
+  "last_company_code": null,
+  "last_username": null,
+  "last_password": null,
+  "last_worker_id": null,
+  "last_doc_type": null,
+  "base_url": "http://127.0.0.1:8000/simulation/portal_a_v2",
+  "name": "Portal CAE A v2",
+  "description": "Versión mejorada del Portal A con componentes más realistas:\n- Combobox custom para 'Tipo de documento' (div role='combobox' con opciones renderizadas dinámicamente)\n- Campos de fecha como input type='text' con datepicker JS (no type='date')\n- Dropzone clicable para subida de archivos (input type='file' oculto)\n- Botón 'Simular subida' type='button' con submit vía JavaScript\n- Delay de 300-600ms antes de renderizar el formulario\n\nDiferencias respecto a portal_a:\n- El select de tipo de documento es un combobox custom, pero mantiene un select oculto para compatibilidad\n- Los campos de fecha usan máscara DD/MM/YYYY en lugar de input type='date'\n- La subida de archivos usa una zona de arrastre visual\n- El formulario se renderiza con un pequeño delay para simular carga dinámica"
+}
+

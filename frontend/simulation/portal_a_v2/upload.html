@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Portal CAE A - Subida de documentación</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <style>
+    /* Estilos para el combobox custom */
+    .combobox-container {
+      position: relative;
+    }
+    .combobox-input {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 0.375rem;
+      background: white;
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .combobox-input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    .combobox-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 0.375rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      z-index: 10;
+      display: none;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .combobox-dropdown.open {
+      display: block;
+    }
+    .combobox-option {
+      padding: 0.5rem 0.75rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .combobox-option:hover {
+      background: #f3f4f6;
+    }
+    .combobox-option.selected {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    
+    /* Estilos para el dropzone */
+    .dropzone {
+      border: 2px dashed #d1d5db;
+      border-radius: 0.375rem;
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #f9fafb;
+    }
+    .dropzone:hover {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+    .dropzone.dragover {
+      border-color: #3b82f6;
+      background: #dbeafe;
+    }
+    .dropzone-icon {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+    .dropzone-text {
+      color: #6b7280;
+      font-size: 0.875rem;
+    }
+    .dropzone-file-name {
+      margin-top: 0.5rem;
+      color: #1f2937;
+      font-weight: 500;
+    }
+    
+    /* Estilos para datepicker */
+    .date-input {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+    }
+    .date-input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    /* Ocultar input file nativo */
+    #file_input_hidden {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    /* Formulario oculto inicialmente */
+    #upload-form {
+      display: none;
+    }
+    #upload-form.visible {
+      display: block;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div class="min-h-screen flex flex-col items-center py-10">
+    <div class="w-full max-w-xl bg-white shadow-md rounded-lg p-6">
+      <h1 class="text-2xl font-semibold text-gray-800 mb-2">Subida de documentación</h1>
+      <p class="text-sm text-gray-500 mb-4">
+        Página simulada para entrenar al agente CAE con formularios de subida de documentación.
+      </p>
+
+      <div id="worker_info" class="mb-4 text-sm text-gray-600"></div>
+
+      <form id="upload-form">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="doc_type_combobox">
+            Tipo de documento
+          </label>
+          <div class="combobox-container" role="combobox" aria-expanded="false" aria-haspopup="listbox">
+            <input
+              type="text"
+              id="doc_type_combobox"
+              class="combobox-input"
+              readonly
+              placeholder="Seleccione un tipo de documento"
+              aria-label="Tipo de documento"
+            />
+            <div class="combobox-dropdown" role="listbox" id="doc_type_dropdown">
+              <!-- Opciones se renderizarán dinámicamente -->
+            </div>
+          </div>
+          <!-- Input oculto para mantener compatibilidad con el agente -->
+          <select id="doc_type" style="display: none;">
+            <option value="Reconocimiento médico">Reconocimiento médico</option>
+            <option value="Formación PRL">Formación PRL</option>
+            <option value="APT médico">APT médico</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Archivo
+          </label>
+          <div class="dropzone" id="dropzone">
+            <div class="dropzone-icon">📄</div>
+            <div class="dropzone-text">Haga clic para seleccionar un archivo o arrástrelo aquí</div>
+            <div class="dropzone-file-name" id="dropzone-file-name" style="display: none;"></div>
+          </div>
+          <input
+            type="file"
+            id="file_input"
+            name="file"
+            style="position: absolute; opacity: 0; pointer-events: none;"
+          />
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="issue_date">
+            Fecha de emisión
+          </label>
+          <input
+            type="text"
+            id="issue_date"
+            class="date-input"
+            placeholder="DD/MM/YYYY"
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="expiry_date">
+            Fecha de caducidad
+          </label>
+          <input
+            type="text"
+            id="expiry_date"
+            class="date-input"
+            placeholder="DD/MM/YYYY"
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="flex justify-between">
+          <a
+            href="/simulation/portal_a_v2/dashboard.html"
+            class="text-sm text-gray-500 hover:text-gray-700 underline"
+          >
+            ← Volver al dashboard
+          </a>
+          <button
+            type="button"
+            id="btn_submit"
+            class="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md shadow hover:bg-blue-700"
+          >
+            Simular subida
+          </button>
+        </div>
+      </form>
+      
+      <div id="loading-message" class="text-center text-gray-500 text-sm mt-4">
+        Cargando formulario...
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Delay antes de renderizar el formulario (300-600ms)
+    const delay = 300 + Math.random() * 300; // Entre 300 y 600ms
+    
+    setTimeout(() => {
+      document.getElementById('upload-form').classList.add('visible');
+      document.getElementById('loading-message').style.display = 'none';
+      
+      // Inicializar componentes después de mostrar el formulario
+      initCombobox();
+      initDropzone();
+      initDatepicker();
+      initSubmit();
+    }, delay);
+
+    function getQueryParams() {
+      const params = {};
+      const qs = window.location.search.substring(1);
+      const pairs = qs.split("&").filter(Boolean);
+      for (const p of pairs) {
+        const [key, value] = p.split("=");
+        params[decodeURIComponent(key)] = decodeURIComponent(value || "");
+      }
+      return params;
+    }
+
+    const params = getQueryParams();
+    const workerInfoEl = document.getElementById("worker_info");
+    if (workerInfoEl) {
+      const workerId = params.worker_id || "W-???";
+      const workerName = params.worker_name || "Trabajador/a desconocido/a";
+      workerInfoEl.textContent = `Trabajador: ${workerName} (${workerId})`;
+    }
+
+    // Inicializar combobox custom
+    function initCombobox() {
+      const comboboxInput = document.getElementById('doc_type_combobox');
+      const dropdown = document.getElementById('doc_type_dropdown');
+      const hiddenSelect = document.getElementById('doc_type');
+      const container = comboboxInput.closest('.combobox-container');
+      
+      const options = [
+        'Reconocimiento médico',
+        'Formación PRL',
+        'APT médico',
+        'Otro'
+      ];
+      
+      // Renderizar opciones dinámicamente
+      options.forEach((option, index) => {
+        const optionEl = document.createElement('div');
+        optionEl.className = 'combobox-option';
+        optionEl.textContent = option;
+        optionEl.setAttribute('role', 'option');
+        optionEl.setAttribute('data-value', option);
+        if (index === 0) {
+          optionEl.classList.add('selected');
+          comboboxInput.value = option;
+          hiddenSelect.value = option;
+        }
+        optionEl.addEventListener('click', () => {
+          options.forEach(opt => {
+            const optEl = dropdown.querySelector(`[data-value="${opt}"]`);
+            if (optEl) optEl.classList.remove('selected');
+          });
+          optionEl.classList.add('selected');
+          comboboxInput.value = option;
+          hiddenSelect.value = option;
+          container.setAttribute('aria-expanded', 'false');
+          dropdown.classList.remove('open');
+        });
+        dropdown.appendChild(optionEl);
+      });
+      
+      // Abrir/cerrar dropdown
+      comboboxInput.addEventListener('click', () => {
+        const isOpen = dropdown.classList.contains('open');
+        if (isOpen) {
+          dropdown.classList.remove('open');
+          container.setAttribute('aria-expanded', 'false');
+        } else {
+          dropdown.classList.add('open');
+          container.setAttribute('aria-expanded', 'true');
+        }
+      });
+      
+      // Cerrar al hacer clic fuera
+      document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+          dropdown.classList.remove('open');
+          container.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    // Inicializar dropzone
+    function initDropzone() {
+      const dropzone = document.getElementById('dropzone');
+      const fileInput = document.getElementById('file_input_hidden');
+      const fileNameEl = document.getElementById('dropzone-file-name');
+      
+      // Click en dropzone abre el file input
+      dropzone.addEventListener('click', () => {
+        fileInput.click();
+      });
+      
+      // Drag and drop
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+      
+      dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('dragover');
+      });
+      
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          fileInput.files = files;
+          updateFileName(files[0].name);
+        }
+      });
+      
+      // Cambio de archivo desde input
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          updateFileName(e.target.files[0].name);
+        }
+      });
+      
+      function updateFileName(name) {
+        fileNameEl.textContent = `Archivo seleccionado: ${name}`;
+        fileNameEl.style.display = 'block';
+      }
+    }
+
+    // Inicializar datepicker simple (formato DD/MM/YYYY)
+    function initDatepicker() {
+      const issueDate = document.getElementById('issue_date');
+      const expiryDate = document.getElementById('expiry_date');
+      
+      // Máscara de fecha DD/MM/YYYY
+      function applyDateMask(input) {
+        input.addEventListener('input', (e) => {
+          let value = e.target.value.replace(/\D/g, '');
+          if (value.length >= 2) {
+            value = value.substring(0, 2) + '/' + value.substring(2);
+          }
+          if (value.length >= 5) {
+            value = value.substring(0, 5) + '/' + value.substring(5, 9);
+          }
+          e.target.value = value;
+        });
+        
+        // Validar formato al perder foco
+        input.addEventListener('blur', (e) => {
+          const value = e.target.value;
+          const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+          if (value && !dateRegex.test(value)) {
+            // Si no es válido, intentar convertir a formato estándar
+            const date = new Date(value);
+            if (!isNaN(date.getTime())) {
+              const day = String(date.getDate()).padStart(2, '0');
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const year = date.getFullYear();
+              e.target.value = `${day}/${month}/${year}`;
+            }
+          }
+        });
+      }
+      
+      applyDateMask(issueDate);
+      applyDateMask(expiryDate);
+    }
+
+    // Inicializar submit button
+    function initSubmit() {
+      const submitBtn = document.getElementById('btn_submit');
+      const form = document.getElementById('upload-form');
+      
+      submitBtn.addEventListener('click', () => {
+        // Validar campos
+        const docType = document.getElementById('doc_type').value;
+        const fileInput = document.getElementById('file_input_hidden');
+        const issueDate = document.getElementById('issue_date').value;
+        const expiryDate = document.getElementById('expiry_date').value;
+        
+        if (!docType) {
+          alert('Por favor, seleccione un tipo de documento');
+          return;
+        }
+        
+        if (!fileInput.files || fileInput.files.length === 0) {
+          alert('Por favor, seleccione un archivo');
+          return;
+        }
+        
+        // Simular submit (en un caso real, aquí se enviaría al servidor)
+        alert('Subida simulada correctamente');
+        
+        // Redirigir al dashboard
+        window.location.href = '/simulation/portal_a_v2/dashboard.html';
+      });
+    }
+  </script>
+</body>
+</html>
