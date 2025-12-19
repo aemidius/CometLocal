@@ -1280,7 +1280,7 @@
       }
       
       // v4.3.0: Mostrar modo de ejecución y información de dry_run
-      const execMode = summary.execution_mode || response.execution_mode || "live";
+      const execMode = summary.execution_mode || "live";
       const dryRunInfo = summary.dry_run_info || {};
       html += `<div style="font-size: 11px; color: #d1d5db; margin-bottom: 4px;">Modo de ejecución: <strong>${execMode === "dry_run" ? "Simulación (dry_run)" : "En vivo (live)"}</strong></div>`;
       
@@ -1732,8 +1732,12 @@
       html += '</div>';
       
       // Botones de acción
+      // v4.9.0: No mostrar "Ejecutar plan" si needs_user_input=true
+      const needsUserInput = plan.metrics_summary?.needs_user_input || false;
       html += '<div style="display: flex; gap: 8px; margin-top: 16px;">';
-      html += '<button onclick="confirmExecution(this)" style="flex: 1; padding: 8px 16px; background: #22c55e; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">▶️ Ejecutar plan</button>';
+      if (!needsUserInput) {
+        html += '<button onclick="confirmExecution(this)" style="flex: 1; padding: 8px 16px; background: #22c55e; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">▶️ Ejecutar plan</button>';
+      }
       html += '<button onclick="cancelExecution(this)" style="flex: 1; padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">❌ Cancelar</button>';
       html += '</div>';
       
@@ -1787,7 +1791,8 @@
       
       // Ejecutar con confirmación
       sendAgentMessage("", thinkingMsg, true).catch(err => {
-        const errorText = `Error al ejecutar el plan: ${err.message}`;
+        console.error("[CometLocal] Error al ejecutar plan:", err);
+        const errorText = `Error al ejecutar el plan: ${err.message || err.toString() || "Error desconocido"}`;
         updateMessage(thinkingMsg, errorText, "");
         thinkingMsg.classList.remove("thinking");
         thinkingMsg.classList.add("error");
@@ -1920,6 +1925,31 @@
         thinkingMsg.classList.remove("thinking");
         updateMessage(thinkingMsg, data.final_answer || "La ejecución fue cancelada por el usuario antes de iniciarse.", "");
         return;
+      }
+      
+      // v4.9.0 FIX: Mostrar final_answer SIEMPRE si existe (tanto en plan_only como confirmed)
+      // Esto asegura que mensajes como "Necesito credenciales..." se muestren incluso sin steps ni execution_plan
+      if (data.final_answer && data.final_answer.trim()) {
+        // Si hay final_answer, mostrarlo siempre
+        thinkingMsg.classList.remove("thinking");
+        
+        // Construir extraHtml si hay métricas o información adicional
+        let extraHtml = "";
+        if (data.metrics_summary) {
+          // Renderizar métricas si existen (puede contener needs_user_input)
+          if (typeof renderMetrics === 'function') {
+            extraHtml += renderMetrics(data.metrics_summary);
+          }
+        }
+        
+        // Mostrar el mensaje final
+        updateMessage(thinkingMsg, data.final_answer, extraHtml);
+        
+        // Si NO hay execution_plan, terminar aquí (no continuar con plan rendering)
+        if (!data.execution_plan) {
+          return;
+        }
+        // Si hay execution_plan, continuar con el procesamiento normal más abajo para renderizar el plan
       }
       
       // v2.8.0: Manejar plan de ejecución

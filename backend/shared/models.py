@@ -687,6 +687,7 @@ class PlatformMemory(BaseModel):
     v3.9.0: Almacena patrones de comportamiento de la plataforma,
     como uso de clicks visuales, recuperación visual, errores de upload, etc.
     v4.2.0: Añade agregados globales de calidad histórica basados en OutcomeJudge.
+    v4.9.0: Añade campos de login para auto-completar credenciales.
     """
     platform: str
     visual_click_usage: int = 0
@@ -700,6 +701,12 @@ class PlatformMemory(BaseModel):
     outcome_run_count: int = 0
     last_outcome_timestamp: Optional[datetime] = None
     common_issues: Optional[List[str]] = None  # Problemas frecuentes promocionados desde empresas
+    # v4.9.0: Campos de login para auto-completar
+    last_company_code: Optional[str] = None  # Último código de empresa usado
+    last_username: Optional[str] = None  # Último usuario usado
+    last_password: Optional[str] = None  # Última contraseña usada
+    last_worker_id: Optional[str] = None  # Último worker_id usado
+    last_doc_type: Optional[str] = None  # Último tipo de documento usado
 
 
 # v4.0.0: Modelos para Planner Hints (recomendaciones del LLM sobre el plan)

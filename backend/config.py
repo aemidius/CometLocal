@@ -35,3 +35,7 @@ MEMORY_BASE_DIR = os.getenv("MEMORY_BASE_DIR", "memory")
 VISUAL_MEMORY_BASE_DIR = os.getenv("VISUAL_MEMORY_BASE_DIR", "memory/visual")
 VISUAL_MEMORY_ENABLED = bool(int(os.getenv("VISUAL_MEMORY_ENABLED", "1")))
 
+# v4.9.0: URLs por defecto para portales
+DEFAULT_PORTAL_A_URL = os.getenv("DEFAULT_PORTAL_A_URL", "http://127.0.0.1:8000/simulation/portal_a/login.html")
+DEFAULT_PORTAL_B_URL = os.getenv("DEFAULT_PORTAL_B_URL", "http://127.0.0.1:8000/simulation/portal_b/login.html")
+

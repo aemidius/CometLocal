@@ -556,10 +556,198 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
     logger.info("[agent_answer_endpoint] Parámetros: goal=%r, execution_profile_name=%r, context_strategies=%r, execution_mode=%r",
                 payload.goal, payload.execution_profile_name, payload.context_strategies, execution_mode)
     
-    # Verificar que el browser esté iniciado
-    if not browser.page:
-        print("[DEBUG_AGENT] WARNING: browser.page es None, iniciando browser...")
-        await browser.start(headless=False)
+    # v4.9.0 FIX: Detectar si el usuario está proporcionando credenciales (respuesta a needs_user_input)
+    # Parsear credenciales del texto y guardarlas sin ejecutar Playwright ni planner
+    goal_text = payload.goal.strip()
+    goal_lower = goal_text.lower()
+    
+    # Detectar patrones de credenciales en el texto
+    import re
+    parsed_creds = {}
+    
+    # Patrón 1: "Empresa 123, usuario demo, contraseña demo" (formato completo)
+    full_pattern = re.search(
+        r'empresa\s*[:=]?\s*(\S+)[,;]?\s*(?:usuario|user)\s*[:=]?\s*(\S+)[,;]?\s*(?:contraseña|password|pass)\s*[:=]?\s*(\S+)',
+        goal_text,
+        re.IGNORECASE
+    )
+    if full_pattern:
+        parsed_creds['company_code'] = full_pattern.group(1).strip(',;')
+        parsed_creds['username'] = full_pattern.group(2).strip(',;')
+        parsed_creds['password'] = full_pattern.group(3).strip(',;')
+    else:
+        # Patrón 2: "123, demo, demo" (orden: empresa, usuario, contraseña)
+        simple_pattern = re.search(r'^(\S+)\s*[,;]\s*(\S+)\s*[,;]\s*(\S+)', goal_text, re.IGNORECASE)
+        if simple_pattern:
+            parsed_creds['company_code'] = simple_pattern.group(1).strip(',;')
+            parsed_creds['username'] = simple_pattern.group(2).strip(',;')
+            parsed_creds['password'] = simple_pattern.group(3).strip(',;')
+        else:
+            # Patrón 3: Campos individuales
+            empresa_match = re.search(r'empresa\s*[:=]?\s*(\S+)', goal_text, re.IGNORECASE)
+            if empresa_match:
+                parsed_creds['company_code'] = empresa_match.group(1).strip(',;')
+            
+            usuario_match = re.search(r'(?:usuario|user)\s*[:=]?\s*(\S+)', goal_text, re.IGNORECASE)
+            if usuario_match:
+                parsed_creds['username'] = usuario_match.group(1).strip(',;')
+            
+            password_match = re.search(r'(?:contraseña|password|pass)\s*[:=]?\s*(\S+)', goal_text, re.IGNORECASE)
+            if password_match:
+                parsed_creds['password'] = password_match.group(1).strip(',;')
+    
+    # Si detectamos credenciales, guardarlas y devolver respuesta sin ejecutar
+    if parsed_creds and ('company_code' in parsed_creds or 'username' in parsed_creds or 'password' in parsed_creds):
+        logger.info(f"[agent_answer_endpoint] Credenciales detectadas en goal, guardando en memoria...")
+        print(f"[DEBUG_AGENT] Credenciales detectadas: {parsed_creds}")
+        
+        # Inicializar memory_store
+        memory_store = None
+        try:
+            from backend.memory import MemoryStore
+            from backend.config import MEMORY_BASE_DIR
+            from backend.shared.models import PlatformMemory
+            memory_store = MemoryStore(MEMORY_BASE_DIR)
+        except Exception as e:
+            logger.warning(f"[agent_answer_endpoint] No se pudo inicializar memory_store: {e}")
+        
+        if memory_store:
+            try:
+                # Cargar o crear PlatformMemory para portal_a
+                portal = "portal_a"
+                platform_memory = memory_store.load_platform(portal)
+                if not platform_memory:
+                    platform_memory = PlatformMemory(platform=portal)
+                
+                # Actualizar credenciales parseadas
+                if 'company_code' in parsed_creds:
+                    platform_memory.last_company_code = parsed_creds['company_code']
+                if 'username' in parsed_creds:
+                    platform_memory.last_username = parsed_creds['username']
+                if 'password' in parsed_creds:
+                    platform_memory.last_password = parsed_creds['password']
+                
+                # Guardar en memoria
+                memory_store.save_platform(platform_memory)
+                logger.info(f"[agent_answer_endpoint] Credenciales guardadas en memoria para {portal}")
+                print(f"[DEBUG_AGENT] Credenciales guardadas: empresa={parsed_creds.get('company_code')}, usuario={parsed_creds.get('username')}")
+            except Exception as e:
+                logger.error(f"[agent_answer_endpoint] Error al guardar credenciales: {e}")
+        
+        # Devolver respuesta válida sin ejecutar Playwright ni planner
+        return AgentAnswerResponse(
+            goal=payload.goal,
+            final_answer="Credenciales guardadas. Ahora dime qué acción quieres ejecutar en el Portal A.",
+            steps=[],
+            source_url=None,
+            source_title=None,
+            sources=[],
+            sections=None,
+            structured_sources=None,
+            metrics_summary={
+                "needs_user_input": False,
+            },
+            file_upload_instructions=None,
+            execution_plan=None,
+            execution_cancelled=None,
+            reasoning_spotlight=None,
+            planner_hints=None,
+            outcome_judge=None,
+            execution_mode=execution_mode,
+        )
+    
+    # v4.9.0 FIX: Gating - Verificar credenciales ANTES de iniciar Playwright
+    # Esto evita abrir el navegador si faltan credenciales
+    requires_login_upload = (
+        ("portal a" in goal_lower or "portal_a" in goal_lower) and
+        ("sube" in goal_lower or "subir" in goal_lower or "reconocimiento" in goal_lower or "simula subida" in goal_lower)
+    )
+    
+    if requires_login_upload:
+        # Inicializar memory_store para verificar credenciales
+        memory_store = None
+        try:
+            from backend.memory import MemoryStore
+            from backend.config import MEMORY_BASE_DIR
+            from backend.agents.agent_runner import get_memory_defaults
+            memory_store = MemoryStore(MEMORY_BASE_DIR)
+        except Exception as e:
+            logger.debug(f"[agent_answer_endpoint] No se pudo inicializar memory_store: {e}")
+            # Importar get_memory_defaults aunque falle memory_store
+            try:
+                from backend.agents.agent_runner import get_memory_defaults
+            except ImportError:
+                logger.error("[agent_answer_endpoint] No se pudo importar get_memory_defaults")
+                get_memory_defaults = None
+        
+        # Intentar obtener credenciales desde memoria
+        if get_memory_defaults:
+            defaults = get_memory_defaults(portal="portal_a", memory_store=memory_store)
+        else:
+            defaults = {}
+        missing_creds = []
+        
+        if not defaults.get("company_code"):
+            missing_creds.append("empresa")
+        if not defaults.get("username"):
+            missing_creds.append("usuario")
+        if not defaults.get("password"):
+            missing_creds.append("contraseña")
+        
+        if missing_creds:
+            question = f"Necesito credenciales para Portal A: {', '.join(missing_creds)}."
+            logger.info(f"[agent_answer_endpoint] Credenciales faltantes detectadas: {missing_creds}")
+            print(f"[DEBUG_AGENT] Credenciales faltantes detectadas: {missing_creds}")
+            
+            # Devolver respuesta inmediata sin ejecutar nada más (SIN iniciar Playwright)
+            return AgentAnswerResponse(
+                goal=payload.goal,
+                final_answer=question,
+                steps=[],
+                source_url=None,
+                source_title=None,
+                sources=[],
+                sections=None,
+                structured_sources=None,
+                metrics_summary={
+                    "needs_user_input": True,
+                    "missing_fields": missing_creds,
+                },
+                file_upload_instructions=None,
+                execution_plan=None,
+                execution_cancelled=None,
+                reasoning_spotlight=None,
+                planner_hints=None,
+                outcome_judge=None,
+                execution_mode=execution_mode,
+            )
+    
+    # Guard-rail adicional: No inicializar Playwright si no hay intención de navegación
+    # Solo inicializar si el goal contiene URLs o acciones que requieren navegador
+    goal_text = payload.goal.strip()
+    goal_lower = goal_text.lower()
+    has_navigation_intent = (
+        "http" in goal_text or
+        "://" in goal_text or
+        "navega" in goal_lower or
+        "accede" in goal_lower or
+        "entra" in goal_lower or
+        "portal" in goal_lower or
+        "login" in goal_lower or
+        "dashboard" in goal_lower or
+        "sube" in goal_lower or
+        "subir" in goal_lower or
+        (payload.steps and isinstance(payload.steps, list) and len(payload.steps) > 0)
+    )
+    
+    # Verificar que el browser esté iniciado (solo si hay intención de navegación y pasamos el gating de credenciales)
+    if has_navigation_intent:
+        if not browser.page:
+            print("[DEBUG_AGENT] WARNING: browser.page es None, iniciando browser...")
+            await browser.start(headless=False)
+    else:
+        logger.info(f"[agent_answer_endpoint] No hay intención de navegación detectada, saltando inicialización de Playwright")
+        print(f"[DEBUG_AGENT] No hay intención de navegación, saltando Playwright")
     
     # v2.8.0+: Ejecutor determinista de navegación para steps confirmados
     # Ejecuta navegación ANTES de que el LLM procese los steps
@@ -568,10 +756,46 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
             execute_step_with_playwright,
             _has_executable_actions,
             generate_executable_actions_from_dom,
+            get_memory_defaults,
         )
         
         logger.info(f"[agent_answer_endpoint] Ejecutando {len(payload.steps)} steps con executor determinista")
         print(f"[DEBUG_AGENT] Ejecutando {len(payload.steps)} steps con executor determinista")
+        
+        # v4.9.0: Resolver URLs de portales si faltan
+        goal_lower = payload.goal.lower()
+        if "portal a" in goal_lower or "portal_a" in goal_lower:
+            # Buscar el primer step que requiera navigate
+            for step in payload.steps:
+                if not isinstance(step, dict):
+                    continue
+                expected_actions = step.get("expected_actions", [])
+                if isinstance(expected_actions, str):
+                    expected_actions = [expected_actions]
+                if "navigate" in expected_actions or step.get("action") == "navigate":
+                    # Si no tiene URL, inyectar la URL por defecto
+                    if not step.get("url") and not step.get("target_url"):
+                        from backend.config import DEFAULT_PORTAL_A_URL
+                        step["target_url"] = DEFAULT_PORTAL_A_URL
+                        logger.info(f"[agent_answer_endpoint] Resolved portal A default URL -> {DEFAULT_PORTAL_A_URL}")
+                        print(f"[DEBUG_AGENT] Resolved portal A default URL -> {DEFAULT_PORTAL_A_URL}")
+                        break
+        elif "portal b" in goal_lower or "portal_b" in goal_lower:
+            # Buscar el primer step que requiera navigate
+            for step in payload.steps:
+                if not isinstance(step, dict):
+                    continue
+                expected_actions = step.get("expected_actions", [])
+                if isinstance(expected_actions, str):
+                    expected_actions = [expected_actions]
+                if "navigate" in expected_actions or step.get("action") == "navigate":
+                    # Si no tiene URL, inyectar la URL por defecto
+                    if not step.get("url") and not step.get("target_url"):
+                        from backend.config import DEFAULT_PORTAL_B_URL
+                        step["target_url"] = DEFAULT_PORTAL_B_URL
+                        logger.info(f"[agent_answer_endpoint] Resolved portal B default URL -> {DEFAULT_PORTAL_B_URL}")
+                        print(f"[DEBUG_AGENT] Resolved portal B default URL -> {DEFAULT_PORTAL_B_URL}")
+                        break
         
         # Ejecutar primero todos los steps de navegación
         navigation_executed = False
@@ -612,11 +836,62 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                     logger.warning("[agent_answer_endpoint] No llm_client disponible para ActionPlanner")
                 else:
                     # Generar acciones ejecutables desde el DOM
+                    # v4.9.0: Reutilizar memory_store si ya está inicializado, si no inicializarlo
+                    if 'memory_store' not in locals() or memory_store is None:
+                        try:
+                            from backend.memory import MemoryStore
+                            from backend.config import MEMORY_BASE_DIR
+                            memory_store = MemoryStore(MEMORY_BASE_DIR)
+                        except Exception as e:
+                            logger.debug(f"[agent_answer_endpoint] No se pudo inicializar memory_store: {e}")
+                            memory_store = None
+                    
                     generated_actions = await generate_executable_actions_from_dom(
                         goal=payload.goal,
                         browser=browser,
                         llm_client=llm_client,
+                        memory_store=memory_store,
                     )
+                    
+                    # v4.9.0: Si no se generaron acciones porque faltan datos, devolver pregunta
+                    if generated_actions is None:
+                        # Detectar qué falta
+                        missing_info = []
+                        if not memory_store:
+                            missing_info.append("memoria")
+                        else:
+                            defaults = get_memory_defaults(portal="portal_a", memory_store=memory_store)
+                            if not defaults.get("company_code"):
+                                missing_info.append("empresa")
+                            if not defaults.get("username"):
+                                missing_info.append("usuario")
+                            if not defaults.get("password"):
+                                missing_info.append("contraseña")
+                        
+                        if missing_info:
+                            question = f"¿Qué {'/'.join(missing_info)} debo usar para Portal A?"
+                            logger.info(f"[agent_answer_endpoint] Solicitud de datos faltantes: {question}")
+                            return AgentAnswerResponse(
+                                goal=payload.goal,
+                                final_answer=question,
+                                steps=[],
+                                source_url=None,
+                                source_title=None,
+                                sources=[],
+                                sections=None,
+                                structured_sources=None,
+                                metrics_summary={
+                                    "needs_user_input": True,
+                                    "missing_fields": missing_info,
+                                },
+                                file_upload_instructions=None,
+                                execution_plan=None,
+                                execution_cancelled=None,
+                                reasoning_spotlight=None,
+                                planner_hints=None,
+                                outcome_judge=None,
+                                execution_mode=execution_mode,
+                            )
                     
                     if generated_actions and len(generated_actions) > 0:
                         logger.info(f"[agent_answer_endpoint] Phase 1 actions: {len(generated_actions)}")
@@ -665,6 +940,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                                     if policy_state.log_stop_once():
                                         logger.info("[POLICY] Stop execution early due to SUCCESS result.")
                                         print("[POLICY] Stop execution early due to SUCCESS result.")
+                                    # Romper el bucle de acciones y marcar que NO se deben generar fases siguientes
                                     break  # Salir del bucle de acciones
                                 
                                 # Actualizar flags en el contexto
@@ -683,7 +959,11 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                                 # Continuar con la siguiente acción aunque haya error
                         
                         # v2.8.0+: Segunda pasada - Verificar si la página cambió
-                        if browser.page:
+                        # CORTE INMEDIATO: Si ya hay SUCCESS, NO generar fases siguientes
+                        if policy_state.should_stop():
+                            logger.info("[agent_answer_endpoint] SUCCESS detectado en Phase 1, cortando ejecución inmediatamente (no generar Phase 2/3)")
+                            print("[DEBUG_AGENT] SUCCESS detectado en Phase 1, cortando ejecución inmediatamente (no generar Phase 2/3)")
+                        elif browser.page:
                             # Esperar un momento para que la página se cargue completamente
                             await browser.page.wait_for_timeout(2000)
                             try:
@@ -718,6 +998,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                                             llm_client=llm_client,
                                             phase=2,
                                             previous_url=previous_url,
+                                            memory_store=memory_store,
                                         )
                                         
                                         if phase2_actions and len(phase2_actions) > 0:
@@ -779,7 +1060,11 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                                                     # Continuar con la siguiente acción aunque haya error
                                             
                                             # v2.8.0+: Tercera pasada - Verificar si la URL cambió a upload.html
-                                            if browser.page:
+                                            # CORTE INMEDIATO: Si ya hay SUCCESS, NO generar Phase 3
+                                            if policy_state.should_stop():
+                                                logger.info("[agent_answer_endpoint] SUCCESS detectado en Phase 2, cortando ejecución inmediatamente (no generar Phase 3)")
+                                                print("[DEBUG_AGENT] SUCCESS detectado en Phase 2, cortando ejecución inmediatamente (no generar Phase 3)")
+                                            elif browser.page:
                                                 # Esperar un momento para que la página se cargue completamente
                                                 await browser.page.wait_for_timeout(2000)
                                                 try:
@@ -808,6 +1093,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                                                                 llm_client=llm_client,
                                                                 phase=3,
                                                                 previous_url=current_url,
+                                                                memory_store=memory_store,
                                                             )
                                                             
                                                             if phase3_actions and len(phase3_actions) > 0:
@@ -845,6 +1131,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                                                                             if policy_state.log_stop_once():
                                                                                 logger.info("[POLICY] Stop execution early due to SUCCESS result.")
                                                                                 print("[POLICY] Stop execution early due to SUCCESS result.")
+                                                                            # Romper el bucle de acciones (última fase, no hay más fases)
                                                                             break  # Salir del bucle de acciones
                                                                         
                                                                         # Actualizar flags según el resultado
@@ -921,6 +1208,40 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
         sources = []
         logger.info("[agent_answer_endpoint] Ejecución completada con policy_stop: %s", final_answer)
         print(f"[DEBUG_AGENT] Ejecución completada con policy_stop: {final_answer}")
+        
+        # v4.9.0: Guardar en memoria cuando hay SUCCESS
+        if memory_store:
+            try:
+                # Detectar portal desde la URL
+                portal = "portal_a"
+                if browser.page:
+                    current_url = browser.page.url
+                    if "portal_b" in current_url.lower():
+                        portal = "portal_b"
+                
+                # Cargar o crear PlatformMemory
+                platform_memory = memory_store.load_platform(portal)
+                if not platform_memory:
+                    from backend.shared.models import PlatformMemory
+                    platform_memory = PlatformMemory(platform=portal)
+                
+                # Extraer valores de las acciones ejecutadas desde execution_context_base
+                # Buscar en las acciones generadas y ejecutadas
+                if 'execution_context_base' in locals() and execution_context_base:
+                    # Intentar extraer valores de las acciones ejecutadas
+                    # Estos valores deberían estar en las acciones que se ejecutaron
+                    # Por ahora, actualizamos last_seen
+                    from datetime import datetime
+                    platform_memory.last_seen = datetime.now()
+                    
+                    # TODO: Extraer company_code, username, password, worker_id, doc_type
+                    # de las acciones ejecutadas cuando estén disponibles en el contexto
+                    
+                    # Guardar
+                    memory_store.save_platform(platform_memory)
+                    logger.info(f"[agent_answer_endpoint] Memoria actualizada para plataforma {portal}")
+            except Exception as e:
+                logger.warning(f"[agent_answer_endpoint] Error al guardar en memoria: {e}", exc_info=True)
     
     # v1.6.0: Extraer información estructurada del último step si está disponible
     structured_answer = None

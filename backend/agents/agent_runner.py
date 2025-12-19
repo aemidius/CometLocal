@@ -4083,12 +4083,57 @@ def _has_executable_actions(steps: List[Dict[str, Any]]) -> bool:
     return False
 
 
+def get_memory_defaults(portal: str = "portal_a", memory_store: Optional[Any] = None) -> Dict[str, Optional[str]]:
+    """
+    Obtiene valores por defecto desde memoria persistente.
+    
+    v4.9.0: Busca en PlatformMemory los últimos valores usados para login y upload.
+    
+    Args:
+        portal: Nombre de la plataforma (ej: "portal_a")
+        memory_store: Instancia de MemoryStore (opcional)
+        
+    Returns:
+        Dict con: company_code, username, password, worker_id, doc_type
+    """
+    defaults = {
+        "company_code": None,
+        "username": None,
+        "password": None,
+        "worker_id": None,
+        "doc_type": None,
+    }
+    
+    if memory_store is None:
+        try:
+            from backend.memory import MemoryStore
+            from backend.config import MEMORY_BASE_DIR
+            memory_store = MemoryStore(MEMORY_BASE_DIR)
+        except Exception:
+            return defaults
+    
+    try:
+        platform_memory = memory_store.load_platform(portal)
+        if platform_memory:
+            defaults["company_code"] = platform_memory.last_company_code
+            defaults["username"] = platform_memory.last_username
+            defaults["password"] = platform_memory.last_password
+            defaults["worker_id"] = platform_memory.last_worker_id
+            defaults["doc_type"] = platform_memory.last_doc_type
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.debug(f"[MEMORY] Error al cargar defaults de memoria: {e}")
+    
+    return defaults
+
+
 async def generate_executable_actions_from_dom(
     goal: str,
     browser: BrowserController,
     llm_client: Optional[Any] = None,
     phase: int = 1,
     previous_url: Optional[str] = None,
+    memory_store: Optional[Any] = None,
 ) -> Optional[List[Dict[str, Any]]]:
     """
     Genera acciones ejecutables desde el DOM actual usando el LLM.
@@ -4261,8 +4306,22 @@ Genera las acciones ejecutables necesarias para cumplir el objetivo. Devuelve SO
             logger.warning("[ACTION_PLANNER] 'actions' no es una lista")
             return None
         
+        # v4.9.0: Obtener defaults de memoria y auto-completar valores vacíos
+        memory_defaults = None
+        if memory_store:
+            # Detectar portal desde la URL
+            portal = "portal_a"  # default
+            if "portal_a" in current_url.lower():
+                portal = "portal_a"
+            elif "portal_b" in current_url.lower():
+                portal = "portal_b"
+            
+            memory_defaults = get_memory_defaults(portal=portal, memory_store=memory_store)
+            logger.info(f"[ACTION_PLANNER] Memory defaults loaded: company_code={memory_defaults.get('company_code')}, username={memory_defaults.get('username')}, worker_id={memory_defaults.get('worker_id')}, doc_type={memory_defaults.get('doc_type')}")
+        
         # Validar y filtrar acciones
         valid_actions = []
+        missing_required = []  # Para detectar datos faltantes
         for action in actions:
             if not isinstance(action, dict):
                 continue
@@ -4273,12 +4332,50 @@ Genera las acciones ejecutables necesarias para cumplir el objetivo. Devuelve SO
             
             # Validar que fill/fill_date tenga selector y value
             if action_type == "fill" or action_type == "fill_date":
-                if not action.get("selector") or not action.get("value"):
+                selector = action.get("selector", "")
+                value = action.get("value", "")
+                
+                # v4.9.0: Auto-completar desde memoria si value está vacío
+                if not value and memory_defaults:
+                    selector_lower = selector.lower()
+                    if "#empresa" in selector_lower or "empresa" in selector_lower:
+                        value = memory_defaults.get("company_code")
+                        if value:
+                            action["value"] = value
+                            logger.info(f"[ACTION_PLANNER] Auto-filled empresa from memory: {value}")
+                    elif "#usuario" in selector_lower or "usuario" in selector_lower or "username" in selector_lower:
+                        value = memory_defaults.get("username")
+                        if value:
+                            action["value"] = value
+                            logger.info(f"[ACTION_PLANNER] Auto-filled usuario from memory: {value}")
+                    elif "#password" in selector_lower or "password" in selector_lower or "contraseña" in selector_lower:
+                        value = memory_defaults.get("password")
+                        if value:
+                            action["value"] = value
+                            logger.info(f"[ACTION_PLANNER] Auto-filled password from memory")
+                
+                if not selector or not action.get("value"):
+                    # Si falta value y no hay memoria, registrar como requerido
+                    if not memory_defaults or not memory_defaults.get("company_code") or not memory_defaults.get("username") or not memory_defaults.get("password"):
+                        if "#empresa" in selector.lower() or "#usuario" in selector.lower() or "#password" in selector.lower():
+                            missing_required.append(selector)
                     continue
             
             # Validar que select tenga selector y value
             if action_type == "select":
-                if not action.get("selector") or not action.get("value"):
+                selector = action.get("selector", "")
+                value = action.get("value", "")
+                
+                # v4.9.0: Auto-completar desde memoria si value está vacío
+                if not value and memory_defaults:
+                    selector_lower = selector.lower()
+                    if "#doc_type" in selector_lower or "doc_type" in selector_lower:
+                        value = memory_defaults.get("doc_type")
+                        if value:
+                            action["value"] = value
+                            logger.info(f"[ACTION_PLANNER] Auto-filled doc_type from memory: {value}")
+                
+                if not selector or not action.get("value"):
                     continue
             
             # Validar que click tenga selector
