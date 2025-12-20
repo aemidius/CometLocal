@@ -575,7 +575,7 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
     
     # Ejecución normal (v2.7.0)
     # Cuando execution_confirmed es True (o None/omitted), ejecutar el agente con navegador
-    print("[DEBUG_AGENT] confirmed=True → iniciando ejecución de agente con navegador")
+    print("[DEBUG_AGENT] confirmed=True -> iniciando ejecución de agente con navegador")
     logger.info("[agent_answer_endpoint] Iniciando ejecución del agente con navegador (confirmed=%s)", confirmed)
     logger.info("[agent_answer_endpoint] Parámetros: goal=%r, execution_profile_name=%r, context_strategies=%r, execution_mode=%r",
                 payload.goal, payload.execution_profile_name, payload.context_strategies, execution_mode)
@@ -1107,7 +1107,20 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                                 # Verificar si la URL cambió o contiene "dashboard"
                                 url_changed = (previous_url and current_url != previous_url) or "dashboard" in current_url.lower()
                                 
-                                if url_changed:
+                                # v4.11.0: DOM-change replan para upload v2
+                                # Si estamos en upload v2 y el DOM está listo sin cambio de URL, también generar Phase 3
+                                is_upload_v2 = "/simulation/portal_a_v2/upload.html" in current_url.lower()
+                                dom_ready_v2 = False
+                                
+                                if is_upload_v2 and not url_changed:
+                                    from backend.agents.agent_runner import await_upload_form_render_v2
+                                    if browser.page:
+                                        dom_ready_v2 = await await_upload_form_render_v2(browser.page)
+                                        if dom_ready_v2:
+                                            logger.info("[DEBUG_AGENT] Upload v2 DOM ready without navigation -> generating next phase actions")
+                                            print("[DEBUG_AGENT] Upload v2 DOM ready without navigation -> generating next phase actions")
+                                
+                                if url_changed or dom_ready_v2:
                                     logger.info(f"[agent_answer_endpoint] URL cambió a {current_url}, generando acciones de segunda fase...")
                                     print(f"[DEBUG_AGENT] URL cambió a {current_url}, generando acciones de segunda fase...")
                                     
@@ -1203,8 +1216,22 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                                                         print(f"[DEBUG_AGENT] Upload flow completed, skipping Phase 3")
                                                         # NO generar Phase 3
                                                     elif not (execution_flags["upload_done"] and execution_flags["sim_clicked"]):
-                                                        logger.info(f"[agent_answer_endpoint] URL cambió a upload.html ({current_url_phase2}), generando acciones de fase 3...")
-                                                        print(f"[DEBUG_AGENT] URL cambió a upload.html ({current_url_phase2}), generando acciones de fase 3...")
+                                                        # v4.11.0: DOM-change replan para upload v2
+                                                        # Verificar si estamos en upload v2 y el DOM está listo
+                                                        is_upload_v2 = "/simulation/portal_a_v2/upload.html" in current_url_phase2.lower()
+                                                        url_changed_phase2 = (current_url and current_url_phase2 != current_url)
+                                                        dom_ready_v2_phase2 = False
+                                                        
+                                                        if is_upload_v2 and not url_changed_phase2:
+                                                            from backend.agents.agent_runner import await_upload_form_render_v2
+                                                            dom_ready_v2_phase2 = await await_upload_form_render_v2(browser.page)
+                                                            if dom_ready_v2_phase2:
+                                                                logger.info("[DEBUG_AGENT] Upload v2 DOM ready without navigation (Phase 2->3) -> generating Phase 3 actions")
+                                                                print("[DEBUG_AGENT] Upload v2 DOM ready without navigation (Phase 2->3) -> generating Phase 3 actions")
+                                                        
+                                                        if url_changed_phase2 or dom_ready_v2_phase2:
+                                                            logger.info(f"[agent_answer_endpoint] URL cambió a upload.html ({current_url_phase2}) o DOM v2 ready, generando acciones de fase 3...")
+                                                            print(f"[DEBUG_AGENT] URL cambió a upload.html ({current_url_phase2}) o DOM v2 ready, generando acciones de fase 3...")
                                                         
                                                         try:
                                                             # Generar acciones de tercera fase

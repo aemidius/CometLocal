@@ -4308,7 +4308,6 @@ async def generate_executable_actions_from_dom(
         if len(html) > max_chars:
             html = html[:max_chars] + "\n... (truncado)"
             logger.info(f"[ACTION_PLANNER] HTML truncated to {max_chars} chars (upload page: {is_upload_page})")
-            html = html[:50000] + "\n... (truncado)"
         
         # Construir prompt para el LLM
         system_prompt = """Eres un asistente experto que analiza HTML de formularios y genera acciones ejecutables.
@@ -5714,7 +5713,11 @@ async def _execute_select(
         for sel in selectors:
             try:
                 locator = browser.page.locator(sel).first
-                await locator.wait_for(state="visible", timeout=2000)
+                # v4.11.2: Si es doc_type, NO requerir visible (el <select> puede estar oculto)
+                if is_doc_type:
+                    await locator.wait_for(state="attached", timeout=2000)
+                else:
+                    await locator.wait_for(state="visible", timeout=2000)
                 
                 # Intentar seleccionar por label primero (más robusto)
                 try:
@@ -5722,6 +5725,12 @@ async def _execute_select(
                     success = True
                     selector = sel  # Usar el selector que funcionó
                     logger.info(f"[EXECUTOR] Selected {value} on {selector} (by label)")
+                    # v4.11.2: Disparar change/input para UIs que escuchan eventos
+                    if is_doc_type:
+                        try:
+                            await locator.evaluate("""(el) => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }""")
+                        except Exception:
+                            pass
                     break
                 except Exception:
                     # Si falla por label, intentar por value
@@ -5730,6 +5739,11 @@ async def _execute_select(
                         success = True
                         selector = sel
                         logger.info(f"[EXECUTOR] Selected {value} on {selector} (by value)")
+                        if is_doc_type:
+                            try:
+                                await locator.evaluate("""(el) => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }""")
+                            except Exception:
+                                pass
                         break
                     except Exception:
                         continue
@@ -5744,18 +5758,36 @@ async def _execute_select(
             if fallback_selector:
                 try:
                     locator = browser.page.locator(fallback_selector).first
-                    await locator.wait_for(state="visible", timeout=2000)
+                    # v4.11.2: Permitir hidden (doc_type puede estar oculto)
+                    await locator.wait_for(state="attached", timeout=2000)
                     try:
                         await locator.select_option(label=value)
                         success = True
                         selector = fallback_selector
                         logger.info(f"[EXECUTOR] Selected {value} on {selector} (via doc_type fallback, by label)")
+                        try:
+                            await locator.evaluate("""(el) => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }""")
+                        except Exception:
+                            # v4.11.2: Si es doc_type y select_option(label) falla (p.ej. select oculto), setear value vía JS
+                            if is_doc_type:
+                                try:
+                                    await locator.evaluate("(el, v) => { el.value = v; el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }", value)
+                                    success = True
+                                    selector = fallback_selector  # Usar el selector que funcionó
+                                    logger.info(f"[EXECUTOR] Selected {value} on {selector} (via JS fallback)")
+                                except Exception:
+                                    pass
+                            pass
                     except Exception:
                         try:
                             await locator.select_option(value=value)
                             success = True
                             selector = fallback_selector
                             logger.info(f"[EXECUTOR] Selected {value} on {selector} (via doc_type fallback, by value)")
+                            try:
+                                await locator.evaluate("""(el) => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }""")
+                            except Exception:
+                                pass
                         except Exception:
                             pass
                 except Exception as e:
