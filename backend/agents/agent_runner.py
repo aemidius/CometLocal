@@ -4170,6 +4170,60 @@ def get_memory_defaults(portal: str = "portal_a", memory_store: Optional[Any] = 
     return defaults
 
 
+async def await_upload_form_render_v2(page) -> bool:
+    """
+    Helper para esperar a que el formulario de upload v2 esté renderizado.
+    
+    Portal A v2 renderiza el formulario dinámicamente sin cambiar URL tras clicar
+    "Subir documentación". Esta función espera a que aparezcan los elementos clave
+    del formulario.
+    
+    Args:
+        page: Página de Playwright
+        
+    Returns:
+        True si el formulario está renderizado, False si no aparece en el timeout
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Esperar a que el DOM esté cargado
+        await page.wait_for_load_state("domcontentloaded", timeout=2000)
+        
+        # v4.11.1: Endurecer wait - esperar explícitamente por elementos críticos
+        # No dar por "renderizado" si solo aparece #upload-form
+        required_selectors = [
+            "#file_input",
+            "#btn_submit",
+            "#issue_date",
+            "#expiry_date",
+        ]
+        
+        logger.info("[UPLOAD_V2] Waiting for required form elements...")
+        all_present = True
+        
+        for selector in required_selectors:
+            try:
+                await page.wait_for_selector(selector, timeout=1500, state="attached")
+                logger.info(f"[UPLOAD_V2] Required element found: {selector}")
+            except Exception as e:
+                logger.warning(f"[UPLOAD_V2] Required element not found: {selector} - {e}")
+                all_present = False
+                break
+        
+        if all_present:
+            logger.info("[UPLOAD_V2] All required form elements present, form is ready")
+            return True
+        else:
+            logger.warning("[UPLOAD_V2] Not all required elements present after waiting")
+            return False
+        
+    except Exception as e:
+        logger.warning(f"[UPLOAD_V2] Error waiting for form render: {e}")
+        return False
+
+
 async def generate_executable_actions_from_dom(
     goal: str,
     browser: BrowserController,
@@ -4991,7 +5045,11 @@ async def _execute_fill(
                     if success:
                         # Para campos de fecha, usar formato yyyy-mm-dd
                         from datetime import datetime, timedelta
-            
+                        if value.lower() == "hoy" or value.lower() == "today":
+                            value = datetime.now().strftime("%Y-%m-%d")
+                        elif "hoy" in value.lower() or "today" in value.lower():
+                            try:
+                                if "+" in value or "más" in value.lower() or "plus" in value.lower():
                                     import re
                                     days_match = re.search(r'(\d+)', value)
                                     if days_match:
@@ -5151,36 +5209,39 @@ async def _execute_fill(
             input_loc = browser.page.locator(selector).first
             if await input_loc.count() > 0:
                 input_type = await input_loc.get_attribute("type")
-                if input_type == "text" or input_type is None:
-                    # Convertir yyyy-mm-dd a DD/MM/YYYY
-                    if value and len(value) == 10 and value[4] == '-' and value[7] == '-':
+                is_text_input = (input_type == "text" or input_type is None or input_type != "date")
+                
+                if is_text_input and is_date_fill:
+                    # v4.11.1: Convertir "hoy"/"today" y "hoy + N"/"today + N" a DD/MM/YYYY
+                    value_lower = (value or "").lower()
+                    
+                    if value_lower == "hoy" or value_lower == "today":
+                        value = datetime.now().strftime("%d/%m/%Y")
+                        logger.info(f"[EXECUTOR] Filled v2 date {selector} with {value}")
+                    elif "hoy" in value_lower or "today" in value_lower:
+                        try:
+                            import re
+                            # Buscar patrón "hoy + N" o "today + N" o "hoy + N días"
+                            days_match = re.search(r'(\d+)', value)
+                            if days_match:
+                                days = int(days_match.group(1))
+                                value = (datetime.now() + timedelta(days=days)).strftime("%d/%m/%Y")
+                            else:
+                                value = datetime.now().strftime("%d/%m/%Y")
+                            logger.info(f"[EXECUTOR] Filled v2 date {selector} with {value}")
+                        except Exception as e:
+                            logger.warning(f"[EXECUTOR] Error converting date value '{value}': {e}")
+                            value = datetime.now().strftime("%d/%m/%Y")
+                    elif value and len(value) == 10 and value[4] == '-' and value[7] == '-':
+                        # Convertir yyyy-mm-dd a DD/MM/YYYY
                         parts = value.split('-')
                         if len(parts) == 3:
                             value = f"{parts[2]}/{parts[1]}/{parts[0]}"  # DD/MM/YYYY
+                            logger.info(f"[EXECUTOR] Filled v2 date {selector} with {value}")
                             logger.info(f"[EXECUTOR] Converted date format to DD/MM/YYYY: {value}")
         except Exception:
             pass  # Continuar con el valor original si falla la conversión
         
-                    if value.lower() == "hoy" or value.lower() == "today":
-                value = datetime.now().strftime("%Y-%m-%d")
-            elif "hoy" in value.lower() or "today" in value.lower():
-                # Intentar parsear "hoy + 365 días" o similar
-                try:
-                    days_match = None
-                    if "+" in value or "más" in value.lower() or "plus" in value.lower():
-                        # Buscar número de días
-                        import re
-                        days_match = re.search(r'(\d+)', value)
-                        if days_match:
-                            days = int(days_match.group(1))
-                            value = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
-                        else:
-                            value = datetime.now().strftime("%Y-%m-%d")
-                    else:
-                        value = datetime.now().strftime("%Y-%m-%d")
-                except Exception:
-                    value = datetime.now().strftime("%Y-%m-%d")
-            
             logger.info(f"[EXECUTOR] Filled date {selector} with {value}")
             print(f"[EXECUTOR] Filled date {selector} with {value}")
         else:
@@ -5998,6 +6059,22 @@ async def _execute_click(
         
         logger.info(f"[EXECUTOR] Clicked {selector}")
         print(f"[EXECUTOR] Clicked {selector}")
+        # v4.11.0: Detectar upload v2 y esperar render del formulario
+        current_url = browser.page.url
+        is_upload_v2 = "/simulation/portal_a_v2/upload.html" in current_url
+        is_subir_documentacion = "subir documentación" in selector.lower() or "subir documentacion" in selector.lower()
+        
+        if is_upload_v2 and is_subir_documentacion:
+            logger.info("[UPLOAD_V2] Click en 'Subir documentación' detectado, esperando render del formulario...")
+            print("[DEBUG_AGENT] [UPLOAD_V2] Click en 'Subir documentación' detectado, esperando render del formulario...")
+            form_rendered = await await_upload_form_render_v2(browser.page)
+            if form_rendered:
+                logger.info("[UPLOAD_V2] Formulario renderizado correctamente")
+                print("[DEBUG_AGENT] [UPLOAD_V2] Formulario renderizado correctamente")
+            else:
+                logger.warning("[UPLOAD_V2] Formulario no detectado tras espera")
+                print("[DEBUG_AGENT] [UPLOAD_V2] Formulario no detectado tras espera")
+        
         
         # Detectar si se hizo click en "Simular subida" y verificar resultado
         is_simular_subida = "simular subida" in selector.lower()
@@ -6250,7 +6327,15 @@ async def _execute_upload(
         from os.path import basename
         filename_basename = basename(filepath)
         
-        logger.info(f"[EXECUTOR] Uploaded file to {selector}: {filename_basename}")
+        # v4.11.1: Log específico para v2
+        current_url = browser.page.url
+        is_upload_v2 = "/simulation/portal_a_v2/upload.html" in current_url
+        if is_upload_v2:
+            logger.info(f"[EXECUTOR] Uploaded file to #file_input (v2)")
+            print(f"[EXECUTOR] Uploaded file to #file_input (v2)")
+        else:
+            logger.info(f"[EXECUTOR] Uploaded file to {selector}: {filename_basename}")
+            print(f"[EXECUTOR] Uploaded file to {selector}: {filename_basename}")
         print(f"[EXECUTOR] Uploaded file to {selector}: {filename_basename}")
         
         # Marcar upload_done INMEDIATAMENTE después de set_input_files exitoso
