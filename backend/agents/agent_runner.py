@@ -4291,8 +4291,23 @@ async def generate_executable_actions_from_dom(
         html = await browser.page.content()
         current_url = browser.page.url
         
-        # Limitar tamaño del HTML para no exceder límites del LLM (primeros 50000 caracteres)
-        if len(html) > 50000:
+        # v4.11.2: Reducir DOM enviado al LLM para evitar errores de context length
+        # Eliminar <script>, <style>, atributos largos
+        import re
+        # Eliminar scripts
+        html = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
+        # Eliminar styles
+        html = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
+        # Eliminar atributos largos (más de 100 caracteres)
+        html = re.sub(r'\s+[^=]+="[^"]{100,}"', '', html)
+        
+        # Limitar tamaño según contexto (20k para upload pages, 50k para otras)
+        is_upload_page = "/upload.html" in current_url
+        max_chars = 20000 if is_upload_page else 50000
+        
+        if len(html) > max_chars:
+            html = html[:max_chars] + "\n... (truncado)"
+            logger.info(f"[ACTION_PLANNER] HTML truncated to {max_chars} chars (upload page: {is_upload_page})")
             html = html[:50000] + "\n... (truncado)"
         
         # Construir prompt para el LLM
@@ -5237,6 +5252,40 @@ async def _execute_fill(
                         parts = value.split('-')
                         if len(parts) == 3:
                             value = f"{parts[2]}/{parts[1]}/{parts[0]}"  # DD/MM/YYYY
+                    # v4.11.2: Para inputs type="text" con placeholder DD/MM/YYYY, usar método especial
+                    placeholder = await input_loc.get_attribute("placeholder") or ""
+                    is_dd_mm_yyyy = "DD/MM/YYYY" in placeholder.upper() or "dd/mm/yyyy" in placeholder.lower()
+                    current_url = browser.page.url
+                    is_upload_v2 = "/simulation/portal_a_v2/upload.html" in current_url
+                    
+                    if is_dd_mm_yyyy or (is_upload_v2 and is_text_input):
+                        try:
+                            # click(selector) + press("Control+A") + type(valor_formateado, delay=30) + press("Tab")
+                            await input_loc.click()
+                            await browser.page.keyboard.press("Control+A")
+                            await browser.page.keyboard.type(value, delay=30)
+                            await browser.page.keyboard.press("Tab")
+                            logger.info(f"[EXECUTOR] Filled v2 date {selector} with {value} (using click+type+Tab method)")
+                            print(f"[EXECUTOR] Filled v2 date {selector} with {value} (using click+type+Tab method)")
+                            
+                            # Esperar un momento
+                            await browser.page.wait_for_timeout(500)
+                            
+                            # Guardar screenshot
+                            screenshot_path = screenshots_dir / f"step_{step_index}_fill.png"
+                            try:
+                                await browser.page.screenshot(path=str(screenshot_path), full_page=True, timeout=5000)
+                                logger.info(f"[EXECUTOR] Screenshot guardado en {screenshot_path}")
+                            except Exception as e:
+                                if "timeout" in str(e).lower():
+                                    logger.warning(f"[EXECUTOR] Screenshot skipped (timeout) after fill_date")
+                                else:
+                                    logger.warning(f"[EXECUTOR] Screenshot failed after fill_date: {e}")
+                            
+                            return f"Filled v2 date {selector} with {value}"
+                        except Exception as e:
+                            logger.warning(f"[EXECUTOR] Error using click+type+Tab method: {e}, falling back to fill()")
+                            # Fallback a fill() normal
                             logger.info(f"[EXECUTOR] Filled v2 date {selector} with {value}")
                             logger.info(f"[EXECUTOR] Converted date format to DD/MM/YYYY: {value}")
         except Exception:
@@ -5478,16 +5527,22 @@ async def resolve_doc_type_select(page) -> Optional[str]:
             except Exception:
                 pass  # Continuar aunque no se pueda esperar
         
-        # A) Si existe y es visible "#doc_type" -> return "#doc_type"
+        # A) v4.11.2: Intentar primero query_selector directo SIN wait visible (permite hidden)
         try:
-            await page.wait_for_selector("#doc_type", timeout=2000)
-            doc_type_locator = page.locator("#doc_type").first
-            await doc_type_locator.wait_for(state="visible", timeout=1500)
-            logger.info("[EXECUTOR] doc_type found via #doc_type selector=#doc_type")
+            doc_type_element = await page.query_selector("select#doc_type")
+            if doc_type_element:
+                logger.info("[EXECUTOR] doc_type found via query_selector (select#doc_type) - may be hidden")
+                return "select#doc_type"
+        except Exception:
+            pass
+        
+        # A2) Si existe "#doc_type" (con wait pero state="attached" para permitir hidden)
+        try:
+            await page.wait_for_selector("#doc_type", timeout=2000, state="attached")
+            logger.info("[EXECUTOR] doc_type found via #doc_type selector=#doc_type (attached, may be hidden)")
             return "#doc_type"
         except Exception:
             pass  # Continuar con fallbacks
-        
         # B) Fallback 1: select[name*='doc' i], select[id*='doc' i]
         try:
             # Buscar select con name o id que contenga "doc" (case-insensitive)
@@ -5737,6 +5792,47 @@ async def _execute_select(
         
     except Exception as e:
         logger.error(f"[EXECUTOR] Error al hacer select en step {step_index}: {e}", exc_info=True)
+        return None
+
+
+async def resolve_submit_button_v2(page) -> Optional[str]:
+    """
+    Resuelve el selector del botón de submit en upload v2.
+    
+    Returns:
+        Selector CSS del botón, o None si no se encuentra
+    """
+    try:
+        # a) "#btn_submit"
+        try:
+            btn_loc = page.locator("#btn_submit").first
+            if await btn_loc.count() > 0:
+                logger.info("[EXECUTOR] Submit button found: #btn_submit")
+                return "#btn_submit"
+        except Exception:
+            pass
+        
+        # b) "button:has-text('Simular subida')"
+        try:
+            btn_loc = page.locator("button:has-text('Simular subida')").first
+            if await btn_loc.count() > 0:
+                logger.info("[EXECUTOR] Submit button found: button:has-text('Simular subida')")
+                return "button:has-text('Simular subida')"
+        except Exception:
+            pass
+        
+        # c) "button[type='button']:has-text('Simular subida')"
+        try:
+            btn_loc = page.locator("button[type='button']:has-text('Simular subida')").first
+            if await btn_loc.count() > 0:
+                logger.info("[EXECUTOR] Submit button found: button[type='button']:has-text('Simular subida')")
+                return "button[type='button']:has-text('Simular subida')"
+        except Exception:
+            pass
+        
+        return None
+    except Exception as e:
+        logger.warning(f"[EXECUTOR] Error resolving submit button v2: {e}")
         return None
 
 
@@ -6031,6 +6127,25 @@ async def _execute_click(
                 continue
         
         if not success:
+            # v4.11.2: Fallback específico para upload v2 usando resolve_submit_button_v2
+            current_url = browser.page.url
+            is_upload_v2 = "/simulation/portal_a_v2/upload.html" in current_url
+            is_simular_subida_selector = "simular subida" in selector.lower()
+            
+            if is_upload_v2 and is_simular_subida_selector:
+                resolved_submit = await resolve_submit_button_v2(browser.page)
+                if resolved_submit:
+                    try:
+                        btn_locator = browser.page.locator(resolved_submit).first
+                        await btn_locator.wait_for(state="visible", timeout=2000)
+                        await btn_locator.click()
+                        success = True
+                        selector = resolved_submit
+                        logger.info(f"[EXECUTOR] Clicked {selector} (v2 resolved)")
+                        print(f"[EXECUTOR] Clicked {selector} (v2 resolved)")
+                    except Exception:
+                        pass  # Continuar con otros fallbacks
+            
             # Fallback: Intentar encontrar botones comunes si el selector original falló
             fallback_selectors = [
                 'button:has-text("Simular subida")',
@@ -6076,8 +6191,46 @@ async def _execute_click(
                 print("[DEBUG_AGENT] [UPLOAD_V2] Formulario no detectado tras espera")
         
         
-        # Detectar si se hizo click en "Simular subida" y verificar resultado
-        is_simular_subida = "simular subida" in selector.lower()
+        # v4.11.2: Detectar si se hizo click en submit de upload v2 y verificar resultado
+        current_url = browser.page.url
+        is_upload_v2 = "/simulation/portal_a_v2/upload.html" in current_url
+        is_simular_subida = "simular subida" in selector.lower() or "#btn_submit" in selector.lower()
+        
+        if is_upload_v2 and is_simular_subida:
+            # Esperar a que aparezca #upload_status[data-status]
+            try:
+                await browser.page.wait_for_selector("#upload_status[data-status]", timeout=3000, state="attached")
+                status_element = browser.page.locator("#upload_status").first
+                data_status = await status_element.get_attribute("data-status")
+                
+                if data_status == "success":
+                    # Leer el texto del elemento
+                    status_text = await status_element.text_content() or ""
+                    logger.info(f"[EXECUTOR] Upload v2 SUCCESS detected: {status_text}")
+                    print(f"[EXECUTOR] Upload v2 SUCCESS detected: {status_text}")
+                    return f"SUCCESS - {status_text}"
+                elif data_status == "error":
+                    # Leer el texto de #form_error si existe
+                    error_text = ""
+                    try:
+                        error_element = browser.page.locator("#form_error").first
+                        if await error_element.count() > 0:
+                            error_text = await error_element.text_content() or ""
+                    except Exception:
+                        pass
+                    logger.warning(f"[EXECUTOR] Upload v2 ERROR detected: {error_text}")
+                    print(f"[EXECUTOR] Upload v2 ERROR detected: {error_text}")
+                    return f"ERROR - {error_text}"
+            except Exception as e:
+                logger.warning(f"[EXECUTOR] Could not detect upload_status: {e}")
+        
+        # Detectar si se hizo click en "Simular subida" y verificar resultado (fallback)
+        is_simular_subida_legacy = "simular subida" in selector.lower()
+        result_status = None
+        result_message = None
+        
+        if is_simular_subida_legacy and not is_upload_v2:
+            is_simular_subida = "simular subida" in selector.lower()
         result_status = None
         result_message = None
         
