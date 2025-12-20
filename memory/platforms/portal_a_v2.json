@@ -20,3 +20,4 @@
   "description": "Versión mejorada del Portal A con componentes más realistas:\n- Combobox custom para 'Tipo de documento' (div role='combobox' con opciones renderizadas dinámicamente)\n- Campos de fecha como input type='text' con datepicker JS (no type='date')\n- Dropzone clicable para subida de archivos (input type='file' oculto)\n- Botón 'Simular subida' type='button' con submit vía JavaScript\n- Delay de 300-600ms antes de renderizar el formulario\n\nDiferencias respecto a portal_a:\n- El select de tipo de documento es un combobox custom, pero mantiene un select oculto para compatibilidad\n- Los campos de fecha usan máscara DD/MM/YYYY en lugar de input type='date'\n- La subida de archivos usa una zona de arrastre visual\n- El formulario se renderiza con un pequeño delay para simular carga dinámica"
 }
 
+

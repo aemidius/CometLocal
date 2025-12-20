@@ -206,11 +206,15 @@
           <button
             type="button"
             id="btn_submit"
-            class="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md shadow hover:bg-blue-700"
+            class="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md shadow hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            disabled
           >
             Simular subida
           </button>
         </div>
+        
+        <div id="form_error" class="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md" style="display: none;"></div>
+        <div id="upload_status" data-status="" class="mt-4 p-3 rounded-md font-semibold" style="display: none;"></div>
       </form>
       
       <div id="loading-message" class="text-center text-gray-500 text-sm mt-4">
@@ -232,6 +236,9 @@
       initDropzone();
       initDatepicker();
       initSubmit();
+      
+      // Verificar validez inicial
+      setTimeout(() => checkFormValidity(), 100);
     }, delay);
 
     function getQueryParams() {
@@ -279,7 +286,7 @@
           comboboxInput.value = option;
           hiddenSelect.value = option;
         }
-        optionEl.addEventListener('click', () => {
+          optionEl.addEventListener('click', () => {
           options.forEach(opt => {
             const optEl = dropdown.querySelector(`[data-value="${opt}"]`);
             if (optEl) optEl.classList.remove('selected');
@@ -289,6 +296,7 @@
           hiddenSelect.value = option;
           container.setAttribute('aria-expanded', 'false');
           dropdown.classList.remove('open');
+          checkFormValidity();
         });
         dropdown.appendChild(optionEl);
       });
@@ -317,7 +325,7 @@
     // Inicializar dropzone
     function initDropzone() {
       const dropzone = document.getElementById('dropzone');
-      const fileInput = document.getElementById('file_input_hidden');
+      const fileInput = document.getElementById('file_input');
       const fileNameEl = document.getElementById('dropzone-file-name');
       
       // Click en dropzone abre el file input
@@ -355,6 +363,7 @@
       function updateFileName(name) {
         fileNameEl.textContent = `Archivo seleccionado: ${name}`;
         fileNameEl.style.display = 'block';
+        checkFormValidity();
       }
     }
 
@@ -390,40 +399,109 @@
               e.target.value = `${day}/${month}/${year}`;
             }
           }
+          checkFormValidity();
+        });
+        
+        input.addEventListener('input', () => {
+          checkFormValidity();
         });
       }
       
       applyDateMask(issueDate);
       applyDateMask(expiryDate);
     }
+    
+    // Función para validar formato de fecha DD/MM/YYYY
+    function isValidDate(dateStr) {
+      const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+      if (!dateRegex.test(dateStr)) return false;
+      const [, day, month, year] = dateStr.match(dateRegex);
+      const date = new Date(year, month - 1, day);
+      return date.getFullYear() == year && date.getMonth() == month - 1 && date.getDate() == day;
+    }
+    
+    // Función para verificar validez del formulario y habilitar/deshabilitar botón
+    function checkFormValidity() {
+      const docType = document.getElementById('doc_type');
+      const fileInput = document.getElementById('file_input');
+      const issueDate = document.getElementById('issue_date');
+      const expiryDate = document.getElementById('expiry_date');
+      const submitBtn = document.getElementById('btn_submit');
+      
+      const hasDocType = docType && docType.value && docType.value.trim() !== '';
+      const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
+      const hasIssueDate = issueDate && issueDate.value && isValidDate(issueDate.value);
+      const hasExpiryDate = expiryDate && expiryDate.value && isValidDate(expiryDate.value);
+      
+      const isValid = hasDocType && hasFile && hasIssueDate && hasExpiryDate;
+      
+      if (submitBtn) {
+        submitBtn.disabled = !isValid;
+      }
+      
+      return isValid;
+    }
 
     // Inicializar submit button
     function initSubmit() {
       const submitBtn = document.getElementById('btn_submit');
       const form = document.getElementById('upload-form');
+      const formError = document.getElementById('form_error');
+      const uploadStatus = document.getElementById('upload_status');
       
       submitBtn.addEventListener('click', () => {
+        // Ocultar mensajes anteriores
+        if (formError) formError.style.display = 'none';
+        if (uploadStatus) uploadStatus.style.display = 'none';
+        
         // Validar campos
-        const docType = document.getElementById('doc_type').value;
-        const fileInput = document.getElementById('file_input_hidden');
-        const issueDate = document.getElementById('issue_date').value;
-        const expiryDate = document.getElementById('expiry_date').value;
+        const docType = document.getElementById('doc_type');
+        const fileInput = document.getElementById('file_input');
+        const issueDate = document.getElementById('issue_date');
+        const expiryDate = document.getElementById('expiry_date');
         
-        if (!docType) {
-          alert('Por favor, seleccione un tipo de documento');
+        const errors = [];
+        
+        if (!docType || !docType.value || docType.value.trim() === '') {
+          errors.push('Debe seleccionar un tipo de documento');
+        }
+        
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+          errors.push('Debe seleccionar un archivo');
+        }
+        
+        if (!issueDate || !issueDate.value || !isValidDate(issueDate.value)) {
+          errors.push('La fecha de emisión debe estar en formato DD/MM/YYYY');
+        }
+        
+        if (!expiryDate || !expiryDate.value || !isValidDate(expiryDate.value)) {
+          errors.push('La fecha de caducidad debe estar en formato DD/MM/YYYY');
+        }
+        
+        if (errors.length > 0) {
+          // Mostrar error
+          if (formError) {
+            formError.textContent = 'ERROR: ' + errors.join('; ');
+            formError.style.display = 'block';
+          }
+          if (uploadStatus) {
+            uploadStatus.setAttribute('data-status', 'error');
+            uploadStatus.textContent = 'ERROR: ' + errors.join('; ');
+            uploadStatus.className = 'mt-4 p-3 rounded-md font-semibold bg-red-100 border border-red-400 text-red-700';
+            uploadStatus.style.display = 'block';
+          }
           return;
         }
         
-        if (!fileInput.files || fileInput.files.length === 0) {
-          alert('Por favor, seleccione un archivo');
-          return;
+        // Todo válido: mostrar SUCCESS
+        if (uploadStatus) {
+          uploadStatus.setAttribute('data-status', 'success');
+          uploadStatus.textContent = 'SUCCESS';
+          uploadStatus.className = 'mt-4 p-3 rounded-md font-semibold bg-green-100 border border-green-400 text-green-700';
+          uploadStatus.style.display = 'block';
         }
         
-        // Simular submit (en un caso real, aquí se enviaría al servidor)
-        alert('Subida simulada correctamente');
-        
-        // Redirigir al dashboard
-        window.location.href = '/simulation/portal_a_v2/dashboard.html';
+        // No redirigir automáticamente, dejar que el agente detecte SUCCESS
       });
     }
   </script>

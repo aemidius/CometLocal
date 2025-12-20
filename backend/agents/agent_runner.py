@@ -4221,8 +4221,19 @@ async def generate_executable_actions_from_dom(
     
     try:
         logger.info(f"[ACTION_PLANNER] Generating executable actions from DOM (Phase {phase})...")
+        current_url = browser.page.url
         
-        # Obtener HTML de la página actual
+        # v4.10.0: Esperar al render del formulario si estamos en portal_a_v2 upload
+        if "/upload.html" in current_url and "portal_a_v2" in current_url:
+            logger.info("[ACTION_PLANNER] Waiting for portal_a_v2 upload form to render...")
+            try:
+                await browser.page.wait_for_load_state("domcontentloaded", timeout=5000)
+                await browser.page.wait_for_selector("#file_input, select#doc_type, #upload-form", timeout=3000)
+                logger.info("[ACTION_PLANNER] Upload form elements detected, proceeding...")
+            except Exception as e:
+                logger.warning(f"[ACTION_PLANNER] Timeout waiting for upload form: {e}")
+        
+                # Obtener HTML de la página actual
         html = await browser.page.content()
         current_url = browser.page.url
         
@@ -4980,11 +4991,7 @@ async def _execute_fill(
                     if success:
                         # Para campos de fecha, usar formato yyyy-mm-dd
                         from datetime import datetime, timedelta
-                        if value.lower() == "hoy" or value.lower() == "today":
-                            value = datetime.now().strftime("%Y-%m-%d")
-                        elif "hoy" in value.lower() or "today" in value.lower():
-                            try:
-                                if "+" in value or "más" in value.lower() or "plus" in value.lower():
+            
                                     import re
                                     days_match = re.search(r'(\d+)', value)
                                     if days_match:
@@ -5138,7 +5145,23 @@ async def _execute_fill(
             # Si el value no está en formato yyyy-mm-dd, intentar convertir
             # Por ahora, asumimos que viene en formato correcto o es "hoy" / "hoy + 365 días"
             from datetime import datetime, timedelta
-            if value.lower() == "hoy" or value.lower() == "today":
+
+        # v4.10.0: Si el input es type="text", convertir yyyy-mm-dd a DD/MM/YYYY
+        try:
+            input_loc = browser.page.locator(selector).first
+            if await input_loc.count() > 0:
+                input_type = await input_loc.get_attribute("type")
+                if input_type == "text" or input_type is None:
+                    # Convertir yyyy-mm-dd a DD/MM/YYYY
+                    if value and len(value) == 10 and value[4] == '-' and value[7] == '-':
+                        parts = value.split('-')
+                        if len(parts) == 3:
+                            value = f"{parts[2]}/{parts[1]}/{parts[0]}"  # DD/MM/YYYY
+                            logger.info(f"[EXECUTOR] Converted date format to DD/MM/YYYY: {value}")
+        except Exception:
+            pass  # Continuar con el valor original si falla la conversión
+        
+                    if value.lower() == "hoy" or value.lower() == "today":
                 value = datetime.now().strftime("%Y-%m-%d")
             elif "hoy" in value.lower() or "today" in value.lower():
                 # Intentar parsear "hoy + 365 días" o similar
@@ -5287,7 +5310,11 @@ async def resolve_date_inputs(page) -> tuple[Optional[str], Optional[str]]:
                 input_type = await issue_loc.get_attribute("type")
                 if input_type == "date":
                     issue_selector = "#issue_date"
-                    logger.info(f"[EXECUTOR] Found issue_date by ID: #issue_date")
+                    logger.info(f"[EXECUTOR] Found issue_date by ID: #issue_date (type=date)")
+                elif input_type == "text" or input_type is None:
+                    # v4.10.0: Fallback para input text (portal_a_v2)
+                    issue_selector = "#issue_date"
+                    logger.info(f"[EXECUTOR] Found issue_date by ID: #issue_date (type=text, will use DD/MM/YYYY)")
         except Exception:
             pass
         
@@ -5297,11 +5324,49 @@ async def resolve_date_inputs(page) -> tuple[Optional[str], Optional[str]]:
                 input_type = await expiry_loc.get_attribute("type")
                 if input_type == "date":
                     expiry_selector = "#expiry_date"
-                    logger.info(f"[EXECUTOR] Found expiry_date by ID: #expiry_date")
+                    logger.info(f"[EXECUTOR] Found expiry_date by ID: #expiry_date (type=date)")
+                elif input_type == "text" or input_type is None:
+                    # v4.10.0: Fallback para input text (portal_a_v2)
+                    expiry_selector = "#expiry_date"
+                    logger.info(f"[EXECUTOR] Found expiry_date by ID: #expiry_date (type=text, will use DD/MM/YYYY)")
         except Exception:
             pass
         
-        # 2) Si no existen, buscar todos los input[type='date'] en la página
+        
+        # 2) Si no existen por ID, buscar por label o placeholder
+        if not issue_selector:
+            try:
+                # Buscar por label "Fecha de emisión"
+                label_loc = page.locator("label:has-text('Fecha de emisión'), label:has-text('fecha de emisión')").first
+                if await label_loc.count() > 0:
+                    label_for = await label_loc.get_attribute("for")
+                    if label_for:
+                        input_loc = page.locator(f"#{label_for}").first
+                        if await input_loc.count() > 0:
+                            input_type = await input_loc.get_attribute("type")
+                            if input_type == "text" or input_type is None:
+                                issue_selector = f"#{label_for}"
+                                logger.info(f"[EXECUTOR] Found issue_date by label: #{label_for} (type=text)")
+            except Exception:
+                pass
+        
+        if not expiry_selector:
+            try:
+                # Buscar por label "Fecha de caducidad"
+                label_loc = page.locator("label:has-text('Fecha de caducidad'), label:has-text('fecha de caducidad')").first
+                if await label_loc.count() > 0:
+                    label_for = await label_loc.get_attribute("for")
+                    if label_for:
+                        input_loc = page.locator(f"#{label_for}").first
+                        if await input_loc.count() > 0:
+                            input_type = await input_loc.get_attribute("type")
+                            if input_type == "text" or input_type is None:
+                                expiry_selector = f"#{label_for}"
+                                logger.info(f"[EXECUTOR] Found expiry_date by label: #{label_for} (type=text)")
+            except Exception:
+                pass
+        
+                # 3) Si no existen, buscar todos los input[type='date'] en la página
         if not issue_selector or not expiry_selector:
             try:
                 date_inputs = page.locator("input[type='date']")
