@@ -170,6 +170,30 @@ async def simulation_portal_a_upload():
     return FileResponse(FRONTEND_DIR / "simulation" / "portal_a" / "upload.html")
 
 
+@app.get("/simulation/portal_a_v2/login.html", include_in_schema=False)
+async def simulation_portal_a_v2_login():
+    """
+    Página de login del portal CAE simulado A v2.
+    """
+    return FileResponse(FRONTEND_DIR / "simulation" / "portal_a_v2" / "login.html")
+
+
+@app.get("/simulation/portal_a_v2/dashboard.html", include_in_schema=False)
+async def simulation_portal_a_v2_dashboard():
+    """
+    Dashboard simulado del Portal CAE A v2.
+    """
+    return FileResponse(FRONTEND_DIR / "simulation" / "portal_a_v2" / "dashboard.html")
+
+
+@app.get("/simulation/portal_a_v2/upload.html", include_in_schema=False)
+async def simulation_portal_a_v2_upload():
+    """
+    Formulario simulado de subida de documentación para un trabajador (Portal A v2).
+    """
+    return FileResponse(FRONTEND_DIR / "simulation" / "portal_a_v2" / "upload.html")
+
+
 @app.get("/training", include_in_schema=False)
 async def training_ui():
     """
