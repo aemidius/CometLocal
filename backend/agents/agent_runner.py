@@ -4083,6 +4083,49 @@ def _has_executable_actions(steps: List[Dict[str, Any]]) -> bool:
     return False
 
 
+async def is_login_page(browser: BrowserController) -> bool:
+    """
+    Detecta si la página actual es una página de login.
+    
+    Criterios:
+    - URL contiene "login" (case-insensitive)
+    - O DOM contiene inputs de login visibles:
+      * #company_code, #username, #password
+      * input[type=password] visible
+    
+    Returns:
+        True si es página de login, False en caso contrario
+    """
+    if not browser.page:
+        return False
+    
+    try:
+        current_url = browser.page.url.lower()
+        if "login" in current_url:
+            return True
+        
+        # Verificar DOM: inputs de login visibles
+        login_selectors = [
+            "#company_code",
+            "#username",
+            "#password",
+            "input[type='password']",
+            'input[type="password"]',
+        ]
+        
+        for selector in login_selectors:
+            try:
+                locator = browser.page.locator(selector).first
+                if await locator.is_visible(timeout=500):
+                    return True
+            except Exception:
+                continue
+        
+        return False
+    except Exception:
+        return False
+
+
 def get_memory_defaults(portal: str = "portal_a", memory_store: Optional[Any] = None) -> Dict[str, Optional[str]]:
     """
     Obtiene valores por defecto desde memoria persistente.
@@ -4319,7 +4362,11 @@ Genera las acciones ejecutables necesarias para cumplir el objetivo. Devuelve SO
             memory_defaults = get_memory_defaults(portal=portal, memory_store=memory_store)
             logger.info(f"[ACTION_PLANNER] Memory defaults loaded: company_code={memory_defaults.get('company_code')}, username={memory_defaults.get('username')}, worker_id={memory_defaults.get('worker_id')}, doc_type={memory_defaults.get('doc_type')}")
         
-        # Validar y filtrar acciones
+        # v4.10.0: Detectar si estamos en página de login
+        is_login = await is_login_page(browser)
+        logger.info(f"[ACTION_PLANNER] is_login_page={is_login} (URL: {current_url})")
+        
+                # Validar y filtrar acciones
         valid_actions = []
         missing_required = []  # Para detectar datos faltantes
         for action in actions:
@@ -4334,8 +4381,19 @@ Genera las acciones ejecutables necesarias para cumplir el objetivo. Devuelve SO
             if action_type == "fill" or action_type == "fill_date":
                 selector = action.get("selector", "")
                 value = action.get("value", "")
+                # v4.10.0: Restringir acciones de credenciales a páginas de login
+                selector_lower = selector.lower()
+                is_credential_field = (
+                    "#empresa" in selector_lower or "empresa" in selector_lower or "company_code" in selector_lower or
+                    "#usuario" in selector_lower or "usuario" in selector_lower or "username" in selector_lower or
+                    "#password" in selector_lower or "password" in selector_lower or "contraseña" in selector_lower
+                )
                 
-                # v4.9.0: Auto-completar desde memoria si value está vacío
+                if is_credential_field and not is_login:
+                    logger.warning(f"[ACTION_PLANNER] Skipping credential action {selector} (not on login page)")
+                    continue
+                
+                                # v4.9.0: Auto-completar desde memoria si value está vacío
                 if not value and memory_defaults:
                     selector_lower = selector.lower()
                     if "#empresa" in selector_lower or "empresa" in selector_lower:
@@ -4365,8 +4423,19 @@ Genera las acciones ejecutables necesarias para cumplir el objetivo. Devuelve SO
             if action_type == "select":
                 selector = action.get("selector", "")
                 value = action.get("value", "")
+                # v4.10.0: Restringir acciones de credenciales a páginas de login
+                selector_lower = selector.lower()
+                is_credential_field = (
+                    "#empresa" in selector_lower or "empresa" in selector_lower or "company_code" in selector_lower or
+                    "#usuario" in selector_lower or "usuario" in selector_lower or "username" in selector_lower or
+                    "#password" in selector_lower or "password" in selector_lower or "contraseña" in selector_lower
+                )
                 
-                # v4.9.0: Auto-completar desde memoria si value está vacío
+                if is_credential_field and not is_login:
+                    logger.warning(f"[ACTION_PLANNER] Skipping credential action {selector} (not on login page)")
+                    continue
+                
+                                # v4.9.0: Auto-completar desde memoria si value está vacío
                 if not value and memory_defaults:
                     selector_lower = selector.lower()
                     if "#doc_type" in selector_lower or "doc_type" in selector_lower:
@@ -4794,9 +4863,22 @@ async def _execute_fill(
     # Extraer selector y value
     selector = step.get("selector") or step.get("field_selector")
     value = step.get("value") or step.get("field_value")
+    # v4.10.0: Restringir acciones de credenciales a páginas de login
+    if selector:
+        selector_lower = selector.lower()
+        is_credential_field = (
+            "#empresa" in selector_lower or "empresa" in selector_lower or "company_code" in selector_lower or
+            "#usuario" in selector_lower or "usuario" in selector_lower or "username" in selector_lower or
+            "#password" in selector_lower or "password" in selector_lower or "contraseña" in selector_lower
+        )
+        
+        if is_credential_field:
+            is_login = await is_login_page(browser)
+            if not is_login:
+                logger.warning(f"[EXECUTOR] Step {step_index}: Skipping credential fill {selector} (not on login page)")
+                return f"Skipped credential fill {selector} (not on login page)"
     
-    
-    # v4.7 FIX: Si el selector es #doc_type, redirigir a _execute_select
+        # v4.7 FIX: Si el selector es #doc_type, redirigir a _execute_select
     # (el generador a veces genera "fill" en lugar de "select" para doc_type)
     if selector and ("#doc_type" in selector.lower() or "doc_type" in selector.lower()):
         logger.info(f"[EXECUTOR] Selector {selector} es doc_type, redirigiendo a _execute_select...")
