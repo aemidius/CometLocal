@@ -785,8 +785,58 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
         print(f"[DEBUG_AGENT] Ejecutando {len(payload.steps)} steps con executor determinista")
         
         # v4.9.0: Resolver URLs de portales si faltan
-        goal_lower = payload.goal.lower()
-        if "portal a" in goal_lower or "portal_a" in goal_lower:
+        # Normalizar goal: lower(), strip(), reemplazar múltiples espacios
+        import re
+        goal_norm = re.sub(r'\s+', ' ', payload.goal.lower().strip())
+        
+        # Helper para cargar URL de plataforma desde JSON
+        def resolve_platform_url(platform_id: str) -> Optional[str]:
+            """Carga la URL de login de una plataforma desde su JSON."""
+            try:
+                from backend.memory import MemoryStore
+                from backend.config import MEMORY_BASE_DIR
+                import json
+                from pathlib import Path
+                
+                platforms_dir = Path(MEMORY_BASE_DIR) / "platforms"
+                platform_file = platforms_dir / f"{platform_id}.json"
+                
+                if not platform_file.exists():
+                    logger.warning(f"[PLATFORM] JSON not found for {platform_id}")
+                    return None
+                
+                with open(platform_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                base_url = data.get("base_url")
+                if not base_url:
+                    logger.warning(f"[PLATFORM] base_url not found in {platform_id}.json")
+                    return None
+                
+                # Construir URL de login
+                login_url = f"{base_url.rstrip('/')}/login.html"
+                return login_url
+            except Exception as e:
+                logger.warning(f"[PLATFORM] Error loading {platform_id}: {e}")
+                return None
+        
+        # CAMBIO 1 y 2: Matching con prioridad ALTA para v2 antes de v1
+        resolved_platform = None
+        resolved_url = None
+        
+        if "portal a v2" in goal_norm or "portal_a_v2" in goal_norm or "portal cae a v2" in goal_norm:
+            resolved_platform = "portal_a_v2"
+            resolved_url = resolve_platform_url("portal_a_v2")
+            if not resolved_url:
+                # Fallback si no se puede cargar del JSON
+                resolved_url = "http://127.0.0.1:8000/simulation/portal_a_v2/login.html"
+        elif "portal a" in goal_norm or "portal_a" in goal_norm:
+            resolved_platform = "portal_a"
+            from backend.config import DEFAULT_PORTAL_A_URL
+            resolved_url = DEFAULT_PORTAL_A_URL
+        
+        # Si se resolvió una plataforma, inyectar URL en el step de navegación
+        if resolved_platform and resolved_url:
             # Buscar el primer step que requiera navigate
             for step in payload.steps:
                 if not isinstance(step, dict):
@@ -795,14 +845,13 @@ async def agent_answer_endpoint(payload: AgentAnswerRequest):
                 if isinstance(expected_actions, str):
                     expected_actions = [expected_actions]
                 if "navigate" in expected_actions or step.get("action") == "navigate":
-                    # Si no tiene URL, inyectar la URL por defecto
+                    # Si no tiene URL, inyectar la URL resuelta
                     if not step.get("url") and not step.get("target_url"):
-                        from backend.config import DEFAULT_PORTAL_A_URL
-                        step["target_url"] = DEFAULT_PORTAL_A_URL
-                        logger.info(f"[agent_answer_endpoint] Resolved portal A default URL -> {DEFAULT_PORTAL_A_URL}")
-                        print(f"[DEBUG_AGENT] Resolved portal A default URL -> {DEFAULT_PORTAL_A_URL}")
+                        step["target_url"] = resolved_url
+                        logger.info(f"[PLATFORM] resolved={resolved_platform} url={resolved_url}")
+                        print(f"[DEBUG_AGENT] Resolved platform: {resolved_platform} -> {resolved_url}")
                         break
-        elif "portal b" in goal_lower or "portal_b" in goal_lower:
+        elif "portal b" in goal_norm or "portal_b" in goal_norm:
             # Buscar el primer step que requiera navigate
             for step in payload.steps:
                 if not isinstance(step, dict):
