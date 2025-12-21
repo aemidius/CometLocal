@@ -593,3 +593,104 @@ def compile_action(
     )
 
 
+def execute_action_only(
+    action: ActionSpecV1,
+    controller: BrowserController,
+    profile: ExecutionProfileV1,
+    policy: PolicyStateV1,
+) -> int:
+    """
+    Ejecuta solo el side-effect de la acción (sin capturas ni evaluación de condiciones).
+    Devuelve duration_ms o lanza ExecutorTypedException con error canónico.
+    """
+    t0 = time.perf_counter()
+
+    if action.kind == ActionKindV1.navigate:
+        controller.navigate(str(action.target.url), timeout_ms=action.timeout_ms)
+        return int((time.perf_counter() - t0) * 1000)
+
+    if action.kind == ActionKindV1.click:
+        loc = controller.locate_unique(action.target, timeout_ms=action.timeout_ms)
+        loc.click(timeout=action.timeout_ms or profile.action_timeout_ms)
+        return int((time.perf_counter() - t0) * 1000)
+
+    if action.kind == ActionKindV1.fill:
+        loc = controller.locate_unique(action.target, timeout_ms=action.timeout_ms)
+        text = action.input.get("text") or action.input.get("value")
+        if text is None:
+            raise ExecutorTypedException(
+                ExecutorErrorV1(
+                    error_code="INVALID_ACTIONSPEC",
+                    stage=ErrorStageV1.proposal_validation,
+                    severity=ErrorSeverityV1.error,
+                    message="fill requires input.text|input.value",
+                    retryable=False,
+                )
+            )
+        loc.click(timeout=action.timeout_ms or profile.action_timeout_ms)
+        loc.fill(str(text), timeout=action.timeout_ms or profile.action_timeout_ms)
+        return int((time.perf_counter() - t0) * 1000)
+
+    if action.kind == ActionKindV1.upload:
+        loc = controller.locate_unique(action.target, timeout_ms=action.timeout_ms)
+        try:
+            typ = loc.get_attribute("type")
+        except Exception:
+            typ = None
+        if (typ or "").lower() != "file":
+            raise ExecutorTypedException(
+                ExecutorErrorV1(
+                    error_code="INVALID_ACTIONSPEC",
+                    stage=ErrorStageV1.proposal_validation,
+                    severity=ErrorSeverityV1.error,
+                    message="upload supports only input[type=file] direct targets in H3/H4",
+                    retryable=False,
+                    details={"type": typ},
+                )
+            )
+        file_path = action.input.get("file_path")
+        if not file_path:
+            raise ExecutorTypedException(
+                ExecutorErrorV1(
+                    error_code="INVALID_ACTIONSPEC",
+                    stage=ErrorStageV1.proposal_validation,
+                    severity=ErrorSeverityV1.error,
+                    message="upload requires input.file_path in H4",
+                    retryable=False,
+                )
+            )
+        try:
+            loc.set_input_files(str(file_path), timeout=action.timeout_ms or profile.action_timeout_ms)
+        except Exception as e:
+            raise ExecutorTypedException(
+                ExecutorErrorV1(
+                    error_code="UPLOAD_FAILED",
+                    stage=ErrorStageV1.execution,
+                    severity=ErrorSeverityV1.error,
+                    message="upload failed",
+                    retryable=False,
+                    cause=repr(e),
+                    details={"file_path": str(file_path)},
+                )
+            )
+        return int((time.perf_counter() - t0) * 1000)
+
+    if action.kind == ActionKindV1.wait_for:
+        # no side-effect: la espera se modela como evaluación postconditions en runtime.
+        return int((time.perf_counter() - t0) * 1000)
+
+    if action.kind == ActionKindV1.assert_:
+        # no side-effect
+        return int((time.perf_counter() - t0) * 1000)
+
+    raise ExecutorTypedException(
+        ExecutorErrorV1(
+            error_code="PROPOSAL_UNSUPPORTED_ACTION",
+            stage=ErrorStageV1.proposal_validation,
+            severity=ErrorSeverityV1.error,
+            message=f"unsupported action kind in H4: {action.kind}",
+            retryable=False,
+        )
+    )
+
+

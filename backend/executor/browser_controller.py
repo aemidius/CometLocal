@@ -334,6 +334,7 @@ class BrowserController:
         *,
         step_id: str,
         evidence_dir: Path,
+        phase: str = "before",
     ) -> Tuple[DomSnapshotV1, StateSignatureV1, List[EvidenceItemV1]]:
         """
         Captura:
@@ -471,9 +472,8 @@ class BrowserController:
             metadata={"source": "playwright"},
         )
 
-        dom_rel = Path(f"evidence/dom/{step_id}_before.json")
-        dom_path = dom_dir / f"{step_id}_before.json"
-        dom_rel = Path(f"evidence/dom/{step_id}_before.json")
+        dom_rel = Path(f"evidence/dom/{step_id}_{phase}.json")
+        dom_path = dom_dir / f"{step_id}_{phase}.json"
         dom_path.write_text(json.dumps(dom_snapshot.model_dump(), ensure_ascii=False, indent=2), encoding="utf-8")
 
         # screenshot bytes -> hash (no guardamos imagen por defecto)
@@ -497,8 +497,8 @@ class BrowserController:
         screenshot_hash = f"sha256:{shot_hash_hex}"
 
         # guardar solo .sha256
-        shot_hash_rel = Path(f"evidence/shots/{step_id}_before.sha256")
-        shot_hash_path = shots_dir / f"{step_id}_before.sha256"
+        shot_hash_rel = Path(f"evidence/shots/{step_id}_{phase}.sha256")
+        shot_hash_path = shots_dir / f"{step_id}_{phase}.sha256"
         shot_hash_path.write_text(screenshot_hash + "\n", encoding="utf-8")
 
         visible_text = (extracted.get("visible_text") or "")[: self.profile.observation_text_max_len]
@@ -539,5 +539,72 @@ class BrowserController:
         ]
 
         return dom_snapshot, state_sig, items
+
+    def capture_html_full(self, *, step_id: str, evidence_dir: Path, phase: str = "after") -> EvidenceItemV1:
+        """
+        Captura HTML completo (page.content) y lo persiste. Usar solo en fallo/acción crítica (policy).
+        """
+        if not self._page:
+            raise RuntimeError("BrowserController not started")
+        html_dir = evidence_dir / "html"
+        html_dir.mkdir(parents=True, exist_ok=True)
+        rel = Path(f"evidence/html/{step_id}_{phase}.html")
+        path = html_dir / f"{step_id}_{phase}.html"
+        try:
+            html = self._page.content()
+        except Exception as e:
+            raise ExecutorTypedException(
+                ExecutorErrorV1(
+                    error_code="EVIDENCE_HTML_CAPTURE_FAILED",
+                    stage=ErrorStageV1.evidence,
+                    severity=ErrorSeverityV1.error,
+                    message="failed to capture html_full",
+                    retryable=False,
+                    cause=repr(e),
+                )
+            )
+        path.write_text(html, encoding="utf-8")
+        return EvidenceItemV1(
+            kind=EvidenceKindV1.html_full,
+            step_id=step_id,
+            relative_path=rel.as_posix(),
+            sha256=_sha256_bytes(path.read_bytes()),
+            size_bytes=path.stat().st_size,
+            mime_type="text/html",
+            redacted=False,
+        )
+
+    def capture_screenshot_file(self, *, step_id: str, evidence_dir: Path, phase: str = "after") -> EvidenceItemV1:
+        """
+        Captura screenshot PNG a disco (solo fallo/acción crítica).
+        """
+        if not self._page:
+            raise RuntimeError("BrowserController not started")
+        shots_dir = evidence_dir / "shots"
+        shots_dir.mkdir(parents=True, exist_ok=True)
+        rel = Path(f"evidence/shots/{step_id}_{phase}.png")
+        path = shots_dir / f"{step_id}_{phase}.png"
+        try:
+            self._page.screenshot(path=str(path), full_page=True)
+        except Exception as e:
+            raise ExecutorTypedException(
+                ExecutorErrorV1(
+                    error_code="EVIDENCE_SCREENSHOT_FAILED",
+                    stage=ErrorStageV1.evidence,
+                    severity=ErrorSeverityV1.error,
+                    message="failed to capture screenshot file",
+                    retryable=False,
+                    cause=repr(e),
+                )
+            )
+        return EvidenceItemV1(
+            kind=EvidenceKindV1.screenshot,
+            step_id=step_id,
+            relative_path=rel.as_posix(),
+            sha256=_sha256_bytes(path.read_bytes()),
+            size_bytes=path.stat().st_size,
+            mime_type="image/png",
+            redacted=False,
+        )
 
 
