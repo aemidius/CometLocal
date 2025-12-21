@@ -30,6 +30,8 @@ from backend.shared.models import (
 from backend.agents.agent_runner import run_simple_agent, run_llm_agent, run_llm_task_with_answer
 from backend.simulation.routes import router as simulation_router
 from backend.training.routes import router as training_router, set_training_browser
+from backend.executor.runs_viewer import create_runs_viewer_router
+from backend.config import BATCH_RUNS_DIR
 
 # Constantes de rutas
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -49,6 +51,7 @@ app.add_middleware(
 # Registrar routers
 app.include_router(simulation_router)
 app.include_router(training_router)
+app.include_router(create_runs_viewer_router(runs_root=BASE_DIR / BATCH_RUNS_DIR))
 
 browser = BrowserController()
 
