@@ -408,20 +408,32 @@ class ActionResultV1(BaseModel):
 
 class TraceEventTypeV1(str, Enum):
     run_started = "run_started"
+    run_finished = "run_finished"
+
+    observation_captured = "observation_captured"
+
     proposal_received = "proposal_received"
     proposal_rejected = "proposal_rejected"
     proposal_accepted = "proposal_accepted"
+
+    action_compiled = "action_compiled"
     action_started = "action_started"
     preconditions_checked = "preconditions_checked"
     action_executed = "action_executed"
     postconditions_checked = "postconditions_checked"
-    action_finished = "action_finished"
+
+    assert_checked = "assert_checked"
+
     retry_scheduled = "retry_scheduled"
     backoff_applied = "backoff_applied"
     recovery_started = "recovery_started"
     recovery_finished = "recovery_finished"
     policy_halt = "policy_halt"
-    run_finished = "run_finished"
+
+    evidence_captured = "evidence_captured"
+    error_raised = "error_raised"
+
+    action_finished = "action_finished"  # opcional/compat
 
 
 class TraceEventV1(BaseModel):
@@ -429,14 +441,15 @@ class TraceEventV1(BaseModel):
 
     run_id: str
     seq: int
-    ts: str = Field(default_factory=_now_iso)
+    ts_utc: str = Field(default_factory=_now_iso)
     event_type: TraceEventTypeV1
 
-    step_index: int = 0
+    step_id: Optional[str] = None
+    step_index: Optional[int] = None  # compat/interno (no requerido por contrato)
     sub_goal_index: Optional[int] = None
 
-    state_before: Optional[StateSignatureV1] = None
-    state_after: Optional[StateSignatureV1] = None
+    state_signature_before: Optional[StateSignatureV1] = None
+    state_signature_after: Optional[StateSignatureV1] = None
 
     action_spec: Optional[ActionSpecV1] = None
     result: Optional[ActionResultV1] = None
@@ -444,5 +457,46 @@ class TraceEventV1(BaseModel):
 
     evidence_refs: List[EvidenceRefV1] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class EvidencePolicyV1(BaseModel):
+    always: List[EvidenceKindV1] = Field(default_factory=list)
+    on_failure_or_critical: List[EvidenceKindV1] = Field(default_factory=list)
+
+
+class RedactionPolicyV1(BaseModel):
+    enabled: bool = False
+    rules: List[str] = Field(default_factory=list)
+
+
+class EvidenceItemV1(BaseModel):
+    kind: EvidenceKindV1
+    relative_path: str
+    sha256: str
+    size_bytes: int
+
+    step_id: Optional[str] = None
+    ts_utc: Optional[str] = None
+    redacted: Optional[bool] = None
+    mime_type: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class EvidenceManifestV1(BaseModel):
+    schema_version: Literal["v1"] = Field(default=SCHEMA_VERSION_V1)
+    run_id: str
+    created_at_utc: str = Field(default_factory=_now_iso)
+
+    policy: EvidencePolicyV1
+    redaction: RedactionPolicyV1 = Field(default_factory=RedactionPolicyV1)
+
+    items: List[EvidenceItemV1]
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _validate_items_non_empty(self) -> "EvidenceManifestV1":
+        if not self.items:
+            raise ValueError("EvidenceManifestV1.items must be non-empty")
+        return self
 
 

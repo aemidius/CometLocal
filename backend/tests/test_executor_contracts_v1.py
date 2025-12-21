@@ -5,9 +5,14 @@ from backend.shared.executor_contracts_v1 import (
     ActionSpecV1,
     ConditionKindV1,
     ConditionV1,
+    EvidenceItemV1,
+    EvidenceManifestV1,
+    EvidencePolicyV1,
     ExecutorErrorV1,
     ErrorStageV1,
     ERROR_CODES_V1,
+    EvidenceKindV1,
+    RedactionPolicyV1,
     TraceEventTypeV1,
     TraceEventV1,
     TargetKindV1,
@@ -96,8 +101,9 @@ def test_trace_event_roundtrip_model_dump():
         run_id="r1",
         seq=1,
         event_type=TraceEventTypeV1.action_started,
+        step_id="step_000",
         step_index=0,
-        state_before=sig,
+        state_signature_before=sig,
         action_spec=spec,
     )
 
@@ -107,6 +113,63 @@ def test_trace_event_roundtrip_model_dump():
     assert reloaded.event_type == TraceEventTypeV1.action_started
     assert reloaded.action_spec is not None
     assert reloaded.action_spec.kind == ActionKindV1.navigate
+
+
+def test_trace_event_has_required_contract_fields():
+    ev = TraceEventV1(
+        run_id="r2",
+        seq=1,
+        event_type=TraceEventTypeV1.run_started,
+        step_id=None,
+        state_signature_before=None,
+        state_signature_after=None,
+    )
+    dumped = ev.model_dump()
+    assert "run_id" in dumped
+    assert "seq" in dumped
+    assert "ts_utc" in dumped
+    assert "event_type" in dumped
+    assert "step_id" in dumped
+    assert "state_signature_before" in dumped
+    assert "state_signature_after" in dumped
+
+
+def test_evidence_manifest_schema_roundtrip():
+    manifest = EvidenceManifestV1(
+        run_id="r3",
+        policy=EvidencePolicyV1(
+            always=[EvidenceKindV1.dom_snapshot_partial],
+            on_failure_or_critical=[EvidenceKindV1.html_full, EvidenceKindV1.screenshot],
+        ),
+        redaction=RedactionPolicyV1(enabled=True, rules=["emails", "dni"]),
+        items=[
+            EvidenceItemV1(
+                kind=EvidenceKindV1.dom_snapshot_partial,
+                step_id="step_000",
+                relative_path="evidence/dom/step_000_before.json",
+                sha256="a" * 64,
+                size_bytes=123,
+                mime_type="application/json",
+                redacted=True,
+            )
+        ],
+    )
+    dumped = manifest.model_dump()
+    reloaded = EvidenceManifestV1.model_validate(dumped)
+    assert reloaded.run_id == "r3"
+    assert reloaded.policy.always[0] == EvidenceKindV1.dom_snapshot_partial
+
+
+def test_evidence_manifest_requires_non_empty_items():
+    with pytest.raises(ValueError):
+        EvidenceManifestV1(
+            run_id="r4",
+            policy=EvidencePolicyV1(
+                always=[EvidenceKindV1.dom_snapshot_partial],
+                on_failure_or_critical=[EvidenceKindV1.html_full],
+            ),
+            items=[],
+        )
 
 
 def test_state_signature_hashing_is_deterministic():
