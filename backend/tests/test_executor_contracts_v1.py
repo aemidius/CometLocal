@@ -20,7 +20,10 @@ def test_error_code_catalog_is_non_empty_and_stable():
     # sanity: evita catálogo vacío por accidente
     assert isinstance(ERROR_CODES_V1, set)
     assert len(ERROR_CODES_V1) > 10
-    # un par de códigos clave
+    # canónicos (Block 4)
+    assert "TARGET_NOT_FOUND" in ERROR_CODES_V1
+    assert "INVALID_ACTIONSPEC" in ERROR_CODES_V1
+    # compat extendido (no debe desaparecer)
     assert "POST_ASSERT_FAILED" in ERROR_CODES_V1
     assert "POLICY_MAX_STEPS_REACHED" in ERROR_CODES_V1
 

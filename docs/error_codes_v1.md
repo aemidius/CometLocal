@@ -1,4 +1,4 @@
-# CometLocal v1.0 — Error Codes v1 (catálogo inicial)
+# CometLocal v1.0 — Error Codes v1 (catálogo)
 
 Este catálogo define `error_code` estables para el executor v1.0.
 Los códigos están pensados para ser:
@@ -23,7 +23,30 @@ Los códigos están pensados para ser:
   - `stage`: proposal_validation|precondition|execution|postcondition|policy|evidence
   - `retryable`: boolean (solo true si está explícitamente permitido)
 
-## Catálogo v1.0
+## Catálogo v1.0 (canónicos)
+
+Los siguientes `error_code` son **canónicos** para v1.0 (Block 4) y deben existir como valores estables:
+
+- `TARGET_NOT_FOUND`
+- `TARGET_NOT_UNIQUE`
+- `INVALID_ACTIONSPEC`
+- `PRECONDITION_FAILED`
+- `POSTCONDITION_FAILED`
+- `POLICY_HALT`
+- `DOMAIN_BLOCKED`
+- `ACTION_CRITICAL_BLOCKED`
+- `NAVIGATION_TIMEOUT`
+- `UPLOAD_FAILED`
+- `DOWNLOAD_FAILED`
+- `OVERLAY_BLOCKING`
+- `AUTH_FAILED`
+
+Estos códigos se definen y norman en `docs/errors_contract_v1.md`.
+
+## Catálogo v1.0 (extendido / compat)
+
+Además del set canónico, v1.0 mantiene un set extendido para compatibilidad interna y diagnóstico fino.
+Estos códigos pueden mapearse a los canónicos (ej. `PRE_TARGET_NOT_FOUND` → `TARGET_NOT_FOUND`).
 
 ### PROPOSAL_*
 
