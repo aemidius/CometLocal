@@ -280,52 +280,93 @@ def compute_state_signature_v1(
 
 
 class TargetKindV1(str, Enum):
-    selector = "selector"
-    text = "text"
+    # Base targets (Block 3)
+    css = "css"
+    xpath = "xpath"
     role = "role"
-    coordinates = "coordinates"
+    label = "label"
+    text = "text"
+    testid = "testid"
+    # Composition
+    frame = "frame"
+    nth = "nth"
+    # URL target for navigate
     url = "url"
 
 
 class TargetV1(BaseModel):
     type: TargetKindV1
-
+    # css/xpath/frame selectors
     selector: Optional[str] = None
-    text: Optional[str] = None
+    # role
     role: Optional[str] = None
-    x: Optional[int] = None
-    y: Optional[int] = None
+    name: Optional[str] = None
+    exact: Optional[bool] = None
+    # label/text
+    text: Optional[str] = None
+    normalize_ws: Optional[bool] = None
+    # testid
+    testid: Optional[str] = None
+    # composition
+    inner_target: Optional["TargetV1"] = None
+    base_target: Optional["TargetV1"] = None
+    index: Optional[int] = None
+    # url
     url: Optional[str] = None
 
     @model_validator(mode="after")
     def _validate_target_shape(self) -> "TargetV1":
         t = self.type
-        if t == TargetKindV1.selector and not self.selector:
-            raise ValueError("TargetV1.type=selector requires selector")
-        if t == TargetKindV1.text and not self.text:
-            raise ValueError("TargetV1.type=text requires text")
+        if t in (TargetKindV1.css, TargetKindV1.xpath, TargetKindV1.frame) and not self.selector:
+            raise ValueError(f"TargetV1.type={t.value} requires selector")
         if t == TargetKindV1.role and not self.role:
             raise ValueError("TargetV1.type=role requires role")
-        if t == TargetKindV1.coordinates and (self.x is None or self.y is None):
-            raise ValueError("TargetV1.type=coordinates requires x and y")
+        if t == TargetKindV1.testid and not self.testid:
+            raise ValueError("TargetV1.type=testid requires testid")
+        if t in (TargetKindV1.text, TargetKindV1.label) and not self.text:
+            raise ValueError(f"TargetV1.type={t.value} requires text")
+        if t == TargetKindV1.frame:
+            if self.inner_target is None:
+                raise ValueError("TargetV1.type=frame requires inner_target")
+            if self.inner_target.type == TargetKindV1.frame:
+                raise ValueError("TargetV1.type=frame supports max 1 level (inner_target cannot be frame)")
+        if t == TargetKindV1.nth:
+            if self.base_target is None or self.index is None:
+                raise ValueError("TargetV1.type=nth requires base_target and index")
         if t == TargetKindV1.url and not self.url:
             raise ValueError("TargetV1.type=url requires url")
         return self
 
 
+TargetV1.model_rebuild()
+
+
 class ConditionKindV1(str, Enum):
-    # URL / navegación
-    url_equals = "url_equals"
-    url_contains = "url_contains"
-    url_in_allowlist = "url_in_allowlist"
-    # DOM
-    selector_visible = "selector_visible"
-    selector_enabled = "selector_enabled"
-    text_present = "text_present"
-    # Formularios
-    field_equals = "field_equals"
-    # Visual
-    visual_contract_match = "visual_contract_match"
+    # Block 3 subset exacto v1
+    url_is = "url_is"
+    url_matches = "url_matches"
+    host_in_allowlist = "host_in_allowlist"
+    title_contains = "title_contains"
+
+    element_exists = "element_exists"
+    element_visible = "element_visible"
+    element_enabled = "element_enabled"
+    element_clickable = "element_clickable"
+
+    element_count_equals = "element_count_equals"
+    element_text_contains = "element_text_contains"
+    element_attr_equals = "element_attr_equals"
+    element_value_equals = "element_value_equals"
+
+    network_idle = "network_idle"
+    no_blocking_overlay = "no_blocking_overlay"
+    toast_contains = "toast_contains"
+
+    download_started = "download_started"
+    upload_completed = "upload_completed"
+
+    # internal / reserved
+    assertion = "assertion"
 
 
 class ConditionV1(BaseModel):
@@ -384,6 +425,38 @@ class ActionSpecV1(BaseModel):
             # assert puede usar assertions en lugar de postconditions; wait_for puede usar postcond también.
             if self.kind != ActionKindV1.assert_:
                 raise ValueError("ActionSpec requires at least one postcondition (v1 invariant)")
+
+        # U1: click/upload requieren count_equals == 1 (en schema se exige presencia de la condición)
+        if self.kind in (ActionKindV1.click, ActionKindV1.upload):
+            has_count_eq_1 = any(
+                c.kind == ConditionKindV1.element_count_equals and int(c.args.get("count", -1)) == 1
+                for c in self.preconditions
+            )
+            if not has_count_eq_1:
+                raise ValueError("ActionSpec(click|upload) requires precondition element_count_equals==1 (U1)")
+
+        # U2: text/label targets deben ser exact/normalizados y exigir count_equals==1 (count se exige arriba para click/upload)
+        if self.target and self.target.type in (TargetKindV1.text, TargetKindV1.label):
+            if self.target.exact is not True:
+                raise ValueError("Target(text|label) requires exact=true (U2)")
+
+        # U3: nth requiere rationale trazable
+        if self.target and self.target.type == TargetKindV1.nth:
+            rationale = (self.metadata or {}).get("target_rationale")
+            if not rationale:
+                raise ValueError("Target(nth) requires metadata.target_rationale (U3)")
+
+        # U5: acciones críticas requieren al menos 1 postcondición fuerte
+        if self.criticality == ActionCriticalityV1.critical:
+            strong_kinds = {
+                ConditionKindV1.url_is,
+                ConditionKindV1.url_matches,
+                ConditionKindV1.download_started,
+                ConditionKindV1.upload_completed,
+            }
+            has_strong = any((c.kind in strong_kinds) or (c.kind in {ConditionKindV1.toast_contains, ConditionKindV1.element_text_contains} and c.severity == ErrorSeverityV1.critical) for c in self.postconditions)
+            if not has_strong:
+                raise ValueError("Critical action requires at least one strong postcondition (U5)")
         return self
 
 

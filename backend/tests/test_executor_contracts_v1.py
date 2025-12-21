@@ -49,11 +49,11 @@ def test_action_spec_supports_assert_as_first_class_action():
         kind=ActionKindV1.assert_,
         target=None,
         preconditions=[
-            ConditionV1(kind=ConditionKindV1.url_contains, args={"value": "portal"})
+            ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": "portal"})
         ],
         postconditions=[],
         assertions=[
-            ConditionV1(kind=ConditionKindV1.text_present, args={"value": "OK"})
+            ConditionV1(kind=ConditionKindV1.element_text_contains, args={"text": "OK"})
         ],
     )
     assert spec.kind == ActionKindV1.assert_
@@ -65,17 +65,17 @@ def test_action_spec_requires_pre_and_postconditions_for_non_noop():
         ActionSpecV1(
             action_id="a2",
             kind=ActionKindV1.click,
-            target=TargetV1(type=TargetKindV1.selector, selector="#btn"),
+            target=TargetV1(type=TargetKindV1.css, selector="#btn"),
             preconditions=[],
-            postconditions=[ConditionV1(kind=ConditionKindV1.text_present, args={"value": "Done"})],
+            postconditions=[ConditionV1(kind=ConditionKindV1.toast_contains, args={"text": "Done"})],
         )
 
     with pytest.raises(ValueError):
         ActionSpecV1(
             action_id="a3",
             kind=ActionKindV1.click,
-            target=TargetV1(type=TargetKindV1.selector, selector="#btn"),
-            preconditions=[ConditionV1(kind=ConditionKindV1.selector_visible, args={"selector": "#btn"})],
+            target=TargetV1(type=TargetKindV1.css, selector="#btn"),
+            preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": {"type": "css", "selector": "#btn"}})],
             postconditions=[],
         )
 
@@ -93,8 +93,8 @@ def test_trace_event_roundtrip_model_dump():
         action_id="a4",
         kind=ActionKindV1.navigate,
         target=TargetV1(type=TargetKindV1.url, url="https://example.com/login"),
-        preconditions=[ConditionV1(kind=ConditionKindV1.url_in_allowlist, args={"domains": ["example.com"]})],
-        postconditions=[ConditionV1(kind=ConditionKindV1.url_contains, args={"value": "/login"})],
+        preconditions=[ConditionV1(kind=ConditionKindV1.host_in_allowlist, args={"allowlist": ["example.com"]})],
+        postconditions=[ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": "/login"})],
     )
 
     ev = TraceEventV1(
@@ -192,5 +192,69 @@ def test_state_signature_hashing_is_deterministic():
     assert s1.key_elements_hash == s2.key_elements_hash
     assert s1.visible_text_hash == s2.visible_text_hash
     assert s1.screenshot_hash == s2.screenshot_hash
+
+
+def test_action_spec_complete_click_requires_count_equals_1_and_strong_post_if_critical():
+    # click critical: exige element_count_equals==1 en pre y postcondición fuerte (U1, U5)
+    spec = ActionSpecV1(
+        action_id="a_click_crit",
+        kind=ActionKindV1.click,
+        criticality="critical",
+        target=TargetV1(type=TargetKindV1.role, role="button", name="Enviar", exact=True),
+        preconditions=[
+            ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": {"type": "role", "role": "button", "name": "Enviar", "exact": True}, "count": 1}),
+            ConditionV1(kind=ConditionKindV1.element_clickable, args={"target": {"type": "role", "role": "button", "name": "Enviar", "exact": True}}),
+            ConditionV1(kind=ConditionKindV1.no_blocking_overlay, args={}),
+        ],
+        postconditions=[
+            ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": "/done"}, severity="critical"),
+        ],
+        timeout_ms=8000,
+    )
+    assert spec.kind == ActionKindV1.click
+
+
+def test_error_raised_event_with_canonical_code():
+    sig = compute_state_signature_v1(
+        url="https://example.com",
+        title="Example",
+        key_elements={"a": 1},
+        visible_text="x",
+        screenshot_hash="abc",
+    )
+    err = ExecutorErrorV1(
+        error_code="TARGET_NOT_FOUND",
+        stage=ErrorStageV1.precondition,
+        message="target not found",
+        retryable=False,
+        details={"count_observed": 0},
+    )
+    ev = TraceEventV1(
+        run_id="r5",
+        seq=1,
+        event_type=TraceEventTypeV1.error_raised,
+        step_id="step_000",
+        state_signature_before=sig,
+        error=err,
+    )
+    assert ev.error is not None
+    assert ev.error.error_code == "TARGET_NOT_FOUND"
+
+
+def test_run_trace_minimal_sequence_validates():
+    # run_started -> observation_captured -> run_finished
+    sig = compute_state_signature_v1(
+        url="https://example.com",
+        title="Example",
+        key_elements={"anchors": []},
+        visible_text="hello",
+        screenshot_hash="abc",
+    )
+    ev1 = TraceEventV1(run_id="r6", seq=1, event_type=TraceEventTypeV1.run_started, step_id=None)
+    ev2 = TraceEventV1(run_id="r6", seq=2, event_type=TraceEventTypeV1.observation_captured, step_id="step_000", state_signature_before=sig)
+    ev3 = TraceEventV1(run_id="r6", seq=3, event_type=TraceEventTypeV1.run_finished, step_id=None, state_signature_after=sig)
+    assert ev1.event_type == TraceEventTypeV1.run_started
+    assert ev2.state_signature_before is not None
+    assert ev3.state_signature_after is not None
 
 
