@@ -406,6 +406,11 @@ class ActionSpecV1(BaseModel):
     kind: ActionKindV1
     target: Optional[TargetV1] = None
 
+    # Payload específico (v1):
+    # - fill: {"text": "..."} (o {"value": "..."})
+    # - upload: {"file_path": "..."} (o {"file_ref": "..."})
+    input: Dict[str, Any] = Field(default_factory=dict)
+
     preconditions: List[ConditionV1] = Field(default_factory=list)
     postconditions: List[ConditionV1] = Field(default_factory=list)
 
@@ -426,6 +431,14 @@ class ActionSpecV1(BaseModel):
         else:
             if self.target is None and self.kind not in (ActionKindV1.noop,):
                 raise ValueError(f"ActionSpec(kind={self.kind.value}) requires target")
+
+        # payload mínimo por acción
+        if self.kind == ActionKindV1.fill:
+            if not (self.input.get("text") or self.input.get("value") or self.input.get("secret_ref")):
+                raise ValueError("ActionSpec(kind=fill) requires input.text|input.value|input.secret_ref")
+        if self.kind == ActionKindV1.upload:
+            if not (self.input.get("file_path") or self.input.get("file_ref")):
+                raise ValueError("ActionSpec(kind=upload) requires input.file_path|input.file_ref")
         if not self.preconditions:
             raise ValueError("ActionSpec requires at least one precondition (v1 invariant)")
         if not self.postconditions and self.kind != ActionKindV1.noop:
