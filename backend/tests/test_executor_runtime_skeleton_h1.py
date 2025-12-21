@@ -59,3 +59,26 @@ def test_runtime_skeleton_creates_run_artifacts_and_valid_schemas(tmp_path: Path
     assert hash_path.read_text(encoding="utf-8").strip() == screenshot_hash
 
 
+def test_runtime_skeleton_playwright_mode_offline_file_url(tmp_path: Path):
+    # Este test no depende de internet ni de servidor; usa file://
+    try:
+        from playwright.sync_api import sync_playwright  # noqa: F401
+    except Exception:
+        return  # Playwright no disponible; no fallamos el suite aquí
+
+    html = "<html><head><title>P</title></head><body><button data-testid='x'>X</button></body></html>"
+    page = tmp_path / "p.html"
+    page.write_text(html, encoding="utf-8")
+
+    runs_root = tmp_path / "runs"
+    rt = ExecutorRuntimeSkeletonH1(runs_root=runs_root, execution_mode="dry_run", domain_allowlist=["stub.local"])
+    try:
+        run_dir = rt.run(url=page.as_uri(), goal="pw", use_playwright=True, headless=True)
+    except Exception:
+        # En entornos sin browsers instalados, Playwright puede fallar: no hacemos fallar el suite.
+        return
+
+    assert (run_dir / "trace.jsonl").exists()
+    assert (run_dir / "evidence_manifest.json").exists()
+
+

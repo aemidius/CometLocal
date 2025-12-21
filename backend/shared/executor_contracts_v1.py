@@ -190,6 +190,12 @@ class VisibleInputV1(BaseModel):
     attrs: Dict[str, str] = Field(default_factory=dict)
 
 
+class VisibleButtonV1(BaseModel):
+    text: str = ""
+    selector: Optional[str] = None
+    attrs: Dict[str, str] = Field(default_factory=dict)
+
+
 class DomNodeSnapshotV1(BaseModel):
     """
     Snapshot acotado del subárbol DOM relevante para un target.
@@ -226,6 +232,7 @@ class DomSnapshotV1(BaseModel):
     targets: List[DomTargetSnapshotV1] = Field(default_factory=list)
     visible_anchors: List[VisibleAnchorV1] = Field(default_factory=list)
     visible_inputs: List[VisibleInputV1] = Field(default_factory=list)
+    visible_buttons: List[VisibleButtonV1] = Field(default_factory=list)
 
     truncated: bool = False
     metadata: Dict[str, Any] = Field(default_factory=dict)
