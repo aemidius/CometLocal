@@ -31,6 +31,7 @@ from backend.shared.executor_contracts_v1 import (
     compute_state_signature_v1,
 )
 
+from backend.executor.redaction_v1 import RedactorV1
 
 def _sha256_bytes(data: bytes) -> str:
     import hashlib
@@ -335,6 +336,7 @@ class BrowserController:
         step_id: str,
         evidence_dir: Path,
         phase: str = "before",
+        redactor: Optional[RedactorV1] = None,
     ) -> Tuple[DomSnapshotV1, StateSignatureV1, List[EvidenceItemV1]]:
         """
         Captura:
@@ -461,6 +463,26 @@ class BrowserController:
             for b in (extracted.get("buttons") or [])
         ]
 
+        # Redaction (in-memory) antes de persistir
+        if redactor and redactor.enabled:
+            for a in anchors:
+                a.text = redactor.redact_text(a.text)
+                a.href = redactor.redact_text(a.href)
+                a.attrs = {k: redactor.redact_text(v) for k, v in (a.attrs or {}).items()}
+            for i in inputs:
+                i.selector = redactor.redact_text(i.selector)
+                if i.name:
+                    i.name = redactor.redact_text(i.name)
+                if i.label:
+                    i.label = redactor.redact_text(i.label)
+                i.attrs = {k: redactor.redact_text(v) for k, v in (i.attrs or {}).items()}
+                # value siempre redacted
+                if "value" in (i.attrs or {}):
+                    i.attrs["value"] = "***"
+            for b in buttons:
+                b.text = redactor.redact_text(b.text)
+                b.attrs = {k: redactor.redact_text(v) for k, v in (b.attrs or {}).items()}
+
         dom_snapshot = DomSnapshotV1(
             url=url,
             title=title,
@@ -540,7 +562,7 @@ class BrowserController:
 
         return dom_snapshot, state_sig, items
 
-    def capture_html_full(self, *, step_id: str, evidence_dir: Path, phase: str = "after") -> EvidenceItemV1:
+    def capture_html_full(self, *, step_id: str, evidence_dir: Path, phase: str = "after", redactor: Optional[RedactorV1] = None) -> EvidenceItemV1:
         """
         Captura HTML completo (page.content) y lo persiste. Usar solo en fallo/acción crítica (policy).
         """
@@ -563,6 +585,8 @@ class BrowserController:
                     cause=repr(e),
                 )
             )
+        if redactor and redactor.enabled:
+            html = redactor.redact_html(html)
         path.write_text(html, encoding="utf-8")
         return EvidenceItemV1(
             kind=EvidenceKindV1.html_full,

@@ -27,7 +27,9 @@ from backend.executor.action_compiler_v1 import (
     validate_runtime,
 )
 from backend.executor.browser_controller import BrowserController, ExecutionProfileV1, ExecutorTypedException
+from backend.executor.redaction_v1 import RedactorV1
 from backend.shared.executor_contracts_v1 import (
+    ExecutionModeV1,
     ActionKindV1,
     ActionSpecV1,
     EvidenceItemV1,
@@ -80,16 +82,22 @@ class ExecutorRuntimeH4:
         self,
         *,
         runs_root: str | Path = "runs",
-        execution_mode: str = "live",
+        execution_mode: str | ExecutionModeV1 = ExecutionModeV1.training,
         domain_allowlist: Optional[List[str]] = None,
         profile: Optional[ExecutionProfileV1] = None,
         policy: Optional[RuntimePolicyDefaultsV1] = None,
+        redaction_policy: Optional[RedactionPolicyV1] = None,
     ):
         self.runs_root = Path(runs_root)
-        self.execution_mode = execution_mode
+        self.execution_mode = ExecutionModeV1(execution_mode) if not isinstance(execution_mode, ExecutionModeV1) else execution_mode
         self.domain_allowlist = domain_allowlist or []
         self.profile = profile or ExecutionProfileV1()
         self.policy = policy or RuntimePolicyDefaultsV1()
+        # production => redaction always enabled (default conservador)
+        if redaction_policy is None:
+            enabled = True if self.execution_mode == ExecutionModeV1.production else True
+            redaction_policy = RedactionPolicyV1(enabled=enabled, rules=["emails", "phone", "dni", "tokens"], mode=self.execution_mode)
+        self.redaction_policy = redaction_policy
 
     def run_actions(self, *, url: str, actions: List[ActionSpecV1], headless: bool = True) -> Path:
         run_id = f"r_{uuid.uuid4().hex}"
@@ -110,12 +118,17 @@ class ExecutorRuntimeH4:
         last_state_keys: List[str] = []  # ventana corta para "coincide con uno reciente"
         reload_used = False
 
+        redactor = RedactorV1(enabled=bool(self.redaction_policy.enabled), strict=True)
+
         def emit(ev: TraceEventV1) -> None:
             nonlocal seq
             seq += 1
             ev.seq = seq
             with open(trace_path, "a", encoding="utf-8") as f:
-                f.write(json.dumps(ev.model_dump(), ensure_ascii=False) + "\n")
+                payload = ev.model_dump(mode="json")
+                # redaction en trace payload
+                payload = redactor.redact_jsonable(payload)
+                f.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
         def add_evidence(step_id: str, state_before: Optional[StateSignatureV1], state_after: Optional[StateSignatureV1], items: List[EvidenceItemV1]) -> None:
             if not items:
@@ -141,7 +154,7 @@ class ExecutorRuntimeH4:
                     always=[EvidenceKindV1.dom_snapshot_partial],
                     on_failure_or_critical=[EvidenceKindV1.html_full, EvidenceKindV1.screenshot],
                 ),
-                redaction=RedactionPolicyV1(enabled=False, rules=[]),
+                redaction=RedactionPolicyV1(enabled=bool(self.redaction_policy.enabled), rules=list(self.redaction_policy.rules or []), mode=self.execution_mode),
                 items=manifest_items or [
                     EvidenceItemV1(
                         kind=EvidenceKindV1.dom_snapshot_partial,
@@ -151,9 +164,10 @@ class ExecutorRuntimeH4:
                         size_bytes=0,
                     )
                 ],
-                metadata={"execution_mode": self.execution_mode},
+                redaction_report=dict(redactor.report.counts) if redactor.enabled else None,
+                metadata={"execution_mode": self.execution_mode.value, "redaction_enabled": bool(self.redaction_policy.enabled)},
             )
-            manifest_path.write_text(json.dumps(manifest.model_dump(), ensure_ascii=False, indent=2), encoding="utf-8")
+            manifest_path.write_text(json.dumps(manifest.model_dump(mode="json"), ensure_ascii=False, indent=2), encoding="utf-8")
 
         def emit_policy_halt(step_id: str, state_before: Optional[StateSignatureV1], reason: str, details: Dict[str, Any]) -> None:
             err = ExecutorErrorV1(
@@ -198,7 +212,7 @@ class ExecutorRuntimeH4:
                 state_signature_before=None,
                 state_signature_after=None,
                 metadata={
-                    "execution_mode": self.execution_mode,
+                    "execution_mode": self.execution_mode.value,
                     "domain_allowlist": self.domain_allowlist,
                     "policy": asdict(self.policy),
                 },
@@ -211,7 +225,7 @@ class ExecutorRuntimeH4:
             ctrl.navigate(url, timeout_ms=self.profile.navigation_timeout_ms)
 
             # initial observation (step_init)
-            dom0, s0, items0 = ctrl.capture_observation(step_id="step_init", evidence_dir=evidence_dir, phase="before")
+            dom0, s0, items0 = ctrl.capture_observation(step_id="step_init", evidence_dir=evidence_dir, phase="before", redactor=redactor)
             state_key0 = _state_key(s0)
             seen_states[state_key0] = 1
             emit(
@@ -261,7 +275,7 @@ class ExecutorRuntimeH4:
                 )
 
                 # observation_captured before
-                dom_b, sig_b, items_b = ctrl.capture_observation(step_id=step_id, evidence_dir=evidence_dir, phase="before")
+                dom_b, sig_b, items_b = ctrl.capture_observation(step_id=step_id, evidence_dir=evidence_dir, phase="before", redactor=redactor)
                 current_sig = sig_b
                 before_key = _state_key(sig_b)
                 # registrar sin incrementar conteo por "before"; el conteo relevante es por after (progreso/no progreso)
@@ -288,9 +302,14 @@ class ExecutorRuntimeH4:
                 add_evidence(step_id, sig_b, None, items_b)
 
                 # Acciones críticas: capturar screenshot REAL before (policy)
+                # training: evidencia rica (html_full/screenshot sampling)
+                training_html_every = 1
+                training_shot_every = 1
+
                 if action.criticality == "critical":
                     try:
-                        add_evidence(step_id, sig_b, None, [ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="before")])
+                        if self.execution_mode == ExecutionModeV1.training:
+                            add_evidence(step_id, sig_b, None, [ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="before")])
                     except Exception:
                         pass
 
@@ -313,8 +332,9 @@ class ExecutorRuntimeH4:
                     # evidence extra on failure/critical
                     extra: List[EvidenceItemV1] = []
                     try:
-                        extra.append(ctrl.capture_html_full(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
-                        extra.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
+                        extra.append(ctrl.capture_html_full(step_id=step_id, evidence_dir=evidence_dir, phase="after", redactor=redactor))
+                        if self.execution_mode == ExecutionModeV1.training:
+                            extra.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
                     except Exception:
                         pass
                     add_evidence(step_id, sig_b, None, extra)
@@ -430,7 +450,7 @@ class ExecutorRuntimeH4:
                             action_error = te.error
 
                     # capture after + postconditions/asserts
-                    dom_a, sig_a, items_a = ctrl.capture_observation(step_id=step_id, evidence_dir=evidence_dir, phase="after")
+                    dom_a, sig_a, items_a = ctrl.capture_observation(step_id=step_id, evidence_dir=evidence_dir, phase="after", redactor=redactor)
                     state_after = sig_a
                     add_evidence(step_id, sig_b, sig_a, items_a)
                     emit(
@@ -457,11 +477,24 @@ class ExecutorRuntimeH4:
                     if action.criticality == "critical":
                         extra_crit: List[EvidenceItemV1] = []
                         try:
-                            extra_crit.append(ctrl.capture_html_full(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
-                            extra_crit.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
+                            extra_crit.append(ctrl.capture_html_full(step_id=step_id, evidence_dir=evidence_dir, phase="after", redactor=redactor))
+                            if self.execution_mode == ExecutionModeV1.training:
+                                extra_crit.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
                         except Exception:
                             pass
                         add_evidence(step_id, sig_b, sig_a, extra_crit)
+
+                    # training: captura extra cada N steps (default conservador: cada step)
+                    if self.execution_mode == ExecutionModeV1.training:
+                        extra_train: List[EvidenceItemV1] = []
+                        try:
+                            if training_html_every and (i % training_html_every == 0):
+                                extra_train.append(ctrl.capture_html_full(step_id=step_id, evidence_dir=evidence_dir, phase="after", redactor=redactor))
+                            if training_shot_every and (i % training_shot_every == 0):
+                                extra_train.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
+                        except Exception:
+                            pass
+                        add_evidence(step_id, sig_b, sig_a, extra_train)
 
                     if action_error is None:
                         post_evals = evaluate_conditions(action.postconditions, ctrl, self.profile, policy_state, timeout_ms=action.timeout_ms)
@@ -535,9 +568,10 @@ class ExecutorRuntimeH4:
                     if action.criticality == "critical" or action_error.stage in (ErrorStageV1.execution, ErrorStageV1.postcondition) or action_error.error_code in {"TARGET_NOT_FOUND", "TARGET_NOT_UNIQUE", "OVERLAY_BLOCKING"}:
                         try:
                             # en fallo: intentamos capturar html_full + screenshots before/after
-                            extra.append(ctrl.capture_html_full(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
-                            extra.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="before"))
-                            extra.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
+                            extra.append(ctrl.capture_html_full(step_id=step_id, evidence_dir=evidence_dir, phase="after", redactor=redactor))
+                            if self.execution_mode == ExecutionModeV1.training:
+                                extra.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="before"))
+                                extra.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
                         except Exception:
                             pass
                         add_evidence(step_id, sig_b, state_after, extra)

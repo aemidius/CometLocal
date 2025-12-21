@@ -27,6 +27,11 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 SCHEMA_VERSION_V1 = "v1"
 
 
+class ExecutionModeV1(str, Enum):
+    training = "training"
+    production = "production"
+
+
 class ErrorStageV1(str, Enum):
     proposal_validation = "proposal_validation"
     precondition = "precondition"
@@ -162,6 +167,7 @@ class EvidenceKindV1(str, Enum):
     console_log = "console_log"
     network_har = "network_har"
     trace_ref = "trace_ref"
+    redaction_report = "redaction_report"
 
 
 class EvidenceRefV1(BaseModel):
@@ -555,11 +561,16 @@ class TraceEventV1(BaseModel):
 class EvidencePolicyV1(BaseModel):
     always: List[EvidenceKindV1] = Field(default_factory=list)
     on_failure_or_critical: List[EvidenceKindV1] = Field(default_factory=list)
+    # training knobs (v1): captura adicional
+    training_capture_html_every_n_steps: Optional[int] = None  # 1 => cada step
+    training_capture_screenshot_every_n_steps: Optional[int] = None  # 1 => cada step
 
 
 class RedactionPolicyV1(BaseModel):
     enabled: bool = False
     rules: List[str] = Field(default_factory=list)
+    # default conservador: en production siempre enabled
+    mode: Optional[ExecutionModeV1] = None
 
 
 class EvidenceItemV1(BaseModel):
@@ -584,6 +595,7 @@ class EvidenceManifestV1(BaseModel):
     redaction: RedactionPolicyV1 = Field(default_factory=RedactionPolicyV1)
 
     items: List[EvidenceItemV1]
+    redaction_report: Optional[Dict[str, int]] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
