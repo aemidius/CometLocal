@@ -22,7 +22,8 @@ DOCUMENT_REPOSITORY_BASE_DIR = os.getenv("CAE_DOCS_BASE_DIR", os.path.join(os.pa
 
 # v3.0.0: Configuración para ejecución batch
 ENABLE_BATCH_PERSISTENCE = os.getenv("ENABLE_BATCH_PERSISTENCE", "true").lower() == "true"
-BATCH_RUNS_DIR = os.getenv("BATCH_RUNS_DIR", "runs")
+# H7.8: unificar artefactos locales bajo data/
+BATCH_RUNS_DIR = os.getenv("BATCH_RUNS_DIR", "data/runs")
 
 # v3.3.0: Configuración para OCR/visión
 VISION_OCR_ENABLED = os.getenv("VISION_OCR_ENABLED", "true").lower() == "true"

@@ -418,8 +418,16 @@ def _page(title: str, body_html: str) -> str:
 def create_runs_viewer_router(*, runs_root: Path) -> APIRouter:
     router = APIRouter(tags=["runs"])
     runs_root = Path(runs_root)
-    project_root = runs_root.parent
-    inspections_root = (project_root / "data" / "documents" / "_inspections").resolve()
+    # Soporte para runs_root en:
+    # - <project_root>/runs  (legacy)
+    # - <project_root>/data/runs (H7.8)
+    if runs_root.name == "runs" and runs_root.parent.name == "data":
+        project_root = runs_root.parent.parent
+        data_root = runs_root.parent
+    else:
+        project_root = runs_root.parent
+        data_root = project_root / "data"
+    inspections_root = (data_root / "documents" / "_inspections").resolve()
 
     @router.get("/runs", response_class=HTMLResponse)
     def runs_index(request: Request, format: Optional[str] = None):
