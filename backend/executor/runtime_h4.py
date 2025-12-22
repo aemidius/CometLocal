@@ -28,6 +28,7 @@ from backend.executor.action_compiler_v1 import (
 )
 from backend.executor.browser_controller import BrowserController, ExecutionProfileV1, ExecutorTypedException
 from backend.executor.redaction_v1 import RedactorV1
+from backend.repository.document_repository_v1 import DocumentRepositoryV1
 from backend.shared.executor_contracts_v1 import (
     ExecutionModeV1,
     ActionKindV1,
@@ -82,17 +83,21 @@ class ExecutorRuntimeH4:
         self,
         *,
         runs_root: str | Path = "runs",
+        project_root: str | Path = ".",
+        data_root: str | Path = "data",
         execution_mode: str | ExecutionModeV1 = ExecutionModeV1.training,
         domain_allowlist: Optional[List[str]] = None,
         profile: Optional[ExecutionProfileV1] = None,
         policy: Optional[RuntimePolicyDefaultsV1] = None,
         redaction_policy: Optional[RedactionPolicyV1] = None,
+        document_repository: Optional[DocumentRepositoryV1] = None,
     ):
         self.runs_root = Path(runs_root)
         self.execution_mode = ExecutionModeV1(execution_mode) if not isinstance(execution_mode, ExecutionModeV1) else execution_mode
         self.domain_allowlist = domain_allowlist or []
         self.profile = profile or ExecutionProfileV1()
         self.policy = policy or RuntimePolicyDefaultsV1()
+        self.document_repository = document_repository or DocumentRepositoryV1(project_root=project_root, data_root=data_root)
         # production => redaction always enabled (default conservador)
         if redaction_policy is None:
             enabled = True if self.execution_mode == ExecutionModeV1.production else True
@@ -117,6 +122,7 @@ class ExecutorRuntimeH4:
         seen_states: Dict[str, int] = {}  # state_key -> count
         last_state_keys: List[str] = []  # ventana corta para "coincide con uno reciente"
         reload_used = False
+        inputs_used: List[str] = []
 
         redactor = RedactorV1(enabled=bool(self.redaction_policy.enabled), strict=True)
 
@@ -165,7 +171,11 @@ class ExecutorRuntimeH4:
                     )
                 ],
                 redaction_report=dict(redactor.report.counts) if redactor.enabled else None,
-                metadata={"execution_mode": self.execution_mode.value, "redaction_enabled": bool(self.redaction_policy.enabled)},
+                metadata={
+                    "execution_mode": self.execution_mode.value,
+                    "redaction_enabled": bool(self.redaction_policy.enabled),
+                    "inputs_used": sorted(set(inputs_used)),
+                },
             )
             manifest_path.write_text(json.dumps(manifest.model_dump(mode="json"), ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -433,7 +443,11 @@ class ExecutorRuntimeH4:
                         )
 
                         try:
-                            dur_ms = execute_action_only(action, ctrl, self.profile, policy_state)
+                            if action.kind == ActionKindV1.upload:
+                                fr = (action.input or {}).get("file_ref")
+                                if fr:
+                                    inputs_used.append(str(fr))
+                            dur_ms = execute_action_only(action, ctrl, self.profile, policy_state, document_repository=self.document_repository)
                             emit(
                                 TraceEventV1(
                                     run_id=run_id,

@@ -443,8 +443,9 @@ class ActionSpecV1(BaseModel):
             if not (self.input.get("text") or self.input.get("value") or self.input.get("secret_ref")):
                 raise ValueError("ActionSpec(kind=fill) requires input.text|input.value|input.secret_ref")
         if self.kind == ActionKindV1.upload:
-            if not (self.input.get("file_path") or self.input.get("file_ref")):
-                raise ValueError("ActionSpec(kind=upload) requires input.file_path|input.file_ref")
+            if not self.input.get("file_ref"):
+                # H7.5: el executor v1 no acepta paths directos en upload.
+                raise ValueError("ActionSpec(kind=upload) requires input.file_ref (H7.5)")
         if not self.preconditions:
             raise ValueError("ActionSpec requires at least one precondition (v1 invariant)")
         if not self.postconditions and self.kind != ActionKindV1.noop:

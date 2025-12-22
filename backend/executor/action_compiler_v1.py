@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 from backend.executor.browser_controller import BrowserController, ExecutionProfileV1, ExecutorTypedException
+from backend.repository.document_repository_v1 import DocumentRepositoryV1
 from backend.shared.executor_contracts_v1 import (
     ActionKindV1,
     ActionResultV1,
@@ -338,6 +339,20 @@ def validate_runtime(action: ActionSpecV1, controller: BrowserController, profil
                 )
             )
 
+    # H7.5: upload exige file_ref (no path directo)
+    if action.kind == ActionKindV1.upload:
+        if not (action.input or {}).get("file_ref"):
+            raise ExecutorTypedException(
+                ExecutorErrorV1(
+                    error_code="INVALID_ACTIONSPEC",
+                    stage=ErrorStageV1.proposal_validation,
+                    severity=ErrorSeverityV1.error,
+                    message="upload requires input.file_ref (H7.5)",
+                    retryable=False,
+                    details={"action_id": action.action_id},
+                )
+            )
+
 
 def compile_action(
     action: ActionSpecV1,
@@ -346,6 +361,7 @@ def compile_action(
     policy: PolicyStateV1,
     *,
     evidence_dir,
+    document_repository: Optional[DocumentRepositoryV1] = None,
 ) -> ActionExecutionResult:
     """
     Ejecuta ActionSpecV1 contra Playwright (via BrowserController) con:
@@ -492,20 +508,48 @@ def compile_action(
                         details={"type": typ},
                     )
                 )
-            file_path = action.input.get("file_path")
-            if not file_path:
+            file_ref = (action.input or {}).get("file_ref")
+            if not file_ref:
                 raise ExecutorTypedException(
                     ExecutorErrorV1(
                         error_code="INVALID_ACTIONSPEC",
                         stage=ErrorStageV1.proposal_validation,
                         severity=ErrorSeverityV1.error,
-                        message="upload requires input.file_path in H3",
+                        message="upload requires input.file_ref (H7.5)",
                         retryable=False,
+                    )
+                )
+            repo = document_repository or DocumentRepositoryV1()
+            try:
+                repo.validate(str(file_ref))
+                tmp_path = repo.copy_to_tmp(str(file_ref))
+            except FileNotFoundError as e:
+                raise ExecutorTypedException(
+                    ExecutorErrorV1(
+                        error_code="UPLOAD_FAILED",
+                        stage=ErrorStageV1.precondition,
+                        severity=ErrorSeverityV1.error,
+                        message="upload failed: file_ref not found",
+                        retryable=False,
+                        cause=repr(e),
+                        details={"file_ref": str(file_ref)},
+                    )
+                )
+            except ValueError as e:
+                raise ExecutorTypedException(
+                    ExecutorErrorV1(
+                        error_code="UPLOAD_FAILED",
+                        stage=ErrorStageV1.precondition,
+                        severity=ErrorSeverityV1.error,
+                        message="upload failed: sha256 mismatch",
+                        retryable=False,
+                        cause=repr(e),
+                        details={"file_ref": str(file_ref)},
                     )
                 )
             try:
                 # Playwright: set_input_files
-                loc.set_input_files(str(file_path), timeout=action.timeout_ms or profile.action_timeout_ms)
+                loc.set_input_files(str(tmp_path), timeout=action.timeout_ms or profile.action_timeout_ms)
             except Exception as e:
                 raise ExecutorTypedException(
                     ExecutorErrorV1(
@@ -515,7 +559,7 @@ def compile_action(
                         message="upload failed",
                         retryable=False,
                         cause=repr(e),
-                        details={"file_path": str(file_path)},
+                        details={"file_ref": str(file_ref)},
                     )
                 )
 
@@ -598,6 +642,8 @@ def execute_action_only(
     controller: BrowserController,
     profile: ExecutionProfileV1,
     policy: PolicyStateV1,
+    *,
+    document_repository: Optional[DocumentRepositoryV1] = None,
 ) -> int:
     """
     Ejecuta solo el side-effect de la acción (sin capturas ni evaluación de condiciones).
@@ -648,19 +694,47 @@ def execute_action_only(
                     details={"type": typ},
                 )
             )
-        file_path = action.input.get("file_path")
-        if not file_path:
+        file_ref = (action.input or {}).get("file_ref")
+        if not file_ref:
             raise ExecutorTypedException(
                 ExecutorErrorV1(
                     error_code="INVALID_ACTIONSPEC",
                     stage=ErrorStageV1.proposal_validation,
                     severity=ErrorSeverityV1.error,
-                    message="upload requires input.file_path in H4",
+                    message="upload requires input.file_ref (H7.5)",
                     retryable=False,
                 )
             )
+        repo = document_repository or DocumentRepositoryV1()
         try:
-            loc.set_input_files(str(file_path), timeout=action.timeout_ms or profile.action_timeout_ms)
+            repo.validate(str(file_ref))
+            tmp_path = repo.copy_to_tmp(str(file_ref))
+        except FileNotFoundError as e:
+            raise ExecutorTypedException(
+                ExecutorErrorV1(
+                    error_code="UPLOAD_FAILED",
+                    stage=ErrorStageV1.precondition,
+                    severity=ErrorSeverityV1.error,
+                    message="upload failed: file_ref not found",
+                    retryable=False,
+                    cause=repr(e),
+                    details={"file_ref": str(file_ref)},
+                )
+            )
+        except ValueError as e:
+            raise ExecutorTypedException(
+                ExecutorErrorV1(
+                    error_code="UPLOAD_FAILED",
+                    stage=ErrorStageV1.precondition,
+                    severity=ErrorSeverityV1.error,
+                    message="upload failed: sha256 mismatch",
+                    retryable=False,
+                    cause=repr(e),
+                    details={"file_ref": str(file_ref)},
+                )
+            )
+        try:
+            loc.set_input_files(str(tmp_path), timeout=action.timeout_ms or profile.action_timeout_ms)
         except Exception as e:
             raise ExecutorTypedException(
                 ExecutorErrorV1(
@@ -670,7 +744,7 @@ def execute_action_only(
                     message="upload failed",
                     retryable=False,
                     cause=repr(e),
-                    details={"file_path": str(file_path)},
+                    details={"file_ref": str(file_ref)},
                 )
             )
         return int((time.perf_counter() - t0) * 1000)

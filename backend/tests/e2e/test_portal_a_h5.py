@@ -248,6 +248,22 @@ def test_s4_upload_documento_directo_input_file(portal_base_url: str, tmp_path: 
     if not sample_pdf.exists():
         pytest.skip("sample.pdf no disponible para test de upload.")
 
+    # H7.5: registrar documento y usar file_ref (no paths directos)
+    from backend.repository.document_repository_v1 import DocumentRepositoryV1
+
+    repo = DocumentRepositoryV1(project_root=tmp_path, data_root="data")
+    file_ref = repo.register(
+        path=sample_pdf,
+        metadata={
+            "company_id": "demo_co",
+            "worker_id": "w-001",
+            "doc_type": "prl_training",
+            "namespace": "training",
+            "name": "prl_2024",
+            "tags": ["e2e"],
+        },
+    )
+
     actions = [
         ActionSpecV1(
             action_id="fill_worker",
@@ -263,7 +279,7 @@ def test_s4_upload_documento_directo_input_file(portal_base_url: str, tmp_path: 
             action_id="upload_pdf",
             kind=ActionKindV1.upload,
             target=TargetV1(type=TargetKindV1.css, selector="#file_pdf"),
-            input={"file_path": str(sample_pdf)},
+            input={"file_ref": file_ref},
             preconditions=[
                 ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": {"type": "css", "selector": "#file_pdf"}, "count": 1}, severity=ErrorSeverityV1.critical),
                 ConditionV1(kind=ConditionKindV1.element_visible, args={"target": {"type": "css", "selector": "#file_pdf"}}, severity=ErrorSeverityV1.error),
@@ -289,7 +305,7 @@ def test_s4_upload_documento_directo_input_file(portal_base_url: str, tmp_path: 
         ),
     ]
 
-    rt = ExecutorRuntimeH4(runs_root=tmp_path / "runs")
+    rt = ExecutorRuntimeH4(runs_root=tmp_path / "runs", project_root=tmp_path, data_root="data", document_repository=repo)
     run_dir = rt.run_actions(url=url, actions=actions, headless=True)
     events = _parse_trace(run_dir)
     _assert_minimal_trace(events, run_dir)
