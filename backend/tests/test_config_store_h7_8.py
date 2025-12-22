@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from backend.repository.config_store_v1 import ConfigStoreV1
 from backend.repository.secrets_store_v1 import SecretsStoreV1
 from backend.shared.org_v1 import OrgV1
@@ -38,5 +40,55 @@ def test_secrets_store_redaction(tmp_path: Path):
     assert listed["pw:egestiona:demo"] == "***"
     # get_secret sí devuelve el valor (solo backend-side)
     assert secrets.get_secret("pw:egestiona:demo") == "SUPERSECRET"
+
+
+def test_atomic_write_does_not_replace_on_validation_failure(monkeypatch, tmp_path: Path):
+    """
+    Simula fallo de validación JSON antes del replace() y verifica que el fichero original no se toca.
+    """
+    base = tmp_path / "data"
+    store = ConfigStoreV1(base_dir=base)
+
+    # Crear un org.json con contenido conocido
+    org_path = (base / "refs" / "org.json")
+    org_path.write_text('{"schema_version":"v1","org":{"legal_name":"KEEP"}}', encoding="utf-8")
+
+    import backend.repository.config_store_v1 as mod
+
+    real_loads = mod.json.loads
+
+    def boom(_s: str):
+        raise ValueError("boom")
+
+    # Forzar que la validación del tmp falle
+    monkeypatch.setattr(mod.json, "loads", boom, raising=True)
+
+    with pytest.raises(ValueError, match="Atomic write aborted"):
+        store.save_org(OrgV1(legal_name="NEW", tax_id="X", org_type="SCCL", notes=""))
+
+    # Restaurar para leer
+    monkeypatch.setattr(mod.json, "loads", real_loads, raising=True)
+    assert "KEEP" in org_path.read_text(encoding="utf-8")
+
+
+def test_secrets_atomic_write_does_not_replace_on_validation_failure(monkeypatch, tmp_path: Path):
+    base = tmp_path / "data"
+    secrets = SecretsStoreV1(base_dir=base)
+
+    secrets_path = base / "refs" / "secrets.json"
+    secrets_path.write_text('{"schema_version":"v1","secrets":{"pw:test":"KEEP"}}', encoding="utf-8")
+
+    # Simular fallo en la fase de validación pre-replace sin romper la lectura inicial.
+    def boom_atomic(_path, _payload):
+        raise ValueError("Atomic write aborted: invalid JSON for secrets.json")
+
+    import backend.repository.secrets_store_v1 as sec_mod
+
+    monkeypatch.setattr(sec_mod, "_atomic_write_json", boom_atomic, raising=True)
+
+    with pytest.raises(ValueError, match="Atomic write aborted"):
+        secrets.set_secret("pw:test", "NEW")
+
+    assert "KEEP" in secrets_path.read_text(encoding="utf-8")
 
 

@@ -10,6 +10,30 @@ from backend.shared.people_v1 import PeopleV1
 from backend.shared.platforms_v1 import PlatformsV1
 
 
+def _atomic_write_json(path: Path, payload: dict) -> None:
+    """
+    Escribe JSON de forma atómica:
+    - escribe a <file>.tmp
+    - valida que el tmp contiene JSON parseable
+    - replace() sobre el original
+
+    Si la validación falla, NO toca el original.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Validar JSON antes de reemplazar
+    try:
+        json.loads(tmp.read_text(encoding="utf-8"))
+    except Exception:
+        try:
+            tmp.unlink(missing_ok=True)
+        except Exception:
+            pass
+        raise ValueError(f"Atomic write aborted: invalid JSON for {path.name}")
+    tmp.replace(path)
+
+
 class ConfigStoreV1:
     """
     Store local (JSON) para org/people/platforms (sin DB).
@@ -27,9 +51,7 @@ class ConfigStoreV1:
 
     def _write_json(self, name: str, payload: dict) -> None:
         p = self.refs_dir / name
-        tmp = p.with_suffix(p.suffix + ".tmp")
-        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp.replace(p)
+        _atomic_write_json(p, payload)
 
     def load_org(self) -> OrgV1:
         raw = self._read_json("org.json")

@@ -21,6 +21,27 @@ def _write_json_if_missing(path: Path, payload: Dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _warn_if_damaged_json(path: Path) -> None:
+    """
+    Si el fichero existe pero está vacío o contiene JSON inválido,
+    NO lo sobrescribimos (por requerimiento). Solo avisamos.
+    """
+    if not path.exists():
+        return
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except Exception:
+        print(f"[WARN] Config file unreadable (left as-is): {path}")
+        return
+    if not raw.strip():
+        print(f"[WARN] Config file empty (left as-is): {path}")
+        return
+    try:
+        json.loads(raw)
+    except Exception:
+        print(f"[WARN] Config file has invalid JSON (left as-is): {path}")
+
+
 def ensure_data_layout(*, base_dir: str | Path = "data") -> Path:
     """
     Crea la estructura base de data/ si falta y devuelve base_dir (Path resuelto).
@@ -35,15 +56,25 @@ def ensure_data_layout(*, base_dir: str | Path = "data") -> Path:
     (base / "runs").mkdir(parents=True, exist_ok=True)
 
     # Files
-    _write_json_if_missing(base / "refs" / "documents.json", {"schema_version": "v1", "documents": {}})
-    _write_json_if_missing(base / "refs" / "secrets.json", {"schema_version": "v1", "secrets": {}})
+    documents_p = base / "refs" / "documents.json"
+    secrets_p = base / "refs" / "secrets.json"
+    org_p = base / "refs" / "org.json"
+    people_p = base / "refs" / "people.json"
+    platforms_p = base / "refs" / "platforms.json"
+
+    _write_json_if_missing(documents_p, {"schema_version": "v1", "documents": {}})
+    _write_json_if_missing(secrets_p, {"schema_version": "v1", "secrets": {}})
 
     _write_json_if_missing(
-        base / "refs" / "org.json",
+        org_p,
         {"schema_version": "v1", "org": {"legal_name": "", "tax_id": "", "org_type": "SCCL", "notes": ""}},
     )
-    _write_json_if_missing(base / "refs" / "people.json", {"schema_version": "v1", "people": []})
-    _write_json_if_missing(base / "refs" / "platforms.json", {"schema_version": "v1", "platforms": []})
+    _write_json_if_missing(people_p, {"schema_version": "v1", "people": []})
+    _write_json_if_missing(platforms_p, {"schema_version": "v1", "platforms": []})
+
+    # Si existen pero están vacíos/dañados: avisar, nunca sobrescribir.
+    for p in (documents_p, secrets_p, org_p, people_p, platforms_p):
+        _warn_if_damaged_json(p)
 
     return base
 

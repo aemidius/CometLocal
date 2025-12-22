@@ -89,11 +89,14 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
 
     @router.get("/config", response_class=HTMLResponse)
     def config_home():
+        refs_dir = (Path(base_dir) / "refs").resolve()
         body = f"""
 <div class="row">
   <div class="card">
     <div class="muted">base_dir</div>
     <div><code>{html.escape(str(Path(base_dir).resolve()))}</code></div>
+    <div class="muted" style="margin-top:8px;">refs_dir</div>
+    <div><code>{html.escape(str(refs_dir))}</code></div>
   </div>
 </div>
 <h3>Secciones</h3>
@@ -105,6 +108,18 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
 </ul>
 """
         return HTMLResponse(_page("Config", body))
+
+    @router.get("/config/_debug_dump_paths")
+    def debug_dump_paths():
+        refs_dir = (Path(base_dir) / "refs").resolve()
+        return {
+            "base_dir": str(Path(base_dir).resolve()),
+            "refs_dir": str(refs_dir),
+            "org": str((refs_dir / "org.json").resolve()),
+            "people": str((refs_dir / "people.json").resolve()),
+            "platforms": str((refs_dir / "platforms.json").resolve()),
+            "secrets": str((refs_dir / "secrets.json").resolve()),
+        }
 
     @router.get("/config/org", response_class=HTMLResponse)
     def get_org():

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from backend.repository.data_bootstrap_v1 import ensure_data_layout
+from backend.repository.config_store_v1 import _atomic_write_json
 
 
 class SecretsStoreV1:
@@ -25,9 +26,7 @@ class SecretsStoreV1:
         return json.loads(self.path.read_text(encoding="utf-8"))
 
     def _write(self, payload: dict) -> None:
-        tmp = self.path.with_suffix(self.path.suffix + ".tmp")
-        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp.replace(self.path)
+        _atomic_write_json(self.path, payload)
 
     def list_refs(self) -> Dict[str, str]:
         raw = self._read()
