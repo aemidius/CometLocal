@@ -308,7 +308,10 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
   <div class="card">
     <div><b>Probar login eGestiona (Kern)</b></div>
     <div class="muted">Lanza un run de navegación usando platform.key=<code>egestiona_kern</code> (o la primera plataforma si no existe).</div>
-    <div style="margin-top:10px;"><button class="btn" type="submit">Probar login</button></div>
+    <div style="margin-top:10px; display:flex; gap:12px; align-items:center;">
+      <label><input type="checkbox" name="headless" checked/> headless</label>
+      <button class="btn" type="submit">Probar login</button>
+    </div>
   </div>
 </form>
 """
@@ -365,7 +368,9 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
         return RedirectResponse(url="/config/platforms", status_code=303)
 
     @router.post("/config/platforms/test_login")
-    async def test_login():
+    async def test_login(request: Request):
+        form = dict(await request.form())
+        headless = form.get("headless") == "on"
         platforms = store.load_platforms()
         if not platforms.platforms:
             raise HTTPException(status_code=400, detail="No platforms configured")
@@ -397,7 +402,7 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
             )
         ]
         rt = ExecutorRuntimeH4(runs_root=Path(base_dir) / "runs", project_root=Path(base_dir).parent, data_root="data")
-        run_dir = await run_actions_threaded(rt, url=url, actions=actions, headless=True)
+        run_dir = await run_actions_threaded(rt, url=url, actions=actions, headless=headless)
         return RedirectResponse(url=f"/runs/{run_dir.name}", status_code=303)
 
     @router.get("/config/secrets", response_class=HTMLResponse)
