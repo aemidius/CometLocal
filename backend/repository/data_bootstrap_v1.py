@@ -14,6 +14,7 @@ from typing import Any, Dict
 
 
 def _write_json_if_missing(path: Path, payload: Dict[str, Any]) -> None:
+    # Guardarraíl: NUNCA sobrescribir ficheros de config existentes.
     if path.exists():
         return
     path.parent.mkdir(parents=True, exist_ok=True)

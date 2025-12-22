@@ -88,7 +88,17 @@ class AgentRunLLMRequest(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     # H7.8: asegurar layout base de data/ (local only)
-    ensure_data_layout(base_dir=DATA_DIR)
+    data_dir = ensure_data_layout(base_dir=DATA_DIR)
+    print(f"Using data dir: {data_dir.resolve()}")
+    org_p = data_dir / "refs" / "org.json"
+    people_p = data_dir / "refs" / "people.json"
+    platforms_p = data_dir / "refs" / "platforms.json"
+    secrets_p = data_dir / "refs" / "secrets.json"
+    print(
+        "Config files present: "
+        f"org={org_p.exists()} people={people_p.exists()} "
+        f"platforms={platforms_p.exists()} secrets={secrets_p.exists()}"
+    )
     # NO arrancamos Playwright/Chromium al startup - solo cuando el executor lo necesite
     
     # Inicializar cliente LLM compartido
