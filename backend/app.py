@@ -7,7 +7,7 @@ from typing import Optional, List
 
 # En Windows, necesitamos un event loop que soporte subprocess (para Playwright)
 if sys.platform.startswith("win"):
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

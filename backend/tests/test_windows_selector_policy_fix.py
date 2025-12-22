@@ -12,9 +12,9 @@ def test_windows_selector_policy_is_applied(monkeypatch):
     # Simular Windows sin tocar Playwright
     monkeypatch.setattr(bc.sys, "platform", "win32", raising=False)
     monkeypatch.setattr(bc.asyncio, "set_event_loop_policy", fake_set_policy, raising=True)
-    monkeypatch.setattr(bc.asyncio, "WindowsSelectorEventLoopPolicy", lambda: object(), raising=True)
+    monkeypatch.setattr(bc.asyncio, "WindowsProactorEventLoopPolicy", lambda: object(), raising=True)
 
-    bc._ensure_windows_selector_policy_for_playwright()
+    bc._ensure_windows_proactor_policy_for_playwright()
     assert called["count"] == 1
 
 
