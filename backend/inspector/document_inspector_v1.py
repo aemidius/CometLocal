@@ -20,7 +20,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
-from pypdf import PdfReader
+try:
+    from pypdf import PdfReader  # type: ignore
+except ImportError:
+    PdfReader = None  # type: ignore
 
 from backend.inspector.criteria_profiles_v1 import CriterionResultV1, get_profile
 from backend.repository.document_repository_v1 import DocumentRepositoryV1, DocumentIndexEntryV1
@@ -216,6 +219,9 @@ class DocumentInspectorV1:
         return self._inspection_dir() / f"{sha256}.json"
 
     def extract_text_pdf(self, path: Path) -> str:
+        if PdfReader is None:
+            # Guardarraíl DX: no romper import-time/uvicorn si falta pypdf.
+            raise DocumentInspectionError("DOCUMENT_PARSE_FAILED", "pypdf not installed")
         try:
             reader = PdfReader(str(path))
         except Exception as e:
