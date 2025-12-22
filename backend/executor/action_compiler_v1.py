@@ -22,6 +22,7 @@ from urllib.parse import urlparse
 
 from backend.executor.browser_controller import BrowserController, ExecutionProfileV1, ExecutorTypedException
 from backend.repository.document_repository_v1 import DocumentRepositoryV1
+from backend.repository.secrets_store_v1 import SecretsStoreV1
 from backend.shared.executor_contracts_v1 import (
     ActionKindV1,
     ActionResultV1,
@@ -644,6 +645,7 @@ def execute_action_only(
     policy: PolicyStateV1,
     *,
     document_repository: Optional[DocumentRepositoryV1] = None,
+    secrets_store: Optional[SecretsStoreV1] = None,
 ) -> int:
     """
     Ejecuta solo el side-effect de la acción (sin capturas ni evaluación de condiciones).
@@ -664,12 +666,39 @@ def execute_action_only(
         loc = controller.locate_unique(action.target, timeout_ms=action.timeout_ms)
         text = action.input.get("text") or action.input.get("value")
         if text is None:
+            secret_ref = (action.input or {}).get("secret_ref")
+            if secret_ref:
+                if secrets_store is None:
+                    raise ExecutorTypedException(
+                        ExecutorErrorV1(
+                            error_code="INVALID_ACTIONSPEC",
+                            stage=ErrorStageV1.proposal_validation,
+                            severity=ErrorSeverityV1.error,
+                            message="fill requires secrets_store when using input.secret_ref",
+                            retryable=False,
+                            details={"secret_ref": str(secret_ref)},
+                        )
+                    )
+                secret_val = secrets_store.get_secret(str(secret_ref))
+                if not secret_val:
+                    raise ExecutorTypedException(
+                        ExecutorErrorV1(
+                            error_code="INVALID_ACTIONSPEC",
+                            stage=ErrorStageV1.precondition,
+                            severity=ErrorSeverityV1.error,
+                            message="secret_ref not found",
+                            retryable=False,
+                            details={"secret_ref": str(secret_ref)},
+                        )
+                    )
+                text = secret_val
+        if text is None:
             raise ExecutorTypedException(
                 ExecutorErrorV1(
                     error_code="INVALID_ACTIONSPEC",
                     stage=ErrorStageV1.proposal_validation,
                     severity=ErrorSeverityV1.error,
-                    message="fill requires input.text|input.value",
+                    message="fill requires input.text|input.value|input.secret_ref",
                     retryable=False,
                 )
             )

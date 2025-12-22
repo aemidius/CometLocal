@@ -34,6 +34,7 @@ from backend.executor.runs_viewer import create_runs_viewer_router
 from backend.config import BATCH_RUNS_DIR
 from backend.executor.config_viewer import create_config_viewer_router
 from backend.repository.data_bootstrap_v1 import ensure_data_layout
+from backend.adapters.egestiona.flows import router as egestiona_router
 
 # Constantes de rutas
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -56,6 +57,7 @@ app.include_router(simulation_router)
 app.include_router(training_router)
 app.include_router(create_runs_viewer_router(runs_root=BASE_DIR / BATCH_RUNS_DIR))
 app.include_router(create_config_viewer_router(base_dir=DATA_DIR))
+app.include_router(egestiona_router)
 
 browser = BrowserController()
 

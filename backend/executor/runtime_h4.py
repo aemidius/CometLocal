@@ -30,6 +30,7 @@ from backend.executor.browser_controller import BrowserController, ExecutionProf
 from backend.executor.redaction_v1 import RedactorV1
 from backend.inspector.document_inspector_v1 import DocumentInspectorV1
 from backend.repository.document_repository_v1 import DocumentRepositoryV1
+from backend.repository.secrets_store_v1 import SecretsStoreV1
 from backend.shared.executor_contracts_v1 import (
     ExecutionModeV1,
     ActionKindV1,
@@ -93,6 +94,7 @@ class ExecutorRuntimeH4:
         redaction_policy: Optional[RedactionPolicyV1] = None,
         document_repository: Optional[DocumentRepositoryV1] = None,
         document_inspector: Optional[DocumentInspectorV1] = None,
+        secrets_store: Optional[SecretsStoreV1] = None,
     ):
         self.runs_root = Path(runs_root)
         self.execution_mode = ExecutionModeV1(execution_mode) if not isinstance(execution_mode, ExecutionModeV1) else execution_mode
@@ -101,6 +103,7 @@ class ExecutorRuntimeH4:
         self.policy = policy or RuntimePolicyDefaultsV1()
         self.document_repository = document_repository or DocumentRepositoryV1(project_root=project_root, data_root=data_root)
         self.document_inspector = document_inspector or DocumentInspectorV1(repository=self.document_repository)
+        self.secrets_store = secrets_store or SecretsStoreV1(base_dir=(Path(project_root).resolve() / data_root))
         # production => redaction always enabled (default conservador)
         if redaction_policy is None:
             enabled = True if self.execution_mode == ExecutionModeV1.production else True
@@ -561,7 +564,14 @@ class ExecutorRuntimeH4:
                         )
 
                         try:
-                            dur_ms = execute_action_only(action, ctrl, self.profile, policy_state, document_repository=self.document_repository)
+                            dur_ms = execute_action_only(
+                                action,
+                                ctrl,
+                                self.profile,
+                                policy_state,
+                                document_repository=self.document_repository,
+                                secrets_store=self.secrets_store,
+                            )
                             emit(
                                 TraceEventV1(
                                     run_id=run_id,
