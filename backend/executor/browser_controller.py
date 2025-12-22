@@ -10,7 +10,9 @@ Diseño:
 
 from __future__ import annotations
 
+import asyncio
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -37,6 +39,21 @@ def _sha256_bytes(data: bytes) -> str:
     import hashlib
 
     return hashlib.sha256(data).hexdigest()
+
+
+def _ensure_windows_selector_policy_for_playwright() -> None:
+    """
+    FIX Windows: Playwright sync puede llamar a create_subprocess_exec desde threads/endpoints.
+    En algunos entornos Windows, el loop policy por defecto puede provocar NotImplementedError.
+
+    Decisión solicitada: forzar WindowsSelectorEventLoopPolicy (idempotente).
+    """
+    if sys.platform.startswith("win"):
+        try:
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        except Exception:
+            # Si no está disponible por versión/entorno, no rompemos.
+            pass
 
 
 @dataclass(frozen=True)
@@ -83,6 +100,7 @@ class BrowserController:
         """
         Arranca Playwright (sync) y crea context + page.
         """
+        _ensure_windows_selector_policy_for_playwright()
         try:
             from playwright.sync_api import sync_playwright
         except Exception as e:
