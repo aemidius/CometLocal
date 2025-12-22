@@ -21,6 +21,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from backend.executor.runtime_h4 import ExecutorRuntimeH4
 from backend.executor.threaded_runtime import run_actions_threaded
+from starlette.concurrency import run_in_threadpool
 from backend.repository.config_store_v1 import ConfigStoreV1
 from backend.repository.data_bootstrap_v1 import ensure_data_layout
 from backend.repository.secrets_store_v1 import SecretsStoreV1
@@ -307,7 +308,7 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
 <form method="post" action="/config/platforms/test_login" style="margin-top:14px;">
   <div class="card">
     <div><b>Probar login eGestiona (Kern)</b></div>
-    <div class="muted">Lanza un run de navegación usando platform.key=<code>egestiona_kern</code> (o la primera plataforma si no existe).</div>
+    <div class="muted">Lanza un run de login REAL usando platform.key=<code>egestiona</code> y coordinación <code>Kern</code>. Requiere <code>post_login_selector</code>.</div>
     <div style="margin-top:10px; display:flex; gap:12px; align-items:center;">
       <label><input type="checkbox" name="headless" checked/> headless</label>
       <button class="btn" type="submit">Probar login</button>
@@ -375,35 +376,30 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
         if not platforms.platforms:
             raise HTTPException(status_code=400, detail="No platforms configured")
 
-        # Selección determinista: key=egestiona_kern si existe, si no primera por key
-        selected = None
-        for p in platforms.platforms:
-            if p.key == "egestiona_kern":
-                selected = p
-                break
-        if selected is None:
-            selected = sorted(platforms.platforms, key=lambda x: x.key)[0]
+        # eGestiona (Kern): usar flow oficial determinista (login real)
+        try:
+            from backend.adapters.egestiona.flows import run_login_and_snapshot
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"egestiona adapter not available: {e}")
 
-        url = selected.base_url
-        if selected.coordinations:
-            # permitir override si existe en la primera coordinación
-            coord = sorted(selected.coordinations, key=lambda x: x.label)[0]
-            if coord.url_override:
-                url = coord.url_override
-
-        # Run mínimo determinista: navigate + postcondition url_matches
-        actions = [
-            ActionSpecV1(
-                action_id="nav_login",
-                kind=ActionKindV1.navigate,
-                target=TargetV1(type=TargetKindV1.url, url=url),
-                preconditions=[ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": ".*"}, severity=ErrorSeverityV1.warning)],
-                postconditions=[ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": ".*"}, severity=ErrorSeverityV1.critical)],
+        # Requisito: post_login_selector debe estar definido en la coordinación.
+        try:
+            run_id = await run_in_threadpool(
+                lambda: run_login_and_snapshot(
+                    base_dir=Path(base_dir),
+                    platform="egestiona",
+                    coordination="Kern",
+                    headless=headless,
+                    execution_mode="training",
+                )
             )
-        ]
-        rt = ExecutorRuntimeH4(runs_root=Path(base_dir) / "runs", project_root=Path(base_dir).parent, data_root="data")
-        run_dir = await run_actions_threaded(rt, url=url, actions=actions, headless=headless)
-        return RedirectResponse(url=f"/runs/{run_dir.name}", status_code=303)
+        except ValueError as e:
+            msg = str(e)
+            if "post_login_selector" in msg:
+                raise HTTPException(status_code=400, detail="Define post_login_selector")
+            raise HTTPException(status_code=400, detail=msg)
+
+        return RedirectResponse(url=f"/runs/{run_id}", status_code=303)
 
     @router.get("/config/secrets", response_class=HTMLResponse)
     def get_secrets():

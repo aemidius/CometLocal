@@ -29,6 +29,7 @@ def run_login_and_snapshot(
     platform: str = "egestiona",
     coordination: str = "Kern",
     headless: bool = True,
+    execution_mode: str = "production",
 ) -> str:
     """
     Ejecuta login determinista (sin LLM) usando Config Store + Secrets Store.
@@ -48,7 +49,7 @@ def run_login_and_snapshot(
         raise ValueError(f"coordination not found: {coordination}")
 
     if not coord.post_login_selector:
-        raise ValueError("coordination.post_login_selector is required for deterministic login postcondition")
+        raise ValueError("Define post_login_selector")
 
     # URL: override > platform.base_url > default
     url = coord.url_override or plat.base_url or EgestionaProfileV1().default_base_url
@@ -144,8 +145,29 @@ def run_login_and_snapshot(
             target=targets.post_login,
             input={},
             preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
-            postconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": targets.post_login.model_dump()}, severity=ErrorSeverityV1.critical)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": targets.post_login.model_dump()}, severity=ErrorSeverityV1.critical),
+                # Postcondición fuerte adicional: no seguir en URL de login (regex determinista).
+                ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": r"^(?!.*login).*$"}, severity=ErrorSeverityV1.critical),
+            ],
             timeout_ms=20000,
+        )
+    )
+
+    # Assert final: no puede terminar success si seguimos en login.
+    actions.append(
+        ActionSpecV1(
+            action_id="eg_assert_not_login",
+            kind=ActionKindV1.assert_,
+            target=None,
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[],
+            assertions=[
+                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": targets.post_login.model_dump()}, severity=ErrorSeverityV1.critical),
+                ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": r"^(?!.*login).*$"}, severity=ErrorSeverityV1.critical),
+            ],
+            timeout_ms=5000,
         )
     )
 
@@ -157,7 +179,7 @@ def run_login_and_snapshot(
         runs_root=Path(base) / "runs",
         project_root=Path(base).parent,
         data_root="data",
-        execution_mode="production",
+        execution_mode=execution_mode,
         secrets_store=secrets,
     )
     run_dir = rt.run_actions(url=url, actions=actions, headless=headless)
@@ -173,7 +195,7 @@ async def egestiona_login(coord: str = "Kern"):
     Ejecuta login determinista a eGestiona usando Config Store (platform=egestiona, coordination=<coord>).
     """
     try:
-        run_id = await run_in_threadpool(lambda: run_login_and_snapshot(base_dir="data", platform="egestiona", coordination=coord, headless=True))
+        run_id = await run_in_threadpool(lambda: run_login_and_snapshot(base_dir="data", platform="egestiona", coordination=coord, headless=True, execution_mode="production"))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}

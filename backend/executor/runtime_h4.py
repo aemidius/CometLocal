@@ -35,6 +35,7 @@ from backend.shared.executor_contracts_v1 import (
     ExecutionModeV1,
     ActionKindV1,
     ActionSpecV1,
+    ConditionKindV1,
     EvidenceItemV1,
     EvidenceKindV1,
     EvidenceManifestV1,
@@ -678,13 +679,28 @@ class ExecutorRuntimeH4:
                         if post_ok:
                             current_sig = sig_a
                             break
+                        # Heurística determinista para AUTH_FAILED:
+                        # Si falla un url_matches y la URL actual contiene "login", clasificamos como AUTH_FAILED.
+                        auth_failed = False
+                        try:
+                            for ev in post_evals:
+                                if ev.ok:
+                                    continue
+                                if ev.condition.kind == ConditionKindV1.url_matches:
+                                    actual = str((ev.details or {}).get("actual") or "").lower()
+                                    if "login" in actual:
+                                        auth_failed = True
+                                        break
+                        except Exception:
+                            auth_failed = False
+
                         action_error = ExecutorErrorV1(
-                            error_code="POSTCONDITION_FAILED",
+                            error_code="AUTH_FAILED" if auth_failed else "POSTCONDITION_FAILED",
                             stage=ErrorStageV1.postcondition,
                             severity=ErrorSeverityV1.error,
-                            message="postcondition failed",
+                            message="auth failed" if auth_failed else "postcondition failed",
                             retryable=True,
-                            details={"failed": [ev.condition.kind.value for ev in post_evals if not ev.ok]},
+                            details={"failed": [ev.condition.kind.value for ev in post_evals if not ev.ok], "auth_failed": auth_failed},
                         )
 
                     # error path: emit error_raised
