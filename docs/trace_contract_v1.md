@@ -89,6 +89,33 @@ Obligatorios:
 - `evidence_captured`
 - `error_raised` (**con `error.error_code` canónico**)
 
+## Extension events v1.0 (compatibles)
+
+Estos eventos son **extensiones** del contrato v1.0. No sustituyen a los eventos mínimos; se añaden para soportar capacidades incrementales sin romper el esquema base.
+
+### inspection_started
+
+- **Semántica**: inicio de una inspección determinista de un documento (p.ej. antes de un `upload`).
+- **Ámbito**: run-level o step-level.
+  - `step_id`: **null** si es run-level, o `"step_<n>"` si se asocia a un step.
+- **Campos mínimos**:
+  - `run_id`, `seq`, `ts_utc`, `event_type="inspection_started"`
+  - `step_id`: string|null
+  - `metadata.file_ref`: string (file_ref)
+
+### inspection_finished
+
+- **Semántica**: fin de inspección, con resultado `ok|failed` y referencias al report.
+- **Ámbito**: run-level o step-level (mismas reglas que `inspection_started`).
+- **Campos mínimos**:
+  - `run_id`, `seq`, `ts_utc`, `event_type="inspection_finished"`
+  - `step_id`: string|null
+  - `metadata.status`: `"ok"|"failed"`
+  - `metadata.file_ref`: string
+  - `metadata.doc_hash`: string|null
+  - `metadata.criteria_profile`: string|null
+  - `metadata.report_ref`: string|null (ruta relativa recomendada al report, p.ej. `data/documents/_inspections/<sha256>.json`)
+
 ## Anti-loop (registro y decisión)
 
 ### StateSignature y “same-state revisit”

@@ -47,6 +47,8 @@ from backend.shared.executor_contracts_v1 import (
 DEFAULT_MAX_TEXT_BYTES = 2 * 1024 * 1024  # 2MB (html_full / json / trace)
 DEFAULT_MAX_TRACE_BYTES = 2 * 1024 * 1024
 
+RUN_LEVEL_STEP_ID = "run"
+
 
 @dataclass(frozen=True)
 class RunIndexItem:
@@ -73,6 +75,7 @@ class ParsedRun:
     evidence_items: List[Dict[str, Any]]
     redaction_report: Optional[Dict[str, int]]
     counters: Dict[str, Any]
+    inspection_report_ref: Optional[str] = None
 
 
 def _parse_iso(ts: Optional[str]) -> Optional[datetime]:
@@ -108,6 +111,30 @@ def _safe_join(run_dir: Path, rel_path: str) -> Path:
     run_resolved = run_dir.resolve()
     try:
         candidate.relative_to(run_resolved)
+    except Exception:
+        raise HTTPException(status_code=403, detail="Path traversal blocked")
+    return candidate
+
+
+def _safe_join_under(root_dir: Path, rel_path: str) -> Path:
+    """
+    Versión genérica de _safe_join para servir rutas relativas bajo un root específico.
+    """
+    if not rel_path or rel_path.strip() == "":
+        raise HTTPException(status_code=400, detail="Missing path")
+
+    if re.match(r"^[a-zA-Z]+://", rel_path):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    p = Path(rel_path)
+    if p.is_absolute():
+        raise HTTPException(status_code=400, detail="Invalid path")
+    if re.match(r"^[a-zA-Z]:", rel_path):
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    candidate = (root_dir / p).resolve()
+    root_resolved = root_dir.resolve()
+    try:
+        candidate.relative_to(root_resolved)
     except Exception:
         raise HTTPException(status_code=403, detail="Path traversal blocked")
     return candidate
@@ -196,10 +223,12 @@ def parse_run(run_dir: Path) -> ParsedRun:
     retry_count = 0
     recovery_count = 0
     same_state_revisits_max: Optional[int] = None
+    inspection_report_ref: Optional[str] = None
 
     for ev, raw in events:
         et = (ev.event_type.value if ev else raw.get("event_type")) if raw else None
-        step_id = (ev.step_id if ev else raw.get("step_id")) or "none"
+        step_id = (ev.step_id if ev else raw.get("step_id"))
+        step_id = step_id if step_id else RUN_LEVEL_STEP_ID
         ts = (ev.ts_utc if ev else raw.get("ts_utc")) if raw else None
 
         if et == TraceEventTypeV1.run_started.value:
@@ -212,6 +241,10 @@ def parse_run(run_dir: Path) -> ParsedRun:
             err = raw.get("error") or {}
             errors.append({"ts_utc": ts, "step_id": step_id, "error_code": err.get("error_code"), "stage": err.get("stage"), "message": err.get("message")})
             last_error = err.get("error_code") or last_error
+            if err.get("error_code") == "DOC_CRITERIA_FAILED":
+                details = err.get("details") or {}
+                if isinstance(details, dict):
+                    inspection_report_ref = details.get("report_ref") or inspection_report_ref
         if et == TraceEventTypeV1.policy_halt.value:
             err = raw.get("error") or {}
             policy_halts.append({"ts_utc": ts, "step_id": step_id, "error_code": err.get("error_code"), "message": err.get("message")})
@@ -225,6 +258,10 @@ def parse_run(run_dir: Path) -> ParsedRun:
             ss = pol.get("same_state_revisit_count")
             if isinstance(ss, int):
                 same_state_revisits_max = max(same_state_revisits_max or 0, ss)
+        if et == TraceEventTypeV1.inspection_finished.value:
+            meta = raw.get("metadata") or {}
+            if isinstance(meta, dict):
+                inspection_report_ref = meta.get("report_ref") or inspection_report_ref
 
         if step_id not in timeline_by_step:
             timeline_by_step[step_id] = []
@@ -241,6 +278,8 @@ def parse_run(run_dir: Path) -> ParsedRun:
             TraceEventTypeV1.policy_halt.value,
             TraceEventTypeV1.evidence_captured.value,
             TraceEventTypeV1.observation_captured.value,
+            TraceEventTypeV1.inspection_started.value,
+            TraceEventTypeV1.inspection_finished.value,
         }:
             timeline_by_step[step_id].append(
                 {
@@ -301,6 +340,7 @@ def parse_run(run_dir: Path) -> ParsedRun:
         evidence_items=evidence_items,
         redaction_report=redaction_report,
         counters=counters,
+        inspection_report_ref=inspection_report_ref,
     )
 
 
@@ -378,6 +418,8 @@ def _page(title: str, body_html: str) -> str:
 def create_runs_viewer_router(*, runs_root: Path) -> APIRouter:
     router = APIRouter(tags=["runs"])
     runs_root = Path(runs_root)
+    project_root = runs_root.parent
+    inspections_root = (project_root / "data" / "documents" / "_inspections").resolve()
 
     @router.get("/runs", response_class=HTMLResponse)
     def runs_index(request: Request, format: Optional[str] = None):
@@ -440,8 +482,8 @@ def create_runs_viewer_router(*, runs_root: Path) -> APIRouter:
         status_pill = "pill ok" if parsed.status in ("success", "ok") else ("pill" if parsed.status == "unknown" else "pill bad")
 
         # Timeline
-        steps = [k for k in parsed.timeline_by_step.keys() if k != "none"]
-        steps.sort()
+        steps = list(parsed.timeline_by_step.keys())
+        steps.sort(key=lambda x: (0 if x == RUN_LEVEL_STEP_ID else 1, x))
         timeline_html = []
         for sid in steps:
             events = parsed.timeline_by_step.get(sid, [])
@@ -458,8 +500,16 @@ def create_runs_viewer_router(*, runs_root: Path) -> APIRouter:
                 err_html = ""
                 if isinstance(err, dict) and err.get("error_code"):
                     err_html = f" <span class=\"pill bad\">{html.escape(str(err.get('error_code')))}</span>"
-                li.append(f"<li><code>{ts}</code> <b>{et}</b>{label}{err_html}</li>")
-            timeline_html.append(f"<div class=\"card\"><div><b>step_id</b>: <code>{html.escape(sid)}</code></div><ul class=\"timeline\">{''.join(li) if li else ''}</ul></div>")
+                meta = e.get("metadata") or {}
+                insp_html = ""
+                if (e.get("event_type") in ("inspection_started", "inspection_finished")) and isinstance(meta, dict):
+                    fr = meta.get("file_ref")
+                    st = meta.get("status")
+                    if fr or st:
+                        insp_html = f" <span class=\"muted\">[{html.escape(str(fr or ''))} {html.escape(str(st or ''))}]</span>"
+                li.append(f"<li><code>{ts}</code> <b>{et}</b>{label}{err_html}{insp_html}</li>")
+            step_label = "run-level event" if sid == RUN_LEVEL_STEP_ID else sid
+            timeline_html.append(f"<div class=\"card\"><div><b>step</b>: <code>{html.escape(step_label)}</code></div><ul class=\"timeline\">{''.join(li) if li else ''}</ul></div>")
 
         # Evidence links
         ev_links = []
@@ -483,6 +533,14 @@ def create_runs_viewer_router(*, runs_root: Path) -> APIRouter:
             f"<li><b>{html.escape(str(k))}</b>: {html.escape(str(v))}</li>" for k, v in (parsed.counters or {}).items()
         )
 
+        inspection_block = ""
+        if parsed.last_error == "DOC_CRITERIA_FAILED" and parsed.inspection_report_ref:
+            fname = Path(parsed.inspection_report_ref).name
+            inspection_block = (
+                "<div style=\"margin-top:8px;\"><b>inspection_report</b>: "
+                f"<a href=\"/inspections/file/{html.escape(fname)}\"><code>{html.escape(parsed.inspection_report_ref)}</code></a></div>"
+            )
+
         body = f"""
 <div class="row">
   <div class="card">
@@ -498,6 +556,7 @@ def create_runs_viewer_router(*, runs_root: Path) -> APIRouter:
     <div><b>Summary</b></div>
     <ul>{counters_html}</ul>
     <div><b>last_error</b>: <code>{html.escape(parsed.last_error or '')}</code></div>
+    {inspection_block}
   </div>
 </div>
 
@@ -515,6 +574,31 @@ def create_runs_viewer_router(*, runs_root: Path) -> APIRouter:
 {redaction_html}
 """
         return HTMLResponse(_page(f"Run {run_id}", body))
+
+    @router.get("/inspections/file/{path:path}")
+    def inspection_file(path: str, download: Optional[int] = None):
+        """
+        Sirve reports de inspección SOLO desde data/documents/_inspections/ (seguro).
+        """
+        if not inspections_root.exists():
+            raise HTTPException(status_code=404, detail="Inspections dir not found")
+        file_path = _safe_join_under(inspections_root, path)
+        if not file_path.exists() or not file_path.is_file():
+            raise HTTPException(status_code=404, detail="File not found")
+
+        ext = file_path.suffix.lower()
+        is_text = ext in {".json", ".txt", ".log"}
+        if is_text:
+            content, truncated = _read_text_limited(file_path, DEFAULT_MAX_TEXT_BYTES)
+            if truncated:
+                content = content + "\n\n[TRUNCATED] file too large\n"
+            media = "application/json; charset=utf-8" if ext == ".json" else "text/plain; charset=utf-8"
+            return PlainTextResponse(content, media_type=media)
+
+        headers = {}
+        if download:
+            headers["Content-Disposition"] = f'attachment; filename="{file_path.name}"'
+        return FileResponse(path=str(file_path), headers=headers)
 
     @router.get("/runs/{run_id}/file/{path:path}")
     def run_file(run_id: str, path: str, download: Optional[int] = None):

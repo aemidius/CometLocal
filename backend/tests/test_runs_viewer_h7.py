@@ -48,6 +48,61 @@ def _write_minimal_run(run_dir: Path) -> None:
                         "schema_version": "v1",
                         "run_id": run_dir.name,
                         "seq": 3,
+                        "ts_utc": "2025-01-01T00:00:01.100000+00:00",
+                        "event_type": "inspection_started",
+                        "step_id": None,
+                        "state_signature_before": None,
+                        "state_signature_after": None,
+                        "metadata": {"file_ref": "doc:company:c1:worker:w1:medical:fit_2025"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "schema_version": "v1",
+                        "run_id": run_dir.name,
+                        "seq": 4,
+                        "ts_utc": "2025-01-01T00:00:01.200000+00:00",
+                        "event_type": "inspection_finished",
+                        "step_id": None,
+                        "state_signature_before": None,
+                        "state_signature_after": None,
+                        "metadata": {
+                            "file_ref": "doc:company:c1:worker:w1:medical:fit_2025",
+                            "status": "failed",
+                            "doc_hash": "a" * 64,
+                            "criteria_profile": "medical_fit_v1",
+                            "report_ref": "data/documents/_inspections/" + ("a" * 64) + ".json",
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "schema_version": "v1",
+                        "run_id": run_dir.name,
+                        "seq": 5,
+                        "ts_utc": "2025-01-01T00:00:01.300000+00:00",
+                        "event_type": "error_raised",
+                        "step_id": "step_000",
+                        "state_signature_before": None,
+                        "state_signature_after": None,
+                        "error": {
+                            "schema_version": "v1",
+                            "error_code": "DOC_CRITERIA_FAILED",
+                            "stage": "precondition",
+                            "severity": "error",
+                            "message": "document criteria failed",
+                            "retryable": False,
+                            "details": {"report_ref": "data/documents/_inspections/" + ("a" * 64) + ".json"},
+                            "created_at": "2025-01-01T00:00:01.300000+00:00",
+                        },
+                        "metadata": {},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "schema_version": "v1",
+                        "run_id": run_dir.name,
+                        "seq": 6,
                         "ts_utc": "2025-01-01T00:00:02+00:00",
                         "event_type": "run_finished",
                         "step_id": None,
@@ -102,6 +157,10 @@ def test_parse_run_minimal(tmp_path: Path):
     assert parsed.mode == "production"
     assert parsed.counters["same_state_revisits_max"] == 1
     assert parsed.redaction_report == {"emails": 1}
+    # Parser soporta inspection_* y run-level
+    assert "run" in parsed.timeline_by_step
+    assert any(e["event_type"] == "inspection_started" for e in parsed.timeline_by_step["run"])
+    assert parsed.inspection_report_ref and parsed.inspection_report_ref.endswith(".json")
 
 
 def test_file_endpoint_blocks_path_traversal(tmp_path: Path):
