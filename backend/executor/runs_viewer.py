@@ -26,6 +26,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 
 from backend.executor.runtime_h4 import ExecutorRuntimeH4
+from backend.executor.threaded_runtime import run_actions_threaded
 from backend.shared.executor_contracts_v1 import (
     EvidenceManifestV1,
     ExecutionModeV1,
@@ -639,7 +640,7 @@ def create_runs_viewer_router(*, runs_root: Path) -> APIRouter:
         return FileResponse(path=str(file_path), headers=headers)
 
     @router.post("/runs/demo")
-    def run_demo():
+    async def run_demo():
         """
         Ejecuta un run demo offline (file:// HTML local).
         Devuelve run_id.
@@ -698,7 +699,7 @@ def create_runs_viewer_router(*, runs_root: Path) -> APIRouter:
 
         # Ejecutar en production para demostrar redaction (local-only)
         runtime = ExecutorRuntimeH4(runs_root=runs_root, execution_mode=ExecutionModeV1.production)
-        run_dir = runtime.run_actions(url=demo_url, actions=actions, headless=True)
+        run_dir = await run_actions_threaded(runtime, url=demo_url, actions=actions, headless=True)
         return JSONResponse({"run_id": run_dir.name})
 
     return router

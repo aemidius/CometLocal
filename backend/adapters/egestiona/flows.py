@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
+from starlette.concurrency import run_in_threadpool
 
 from backend.adapters.egestiona.profile import EgestionaProfileV1
 from backend.adapters.egestiona.targets import build_targets_from_selectors
@@ -167,12 +168,12 @@ router = APIRouter(tags=["egestiona"])
 
 
 @router.post("/runs/egestiona/login")
-def egestiona_login(coord: str = "Kern"):
+async def egestiona_login(coord: str = "Kern"):
     """
     Ejecuta login determinista a eGestiona usando Config Store (platform=egestiona, coordination=<coord>).
     """
     try:
-        run_id = run_login_and_snapshot(base_dir="data", platform="egestiona", coordination=coord, headless=True)
+        run_id = await run_in_threadpool(lambda: run_login_and_snapshot(base_dir="data", platform="egestiona", coordination=coord, headless=True))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}

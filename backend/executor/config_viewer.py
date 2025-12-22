@@ -20,6 +20,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from backend.executor.runtime_h4 import ExecutorRuntimeH4
+from backend.executor.threaded_runtime import run_actions_threaded
 from backend.repository.config_store_v1 import ConfigStoreV1
 from backend.repository.data_bootstrap_v1 import ensure_data_layout
 from backend.repository.secrets_store_v1 import SecretsStoreV1
@@ -396,7 +397,7 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
             )
         ]
         rt = ExecutorRuntimeH4(runs_root=Path(base_dir) / "runs", project_root=Path(base_dir).parent, data_root="data")
-        run_dir = rt.run_actions(url=url, actions=actions, headless=True)
+        run_dir = await run_actions_threaded(rt, url=url, actions=actions, headless=True)
         return RedirectResponse(url=f"/runs/{run_dir.name}", status_code=303)
 
     @router.get("/config/secrets", response_class=HTMLResponse)
