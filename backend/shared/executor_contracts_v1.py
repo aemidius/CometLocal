@@ -109,6 +109,10 @@ ERROR_CODES_V1: set[str] = {
     "EXTERNAL_SSO_INTERSTITIAL",
     "EXTERNAL_2FA_REQUIRED",
     "EXTERNAL_MODAL_BLOCKING",
+    # DOC_*
+    "DOC_CRITERIA_FAILED",
+    "DOCUMENT_NO_TEXT",
+    "DOCUMENT_PARSE_FAILED",
 }
 
 
@@ -532,6 +536,10 @@ class TraceEventTypeV1(str, Enum):
 
     evidence_captured = "evidence_captured"
     error_raised = "error_raised"
+
+    # H7.6: inspección determinista de documentos (local only)
+    inspection_started = "inspection_started"
+    inspection_finished = "inspection_finished"
 
     action_finished = "action_finished"  # opcional/compat
 

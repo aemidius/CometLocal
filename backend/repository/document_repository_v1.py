@@ -282,4 +282,27 @@ class DocumentRepositoryV1:
         shutil.copy2(src, dst)
         return dst
 
+    def update_inspection(
+        self,
+        file_ref: str,
+        *,
+        status: str,
+        last_inspected_at: Optional[str],
+        report_ref: Optional[str],
+        doc_hash: Optional[str],
+    ) -> None:
+        """
+        Actualiza inspection.* para una entrada existente en documents.json.
+        """
+        docs = self._load_index()
+        if file_ref not in docs:
+            raise FileNotFoundError(f"Unknown file_ref: {file_ref}")
+        entry = docs[file_ref]
+        entry.inspection.status = status
+        entry.inspection.last_inspected_at = last_inspected_at
+        entry.inspection.report_ref = report_ref
+        entry.inspection.doc_hash = doc_hash
+        docs[file_ref] = entry
+        self._write_index(docs)
+
 

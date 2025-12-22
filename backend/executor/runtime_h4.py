@@ -28,6 +28,7 @@ from backend.executor.action_compiler_v1 import (
 )
 from backend.executor.browser_controller import BrowserController, ExecutionProfileV1, ExecutorTypedException
 from backend.executor.redaction_v1 import RedactorV1
+from backend.inspector.document_inspector_v1 import DocumentInspectorV1
 from backend.repository.document_repository_v1 import DocumentRepositoryV1
 from backend.shared.executor_contracts_v1 import (
     ExecutionModeV1,
@@ -91,6 +92,7 @@ class ExecutorRuntimeH4:
         policy: Optional[RuntimePolicyDefaultsV1] = None,
         redaction_policy: Optional[RedactionPolicyV1] = None,
         document_repository: Optional[DocumentRepositoryV1] = None,
+        document_inspector: Optional[DocumentInspectorV1] = None,
     ):
         self.runs_root = Path(runs_root)
         self.execution_mode = ExecutionModeV1(execution_mode) if not isinstance(execution_mode, ExecutionModeV1) else execution_mode
@@ -98,6 +100,7 @@ class ExecutorRuntimeH4:
         self.profile = profile or ExecutionProfileV1()
         self.policy = policy or RuntimePolicyDefaultsV1()
         self.document_repository = document_repository or DocumentRepositoryV1(project_root=project_root, data_root=data_root)
+        self.document_inspector = document_inspector or DocumentInspectorV1(repository=self.document_repository)
         # production => redaction always enabled (default conservador)
         if redaction_policy is None:
             enabled = True if self.execution_mode == ExecutionModeV1.production else True
@@ -123,6 +126,7 @@ class ExecutorRuntimeH4:
         last_state_keys: List[str] = []  # ventana corta para "coincide con uno reciente"
         reload_used = False
         inputs_used: List[str] = []
+        inspected_hashes: Dict[str, str] = {}  # file_ref -> doc_hash (para evitar repetir en el mismo run)
 
         redactor = RedactorV1(enabled=bool(self.redaction_policy.enabled), strict=True)
 
@@ -429,6 +433,120 @@ class ExecutorRuntimeH4:
                     if not pre_ok:
                         action_error = classify_precondition_error()
                     else:
+                        # H7.6: inspección determinista antes de uploads
+                        if action.kind == ActionKindV1.upload:
+                            file_ref = (action.input or {}).get("file_ref")
+                            if file_ref:
+                                inputs_used.append(str(file_ref))
+                                # inspeccionar una vez por file_ref por run (cache global maneja sha256)
+                                if str(file_ref) not in inspected_hashes:
+                                    emit(
+                                        TraceEventV1(
+                                            run_id=run_id,
+                                            seq=0,
+                                            event_type=TraceEventTypeV1.inspection_started,
+                                            step_id=step_id,
+                                            state_signature_before=sig_b,
+                                            state_signature_after=None,
+                                            metadata={"file_ref": str(file_ref)},
+                                        )
+                                    )
+                                    try:
+                                        status, report = self.document_inspector.inspect(file_ref=str(file_ref))
+                                    except Exception as e:
+                                        status = "failed"
+                                        report = None
+                                        emit(
+                                            TraceEventV1(
+                                                run_id=run_id,
+                                                seq=0,
+                                                event_type=TraceEventTypeV1.inspection_finished,
+                                                step_id=step_id,
+                                                state_signature_before=sig_b,
+                                                state_signature_after=None,
+                                                metadata={"file_ref": str(file_ref), "status": "failed", "cause": repr(e)},
+                                            )
+                                        )
+                                        action_error = ExecutorErrorV1(
+                                            error_code="DOCUMENT_PARSE_FAILED",
+                                            stage=ErrorStageV1.precondition,
+                                            severity=ErrorSeverityV1.error,
+                                            message="document inspection failed",
+                                            retryable=False,
+                                            details={"file_ref": str(file_ref), "cause": repr(e)},
+                                        )
+                                    else:
+                                        report_path = (
+                                            self.document_repository.cfg.documents_dir
+                                            / "_inspections"
+                                            / f"{getattr(report, 'doc_hash', '')}.json"
+                                        )
+                                        report_ref = None
+                                        try:
+                                            report_ref = str(report_path.relative_to(self.document_repository.cfg.project_root)).replace("\\", "/")
+                                        except Exception:
+                                            report_ref = str(report_path).replace("\\", "/")
+                                        emit(
+                                            TraceEventV1(
+                                                run_id=run_id,
+                                                seq=0,
+                                                event_type=TraceEventTypeV1.inspection_finished,
+                                                step_id=step_id,
+                                                state_signature_before=sig_b,
+                                                state_signature_after=None,
+                                                metadata={
+                                                    "file_ref": str(file_ref),
+                                                    "status": status,
+                                                    "doc_hash": getattr(report, "doc_hash", None) if report else None,
+                                                    "criteria_profile": getattr(report, "criteria_profile", None) if report else None,
+                                                    "report_ref": report_ref if report and getattr(report, "doc_hash", None) else None,
+                                                },
+                                            )
+                                        )
+                                        if report and getattr(report, "doc_hash", None):
+                                            inspected_hashes[str(file_ref)] = str(report.doc_hash)
+                                        if status != "ok":
+                                            action_error = ExecutorErrorV1(
+                                                error_code="DOC_CRITERIA_FAILED",
+                                                stage=ErrorStageV1.precondition,
+                                                severity=ErrorSeverityV1.error,
+                                                message="document criteria failed",
+                                                retryable=False,
+                                                details={
+                                                    "file_ref": str(file_ref),
+                                                    "criteria_profile": getattr(report, "criteria_profile", None) if report else None,
+                                                    "report_ref": report_ref,
+                                                },
+                                            )
+                        # Si la inspección falló, no ejecutar acción ni retry: abort determinista.
+                        if action_error is not None and action.kind == ActionKindV1.upload:
+                            emit(
+                                TraceEventV1(
+                                    run_id=run_id,
+                                    seq=0,
+                                    event_type=TraceEventTypeV1.error_raised,
+                                    step_id=step_id,
+                                    state_signature_before=sig_b,
+                                    state_signature_after=None,
+                                    error=action_error,
+                                    metadata={"phase": "inspection"},
+                                )
+                            )
+                            emit(
+                                TraceEventV1(
+                                    run_id=run_id,
+                                    seq=0,
+                                    event_type=TraceEventTypeV1.run_finished,
+                                    step_id=None,
+                                    state_signature_before=None,
+                                    state_signature_after=sig_b,
+                                    metadata={"status": "failed"},
+                                )
+                            )
+                            write_manifest()
+                            ctrl.close()
+                            return run_dir
+
                         # action_started
                         emit(
                             TraceEventV1(
@@ -443,10 +561,6 @@ class ExecutorRuntimeH4:
                         )
 
                         try:
-                            if action.kind == ActionKindV1.upload:
-                                fr = (action.input or {}).get("file_ref")
-                                if fr:
-                                    inputs_used.append(str(fr))
                             dur_ms = execute_action_only(action, ctrl, self.profile, policy_state, document_repository=self.document_repository)
                             emit(
                                 TraceEventV1(
