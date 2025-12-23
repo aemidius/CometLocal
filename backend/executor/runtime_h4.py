@@ -680,7 +680,8 @@ class ExecutorRuntimeH4:
                             current_sig = sig_a
                             break
                         # Heurística determinista para AUTH_FAILED:
-                        # Si falla un url_matches y la URL actual contiene "login", clasificamos como AUTH_FAILED.
+                        # - Si falla un url_matches y la URL actual contiene "login", AUTH_FAILED.
+                        # - Si falla element_not_visible sobre un input típico de login (ClientName/Username/Password), AUTH_FAILED.
                         auth_failed = False
                         try:
                             for ev in post_evals:
@@ -689,6 +690,14 @@ class ExecutorRuntimeH4:
                                 if ev.condition.kind == ConditionKindV1.url_matches:
                                     actual = str((ev.details or {}).get("actual") or "").lower()
                                     if "login" in actual:
+                                        auth_failed = True
+                                        break
+                                if ev.condition.kind == ConditionKindV1.element_not_visible:
+                                    # detecta "seguimos viendo el formulario" por selector del target
+                                    tgt = (ev.condition.args or {}).get("target") or {}
+                                    sel = (tgt.get("selector") or tgt.get("testid") or tgt.get("text") or "") if isinstance(tgt, dict) else ""
+                                    sel_l = str(sel).lower()
+                                    if any(x in sel_l for x in ("clientname", "username", "password")):
                                         auth_failed = True
                                         break
                         except Exception:

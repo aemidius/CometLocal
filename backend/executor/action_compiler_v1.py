@@ -204,6 +204,8 @@ def evaluate_condition(
         if condition.kind in {
             ConditionKindV1.element_exists,
             ConditionKindV1.element_visible,
+            ConditionKindV1.element_visible_any,
+            ConditionKindV1.element_not_visible,
             ConditionKindV1.element_enabled,
             ConditionKindV1.element_clickable,
             ConditionKindV1.element_count_equals,
@@ -216,6 +218,42 @@ def evaluate_condition(
                 return ConditionEvaluation(condition, False, {"reason": "missing target"})
 
             loc = controller.locate(target)
+
+            if condition.kind == ConditionKindV1.element_visible_any:
+                try:
+                    count = loc.count()
+                except Exception as e:
+                    return ConditionEvaluation(condition, False, {"cause": repr(e)})
+                if count <= 0:
+                    return ConditionEvaluation(condition, False, {"count": count, "visible_count": 0})
+                visible = 0
+                try:
+                    for i in range(min(count, 10)):
+                        if loc.nth(i).is_visible():
+                            visible += 1
+                            break
+                except Exception as e:
+                    return ConditionEvaluation(condition, False, {"cause": repr(e), "count": count})
+                ok = visible > 0
+                return ConditionEvaluation(condition, ok, {"count": count, "visible_count": visible})
+
+            if condition.kind == ConditionKindV1.element_not_visible:
+                try:
+                    count = loc.count()
+                except Exception as e:
+                    return ConditionEvaluation(condition, False, {"cause": repr(e)})
+                if count <= 0:
+                    # si no existe, se considera "no visible"
+                    return ConditionEvaluation(condition, True, {"count": count, "visible_count": 0})
+                visible = 0
+                try:
+                    for i in range(min(count, 10)):
+                        if loc.nth(i).is_visible():
+                            visible += 1
+                except Exception as e:
+                    return ConditionEvaluation(condition, False, {"cause": repr(e), "count": count})
+                ok = visible == 0
+                return ConditionEvaluation(condition, ok, {"count": count, "visible_count": visible})
 
             if condition.kind == ConditionKindV1.element_count_equals:
                 expected_count = int(condition.args.get("count"))

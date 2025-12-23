@@ -49,7 +49,7 @@ from backend.shared.executor_contracts_v1 import (
 )
 from backend.shared.org_v1 import OrgV1
 from backend.shared.people_v1 import PeopleV1, PersonV1
-from backend.shared.platforms_v1 import CoordinationV1, LoginFieldsV1, PlatformV1, PlatformsV1
+from backend.shared.platforms_v1 import CoordinationV1, LoginFieldsV1, PlatformV1, PlatformsV1, SelectorSpecV1
 
 
 def _page(title: str, body_html: str) -> str:
@@ -100,6 +100,10 @@ def _get_indices(form: Dict[str, str], prefix: str) -> List[int]:
             except Exception:
                 continue
     return sorted(out)
+
+
+def _sel_value(sel: Optional[SelectorSpecV1]) -> str:
+    return sel.value if isinstance(sel, SelectorSpecV1) else ""
 
 
 def _pick_platform_and_coord(platforms: PlatformsV1, coord_label: str) -> Tuple[Optional[PlatformV1], Optional[CoordinationV1]]:
@@ -332,6 +336,7 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
         for pi, p in enumerate(platforms.platforms):
             coord_rows = []
             for ci, c in enumerate(p.coordinations):
+                post_login_val = _sel_value(c.post_login_selector) if isinstance(c.post_login_selector, SelectorSpecV1) else (c.post_login_selector or "")
                 coord_rows.append(
                     "<tr>"
                     f"<td><input type='text' name='coord_label__{pi}__{ci}' value='{html.escape(c.label)}'/></td>"
@@ -339,7 +344,7 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
                     f"<td><input type='text' name='coord_username__{pi}__{ci}' value='{html.escape(c.username)}'/></td>"
                     f"<td><input type='text' name='coord_password_ref__{pi}__{ci}' value='{html.escape(c.password_ref)}'/></td>"
                     f"<td><input type='text' name='coord_url_override__{pi}__{ci}' value='{html.escape(c.url_override or '')}'/></td>"
-                    f"<td><input type='text' name='coord_post_login_selector__{pi}__{ci}' value='{html.escape(c.post_login_selector or '')}'/></td>"
+                    f"<td><input type='text' name='coord_post_login_selector__{pi}__{ci}' value='{html.escape(post_login_val)}'/></td>"
                     "</tr>"
                 )
             # fila extra
@@ -364,10 +369,10 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
       <div><b>key</b></div><input type="text" name="platform_key__{pi}" value="{html.escape(p.key)}"/>
       <div style="margin-top:8px;"><b>base_url</b></div><input type="text" name="platform_base_url__{pi}" value="{html.escape(p.base_url)}"/>
       <div style="margin-top:8px;"><b>login.requires_client</b></div><input type="text" name="platform_requires_client__{pi}" value="{html.escape(str(bool(p.login_fields.requires_client)))}"/>
-      <div style="margin-top:8px;"><b>login.client_code_selector</b></div><input type="text" name="platform_client_code_selector__{pi}" value="{html.escape(p.login_fields.client_code_selector or '')}"/>
-      <div style="margin-top:8px;"><b>login.username_selector</b></div><input type="text" name="platform_username_selector__{pi}" value="{html.escape(p.login_fields.username_selector or '')}"/>
-      <div style="margin-top:8px;"><b>login.password_selector</b></div><input type="text" name="platform_password_selector__{pi}" value="{html.escape(p.login_fields.password_selector or '')}"/>
-      <div style="margin-top:8px;"><b>login.submit_selector</b></div><input type="text" name="platform_submit_selector__{pi}" value="{html.escape(p.login_fields.submit_selector or '')}"/>
+      <div style="margin-top:8px;"><b>login.client_code_selector</b></div><input type="text" name="platform_client_code_selector__{pi}" value="{html.escape(_sel_value(p.login_fields.client_code_selector))}"/>
+      <div style="margin-top:8px;"><b>login.username_selector</b></div><input type="text" name="platform_username_selector__{pi}" value="{html.escape(_sel_value(p.login_fields.username_selector))}"/>
+      <div style="margin-top:8px;"><b>login.password_selector</b></div><input type="text" name="platform_password_selector__{pi}" value="{html.escape(_sel_value(p.login_fields.password_selector))}"/>
+      <div style="margin-top:8px;"><b>login.submit_selector</b></div><input type="text" name="platform_submit_selector__{pi}" value="{html.escape(_sel_value(p.login_fields.submit_selector))}"/>
     </div>
   </div>
   <div class="card" style="margin-top:10px;">

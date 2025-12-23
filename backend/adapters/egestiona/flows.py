@@ -146,9 +146,10 @@ def run_login_and_snapshot(
             input={},
             preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
             postconditions=[
-                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": targets.post_login.model_dump()}, severity=ErrorSeverityV1.critical),
-                # Postcondición fuerte adicional: no seguir en URL de login (regex determinista).
-                ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": r"^(?!.*login).*$"}, severity=ErrorSeverityV1.critical),
+                # OR lógico: basta con que exista/sea visible algún elemento post-login (>=1).
+                ConditionV1(kind=ConditionKindV1.element_visible_any, args={"target": targets.post_login.model_dump()}, severity=ErrorSeverityV1.critical),
+                # Login REAL: el formulario ya no puede estar visible tras submit.
+                ConditionV1(kind=ConditionKindV1.element_not_visible, args={"target": targets.client_code.model_dump()}, severity=ErrorSeverityV1.critical, description="Login form must be gone (ClientName not visible)"),
             ],
             timeout_ms=20000,
         )
@@ -164,8 +165,8 @@ def run_login_and_snapshot(
             preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
             postconditions=[],
             assertions=[
-                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": targets.post_login.model_dump()}, severity=ErrorSeverityV1.critical),
-                ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": r"^(?!.*login).*$"}, severity=ErrorSeverityV1.critical),
+                ConditionV1(kind=ConditionKindV1.element_visible_any, args={"target": targets.post_login.model_dump()}, severity=ErrorSeverityV1.critical),
+                ConditionV1(kind=ConditionKindV1.element_not_visible, args={"target": targets.client_code.model_dump()}, severity=ErrorSeverityV1.critical),
             ],
             timeout_ms=5000,
         )

@@ -367,6 +367,10 @@ class ConditionKindV1(str, Enum):
 
     element_exists = "element_exists"
     element_visible = "element_visible"
+    # v8.a2 extension: permite confirmaciones post-login sin exigir unicidad
+    element_visible_any = "element_visible_any"
+    # v8.a2 extension: permite comprobar que un formulario ya no está visible
+    element_not_visible = "element_not_visible"
     element_enabled = "element_enabled"
     element_clickable = "element_clickable"
 
