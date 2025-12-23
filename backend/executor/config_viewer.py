@@ -13,6 +13,9 @@ Incluye botón para lanzar un run de "probar login" (navegación) y redirigir a 
 from __future__ import annotations
 
 import html
+import json
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -25,7 +28,25 @@ from starlette.concurrency import run_in_threadpool
 from backend.repository.config_store_v1 import ConfigStoreV1
 from backend.repository.data_bootstrap_v1 import ensure_data_layout
 from backend.repository.secrets_store_v1 import SecretsStoreV1
-from backend.shared.executor_contracts_v1 import ActionKindV1, ActionSpecV1, ConditionKindV1, ConditionV1, ErrorSeverityV1, TargetKindV1, TargetV1
+from backend.shared.executor_contracts_v1 import (
+    ActionKindV1,
+    ActionSpecV1,
+    ConditionKindV1,
+    ConditionV1,
+    ErrorSeverityV1,
+    ErrorStageV1,
+    EvidenceItemV1,
+    EvidenceKindV1,
+    EvidenceManifestV1,
+    EvidencePolicyV1,
+    ExecutorErrorV1,
+    ExecutionModeV1,
+    RedactionPolicyV1,
+    TraceEventTypeV1,
+    TraceEventV1,
+    TargetKindV1,
+    TargetV1,
+)
 from backend.shared.org_v1 import OrgV1
 from backend.shared.people_v1 import PeopleV1, PersonV1
 from backend.shared.platforms_v1 import CoordinationV1, LoginFieldsV1, PlatformV1, PlatformsV1
@@ -79,6 +100,97 @@ def _get_indices(form: Dict[str, str], prefix: str) -> List[int]:
             except Exception:
                 continue
     return sorted(out)
+
+
+def _pick_platform_and_coord(platforms: PlatformsV1, coord_label: str) -> Tuple[Optional[PlatformV1], Optional[CoordinationV1]]:
+    """
+    Selecciona la plataforma eGestiona (preferente) y la coordinación por label.
+    NO valida login_fields; se usa para snapshot sin credenciales.
+    """
+    if not platforms.platforms:
+        return None, None
+    plat = next((p for p in platforms.platforms if p.key == "egestiona"), None)
+    if plat is None:
+        plat = next((p for p in platforms.platforms if "egestiona" in (p.key or "").lower()), None)
+    if plat is None:
+        plat = platforms.platforms[0]
+    coord = next((c for c in (plat.coordinations or []) if (c.label or "") == coord_label), None)
+    return plat, coord
+
+
+def _create_stub_run_dir(*, base_dir: Path, message: str, details: Optional[Dict[str, str]] = None) -> str:
+    """
+    Crea un run_dir mínimo (trace + manifest) para diagnosticar problemas de config,
+    sin ejecutar Playwright. Útil para cumplir "SIEMPRE crea run".
+    """
+    run_id = f"r_{uuid.uuid4().hex}"
+    runs_root = (Path(base_dir) / "runs").resolve()
+    run_dir = runs_root / run_id
+    evidence_dir = run_dir / "evidence"
+    (evidence_dir / "dom").mkdir(parents=True, exist_ok=True)
+    (evidence_dir / "shots").mkdir(parents=True, exist_ok=True)
+    (evidence_dir / "html").mkdir(parents=True, exist_ok=True)
+
+    ts = datetime.now(timezone.utc).isoformat()
+    trace_path = run_dir / "trace.jsonl"
+
+    def _write_event(ev: TraceEventV1) -> None:
+        with open(trace_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(ev.model_dump(mode="json"), ensure_ascii=False) + "\n")
+
+    _write_event(
+        TraceEventV1(
+            run_id=run_id,
+            seq=1,
+            event_type=TraceEventTypeV1.run_started,
+            step_id=None,
+            ts_utc=ts,
+            metadata={"execution_mode": ExecutionModeV1.training.value, "note": "stub run (no Playwright)"},
+        )
+    )
+
+    err = ExecutorErrorV1(
+        error_code="INVALID_CONFIG",
+        stage=ErrorStageV1.proposal_validation,
+        severity=ErrorSeverityV1.error,
+        message=message,
+        retryable=False,
+        details=details or {},
+    )
+    _write_event(
+        TraceEventV1(
+            run_id=run_id,
+            seq=2,
+            event_type=TraceEventTypeV1.error_raised,
+            step_id=None,
+            ts_utc=ts,
+            error=err,
+            metadata={"status": "failed"},
+        )
+    )
+    _write_event(
+        TraceEventV1(
+            run_id=run_id,
+            seq=3,
+            event_type=TraceEventTypeV1.run_finished,
+            step_id=None,
+            ts_utc=ts,
+            metadata={"status": "failed"},
+        )
+    )
+
+    manifest = EvidenceManifestV1(
+        run_id=run_id,
+        policy=EvidencePolicyV1(always=[EvidenceKindV1.dom_snapshot_partial], on_failure_or_critical=[EvidenceKindV1.html_full, EvidenceKindV1.screenshot]),
+        redaction=RedactionPolicyV1(enabled=True, rules=["emails", "phone", "dni", "tokens"], mode=ExecutionModeV1.training),
+        items=[
+            EvidenceItemV1(kind=EvidenceKindV1.dom_snapshot_partial, step_id="none", relative_path="evidence/dom/none.json", sha256="0" * 64, size_bytes=0)
+        ],
+        redaction_report=None,
+        metadata={"execution_mode": ExecutionModeV1.training.value, "note": "stub run (no Playwright)"},
+    )
+    (run_dir / "evidence_manifest.json").write_text(json.dumps(manifest.model_dump(mode="json"), ensure_ascii=False, indent=2), encoding="utf-8")
+    return run_id
 
 
 def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
@@ -330,6 +442,18 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
     </div>
   </div>
 </form>
+
+<form method="post" action="/config/platforms/egestiona/snapshot_login" style="margin-top:10px;">
+  <div class="card">
+    <div><b>Snapshot login eGestiona (sin credenciales)</b></div>
+    <div class="muted">Crea un run SIEMPRE y captura <code>html_full</code>, <code>screenshot</code> y <code>dom_snapshot_partial</code> para extraer selectors reales del formulario.</div>
+    <input type="hidden" name="coord" value="Kern"/>
+    <div style="margin-top:10px; display:flex; gap:12px; align-items:center;">
+      <label><input type="checkbox" name="headless" checked/> headless</label>
+      <button class="btn" type="submit">Snapshot login</button>
+    </div>
+  </div>
+</form>
 """
         return HTMLResponse(_page("Config — Platforms", body))
 
@@ -414,6 +538,57 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
                 raise HTTPException(status_code=400, detail="Define post_login_selector")
             raise HTTPException(status_code=400, detail=msg)
 
+        return RedirectResponse(url=f"/runs/{run_id}", status_code=303)
+
+    @router.post("/config/platforms/egestiona/snapshot_login")
+    async def snapshot_login(request: Request):
+        """
+        H8.A1: Snapshot del login para extraer selectors (sin credenciales).
+        - No requiere login_fields selectors.
+        - Siempre crea run_dir (si falta URL/config, crea stub run con error).
+        """
+        form = dict(await request.form())
+        coord_label = str(form.get("coord") or "Kern").strip() or "Kern"
+        headless = form.get("headless") == "on"
+
+        platforms = store.load_platforms()
+        plat, coord = _pick_platform_and_coord(platforms, coord_label)
+
+        url = None
+        if plat is not None:
+            url = (coord.url_override if coord and coord.url_override else None) or (plat.base_url or None)
+
+        def _run() -> str:
+            if not url:
+                return _create_stub_run_dir(
+                    base_dir=Path(base_dir),
+                    message="No base_url/url_override configured for eGestiona snapshot_login",
+                    details={"coord": coord_label, "platform_key": (plat.key if plat else ""), "hint": "Configura platforms.json (base_url) o coord.url_override"},
+                )
+
+            rt = ExecutorRuntimeH4(
+                runs_root=Path(base_dir) / "runs",
+                project_root=Path(base_dir).parent,
+                data_root=Path(base_dir).name,
+                execution_mode=ExecutionModeV1.training,
+                secrets_store=SecretsStoreV1(base_dir=base_dir),
+            )
+            actions = [
+                ActionSpecV1(
+                    action_id="eg_snapshot_login_navigate",
+                    kind=ActionKindV1.navigate,
+                    target=TargetV1(type=TargetKindV1.url, url=str(url)),
+                    input={},
+                    preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+                    postconditions=[ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": ".*"}, severity=ErrorSeverityV1.warning)],
+                    timeout_ms=30000,
+                    tags=["egestiona", "snapshot_login"],
+                )
+            ]
+            run_dir = rt.run_actions(url="about:blank", actions=actions, headless=headless)
+            return run_dir.name
+
+        run_id = await run_in_threadpool(_run)
         return RedirectResponse(url=f"/runs/{run_id}", status_code=303)
 
     @router.get("/config/secrets", response_class=HTMLResponse)
