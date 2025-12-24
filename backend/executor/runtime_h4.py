@@ -126,6 +126,12 @@ class ExecutorRuntimeH4:
         seq = 0
         manifest_items: List[EvidenceItemV1] = []
 
+        # H8.E2: Status final por defecto es SUCCESS (solo cambia si hay errores explícitos)
+        # Nota: No usar anotaciones de tipo aquí para permitir nonlocal en funciones anidadas
+        final_status = "success"
+        last_error = None
+        error_code = None
+
         policy_state = PolicyStateV1()
         # H8.C: deterministic mode => sin policy engine, sin retries/recovery, sin POLICY_HALT, stop inmediato en el primer error.
         # H8.B: fail-fast (login flows) => sin retries/recovery, caps estrictos, stop inmediato en el primer error.
@@ -203,7 +209,47 @@ class ExecutorRuntimeH4:
             )
             manifest_path.write_text(json.dumps(manifest.model_dump(mode="json"), ensure_ascii=False, indent=2), encoding="utf-8")
 
+        def emit_run_finished(status: str, reason: Optional[str] = None, error: Optional[str] = None, error_code_val: Optional[str] = None, state_after: Optional[StateSignatureV1] = None) -> None:
+            """
+            H8.E2: Helper centralizado para emitir run_finished con status final.
+            Asegura que siempre se emite y que el status es consistente.
+            """
+            nonlocal final_status, last_error, error_code
+            # Actualizar variables globales
+            final_status = status
+            if error:
+                last_error = error
+            if error_code_val:
+                error_code = error_code_val
+            
+            # H8.E2: Assert lógico - si no hay error, no puede ser failed
+            if status == "failed" and error is None and error_code_val is None:
+                # Permitir si hay reason (policy halt, etc.)
+                if not reason:
+                    raise AssertionError(f"status='failed' but no error/error_code provided (reason={reason})")
+            
+            emit(
+                TraceEventV1(
+                    run_id=run_id,
+                    seq=0,
+                    event_type=TraceEventTypeV1.run_finished,
+                    step_id=None,
+                    state_signature_before=None,
+                    state_signature_after=state_after,
+                    metadata={
+                        "status": status,
+                        **({"reason": reason} if reason else {}),
+                        **({"error": error} if error else {}),
+                        **({"error_code": error_code_val} if error_code_val else {}),
+                    },
+                )
+            )
+
         def emit_policy_halt(step_id: str, state_before: Optional[StateSignatureV1], reason: str, details: Dict[str, Any]) -> None:
+            nonlocal final_status, last_error, error_code
+            final_status = "halted"
+            last_error = "POLICY_HALT"
+            error_code = "POLICY_HALT"
             err = ExecutorErrorV1(
                 error_code="POLICY_HALT",
                 stage=ErrorStageV1.policy,
@@ -224,17 +270,7 @@ class ExecutorRuntimeH4:
                     metadata={"policy": details},
                 )
             )
-            emit(
-                TraceEventV1(
-                    run_id=run_id,
-                    seq=0,
-                    event_type=TraceEventTypeV1.run_finished,
-                    step_id=None,
-                    state_signature_before=None,
-                    state_signature_after=state_before,
-                    metadata={"status": "halted"},
-                )
-            )
+            emit_run_finished("halted", reason=f"policy_halt:{reason}", error="POLICY_HALT", error_code_val="POLICY_HALT", state_after=state_before)
             write_manifest()
 
         emit(
@@ -293,17 +329,7 @@ class ExecutorRuntimeH4:
                 if i >= policy_defaults.hard_cap_steps:
                     # H8.C: deterministic mode nunca emite POLICY_HALT, solo FAILED
                     if is_deterministic:
-                        emit(
-                            TraceEventV1(
-                                run_id=run_id,
-                                seq=0,
-                                event_type=TraceEventTypeV1.run_finished,
-                                step_id=None,
-                                state_signature_before=None,
-                                state_signature_after=current_sig,
-                                metadata={"status": "failed", "reason": "hard_cap_steps"},
-                            )
-                        )
+                        emit_run_finished("failed", reason="hard_cap_steps", error="hard_cap_steps", error_code_val="HARD_CAP_STEPS", state_after=current_sig)
                         write_manifest()
                         return run_dir
                     emit_policy_halt(f"step_{i:03d}", current_sig, "hard_cap_steps", {"hard_cap_steps": policy_defaults.hard_cap_steps})
@@ -389,17 +415,7 @@ class ExecutorRuntimeH4:
                     except Exception:
                         pass
                     add_evidence(step_id, sig_b, None, extra)
-                    emit(
-                        TraceEventV1(
-                            run_id=run_id,
-                            seq=0,
-                            event_type=TraceEventTypeV1.run_finished,
-                            step_id=None,
-                            state_signature_before=None,
-                            state_signature_after=sig_b,
-                            metadata={"status": "failed"},
-                        )
-                    )
+                    emit_run_finished("failed", reason="validate_runtime", error=str(te.error.error_code), error_code_val=te.error.error_code, state_after=sig_b)
                     write_manifest()
                     return run_dir
 
@@ -557,6 +573,11 @@ class ExecutorRuntimeH4:
                                             )
                         # Si la inspección falló, no ejecutar acción ni retry: abort determinista.
                         if action_error is not None and action.kind == ActionKindV1.upload:
+                            # H8.E2: Actualizar final_status cuando hay error_raised (no necesita nonlocal, está en el mismo scope)
+                            final_status = "failed"
+                            last_error = str(action_error.message) if action_error else "document criteria failed"
+                            error_code = action_error.error_code if action_error else "DOC_CRITERIA_FAILED"
+                            
                             emit(
                                 TraceEventV1(
                                     run_id=run_id,
@@ -569,17 +590,7 @@ class ExecutorRuntimeH4:
                                     metadata={"phase": "inspection"},
                                 )
                             )
-                            emit(
-                                TraceEventV1(
-                                    run_id=run_id,
-                                    seq=0,
-                                    event_type=TraceEventTypeV1.run_finished,
-                                    step_id=None,
-                                    state_signature_before=None,
-                                    state_signature_after=sig_b,
-                                    metadata={"status": "failed"},
-                                )
-                            )
+                            emit_run_finished("failed", reason="document_criteria_failed", error=last_error, error_code_val=error_code, state_after=sig_b)
                             write_manifest()
                             ctrl.close()
                             return run_dir
@@ -754,6 +765,11 @@ class ExecutorRuntimeH4:
                         )
 
                     # error path: emit error_raised
+                    # H8.E2: Actualizar final_status cuando hay error_raised (no necesita nonlocal, está en el mismo scope)
+                    final_status = "failed"
+                    last_error = str(action_error.message) if action_error else "action failed"
+                    error_code = action_error.error_code if action_error else "UNKNOWN_ERROR"
+                    
                     emit(
                         TraceEventV1(
                             run_id=run_id,
@@ -783,17 +799,9 @@ class ExecutorRuntimeH4:
                     # H8.C: deterministic mode => primer error termina el run como failed (sin retries/recovery/policy_halt)
                     # H8.B: fail_fast => primer error termina el run como failed (sin retries/recovery/policy_halt)
                     if is_deterministic or fail_fast:
-                        emit(
-                            TraceEventV1(
-                                run_id=run_id,
-                                seq=0,
-                                event_type=TraceEventTypeV1.run_finished,
-                                step_id=None,
-                                state_signature_before=None,
-                                state_signature_after=sig_b,
-                                metadata={"status": "failed", "fail_fast": fail_fast, "deterministic": is_deterministic},
-                            )
-                        )
+                        err_code = action_error.error_code if action_error else "UNKNOWN_ERROR"
+                        err_msg = str(action_error.message) if action_error else "action failed"
+                        emit_run_finished("failed", reason="fail_fast_or_deterministic", error=err_msg, error_code_val=err_code, state_after=sig_b)
                         write_manifest()
                         return run_dir
 
@@ -803,17 +811,7 @@ class ExecutorRuntimeH4:
                         if policy_state.recovery_used >= policy_defaults.recovery_max:
                             # H8.C: deterministic mode nunca emite POLICY_HALT, solo FAILED
                             if is_deterministic:
-                                emit(
-                                    TraceEventV1(
-                                        run_id=run_id,
-                                        seq=0,
-                                        event_type=TraceEventTypeV1.run_finished,
-                                        step_id=None,
-                                        state_signature_before=None,
-                                        state_signature_after=sig_b,
-                                        metadata={"status": "failed", "reason": "recovery_limit"},
-                                    )
-                                )
+                                emit_run_finished("failed", reason="recovery_limit", error="recovery_limit", error_code_val="RECOVERY_LIMIT", state_after=sig_b)
                                 write_manifest()
                                 return run_dir
                             emit_policy_halt(step_id, sig_b, "recovery_limit", {"recovery_used": policy_state.recovery_used, "recovery_max": policy_defaults.recovery_max})
@@ -925,17 +923,7 @@ class ExecutorRuntimeH4:
                         if not rec_done:
                             # H8.C: deterministic mode nunca emite POLICY_HALT, solo FAILED
                             if is_deterministic:
-                                emit(
-                                    TraceEventV1(
-                                        run_id=run_id,
-                                        seq=0,
-                                        event_type=TraceEventTypeV1.run_finished,
-                                        step_id=None,
-                                        state_signature_before=None,
-                                        state_signature_after=sig_b,
-                                        metadata={"status": "failed", "reason": "recovery_exhausted"},
-                                    )
-                                )
+                                emit_run_finished("failed", reason="recovery_exhausted", error="recovery_exhausted", error_code_val="RECOVERY_EXHAUSTED", state_after=sig_b)
                                 write_manifest()
                                 return run_dir
                             emit_policy_halt(step_id, sig_b, "recovery_exhausted", {"attempt": attempt})
@@ -1016,57 +1004,28 @@ class ExecutorRuntimeH4:
                 if seen_states[after_key] > policy_defaults.same_state_revisits:
                     # H8.C: deterministic mode nunca emite POLICY_HALT, solo FAILED
                     if is_deterministic:
-                        emit(
-                            TraceEventV1(
-                                run_id=run_id,
-                                seq=0,
-                                event_type=TraceEventTypeV1.run_finished,
-                                step_id=None,
-                                state_signature_before=None,
-                                state_signature_after=current_sig,
-                                metadata={"status": "failed", "reason": "same_state_revisit"},
-                            )
-                        )
+                        emit_run_finished("failed", reason="same_state_revisit", error="same_state_revisit", error_code_val="SAME_STATE_REVISIT", state_after=current_sig)
                         write_manifest()
                         return run_dir
                     emit_policy_halt(step_id, current_sig, "same_state_revisit", {"count": seen_states[after_key], "threshold": policy_defaults.same_state_revisits, "state_key": after_key})
                     return run_dir
 
-            # H8.E: finished - si llegamos aquí sin errores, es SUCCESS
+            # H8.E2: finished - si llegamos aquí sin errores, es SUCCESS
             # Regla definitiva: un run es SUCCESS si:
             # - No hay excepción
             # - No hay error_raised
             # - Todas las acciones terminaron
             # - Las postcondiciones se evaluaron
-            emit(
-                TraceEventV1(
-                    run_id=run_id,
-                    seq=0,
-                    event_type=TraceEventTypeV1.run_finished,
-                    step_id=None,
-                    state_signature_before=None,
-                    state_signature_after=current_sig,
-                    metadata={"status": "success"},
-                )
-            )
+            # H8.E2: Usar final_status (que por defecto es "success") para asegurar consistencia
+            emit_run_finished(final_status, state_after=current_sig)
             write_manifest()
             return run_dir
 
         except Exception as e:
-            # H8.E: capturar cualquier excepción no esperada y marcar failed
+            # H8.E2: capturar cualquier excepción no esperada y marcar failed
             # Esto asegura que siempre se emite run_finished, incluso si hay errores no tipificados
             try:
-                emit(
-                    TraceEventV1(
-                        run_id=run_id,
-                        seq=0,
-                        event_type=TraceEventTypeV1.run_finished,
-                        step_id=None,
-                        state_signature_before=None,
-                        state_signature_after=current_sig if 'current_sig' in locals() else None,
-                        metadata={"status": "failed", "reason": "unexpected_exception", "exception": str(e)},
-                    )
-                )
+                emit_run_finished("failed", reason="unexpected_exception", error=str(e), error_code_val="UNEXPECTED_EXCEPTION", state_after=current_sig if 'current_sig' in locals() else None)
                 write_manifest()
             except Exception:
                 pass  # Si falla emitir, al menos intentamos
