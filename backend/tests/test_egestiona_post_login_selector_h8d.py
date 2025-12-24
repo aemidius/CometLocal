@@ -66,7 +66,7 @@ def test_egestiona_login_success_when_post_login_selector_visible(monkeypatch, t
 
     monkeypatch.setattr(rtmod, "BrowserController", DummyCtrl, raising=True)
 
-    # evaluate_conditions: el selector post-login (nav a[href*='Inicio']) es visible
+    # evaluate_conditions: el selector post-login (a[href*='PantallaInicial']) es visible
     post_login_selector = EgestionaProfileV1().POST_LOGIN_SELECTOR
 
     def fake_eval(conditions, controller, profile, policy, timeout_ms=None):
@@ -76,7 +76,7 @@ def test_egestiona_login_success_when_post_login_selector_visible(monkeypatch, t
                 tgt = (c.args or {}).get("target") or {}
                 sel = (tgt.get("selector") or "") if isinstance(tgt, dict) else ""
                 # Si es el selector post-login definitivo, devolver True (visible)
-                if post_login_selector in sel or "Inicio" in sel:
+                if post_login_selector in sel or "PantallaInicial" in sel:
                     out.append(ConditionEvaluation(c, True, {}))
                     continue
             # Resto: ok
@@ -215,7 +215,7 @@ def test_egestiona_login_fails_when_post_login_selector_not_visible(monkeypatch,
                 tgt = (c.args or {}).get("target") or {}
                 sel = (tgt.get("selector") or "") if isinstance(tgt, dict) else ""
                 # Si es el selector post-login definitivo y ya pasamos varios steps, devolver False (no visible)
-                if (post_login_selector in sel or "Inicio" in sel) and call_count[0] >= 8:
+                if (post_login_selector in sel or "PantallaInicial" in sel) and call_count[0] >= 8:
                     out.append(ConditionEvaluation(c, False, {"actual": "not visible"}))
                     continue
             # Resto: ok

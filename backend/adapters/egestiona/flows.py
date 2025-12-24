@@ -9,8 +9,7 @@ from starlette.concurrency import run_in_threadpool
 from backend.adapters.egestiona.profile import EgestionaProfileV1
 from backend.adapters.egestiona.targets import build_targets_from_selectors
 
-# H8.D: Selector post-login definitivo (nav lateral con "Inicio")
-# Fallback al default legacy si no está en config
+# H8.D FIX: Selector post-login definitivo (pantalla inicial post-login)
 POST_LOGIN_SELECTOR_DEFAULT = EgestionaProfileV1().POST_LOGIN_SELECTOR
 from backend.executor.runtime_h4 import ExecutorRuntimeH4
 from backend.repository.config_store_v1 import ConfigStoreV1
@@ -26,9 +25,6 @@ from backend.shared.executor_contracts_v1 import (
     TargetV1,
 )
 from backend.shared.platforms_v1 import SelectorSpecV1
-
-
-POST_LOGIN_SELECTOR_DEFAULT = 'a[href*="Logout"], a:has-text("Desconectar")'
 
 
 def run_login_and_snapshot(
