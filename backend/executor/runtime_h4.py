@@ -141,6 +141,10 @@ class ExecutorRuntimeH4:
         finished_at: Optional[str] = None
         duration_ms: Optional[int] = None
         finished_path = run_dir / "run_finished.json"
+        
+        # Fix: Flag para detener el loop principal cuando las postcondiciones se cumplan
+        _stop_requested = False
+        terminal_reason: Optional[str] = None
 
         policy_state = PolicyStateV1()
         # H8.C: deterministic mode => sin policy engine, sin retries/recovery, sin POLICY_HALT, stop inmediato en el primer error.
@@ -378,18 +382,12 @@ class ExecutorRuntimeH4:
 
             current_sig: StateSignatureV1 = s0
             last_state_keys = [_state_key(s0)]
-            
-            # Fix: Flag para rastrear si el run ya terminó exitosamente
-            run_completed_successfully = False
 
             # Step loop
             for i, action in enumerate(actions):
-                # Fix: Policy guard - no evaluar hard_cap_steps si el run ya terminó exitosamente
-                if run_completed_successfully:
-                    final_status = "success"
-                    emit_run_finished("success", reason="POSTCONDITIONS_OK", state_after=current_sig)
-                    write_manifest()
-                    return run_dir
+                # Fix: Policy guard - detener si se solicitó parar (postcondiciones cumplidas)
+                if _stop_requested:
+                    break
                 
                 if i >= policy_defaults.hard_cap_steps:
                     # H8.C: deterministic mode nunca emite POLICY_HALT, solo FAILED
@@ -789,17 +787,14 @@ class ExecutorRuntimeH4:
                             )
                             post_ok = post_ok and ass_ok
                         if post_ok:
-                            # Fix: Si las postcondiciones se cumplen, actualizar estado y continuar
+                            # Fix: Si las postcondiciones se cumplen, marcar para terminar después de todas las acciones
                             current_sig = sig_a
                             # Si es la última acción, terminar inmediatamente como SUCCESS
                             if i == len(actions) - 1:
-                                # Última acción completada exitosamente - terminar inmediatamente
                                 final_status = "success"
-                                run_completed_successfully = True
-                                emit_run_finished("success", reason="POSTCONDITIONS_OK", state_after=current_sig)
-                                write_manifest()
-                                return run_dir
-                            # Si no es la última acción, continuar con la siguiente (break del loop de attempts)
+                                terminal_reason = "POSTCONDITIONS_OK"
+                                _stop_requested = True
+                            # Break del loop de attempts (continuar con siguiente acción si existe)
                             break
                         # Heurística determinista para AUTH_FAILED:
                         # - Si falla un url_matches y la URL actual contiene "login", AUTH_FAILED.
@@ -1069,13 +1064,9 @@ class ExecutorRuntimeH4:
                     )
                     continue
 
-                # Fix: Policy guard - no evaluar políticas si el run ya terminó exitosamente
-                if run_completed_successfully:
-                    # Si el run ya completó exitosamente, terminar inmediatamente
-                    final_status = "success"
-                    emit_run_finished("success", reason="POSTCONDITIONS_OK", state_after=current_sig)
-                    write_manifest()
-                    return run_dir
+                # Fix: Policy guard - no evaluar políticas si el run ya terminó (postcondiciones cumplidas)
+                if _stop_requested:
+                    break
                 
                 # update same-state revisit after action
                 after_key = _state_key(current_sig)
@@ -1091,6 +1082,10 @@ class ExecutorRuntimeH4:
                 if len(last_state_keys) > 5:
                     last_state_keys = last_state_keys[-5:]
 
+                # Fix: Policy guard - no evaluar same_state_revisit si el run ya terminó
+                if _stop_requested:
+                    break
+
                 if seen_states[after_key] > policy_defaults.same_state_revisits:
                     # H8.C: deterministic mode nunca emite POLICY_HALT, solo FAILED
                     if is_deterministic:
@@ -1100,6 +1095,13 @@ class ExecutorRuntimeH4:
                     emit_policy_halt(step_id, current_sig, "same_state_revisit", {"count": seen_states[after_key], "threshold": policy_defaults.same_state_revisits, "state_key": after_key})
                     return run_dir
 
+            # Fix: Si se solicitó parar (postcondiciones cumplidas), terminar como SUCCESS
+            if _stop_requested:
+                final_status = "success"
+                emit_run_finished("success", reason=terminal_reason or "POSTCONDITIONS_OK", state_after=current_sig)
+                write_manifest()
+                return run_dir
+            
             # H8.E2: finished - si llegamos aquí sin errores, es SUCCESS
             # Regla definitiva: un run es SUCCESS si:
             # - No hay excepción
