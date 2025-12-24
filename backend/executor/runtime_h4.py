@@ -1032,7 +1032,12 @@ class ExecutorRuntimeH4:
                     emit_policy_halt(step_id, current_sig, "same_state_revisit", {"count": seen_states[after_key], "threshold": policy_defaults.same_state_revisits, "state_key": after_key})
                     return run_dir
 
-            # finished
+            # H8.E: finished - si llegamos aquí sin errores, es SUCCESS
+            # Regla definitiva: un run es SUCCESS si:
+            # - No hay excepción
+            # - No hay error_raised
+            # - Todas las acciones terminaron
+            # - Las postcondiciones se evaluaron
             emit(
                 TraceEventV1(
                     run_id=run_id,
@@ -1045,6 +1050,26 @@ class ExecutorRuntimeH4:
                 )
             )
             write_manifest()
+            return run_dir
+
+        except Exception as e:
+            # H8.E: capturar cualquier excepción no esperada y marcar failed
+            # Esto asegura que siempre se emite run_finished, incluso si hay errores no tipificados
+            try:
+                emit(
+                    TraceEventV1(
+                        run_id=run_id,
+                        seq=0,
+                        event_type=TraceEventTypeV1.run_finished,
+                        step_id=None,
+                        state_signature_before=None,
+                        state_signature_after=current_sig if 'current_sig' in locals() else None,
+                        metadata={"status": "failed", "reason": "unexpected_exception", "exception": str(e)},
+                    )
+                )
+                write_manifest()
+            except Exception:
+                pass  # Si falla emitir, al menos intentamos
             return run_dir
 
         finally:
