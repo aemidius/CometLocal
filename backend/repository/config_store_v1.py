@@ -77,6 +77,10 @@ class ConfigStoreV1:
         return PlatformsV1.model_validate({"schema_version": "v1", "platforms": platforms or []})
 
     def save_platforms(self, platforms: PlatformsV1) -> None:
-        self._write_json("platforms.json", {"schema_version": "v1", "platforms": [p.model_dump(mode="json") for p in platforms.platforms]})
+        # Persistir con aliases para soportar keys "client_input/user_input/pass_input/submit_btn/post_login_check"
+        self._write_json(
+            "platforms.json",
+            {"schema_version": "v1", "platforms": [p.model_dump(mode="json", by_alias=True) for p in platforms.platforms]},
+        )
 
 

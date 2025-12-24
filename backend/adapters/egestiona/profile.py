@@ -15,8 +15,9 @@ class EgestionaProfileV1:
     platform_key: str = "egestiona"
     default_base_url: str = "https://coordinate.egestiona.es"
     default_timeout_ms: int = 15000
-    # H8.D FIX: Selector post-login definitivo (pantalla inicial post-login)
-    POST_LOGIN_SELECTOR: str = "a[href*='PantallaInicial']"
+    # Post-login check robusto (sidebar): el texto "Desconectar" aparece solo cuando ya estás dentro.
+    # Nota: Playwright soporta selector `text=...` vía page.locator().
+    POST_LOGIN_SELECTOR: str = "text=Desconectar"
 
 
 

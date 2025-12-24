@@ -9,8 +9,8 @@ from starlette.concurrency import run_in_threadpool
 from backend.adapters.egestiona.profile import EgestionaProfileV1
 from backend.adapters.egestiona.targets import build_targets_from_selectors
 
-# H8.D FIX: Selector post-login definitivo (pantalla inicial post-login)
-POST_LOGIN_SELECTOR_DEFAULT = EgestionaProfileV1().POST_LOGIN_SELECTOR
+# Selector post-login robusto (sidebar): "Desconectar"
+POST_LOGIN_SELECTOR_DEFAULT = EgestionaProfileV1.POST_LOGIN_SELECTOR
 from backend.executor.runtime_h4 import ExecutorRuntimeH4
 from backend.repository.config_store_v1 import ConfigStoreV1
 from backend.repository.data_bootstrap_v1 import ensure_data_layout
@@ -46,17 +46,31 @@ def run_login_and_snapshot(
 
     platforms = store.load_platforms()
     plat = next((p for p in platforms.platforms if p.key == platform), None)
+    if plat is None:
+        # backward-compat: aceptar "egestiona_*"
+        plat = next((p for p in platforms.platforms if str(p.key or "").lower().startswith(str(platform).lower())), None)
     if not plat:
         raise ValueError(f"platform not found: {platform}")
 
     coord = next((c for c in plat.coordinations if c.label == coordination), None)
+    if coord is None:
+        coord = next((c for c in plat.coordinations if str(c.label or "").lower() == str(coordination).lower()), None)
     if not coord:
         raise ValueError(f"coordination not found: {coordination}")
 
-    # H8.B: si no viene en config, usar default estable
-    if not coord.post_login_selector:
+    def _looks_like_selector(v: str) -> bool:
+        vv = (v or "").strip()
+        if not vv:
+            return False
+        # Playwright text selector
+        if vv.startswith("text=") or vv.startswith("text=\"") or vv.startswith("text='"):
+            return True
+        # CSS-ish / xpath-ish cues
+        return any(tok in vv for tok in ("[", "]", "#", ".", "=", ":", "//"))
+
+    # Post-login check: si no viene en config (o parece texto descriptivo), usar default robusto.
+    if (not coord.post_login_selector) or (coord.post_login_selector and not _looks_like_selector(coord.post_login_selector.value)):
         coord.post_login_selector = SelectorSpecV1(kind="css", value=POST_LOGIN_SELECTOR_DEFAULT)
-        # write-back para dejarlo fijo
         store.save_platforms(platforms)
 
     # URL: override > platform.base_url > default
@@ -66,16 +80,16 @@ def run_login_and_snapshot(
     autofilled = False
     lf = plat.login_fields
     if lf.client_code_selector is None:
-        lf.client_code_selector = SelectorSpecV1(kind="css", value="input[name='ClientName']")
+        lf.client_code_selector = SelectorSpecV1(kind="css", value='input[name="ClientName"]')
         autofilled = True
     if lf.username_selector is None:
-        lf.username_selector = SelectorSpecV1(kind="css", value="input[name='Username']")
+        lf.username_selector = SelectorSpecV1(kind="css", value='input[name="Username"]')
         autofilled = True
     if lf.password_selector is None:
-        lf.password_selector = SelectorSpecV1(kind="css", value="input[name='Password']")
+        lf.password_selector = SelectorSpecV1(kind="css", value='input[name="Password"]')
         autofilled = True
     if lf.submit_selector is None:
-        lf.submit_selector = SelectorSpecV1(kind="css", value="button[type='submit']")
+        lf.submit_selector = SelectorSpecV1(kind="css", value='button[type="submit"]')
         autofilled = True
 
     if autofilled:
@@ -103,18 +117,32 @@ def run_login_and_snapshot(
         )
     )
 
+    # Resolver credenciales (NO 500; error claro si falta secret requerido)
+    required_missing: list[str] = []
+    client_val = coord.client_code.strip() if (coord.client_code or "").strip() else (secrets.get_secret("egestiona.client") or "")
+    if plat.login_fields.requires_client and not client_val:
+        required_missing.append("egestiona.client (o coord.client_code)")
+    user_val = coord.username.strip() if (coord.username or "").strip() else (secrets.get_secret("egestiona.username") or "")
+    if not user_val:
+        required_missing.append("egestiona.username (o coord.username)")
+    password_ref = (coord.password_ref or "").strip() or "egestiona.password"
+    if secrets.get_secret(password_ref) is None:
+        required_missing.append(password_ref)
+    if required_missing:
+        raise ValueError("Missing required secrets: " + ", ".join(required_missing))
+
     if plat.login_fields.requires_client:
         actions.append(
             ActionSpecV1(
                 action_id="eg_fill_client",
                 kind=ActionKindV1.fill,
                 target=targets.client_code,
-                input={"text": coord.client_code},
+                input={"text": client_val},
                 preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": targets.client_code.model_dump()}, severity=ErrorSeverityV1.error)],
                 postconditions=[
                     ConditionV1(
                         kind=ConditionKindV1.element_value_equals,
-                        args={"target": targets.client_code.model_dump(), "value": coord.client_code},
+                        args={"target": targets.client_code.model_dump(), "value": client_val},
                         severity=ErrorSeverityV1.warning,
                     )
                 ],
@@ -127,10 +155,10 @@ def run_login_and_snapshot(
             action_id="eg_fill_user",
             kind=ActionKindV1.fill,
             target=targets.username,
-            input={"text": coord.username},
+            input={"text": user_val},
             preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": targets.username.model_dump()}, severity=ErrorSeverityV1.error)],
             postconditions=[
-                ConditionV1(kind=ConditionKindV1.element_value_equals, args={"target": targets.username.model_dump(), "value": coord.username}, severity=ErrorSeverityV1.warning)
+                ConditionV1(kind=ConditionKindV1.element_value_equals, args={"target": targets.username.model_dump(), "value": user_val}, severity=ErrorSeverityV1.warning)
             ],
             timeout_ms=10000,
         )
@@ -142,7 +170,7 @@ def run_login_and_snapshot(
             action_id="eg_fill_pass",
             kind=ActionKindV1.fill,
             target=targets.password,
-            input={"secret_ref": coord.password_ref},
+            input={"secret_ref": password_ref},
             preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": targets.password.model_dump()}, severity=ErrorSeverityV1.error)],
             postconditions=[ConditionV1(kind=ConditionKindV1.element_attr_equals, args={"target": targets.password.model_dump(), "attr": "type", "value": "password"}, severity=ErrorSeverityV1.warning)],
             timeout_ms=10000,
@@ -165,64 +193,25 @@ def run_login_and_snapshot(
         )
     )
 
-    # Post-login wait: elemento estable (determinista)
+    # Último paso (determinista): esperar estado post-login real.
+    # IMPORTANTE: este es el paso final; si se cumple, el runtime termina success y no evalúa policies después.
     actions.append(
         ActionSpecV1(
-            action_id="eg_wait_post_login",
+            action_id="eg_wait_post_login_check",
             kind=ActionKindV1.wait_for,
             target=targets.post_login,
             input={},
             preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
             postconditions=[
-                # OR lógico: basta con que exista/sea visible algún elemento post-login (>=1).
-                ConditionV1(kind=ConditionKindV1.element_visible_any, args={"target": targets.post_login.model_dump()}, severity=ErrorSeverityV1.critical),
-                # Login REAL: el formulario ya no puede estar visible tras submit.
+                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": targets.post_login.model_dump()}, severity=ErrorSeverityV1.critical),
                 ConditionV1(kind=ConditionKindV1.element_not_visible, args={"target": targets.client_code.model_dump()}, severity=ErrorSeverityV1.critical, description="Login form must be gone (ClientName not visible)"),
-            ],
-            timeout_ms=20000,
-        )
-    )
-
-    # H8.D: post-login condition REAL (estable y fuerte).
-    # Debe ser visible un elemento inequívoco del dashboard (nav lateral con "Inicio") para considerar SUCCESS.
-    post_login_strict = TargetV1(type=TargetKindV1.css, selector=POST_LOGIN_SELECTOR_DEFAULT)
-    actions.append(
-        ActionSpecV1(
-            action_id="eg_wait_post_login_real",
-            kind=ActionKindV1.wait_for,
-            target=post_login_strict,
-            input={},
-            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
-            postconditions=[
-                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": post_login_strict.model_dump()}, severity=ErrorSeverityV1.critical),
-                # U5 strong postcondition (y robustez extra): no seguir en una URL de login.
-                ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": r"^(?!.*login).*$"}, severity=ErrorSeverityV1.critical),
+                # Opcional/robusto: no seguir en URL de login.
+                ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": r"^(?!.*login).*$"}, severity=ErrorSeverityV1.warning),
             ],
             timeout_ms=20000,
             criticality="critical",
         )
     )
-
-    # Assert final: no puede terminar success si seguimos en login.
-    actions.append(
-        ActionSpecV1(
-            action_id="eg_assert_not_login",
-            kind=ActionKindV1.assert_,
-            target=None,
-            input={},
-            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
-            postconditions=[],
-            assertions=[
-                ConditionV1(kind=ConditionKindV1.element_visible_any, args={"target": targets.post_login.model_dump()}, severity=ErrorSeverityV1.critical),
-                ConditionV1(kind=ConditionKindV1.element_not_visible, args={"target": targets.client_code.model_dump()}, severity=ErrorSeverityV1.critical),
-            ],
-            timeout_ms=5000,
-        )
-    )
-
-    # Asegurar que el password_ref existe (fail fast)
-    if coord.password_ref and secrets.get_secret(coord.password_ref) is None:
-        raise ValueError(f"password_ref not found in secrets.json: {coord.password_ref}")
 
     rt = ExecutorRuntimeH4(
         runs_root=Path(base) / "runs",

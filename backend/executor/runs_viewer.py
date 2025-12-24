@@ -205,11 +205,25 @@ def _load_manifest(run_dir: Path) -> Optional[EvidenceManifestV1]:
         return None
 
 
+def _load_run_finished(run_dir: Path) -> Optional[Dict[str, Any]]:
+    """Fix: Carga run_finished.json si existe."""
+    p = run_dir / "run_finished.json"
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
 def parse_run(run_dir: Path) -> ParsedRun:
     run_id = run_dir.name
     trace_path = run_dir / "trace.jsonl"
     events = list(_iter_trace_events(trace_path))
     manifest = _load_manifest(run_dir)
+    
+    # Fix: Preferir run_finished.json si existe
+    finished_data = _load_run_finished(run_dir)
 
     started_at = None
     finished_at = None
@@ -225,6 +239,17 @@ def parse_run(run_dir: Path) -> ParsedRun:
     recovery_count = 0
     same_state_revisits_max: Optional[int] = None
     inspection_report_ref: Optional[str] = None
+    
+    # Fix: Si existe run_finished.json, usar sus valores como base
+    if finished_data:
+        started_at = finished_data.get("started_at") or started_at
+        finished_at = finished_data.get("finished_at") or finished_at
+        status = finished_data.get("status") or status
+        last_error = finished_data.get("last_error") or last_error
+        counters = finished_data.get("counters") or {}
+        retry_count = counters.get("retries", retry_count)
+        recovery_count = counters.get("recoveries", recovery_count)
+        same_state_revisits_max = counters.get("same_state_revisits_max", same_state_revisits_max)
 
     for ev, raw in events:
         et = (ev.event_type.value if ev else raw.get("event_type")) if raw else None
@@ -326,6 +351,9 @@ def parse_run(run_dir: Path) -> ParsedRun:
         "recoveries": recovery_count,
         "same_state_revisits_max": same_state_revisits_max,
     }
+    # Invariante UI: si el run terminó SUCCESS, no inferir fallo por eventos de policy/error.
+    if status == "success":
+        last_error = None
 
     return ParsedRun(
         run_id=run_id,

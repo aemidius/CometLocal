@@ -4,6 +4,9 @@ from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 from pydantic import field_validator
+from pydantic.alias_generators import to_camel
+from pydantic import AliasChoices
+from pydantic.config import ConfigDict
 
 
 class SelectorSpecV1(BaseModel):
@@ -50,12 +53,18 @@ def normalize_selector(sel: Any) -> Optional[SelectorSpecV1]:
 
 
 class CoordinationV1(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
     label: str = ""
     client_code: str = ""
     username: str = ""
     password_ref: str = ""  # referencia en secrets.json
     url_override: Optional[str] = None
-    post_login_selector: Optional[SelectorSpecV1] = None
+    # Nuevo nombre de UI/config: post_login_check (backward-compatible con post_login_selector)
+    post_login_selector: Optional[SelectorSpecV1] = Field(
+        default=None,
+        validation_alias=AliasChoices("post_login_selector", "post_login_check"),
+        serialization_alias="post_login_check",
+    )
 
     @field_validator("post_login_selector", mode="before")
     @classmethod
@@ -64,11 +73,31 @@ class CoordinationV1(BaseModel):
 
 
 class LoginFieldsV1(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
     requires_client: bool = True
-    client_code_selector: Optional[SelectorSpecV1] = None
-    username_selector: Optional[SelectorSpecV1] = None
-    password_selector: Optional[SelectorSpecV1] = None
-    submit_selector: Optional[SelectorSpecV1] = None
+    # Nuevo esquema de UI/config (keys exactas pedidas):
+    # - client_input, user_input, pass_input, submit_btn
+    # Backward-compat con nombres legacy *_selector.
+    client_code_selector: Optional[SelectorSpecV1] = Field(
+        default=None,
+        validation_alias=AliasChoices("client_code_selector", "client_input"),
+        serialization_alias="client_input",
+    )
+    username_selector: Optional[SelectorSpecV1] = Field(
+        default=None,
+        validation_alias=AliasChoices("username_selector", "user_input"),
+        serialization_alias="user_input",
+    )
+    password_selector: Optional[SelectorSpecV1] = Field(
+        default=None,
+        validation_alias=AliasChoices("password_selector", "pass_input"),
+        serialization_alias="pass_input",
+    )
+    submit_selector: Optional[SelectorSpecV1] = Field(
+        default=None,
+        validation_alias=AliasChoices("submit_selector", "submit_btn"),
+        serialization_alias="submit_btn",
+    )
 
     @field_validator("client_code_selector", "username_selector", "password_selector", "submit_selector", mode="before")
     @classmethod

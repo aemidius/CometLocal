@@ -116,7 +116,10 @@ def _pick_platform_and_coord(platforms: PlatformsV1, coord_label: str) -> Tuple[
     """
     if not platforms.platforms:
         return None, None
+    # Backward/forward-compat: aceptar "egestiona" o "egestiona_*"
     plat = next((p for p in platforms.platforms if p.key == "egestiona"), None)
+    if plat is None:
+        plat = next((p for p in platforms.platforms if str(p.key or "").lower().startswith("egestiona")), None)
     if plat is None:
         plat = next((p for p in platforms.platforms if "egestiona" in (p.key or "").lower()), None)
     if plat is None:

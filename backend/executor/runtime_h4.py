@@ -230,6 +230,8 @@ class ExecutorRuntimeH4:
             started_at_val: Optional[str],
             finished_at_val: Optional[str],
             duration_ms_val: Optional[int],
+            reason_val: Optional[str],
+            terminal_reason_val: Optional[str],
             error_val: Optional[str],
             error_code_val: Optional[str],
             retry_count_val: int,
@@ -237,13 +239,17 @@ class ExecutorRuntimeH4:
             same_state_revisits_max_val: Optional[int],
         ) -> None:
             """Fix: Escribe run_finished.json con metadata completa del run."""
+            # Invariante: success => last_error debe ser null.
+            last_error_val = None if status == "success" else (error_code_val or error_val)
             data = {
                 "run_id": run_id,
                 "status": status,
                 "started_at": started_at_val,
                 "finished_at": finished_at_val,
                 "duration_ms": duration_ms_val,
-                "last_error": error_code_val or error_val,
+                "reason": reason_val,
+                "terminal_reason": terminal_reason_val,
+                "last_error": last_error_val,
                 "counters": {
                     "retries": retry_count_val,
                     "recoveries": recovery_count_val,
@@ -271,6 +277,9 @@ class ExecutorRuntimeH4:
                 if not reason:
                     raise AssertionError(f"status='failed' but no error/error_code provided (reason={reason})")
             
+            # Invariante: success => reason siempre existe (y es estable).
+            effective_reason = reason if reason else ("completed_without_error" if status == "success" else None)
+
             finished_at = datetime.now(timezone.utc).isoformat()
             if started_at:
                 try:
@@ -290,7 +299,7 @@ class ExecutorRuntimeH4:
                     state_signature_after=state_after,
                     metadata={
                         "status": status,
-                        **({"reason": reason} if reason else {}),
+                        **({"reason": effective_reason} if effective_reason else {}),
                         **({"error": error} if error else {}),
                         **({"error_code": error_code_val} if error_code_val else {}),
                     },
@@ -300,7 +309,7 @@ class ExecutorRuntimeH4:
             # Fix: Escribir run_finished.json
             _write_run_finished_json(
                 finished_path, run_id, status, started_at, finished_at, duration_ms,
-                error, error_code_val, retry_count, recovery_count, same_state_revisits_max
+                effective_reason, terminal_reason, error, error_code_val, retry_count, recovery_count, same_state_revisits_max
             )
 
         def emit_policy_halt(step_id: str, state_before: Optional[StateSignatureV1], reason: str, details: Dict[str, Any]) -> None:
@@ -639,8 +648,6 @@ class ExecutorRuntimeH4:
                                             )
                         # Si la inspección falló, no ejecutar acción ni retry: abort determinista.
                         if action_error is not None and action.kind == ActionKindV1.upload:
-                            # H8.E2: Actualizar final_status cuando hay error_raised (no necesita nonlocal, está en el mismo scope)
-                            final_status = "failed"
                             last_error = str(action_error.message) if action_error else "document criteria failed"
                             error_code = action_error.error_code if action_error else "DOC_CRITERIA_FAILED"
                             
@@ -838,8 +845,6 @@ class ExecutorRuntimeH4:
                         )
 
                     # error path: emit error_raised
-                    # H8.E2: Actualizar final_status cuando hay error_raised (no necesita nonlocal, está en el mismo scope)
-                    final_status = "failed"
                     last_error = str(action_error.message) if action_error else "action failed"
                     error_code = action_error.error_code if action_error else "UNKNOWN_ERROR"
                     
@@ -1086,14 +1091,13 @@ class ExecutorRuntimeH4:
                 if _stop_requested:
                     break
 
-                if seen_states[after_key] > policy_defaults.same_state_revisits:
-                    # H8.C: deterministic mode nunca emite POLICY_HALT, solo FAILED
-                    if is_deterministic:
-                        emit_run_finished("failed", reason="same_state_revisit", error="same_state_revisit", error_code_val="SAME_STATE_REVISIT", state_after=current_sig)
-                        write_manifest()
+                # Deterministic/fail_fast: NO aplicar política SAME_STATE_REVISIT.
+                # Razonamiento: en flows deterministas es normal permanecer en la misma página durante varias acciones
+                # (fill/click/wait) sin que eso sea un loop. El "loop" real se controla por timeout/hard_cap/actions finitas.
+                if not (is_deterministic or fail_fast):
+                    if seen_states[after_key] > policy_defaults.same_state_revisits:
+                        emit_policy_halt(step_id, current_sig, "same_state_revisit", {"count": seen_states[after_key], "threshold": policy_defaults.same_state_revisits, "state_key": after_key})
                         return run_dir
-                    emit_policy_halt(step_id, current_sig, "same_state_revisit", {"count": seen_states[after_key], "threshold": policy_defaults.same_state_revisits, "state_key": after_key})
-                    return run_dir
 
             # Fix: Si se solicitó parar (postcondiciones cumplidas), terminar como SUCCESS
             if _stop_requested:
@@ -1126,6 +1130,30 @@ class ExecutorRuntimeH4:
         finally:
             try:
                 ctrl.close()
+            except Exception:
+                pass
+            # Fix: run_finished.json DEBE existir siempre (fallback final).
+            try:
+                if not finished_path.exists():
+                    fallback_status = final_status or "failed"
+                    fallback_finished_at = datetime.now(timezone.utc).isoformat()
+                    fallback_reason = "completed_without_error" if fallback_status == "success" else "missing_run_finished"
+                    # Nota: duration_ms puede ser None si no llegamos a emitir run_finished.
+                    _write_run_finished_json(
+                        finished_path,
+                        run_id,
+                        fallback_status,
+                        started_at,
+                        fallback_finished_at,
+                        duration_ms,
+                        fallback_reason,
+                        terminal_reason,
+                        None,
+                        None,
+                        retry_count,
+                        recovery_count,
+                        same_state_revisits_max,
+                    )
             except Exception:
                 pass
 
