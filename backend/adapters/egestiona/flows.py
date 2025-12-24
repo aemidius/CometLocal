@@ -24,6 +24,9 @@ from backend.shared.executor_contracts_v1 import (
 from backend.shared.platforms_v1 import SelectorSpecV1
 
 
+POST_LOGIN_SELECTOR_DEFAULT = 'a[href*="Logout"], a:has-text("Desconectar")'
+
+
 def run_login_and_snapshot(
     *,
     base_dir: str | Path = "data",
@@ -31,6 +34,7 @@ def run_login_and_snapshot(
     coordination: str = "Kern",
     headless: bool = True,
     execution_mode: str = "production",
+    fail_fast: bool = False,
 ) -> str:
     """
     Ejecuta login determinista (sin LLM) usando Config Store + Secrets Store.
@@ -49,8 +53,11 @@ def run_login_and_snapshot(
     if not coord:
         raise ValueError(f"coordination not found: {coordination}")
 
+    # H8.B: si no viene en config, usar default estable
     if not coord.post_login_selector:
-        raise ValueError("Define post_login_selector")
+        coord.post_login_selector = SelectorSpecV1(kind="css", value=POST_LOGIN_SELECTOR_DEFAULT)
+        # write-back para dejarlo fijo
+        store.save_platforms(platforms)
 
     # URL: override > platform.base_url > default
     url = coord.url_override or plat.base_url or EgestionaProfileV1().default_base_url
@@ -176,6 +183,26 @@ def run_login_and_snapshot(
         )
     )
 
+    # H8.B: post-login condition REAL (estable y fuerte).
+    # Debe ser visible un elemento inequívoco de logout para considerar SUCCESS.
+    post_login_strict = TargetV1(type=TargetKindV1.css, selector=POST_LOGIN_SELECTOR_DEFAULT)
+    actions.append(
+        ActionSpecV1(
+            action_id="eg_wait_post_login_real",
+            kind=ActionKindV1.wait_for,
+            target=post_login_strict,
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": post_login_strict.model_dump()}, severity=ErrorSeverityV1.critical),
+                # U5 strong postcondition (y robustez extra): no seguir en una URL de login.
+                ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": r"^(?!.*login).*$"}, severity=ErrorSeverityV1.critical),
+            ],
+            timeout_ms=20000,
+            criticality="critical",
+        )
+    )
+
     # Assert final: no puede terminar success si seguimos en login.
     actions.append(
         ActionSpecV1(
@@ -204,7 +231,7 @@ def run_login_and_snapshot(
         execution_mode=execution_mode,
         secrets_store=secrets,
     )
-    run_dir = rt.run_actions(url=url, actions=actions, headless=headless)
+    run_dir = rt.run_actions(url=url, actions=actions, headless=headless, fail_fast=fail_fast)
     return run_dir.name
 
 

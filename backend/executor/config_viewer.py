@@ -538,6 +538,7 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
                     coordination="Kern",
                     headless=headless,
                     execution_mode="training",
+                    fail_fast=True,
                 )
             )
         except ValueError as e:

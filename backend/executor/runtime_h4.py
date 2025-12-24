@@ -111,7 +111,7 @@ class ExecutorRuntimeH4:
             redaction_policy = RedactionPolicyV1(enabled=enabled, rules=["emails", "phone", "dni", "tokens"], mode=self.execution_mode)
         self.redaction_policy = redaction_policy
 
-    def run_actions(self, *, url: str, actions: List[ActionSpecV1], headless: bool = True) -> Path:
+    def run_actions(self, *, url: str, actions: List[ActionSpecV1], headless: bool = True, fail_fast: bool = False) -> Path:
         run_id = f"r_{uuid.uuid4().hex}"
         run_dir = self.runs_root / run_id
         evidence_dir = run_dir / "evidence"
@@ -126,6 +126,19 @@ class ExecutorRuntimeH4:
         manifest_items: List[EvidenceItemV1] = []
 
         policy_state = PolicyStateV1()
+        # H8.B: fail-fast (login flows) => sin retries/recovery, caps estrictos, stop inmediato en el primer error.
+        policy_defaults = self.policy
+        if fail_fast:
+            policy_defaults = RuntimePolicyDefaultsV1(
+                retries_per_action=0,
+                recovery_max=0,
+                same_state_revisits=1,
+                hard_cap_steps=len(actions) + 2,
+                backoff_ms=self.policy.backoff_ms,
+                allow_reload_once=False,
+                overlay_close_selectors=self.policy.overlay_close_selectors,
+                overlay_close_texts=self.policy.overlay_close_texts,
+            )
         seen_states: Dict[str, int] = {}  # state_key -> count
         last_state_keys: List[str] = []  # ventana corta para "coincide con uno reciente"
         reload_used = False
@@ -232,7 +245,8 @@ class ExecutorRuntimeH4:
                 metadata={
                     "execution_mode": self.execution_mode.value,
                     "domain_allowlist": self.domain_allowlist,
-                    "policy": asdict(self.policy),
+                    "policy": asdict(policy_defaults),
+                    "fail_fast": bool(fail_fast),
                 },
             )
         )
@@ -257,9 +271,9 @@ class ExecutorRuntimeH4:
                     metadata={
                         "policy": {
                             "steps_taken": 0,
-                            "hard_cap_steps": self.policy.hard_cap_steps,
+                            "hard_cap_steps": policy_defaults.hard_cap_steps,
                             "same_state_revisit_count": 1,
-                            "same_state_revisit_threshold": self.policy.same_state_revisits,
+                            "same_state_revisit_threshold": policy_defaults.same_state_revisits,
                         },
                         "phase": "before",
                     },
@@ -272,8 +286,8 @@ class ExecutorRuntimeH4:
 
             # Step loop
             for i, action in enumerate(actions):
-                if i >= self.policy.hard_cap_steps:
-                    emit_policy_halt(f"step_{i:03d}", current_sig, "hard_cap_steps", {"hard_cap_steps": self.policy.hard_cap_steps})
+                if i >= policy_defaults.hard_cap_steps:
+                    emit_policy_halt(f"step_{i:03d}", current_sig, "hard_cap_steps", {"hard_cap_steps": policy_defaults.hard_cap_steps})
                     return run_dir
 
                 step_id = f"step_{i:03d}"
@@ -309,9 +323,9 @@ class ExecutorRuntimeH4:
                         metadata={
                             "policy": {
                                 "steps_taken": i,
-                                "hard_cap_steps": self.policy.hard_cap_steps,
+                                "hard_cap_steps": policy_defaults.hard_cap_steps,
                                 "same_state_revisit_count": seen_states.get(before_key, 0) or 1,
-                                "same_state_revisit_threshold": self.policy.same_state_revisits,
+                                "same_state_revisit_threshold": policy_defaults.same_state_revisits,
                             },
                             "phase": "before",
                         },
@@ -682,6 +696,7 @@ class ExecutorRuntimeH4:
                         # Heurística determinista para AUTH_FAILED:
                         # - Si falla un url_matches y la URL actual contiene "login", AUTH_FAILED.
                         # - Si falla element_not_visible sobre un input típico de login (ClientName/Username/Password), AUTH_FAILED.
+                        # - Si falla element_visible sobre selector de logout/desconectar, AUTH_FAILED.
                         auth_failed = False
                         try:
                             for ev in post_evals:
@@ -698,6 +713,13 @@ class ExecutorRuntimeH4:
                                     sel = (tgt.get("selector") or tgt.get("testid") or tgt.get("text") or "") if isinstance(tgt, dict) else ""
                                     sel_l = str(sel).lower()
                                     if any(x in sel_l for x in ("clientname", "username", "password")):
+                                        auth_failed = True
+                                        break
+                                if ev.condition.kind == ConditionKindV1.element_visible:
+                                    tgt = (ev.condition.args or {}).get("target") or {}
+                                    sel = (tgt.get("selector") or "") if isinstance(tgt, dict) else ""
+                                    sel_l = str(sel).lower()
+                                    if any(x in sel_l for x in ("logout", "desconectar")):
                                         auth_failed = True
                                         break
                         except Exception:
@@ -739,11 +761,27 @@ class ExecutorRuntimeH4:
                             pass
                         add_evidence(step_id, sig_b, state_after, extra)
 
+                    # H8.B: fail_fast => primer error termina el run como failed (sin retries/recovery/policy_halt)
+                    if fail_fast:
+                        emit(
+                            TraceEventV1(
+                                run_id=run_id,
+                                seq=0,
+                                event_type=TraceEventTypeV1.run_finished,
+                                step_id=None,
+                                state_signature_before=None,
+                                state_signature_after=sig_b,
+                                metadata={"status": "failed", "fail_fast": True},
+                            )
+                        )
+                        write_manifest()
+                        return run_dir
+
                     # policy thresholds
-                    if attempt >= self.policy.retries_per_action:
+                    if attempt >= policy_defaults.retries_per_action:
                         # try recovery if available
-                        if policy_state.recovery_used >= self.policy.recovery_max:
-                            emit_policy_halt(step_id, sig_b, "recovery_limit", {"recovery_used": policy_state.recovery_used, "recovery_max": self.policy.recovery_max})
+                        if policy_state.recovery_used >= policy_defaults.recovery_max:
+                            emit_policy_halt(step_id, sig_b, "recovery_limit", {"recovery_used": policy_state.recovery_used, "recovery_max": policy_defaults.recovery_max})
                             return run_dir
 
                         # recovery chain v1 (determinista)
@@ -778,7 +816,7 @@ class ExecutorRuntimeH4:
                             rec_done = True
 
                         # 2) reload (once per run)
-                        if not rec_done and self.policy.allow_reload_once and not reload_used:
+                        if not rec_done and policy_defaults.allow_reload_once and not reload_used:
                             emit(
                                 TraceEventV1(
                                     run_id=run_id,
@@ -871,7 +909,7 @@ class ExecutorRuntimeH4:
 
                     # retry path
                     attempt += 1
-                    backoff = self.policy.backoff_ms[min(attempt - 1, len(self.policy.backoff_ms) - 1)]
+                    backoff = policy_defaults.backoff_ms[min(attempt - 1, len(policy_defaults.backoff_ms) - 1)]
                     emit(
                         TraceEventV1(
                             run_id=run_id,
@@ -880,7 +918,7 @@ class ExecutorRuntimeH4:
                             step_id=step_id,
                             state_signature_before=sig_b,
                             state_signature_after=state_after,
-                            metadata={"attempt": attempt, "max_retries": self.policy.retries_per_action},
+                            metadata={"attempt": attempt, "max_retries": policy_defaults.retries_per_action},
                         )
                     )
                     emit(
@@ -925,8 +963,8 @@ class ExecutorRuntimeH4:
                 if len(last_state_keys) > 5:
                     last_state_keys = last_state_keys[-5:]
 
-                if seen_states[after_key] > self.policy.same_state_revisits:
-                    emit_policy_halt(step_id, current_sig, "same_state_revisit", {"count": seen_states[after_key], "threshold": self.policy.same_state_revisits, "state_key": after_key})
+                if seen_states[after_key] > policy_defaults.same_state_revisits:
+                    emit_policy_halt(step_id, current_sig, "same_state_revisit", {"count": seen_states[after_key], "threshold": policy_defaults.same_state_revisits, "state_key": after_key})
                     return run_dir
 
             # finished
