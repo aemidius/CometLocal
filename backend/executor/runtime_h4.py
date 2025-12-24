@@ -17,6 +17,7 @@ import json
 import time
 import uuid
 from dataclasses import dataclass, asdict
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -131,6 +132,15 @@ class ExecutorRuntimeH4:
         final_status = "success"
         last_error = None
         error_code = None
+        
+        # Fix: Inicializar contadores y timestamps para run_finished.json
+        retry_count = 0
+        recovery_count = 0
+        same_state_revisits_max: Optional[int] = None
+        started_at: Optional[str] = None
+        finished_at: Optional[str] = None
+        duration_ms: Optional[int] = None
+        finished_path = run_dir / "run_finished.json"
 
         policy_state = PolicyStateV1()
         # H8.C: deterministic mode => sin policy engine, sin retries/recovery, sin POLICY_HALT, stop inmediato en el primer error.
@@ -209,12 +219,41 @@ class ExecutorRuntimeH4:
             )
             manifest_path.write_text(json.dumps(manifest.model_dump(mode="json"), ensure_ascii=False, indent=2), encoding="utf-8")
 
+        def _write_run_finished_json(
+            path: Path,
+            run_id: str,
+            status: str,
+            started_at_val: Optional[str],
+            finished_at_val: Optional[str],
+            duration_ms_val: Optional[int],
+            error_val: Optional[str],
+            error_code_val: Optional[str],
+            retry_count_val: int,
+            recovery_count_val: int,
+            same_state_revisits_max_val: Optional[int],
+        ) -> None:
+            """Fix: Escribe run_finished.json con metadata completa del run."""
+            data = {
+                "run_id": run_id,
+                "status": status,
+                "started_at": started_at_val,
+                "finished_at": finished_at_val,
+                "duration_ms": duration_ms_val,
+                "last_error": error_code_val or error_val,
+                "counters": {
+                    "retries": retry_count_val,
+                    "recoveries": recovery_count_val,
+                    "same_state_revisits_max": same_state_revisits_max_val,
+                },
+            }
+            path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
         def emit_run_finished(status: str, reason: Optional[str] = None, error: Optional[str] = None, error_code_val: Optional[str] = None, state_after: Optional[StateSignatureV1] = None) -> None:
             """
             H8.E2: Helper centralizado para emitir run_finished con status final.
             Asegura que siempre se emite y que el status es consistente.
             """
-            nonlocal final_status, last_error, error_code
+            nonlocal final_status, last_error, error_code, finished_at, duration_ms
             # Actualizar variables globales
             final_status = status
             if error:
@@ -227,6 +266,15 @@ class ExecutorRuntimeH4:
                 # Permitir si hay reason (policy halt, etc.)
                 if not reason:
                     raise AssertionError(f"status='failed' but no error/error_code provided (reason={reason})")
+            
+            finished_at = datetime.now(timezone.utc).isoformat()
+            if started_at:
+                try:
+                    started_dt = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+                    finished_dt = datetime.fromisoformat(finished_at.replace("Z", "+00:00"))
+                    duration_ms = int((finished_dt - started_dt).total_seconds() * 1000)
+                except Exception:
+                    pass
             
             emit(
                 TraceEventV1(
@@ -243,6 +291,12 @@ class ExecutorRuntimeH4:
                         **({"error_code": error_code_val} if error_code_val else {}),
                     },
                 )
+            )
+            
+            # Fix: Escribir run_finished.json
+            _write_run_finished_json(
+                finished_path, run_id, status, started_at, finished_at, duration_ms,
+                error, error_code_val, retry_count, recovery_count, same_state_revisits_max
             )
 
         def emit_policy_halt(step_id: str, state_before: Optional[StateSignatureV1], reason: str, details: Dict[str, Any]) -> None:
@@ -273,6 +327,7 @@ class ExecutorRuntimeH4:
             emit_run_finished("halted", reason=f"policy_halt:{reason}", error="POLICY_HALT", error_code_val="POLICY_HALT", state_after=state_before)
             write_manifest()
 
+        started_at = datetime.now(timezone.utc).isoformat()
         emit(
             TraceEventV1(
                 run_id=run_id,
@@ -357,6 +412,9 @@ class ExecutorRuntimeH4:
                 before_key = _state_key(sig_b)
                 # registrar sin incrementar conteo por "before"; el conteo relevante es por after (progreso/no progreso)
                 seen_states.setdefault(before_key, 0)
+                current_revisit_count = seen_states.get(before_key, 0) or 1
+                if isinstance(current_revisit_count, int):
+                    same_state_revisits_max = max(same_state_revisits_max or 0, current_revisit_count)
                 emit(
                     TraceEventV1(
                         run_id=run_id,
@@ -369,7 +427,7 @@ class ExecutorRuntimeH4:
                             "policy": {
                                 "steps_taken": i,
                                 "hard_cap_steps": policy_defaults.hard_cap_steps,
-                                "same_state_revisit_count": seen_states.get(before_key, 0) or 1,
+                                "same_state_revisit_count": current_revisit_count,
                                 "same_state_revisit_threshold": policy_defaults.same_state_revisits,
                             },
                             "phase": "before",
@@ -820,14 +878,15 @@ class ExecutorRuntimeH4:
                         # recovery chain v1 (determinista)
                         rec_done = False
                         # 1) dismiss_overlay
+                        recovery_count += 1  # Fix: Contador para run_finished.json
                         emit(
                             TraceEventV1(
                                 run_id=run_id,
                                 seq=0,
                                 event_type=TraceEventTypeV1.recovery_started,
                                 step_id=step_id,
-                                state_signature_before=sig_b,
-                                state_signature_after=state_after,
+                                    state_signature_before=sig_b,
+                                    state_signature_after=state_after,
                                 metadata={"kind": "dismiss_overlay"},
                             )
                         )
@@ -850,6 +909,7 @@ class ExecutorRuntimeH4:
 
                         # 2) reload (once per run)
                         if not rec_done and policy_defaults.allow_reload_once and not reload_used:
+                            recovery_count += 1  # Fix: Contador para run_finished.json
                             emit(
                                 TraceEventV1(
                                     run_id=run_id,
@@ -887,6 +947,7 @@ class ExecutorRuntimeH4:
                         if not rec_done:
                             alt = (action.metadata or {}).get("alternative_targets")
                             if isinstance(alt, list) and alt:
+                                recovery_count += 1  # Fix: Contador para run_finished.json
                                 emit(
                                     TraceEventV1(
                                         run_id=run_id,
@@ -947,6 +1008,7 @@ class ExecutorRuntimeH4:
 
                     # retry path
                     attempt += 1
+                    retry_count += 1  # Fix: Contador para run_finished.json
                     backoff = policy_defaults.backoff_ms[min(attempt - 1, len(policy_defaults.backoff_ms) - 1)]
                     emit(
                         TraceEventV1(
