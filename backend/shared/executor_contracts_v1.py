@@ -32,6 +32,10 @@ class ExecutionModeV1(str, Enum):
     production = "production"
 
 
+# H8.C: Runtime execution mode (explore vs deterministic)
+RuntimeExecutionMode = Literal["explore", "deterministic"]
+
+
 class ErrorStageV1(str, Enum):
     proposal_validation = "proposal_validation"
     precondition = "precondition"

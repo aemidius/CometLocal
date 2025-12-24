@@ -231,7 +231,7 @@ def run_login_and_snapshot(
         execution_mode=execution_mode,
         secrets_store=secrets,
     )
-    run_dir = rt.run_actions(url=url, actions=actions, headless=headless, fail_fast=fail_fast)
+    run_dir = rt.run_actions(url=url, actions=actions, headless=headless, fail_fast=fail_fast, execution_mode="deterministic")
     return run_dir.name
 
 

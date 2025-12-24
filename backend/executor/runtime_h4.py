@@ -33,6 +33,7 @@ from backend.repository.document_repository_v1 import DocumentRepositoryV1
 from backend.repository.secrets_store_v1 import SecretsStoreV1
 from backend.shared.executor_contracts_v1 import (
     ExecutionModeV1,
+    RuntimeExecutionMode,
     ActionKindV1,
     ActionSpecV1,
     ConditionKindV1,
@@ -111,7 +112,7 @@ class ExecutorRuntimeH4:
             redaction_policy = RedactionPolicyV1(enabled=enabled, rules=["emails", "phone", "dni", "tokens"], mode=self.execution_mode)
         self.redaction_policy = redaction_policy
 
-    def run_actions(self, *, url: str, actions: List[ActionSpecV1], headless: bool = True, fail_fast: bool = False) -> Path:
+    def run_actions(self, *, url: str, actions: List[ActionSpecV1], headless: bool = True, fail_fast: bool = False, execution_mode: RuntimeExecutionMode = "explore") -> Path:
         run_id = f"r_{uuid.uuid4().hex}"
         run_dir = self.runs_root / run_id
         evidence_dir = run_dir / "evidence"
@@ -126,9 +127,11 @@ class ExecutorRuntimeH4:
         manifest_items: List[EvidenceItemV1] = []
 
         policy_state = PolicyStateV1()
+        # H8.C: deterministic mode => sin policy engine, sin retries/recovery, sin POLICY_HALT, stop inmediato en el primer error.
         # H8.B: fail-fast (login flows) => sin retries/recovery, caps estrictos, stop inmediato en el primer error.
+        is_deterministic = execution_mode == "deterministic"
         policy_defaults = self.policy
-        if fail_fast:
+        if is_deterministic or fail_fast:
             policy_defaults = RuntimePolicyDefaultsV1(
                 retries_per_action=0,
                 recovery_max=0,
@@ -244,6 +247,7 @@ class ExecutorRuntimeH4:
                 state_signature_after=None,
                 metadata={
                     "execution_mode": self.execution_mode.value,
+                    "runtime_execution_mode": execution_mode,
                     "domain_allowlist": self.domain_allowlist,
                     "policy": asdict(policy_defaults),
                     "fail_fast": bool(fail_fast),
@@ -287,6 +291,21 @@ class ExecutorRuntimeH4:
             # Step loop
             for i, action in enumerate(actions):
                 if i >= policy_defaults.hard_cap_steps:
+                    # H8.C: deterministic mode nunca emite POLICY_HALT, solo FAILED
+                    if is_deterministic:
+                        emit(
+                            TraceEventV1(
+                                run_id=run_id,
+                                seq=0,
+                                event_type=TraceEventTypeV1.run_finished,
+                                step_id=None,
+                                state_signature_before=None,
+                                state_signature_after=current_sig,
+                                metadata={"status": "failed", "reason": "hard_cap_steps"},
+                            )
+                        )
+                        write_manifest()
+                        return run_dir
                     emit_policy_halt(f"step_{i:03d}", current_sig, "hard_cap_steps", {"hard_cap_steps": policy_defaults.hard_cap_steps})
                     return run_dir
 
@@ -761,8 +780,9 @@ class ExecutorRuntimeH4:
                             pass
                         add_evidence(step_id, sig_b, state_after, extra)
 
+                    # H8.C: deterministic mode => primer error termina el run como failed (sin retries/recovery/policy_halt)
                     # H8.B: fail_fast => primer error termina el run como failed (sin retries/recovery/policy_halt)
-                    if fail_fast:
+                    if is_deterministic or fail_fast:
                         emit(
                             TraceEventV1(
                                 run_id=run_id,
@@ -771,7 +791,7 @@ class ExecutorRuntimeH4:
                                 step_id=None,
                                 state_signature_before=None,
                                 state_signature_after=sig_b,
-                                metadata={"status": "failed", "fail_fast": True},
+                                metadata={"status": "failed", "fail_fast": fail_fast, "deterministic": is_deterministic},
                             )
                         )
                         write_manifest()
@@ -781,6 +801,21 @@ class ExecutorRuntimeH4:
                     if attempt >= policy_defaults.retries_per_action:
                         # try recovery if available
                         if policy_state.recovery_used >= policy_defaults.recovery_max:
+                            # H8.C: deterministic mode nunca emite POLICY_HALT, solo FAILED
+                            if is_deterministic:
+                                emit(
+                                    TraceEventV1(
+                                        run_id=run_id,
+                                        seq=0,
+                                        event_type=TraceEventTypeV1.run_finished,
+                                        step_id=None,
+                                        state_signature_before=None,
+                                        state_signature_after=sig_b,
+                                        metadata={"status": "failed", "reason": "recovery_limit"},
+                                    )
+                                )
+                                write_manifest()
+                                return run_dir
                             emit_policy_halt(step_id, sig_b, "recovery_limit", {"recovery_used": policy_state.recovery_used, "recovery_max": policy_defaults.recovery_max})
                             return run_dir
 
@@ -888,6 +923,21 @@ class ExecutorRuntimeH4:
                                     rec_done = True
 
                         if not rec_done:
+                            # H8.C: deterministic mode nunca emite POLICY_HALT, solo FAILED
+                            if is_deterministic:
+                                emit(
+                                    TraceEventV1(
+                                        run_id=run_id,
+                                        seq=0,
+                                        event_type=TraceEventTypeV1.run_finished,
+                                        step_id=None,
+                                        state_signature_before=None,
+                                        state_signature_after=sig_b,
+                                        metadata={"status": "failed", "reason": "recovery_exhausted"},
+                                    )
+                                )
+                                write_manifest()
+                                return run_dir
                             emit_policy_halt(step_id, sig_b, "recovery_exhausted", {"attempt": attempt})
                             return run_dir
 
@@ -964,6 +1014,21 @@ class ExecutorRuntimeH4:
                     last_state_keys = last_state_keys[-5:]
 
                 if seen_states[after_key] > policy_defaults.same_state_revisits:
+                    # H8.C: deterministic mode nunca emite POLICY_HALT, solo FAILED
+                    if is_deterministic:
+                        emit(
+                            TraceEventV1(
+                                run_id=run_id,
+                                seq=0,
+                                event_type=TraceEventTypeV1.run_finished,
+                                step_id=None,
+                                state_signature_before=None,
+                                state_signature_after=current_sig,
+                                metadata={"status": "failed", "reason": "same_state_revisit"},
+                            )
+                        )
+                        write_manifest()
+                        return run_dir
                     emit_policy_halt(step_id, current_sig, "same_state_revisit", {"count": seen_states[after_key], "threshold": policy_defaults.same_state_revisits, "state_key": after_key})
                     return run_dir
 
