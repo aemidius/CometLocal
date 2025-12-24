@@ -378,9 +378,19 @@ class ExecutorRuntimeH4:
 
             current_sig: StateSignatureV1 = s0
             last_state_keys = [_state_key(s0)]
+            
+            # Fix: Flag para rastrear si el run ya terminó exitosamente
+            run_completed_successfully = False
 
             # Step loop
             for i, action in enumerate(actions):
+                # Fix: Policy guard - no evaluar hard_cap_steps si el run ya terminó exitosamente
+                if run_completed_successfully:
+                    final_status = "success"
+                    emit_run_finished("success", reason="POSTCONDITIONS_OK", state_after=current_sig)
+                    write_manifest()
+                    return run_dir
+                
                 if i >= policy_defaults.hard_cap_steps:
                     # H8.C: deterministic mode nunca emite POLICY_HALT, solo FAILED
                     if is_deterministic:
@@ -779,7 +789,17 @@ class ExecutorRuntimeH4:
                             )
                             post_ok = post_ok and ass_ok
                         if post_ok:
+                            # Fix: Si las postcondiciones se cumplen, actualizar estado y continuar
                             current_sig = sig_a
+                            # Si es la última acción, terminar inmediatamente como SUCCESS
+                            if i == len(actions) - 1:
+                                # Última acción completada exitosamente - terminar inmediatamente
+                                final_status = "success"
+                                run_completed_successfully = True
+                                emit_run_finished("success", reason="POSTCONDITIONS_OK", state_after=current_sig)
+                                write_manifest()
+                                return run_dir
+                            # Si no es la última acción, continuar con la siguiente (break del loop de attempts)
                             break
                         # Heurística determinista para AUTH_FAILED:
                         # - Si falla un url_matches y la URL actual contiene "login", AUTH_FAILED.
@@ -1049,6 +1069,14 @@ class ExecutorRuntimeH4:
                     )
                     continue
 
+                # Fix: Policy guard - no evaluar políticas si el run ya terminó exitosamente
+                if run_completed_successfully:
+                    # Si el run ya completó exitosamente, terminar inmediatamente
+                    final_status = "success"
+                    emit_run_finished("success", reason="POSTCONDITIONS_OK", state_after=current_sig)
+                    write_manifest()
+                    return run_dir
+                
                 # update same-state revisit after action
                 after_key = _state_key(current_sig)
                 # criterio v1: se incrementa si after==before o coincide con uno reciente
