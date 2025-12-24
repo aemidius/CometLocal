@@ -8,6 +8,10 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.adapters.egestiona.profile import EgestionaProfileV1
 from backend.adapters.egestiona.targets import build_targets_from_selectors
+
+# H8.D: Selector post-login definitivo (nav lateral con "Inicio")
+# Fallback al default legacy si no está en config
+POST_LOGIN_SELECTOR_DEFAULT = EgestionaProfileV1().POST_LOGIN_SELECTOR
 from backend.executor.runtime_h4 import ExecutorRuntimeH4
 from backend.repository.config_store_v1 import ConfigStoreV1
 from backend.repository.data_bootstrap_v1 import ensure_data_layout
@@ -183,8 +187,8 @@ def run_login_and_snapshot(
         )
     )
 
-    # H8.B: post-login condition REAL (estable y fuerte).
-    # Debe ser visible un elemento inequívoco de logout para considerar SUCCESS.
+    # H8.D: post-login condition REAL (estable y fuerte).
+    # Debe ser visible un elemento inequívoco del dashboard (nav lateral con "Inicio") para considerar SUCCESS.
     post_login_strict = TargetV1(type=TargetKindV1.css, selector=POST_LOGIN_SELECTOR_DEFAULT)
     actions.append(
         ActionSpecV1(
