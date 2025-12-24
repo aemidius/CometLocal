@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import html
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -50,6 +51,8 @@ from backend.shared.executor_contracts_v1 import (
 from backend.shared.org_v1 import OrgV1
 from backend.shared.people_v1 import PeopleV1, PersonV1
 from backend.shared.platforms_v1 import CoordinationV1, LoginFieldsV1, PlatformV1, PlatformsV1, SelectorSpecV1
+
+logger = logging.getLogger(__name__)
 
 
 def _page(title: str, body_html: str) -> str:
@@ -539,6 +542,22 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
             )
         except ValueError as e:
             msg = str(e)
+            # Debug antes de responder 400: imprimir qué se leyó realmente del ConfigStore.
+            if "Missing required selectors" in msg or "selectors" in msg:
+                plat, coord = _pick_platform_and_coord(platforms, "Kern")
+                payload = {
+                    "platform_key": "egestiona",
+                    "platform_found": bool(plat),
+                    "coord_label": "Kern",
+                    "coord_found": bool(coord),
+                    "platform": plat.model_dump(mode="json") if plat else None,
+                    "login_fields": (plat.login_fields.model_dump(mode="json") if plat else None),
+                    "coordination": (coord.model_dump(mode="json") if coord else None),
+                }
+                try:
+                    logger.warning("egestiona_config_debug=%s", json.dumps(payload, ensure_ascii=False))
+                except Exception:
+                    print("egestiona_config_debug=", payload)
             if "post_login_selector" in msg:
                 raise HTTPException(status_code=400, detail="Define post_login_selector")
             raise HTTPException(status_code=400, detail=msg)

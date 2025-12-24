@@ -21,6 +21,7 @@ from backend.shared.executor_contracts_v1 import (
     TargetKindV1,
     TargetV1,
 )
+from backend.shared.platforms_v1 import SelectorSpecV1
 
 
 def run_login_and_snapshot(
@@ -53,6 +54,26 @@ def run_login_and_snapshot(
 
     # URL: override > platform.base_url > default
     url = coord.url_override or plat.base_url or EgestionaProfileV1().default_base_url
+
+    # FIX H8.A2+: si faltan selectors, autocompletar defaults estables y (opcional) persistir.
+    autofilled = False
+    lf = plat.login_fields
+    if lf.client_code_selector is None:
+        lf.client_code_selector = SelectorSpecV1(kind="css", value="input[name='ClientName']")
+        autofilled = True
+    if lf.username_selector is None:
+        lf.username_selector = SelectorSpecV1(kind="css", value="input[name='Username']")
+        autofilled = True
+    if lf.password_selector is None:
+        lf.password_selector = SelectorSpecV1(kind="css", value="input[name='Password']")
+        autofilled = True
+    if lf.submit_selector is None:
+        lf.submit_selector = SelectorSpecV1(kind="css", value="button[type='submit']")
+        autofilled = True
+
+    if autofilled:
+        # write-back para evitar 400 permanente y dejar config estable
+        store.save_platforms(platforms)
 
     targets = build_targets_from_selectors(
         client_code_selector=plat.login_fields.client_code_selector,
