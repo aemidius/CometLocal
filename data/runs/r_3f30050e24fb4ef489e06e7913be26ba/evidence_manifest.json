@@ -1,0 +1,128 @@
+{
+  "schema_version": "v1",
+  "run_id": "r_3f30050e24fb4ef489e06e7913be26ba",
+  "created_at_utc": "2025-12-24T10:42:36.357310+00:00",
+  "policy": {
+    "always": [
+      "dom_snapshot_partial"
+    ],
+    "on_failure_or_critical": [
+      "html_full",
+      "screenshot"
+    ],
+    "training_capture_html_every_n_steps": null,
+    "training_capture_screenshot_every_n_steps": null
+  },
+  "redaction": {
+    "enabled": true,
+    "rules": [
+      "emails",
+      "phone",
+      "dni",
+      "tokens"
+    ],
+    "mode": "training"
+  },
+  "items": [
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_init_before.json",
+      "sha256": "a9d02b8b73269fa17cf3f1dff2f2eeab1cf49d43e5de1490ad5bb220ac9b737a",
+      "size_bytes": 2597,
+      "step_id": "step_init",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_init_before.sha256",
+      "sha256": "d4f19cb121554c097cf5b8090c6cfcd63aae7eacb48324b3aa7359084b47b8e3",
+      "size_bytes": 73,
+      "step_id": "step_init",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_000_before.json",
+      "sha256": "5d6b35de5a569d0626443f6fb4e369c5d5a037fb3fbe8e82c91cffa7039d93fc",
+      "size_bytes": 2597,
+      "step_id": "step_000",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_000_before.sha256",
+      "sha256": "d4f19cb121554c097cf5b8090c6cfcd63aae7eacb48324b3aa7359084b47b8e3",
+      "size_bytes": 73,
+      "step_id": "step_000",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_000_after.json",
+      "sha256": "a13ead5ebb274cf1695692c4467f3b52ede85598a2650c412f295d2c2100a32c",
+      "size_bytes": 2597,
+      "step_id": "step_000",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_000_after.sha256",
+      "sha256": "d4f19cb121554c097cf5b8090c6cfcd63aae7eacb48324b3aa7359084b47b8e3",
+      "size_bytes": 73,
+      "step_id": "step_000",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "html_full",
+      "relative_path": "evidence/html/step_000_after.html",
+      "sha256": "3c9a82c1af9dd0aa6d49418b6c44d352b6d74f2cf7e0f56bd4918d403a4a3076",
+      "size_bytes": 3450,
+      "step_id": "step_000",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/html",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot",
+      "relative_path": "evidence/shots/step_000_after.png",
+      "sha256": "3f6a744a155e3dd648481e3d6142d499a2df7e17a49eb53fd8cd17ae458c5c1a",
+      "size_bytes": 162220,
+      "step_id": "step_000",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "image/png",
+      "metadata": {}
+    }
+  ],
+  "redaction_report": {
+    "token": 113,
+    "text_redactions": 112,
+    "email": 11,
+    "sensitive_key": 4,
+    "phone": 2
+  },
+  "metadata": {
+    "execution_mode": "training",
+    "redaction_enabled": true,
+    "inputs_used": []
+  }
+}

@@ -175,3 +175,5 @@ Política v1 (resumen):
 8) **Compat API**: mapear `ExecutorError` tipado a `StepResult.error` solo como compat/debug (sin perder tipado interno).
 
 
+
+

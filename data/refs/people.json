@@ -1,0 +1,12 @@
+{
+  "schema_version": "v1",
+  "people": [
+    {
+      "worker_id": "emilio",
+      "full_name": "Emilio Roldán Molina",
+      "tax_id": "37330395S",
+      "role": "Ingeniero",
+      "relation_type": "socio_autonomo"
+    }
+  ]
+}

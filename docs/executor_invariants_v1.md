@@ -151,3 +151,5 @@ Ver I8.
 - `docs/error_codes_v1.md`: catálogo inicial de error_code
 
 
+
+

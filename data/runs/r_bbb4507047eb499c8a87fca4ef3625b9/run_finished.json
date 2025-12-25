@@ -1,0 +1,13 @@
+{
+  "run_id": "r_bbb4507047eb499c8a87fca4ef3625b9",
+  "status": "failed",
+  "started_at": "2025-12-24T09:53:24.698540+00:00",
+  "finished_at": "2025-12-24T09:53:31.522425+00:00",
+  "duration_ms": 6823,
+  "last_error": "SAME_STATE_REVISIT",
+  "counters": {
+    "retries": 0,
+    "recoveries": 0,
+    "same_state_revisits_max": 1
+  }
+}

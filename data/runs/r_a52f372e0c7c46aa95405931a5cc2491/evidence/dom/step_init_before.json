@@ -1,0 +1,14 @@
+{
+  "schema_version": "v1",
+  "url": "about:blank",
+  "title": "",
+  "captured_at": "2025-12-23T21:17:08.740528+00:00",
+  "targets": [],
+  "visible_anchors": [],
+  "visible_inputs": [],
+  "visible_buttons": [],
+  "truncated": false,
+  "metadata": {
+    "source": "playwright"
+  }
+}

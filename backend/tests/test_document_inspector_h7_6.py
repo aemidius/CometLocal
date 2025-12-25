@@ -157,3 +157,5 @@ def test_inspect_no_text_returns_document_no_text(tmp_path: Path):
     assert any(e.get("error_code") == "DOCUMENT_NO_TEXT" for e in report.errors)
 
 
+
+

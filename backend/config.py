@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 # Defaults apuntando a LM Studio local
 LLM_API_BASE = os.getenv("LLM_API_BASE", "http://127.0.0.1:1234/v1")
@@ -23,7 +24,14 @@ DOCUMENT_REPOSITORY_BASE_DIR = os.getenv("CAE_DOCS_BASE_DIR", os.path.join(os.pa
 # v3.0.0: Configuración para ejecución batch
 ENABLE_BATCH_PERSISTENCE = os.getenv("ENABLE_BATCH_PERSISTENCE", "true").lower() == "true"
 # H7.8: unificar artefactos locales bajo data/
-BATCH_RUNS_DIR = os.getenv("BATCH_RUNS_DIR", "data/runs")
+# Fix: data_dir absoluto y estable (COMETLOCAL_DATA_DIR o <repo_root>/data)
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+COMETLOCAL_DATA_DIR = os.getenv("COMETLOCAL_DATA_DIR")
+if COMETLOCAL_DATA_DIR:
+    DATA_DIR = Path(COMETLOCAL_DATA_DIR).resolve()
+else:
+    DATA_DIR = _REPO_ROOT / "data"
+BATCH_RUNS_DIR = os.getenv("BATCH_RUNS_DIR", str(DATA_DIR / "runs"))
 
 # v3.3.0: Configuración para OCR/visión
 VISION_OCR_ENABLED = os.getenv("VISION_OCR_ENABLED", "true").lower() == "true"

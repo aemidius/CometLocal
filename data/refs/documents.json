@@ -1,0 +1,30 @@
+{
+  "schema_version": "v1",
+  "documents": {
+    "doc:company:demo:company_docs:samples:dummy": {
+      "file_ref": "doc:company:demo:company_docs:samples:dummy",
+      "doc_type": "test_document",
+      "path": "data/documents/companies/demo/company_docs/samples/dummy.pdf",
+      "sha256": "266e21b88fae99da3f4828058650713e4db2d2136bdf68437a0184b8203a7062",
+      "mime_type": "application/pdf",
+      "size_bytes": 105,
+      "created_at": "2025-12-25T15:43:26.983450+00:00",
+      "issuer": null,
+      "issue_date": null,
+      "valid_until": null,
+      "company_id": "demo",
+      "worker_id": null,
+      "tags": [
+        "egestiona_upload_test"
+      ],
+      "expected_criteria_profile": null,
+      "inspection": {
+        "status": "not_inspected",
+        "last_inspected_at": null,
+        "report_ref": null,
+        "doc_hash": null
+      },
+      "metadata": {}
+    }
+  }
+}

@@ -37,3 +37,5 @@ def test_inspector_returns_parse_failed_when_pypdf_missing(monkeypatch, tmp_path
     assert report.errors[0]["message"] == "pypdf not installed"
 
 
+
+

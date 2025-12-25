@@ -1,0 +1,41 @@
+{
+  "schema_version": "v1",
+  "platforms": [
+    {
+      "key": "egestiona",
+      "base_url": "https://coordinate.egestiona.es/login?origen=subcontrata",
+      "login_fields": {
+        "requires_client": true,
+        "client_input": {
+          "kind": "css",
+          "value": "input[name='ClientName']"
+        },
+        "user_input": {
+          "kind": "css",
+          "value": "input[name='Username']"
+        },
+        "pass_input": {
+          "kind": "css",
+          "value": "input[name='Password']"
+        },
+        "submit_btn": {
+          "kind": "css",
+          "value": "button[type='submit']"
+        }
+      },
+      "coordinations": [
+        {
+          "label": "Kern",
+          "client_code": "GRUPO_INDUKERN",
+          "username": "F63161988",
+          "password_ref": "secret:egestiona:kern:password",
+          "url_override": null,
+          "post_login_check": {
+            "kind": "css",
+            "value": "text=Desconectar"
+          }
+        }
+      ]
+    }
+  ]
+}

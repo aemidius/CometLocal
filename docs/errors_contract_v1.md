@@ -171,3 +171,5 @@ Notas:
   - `details.auth_signal` (ej. texto “credenciales incorrectas”, redirect login, 401 detectado)
 
 
+
+

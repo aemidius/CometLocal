@@ -1,0 +1,114 @@
+{
+  "schema_version": "v1",
+  "url": "https://coordinate.egestiona.es/login?origen=subcontrata",
+  "title": "...::: eGestiona. Gestión Integral del Conocimiento Empresarial. Coordinación, medioambiente, calidad, RRHH, gestión documental :::....",
+  "captured_at": "2025-12-24T08:29:22.251833+00:00",
+  "targets": [],
+  "visible_anchors": [
+    {
+      "text": "Español",
+      "href": "#",
+      "selector": "#_r_1_",
+      "attrs": {
+        "id": "_r_1_",
+        "role": "button",
+        "href": "#"
+      }
+    },
+    {
+      "text": "",
+      "href": "/",
+      "selector": null,
+      "attrs": {
+        "href": "/"
+      }
+    },
+    {
+      "text": "¿Has olvidado tu contraseña?",
+      "href": "/login/forgot-password?origen=subcontrata",
+      "selector": null,
+      "attrs": {
+        "href": "/login/forgot-password?origen=subcontrata"
+      }
+    },
+    {
+      "text": "https://egestiona.com",
+      "href": "https://egestiona.com",
+      "selector": null,
+      "attrs": {
+        "href": "https://egestiona.com"
+      }
+    },
+    {
+      "text": "***",
+      "href": "mailto:***",
+      "selector": null,
+      "attrs": {
+        "href": "mailto:***"
+      }
+    }
+  ],
+  "visible_inputs": [
+    {
+      "selector": "#_r_2_",
+      "input_type": "text",
+      "name": "ClientName",
+      "label": null,
+      "value_redacted": null,
+      "attrs": {
+        "id": "_r_2_",
+        "name": "ClientName",
+        "type": "text",
+        "placeholder": "Introduzca su cliente"
+      }
+    },
+    {
+      "selector": "#_r_4_",
+      "input_type": "text",
+      "name": "Username",
+      "label": null,
+      "value_redacted": null,
+      "attrs": {
+        "id": "_r_4_",
+        "name": "Username",
+        "type": "text",
+        "placeholder": "Introduzca su usuario"
+      }
+    },
+    {
+      "selector": "#_r_6_",
+      "input_type": "password",
+      "name": "Password",
+      "label": null,
+      "value_redacted": null,
+      "attrs": {
+        "id": "_r_6_",
+        "name": "Password",
+        "type": "password",
+        "placeholder": "Introduzca su contraseña"
+      }
+    }
+  ],
+  "visible_buttons": [
+    {
+      "text": "Español",
+      "selector": "#_r_1_",
+      "attrs": {
+        "id": "_r_1_",
+        "role": "button",
+        "href": "#"
+      }
+    },
+    {
+      "text": "Login",
+      "selector": null,
+      "attrs": {
+        "type": "submit"
+      }
+    }
+  ],
+  "truncated": false,
+  "metadata": {
+    "source": "playwright"
+  }
+}

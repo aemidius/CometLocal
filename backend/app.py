@@ -39,7 +39,8 @@ from backend.adapters.egestiona.flows import router as egestiona_router
 # Constantes de rutas
 BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
-DATA_DIR = BASE_DIR / "data"
+# Fix: usar DATA_DIR desde config.py (absoluto y estable)
+from backend.config import DATA_DIR
 
 app = FastAPI(title="CometLocal Backend")
 
@@ -94,10 +95,11 @@ async def startup_event():
     people_p = data_dir / "refs" / "people.json"
     platforms_p = data_dir / "refs" / "platforms.json"
     secrets_p = data_dir / "refs" / "secrets.json"
+    documents_p = data_dir / "refs" / "documents.json"
     print(
-        "Config files present: "
-        f"org={org_p.exists()} people={people_p.exists()} "
-        f"platforms={platforms_p.exists()} secrets={secrets_p.exists()}"
+        "Config paths: "
+        f"org={org_p} people={people_p} "
+        f"platforms={platforms_p} secrets={secrets_p} documents={documents_p}"
     )
     # NO arrancamos Playwright/Chromium al startup - solo cuando el executor lo necesite
     
