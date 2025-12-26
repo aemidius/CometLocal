@@ -1418,3 +1418,683 @@ def run_discovery_pending_table_headful(
 
     return run_id
 
+
+def run_open_pending_document_details_readonly_headful(
+    *,
+    base_dir: str | Path = "data",
+    platform: str = "egestiona",
+    coordination: str = "Kern",
+    slow_mo_ms: int = 300,
+    viewport: Optional[Dict[str, int]] = None,
+    wait_after_login_s: float = 2.5,
+) -> str:
+    """
+    HEADFUL / READ-ONLY:
+    - Login
+    - Click Gestion(3) (Enviar Doc. Pendiente)
+    - Cargar grid DHTMLX en frame f3 (o buscador.asp?Apartado_ID=3)
+    - Encontrar EXACTAMENTE 1 fila filtrada (TEDELAB + Emilio)
+    - Click acción de detalle/gestión de ESA fila (solo esa)
+    - Esperar detalle (modal o navegación) y validar scope (empresa/trabajador visibles)
+    - Evidence PNG + dump de texto visible del detalle
+    """
+    base = ensure_data_layout(base_dir=base_dir)
+    store = ConfigStoreV1(base_dir=base)
+    secrets = SecretsStoreV1(base_dir=base)
+
+    platforms = store.load_platforms()
+    plat = next((p for p in platforms.platforms if p.key == platform), None)
+    if not plat:
+        raise ValueError(f"platform not found: {platform}")
+    coord = next((c for c in plat.coordinations if c.label == coordination), None)
+    if not coord:
+        raise ValueError(f"coordination not found: {coordination}")
+
+    client_code = (coord.client_code or "").strip()
+    username = (coord.username or "").strip()
+    password_ref = (coord.password_ref or "").strip()
+    password = secrets.get_secret(password_ref) if password_ref else None
+    if not client_code or not username or not password:
+        raise ValueError("Missing credentials: client_code/username/password_ref")
+
+    run_id = f"r_{uuid.uuid4().hex}"
+    run_dir = Path(base) / "runs" / run_id
+    evidence_dir = run_dir / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+
+    # Evidence paths (requeridos)
+    shot_01 = evidence_dir / "01_dashboard_tiles.png"
+    shot_02 = evidence_dir / "02_listado_grid.png"
+    shot_03 = evidence_dir / "03_row_highlight.png"
+    shot_04 = evidence_dir / "04_after_click_detail.png"
+    detail_txt_path = evidence_dir / "detail_text_dump.txt"
+    meta_path = evidence_dir / "meta.json"
+
+    started = time.time()
+
+    # Playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception as e:
+        raise RuntimeError("Playwright sync_api not available") from e
+
+    def _strip_accents(s: str) -> str:
+        repl = str.maketrans(
+            {
+                "á": "a",
+                "é": "e",
+                "í": "i",
+                "ó": "o",
+                "ú": "u",
+                "ü": "u",
+                "ñ": "n",
+                "Á": "A",
+                "É": "E",
+                "Í": "I",
+                "Ó": "O",
+                "Ú": "U",
+                "Ü": "U",
+                "Ñ": "N",
+            }
+        )
+        return (s or "").translate(repl)
+
+    def _canon(s: str) -> str:
+        s2 = _strip_accents((s or "").strip()).upper()
+        out = []
+        for ch in s2:
+            if ch.isalnum() or ch.isspace():
+                out.append(ch)
+            else:
+                out.append(" ")
+        return " ".join("".join(out).split())
+
+    def _levenshtein_leq_1(a: str, b: str) -> bool:
+        if a == b:
+            return True
+        la, lb = len(a), len(b)
+        if abs(la - lb) > 1:
+            return False
+        i = j = 0
+        edits = 0
+        while i < la and j < lb:
+            if a[i] == b[j]:
+                i += 1
+                j += 1
+                continue
+            edits += 1
+            if edits > 1:
+                return False
+            if la == lb:
+                i += 1
+                j += 1
+            elif la > lb:
+                i += 1
+            else:
+                j += 1
+        if i < la or j < lb:
+            edits += 1
+        return edits <= 1
+
+    company_target = "TEDELAB INGENIERIA SCCL"
+    worker_target = "Emilio Roldán Molina"
+    worker_dni = "37330395"
+
+    def _norm_company(v: str) -> str:
+        s = (v or "").strip()
+        if " (" in s:
+            s = s.split(" (", 1)[0].strip()
+        return s
+
+    def _match_company(cell: str) -> bool:
+        a = _canon(_norm_company(cell))
+        b = _canon(company_target)
+        return _levenshtein_leq_1(a, b)
+
+    def _match_worker(cell: str) -> bool:
+        a = _canon(cell)
+        toks = [t for t in _canon(worker_target).split(" ") if t]
+        return all(t in a for t in toks) or (worker_dni in a)
+
+    click_strategy: Dict[str, Any] = {}
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False, slow_mo=slow_mo_ms)
+        context = browser.new_context(viewport=viewport or {"width": 1600, "height": 1000})
+        page = context.new_page()
+
+        # 1) Login con URL exacta anterior
+        page.goto(LOGIN_URL_PREVIOUS_SUCCESS, wait_until="domcontentloaded", timeout=60000)
+        page.locator('input[name="ClientName"]').fill(client_code, timeout=20000)
+        page.locator('input[name="Username"]').fill(username, timeout=20000)
+        page.locator('input[name="Password"]').fill(password, timeout=20000)
+        page.locator('button[type="submit"]').click(timeout=20000)
+
+        # 2) Esperar post-login: default_contenido.asp + frame nm_contenido (tiles)
+        page.wait_for_url("**/default_contenido.asp", timeout=30000)
+        try:
+            page.wait_for_load_state("networkidle", timeout=25000)
+        except Exception:
+            pass
+        time.sleep(wait_after_login_s)
+
+        frame_dashboard = page.frame(name="nm_contenido")
+        if not frame_dashboard:
+            page.screenshot(path=str(shot_01), full_page=True)
+            raise RuntimeError("FRAME_NOT_FOUND: nm_contenido")
+
+        # Evidence 01
+        page.screenshot(path=str(shot_01), full_page=True)
+
+        # 3) Click tile Gestion(3)
+        tile_sel = 'a.listado_link[href="javascript:Gestion(3);"]'
+        frame_dashboard.locator(tile_sel).first.wait_for(state="visible", timeout=20000)
+        frame_dashboard.locator(tile_sel).first.click(timeout=20000)
+
+        # Helpers to locate list frame
+        def _find_list_frame() -> Any:
+            fr = page.frame(name="f3")
+            if fr:
+                return fr
+            for fr2 in page.frames:
+                u = (fr2.url or "").lower()
+                if ("buscador.asp" in u) and ("apartado_id=3" in u):
+                    return fr2
+            return None
+
+        def _frame_has_grid(fr) -> bool:
+            try:
+                return fr.locator("table.obj.row20px").count() > 0 and fr.locator("table.hdr").count() > 0
+            except Exception:
+                return False
+
+        # Espera list frame + grid
+        list_frame = None
+        t_deadline = time.time() + 15.0
+        while time.time() < t_deadline:
+            list_frame = _find_list_frame()
+            if list_frame and _frame_has_grid(list_frame):
+                break
+            time.sleep(0.25)
+
+        # Si aún no aparece, suele requerir "Buscar" (read-only) para renderizar el grid
+        if not (list_frame and _frame_has_grid(list_frame)):
+            try:
+                # Buscar botón "Buscar" en cualquier frame visible (sin tocar filtros)
+                clicked = False
+                for fr in page.frames:
+                    try:
+                        btn = fr.get_by_text("Buscar", exact=True)
+                        if btn.count() > 0:
+                            btn.first.click(timeout=10000)
+                            clicked = True
+                            break
+                    except Exception:
+                        continue
+                if not clicked and frame_dashboard:
+                    btn = frame_dashboard.get_by_text("Buscar", exact=True)
+                    if btn.count() > 0:
+                        btn.first.click(timeout=10000)
+            except Exception:
+                pass
+            t_deadline = time.time() + 20.0
+            while time.time() < t_deadline:
+                list_frame = _find_list_frame()
+                if list_frame and _frame_has_grid(list_frame):
+                    break
+                time.sleep(0.25)
+
+        if not (list_frame and _frame_has_grid(list_frame)):
+            page.screenshot(path=str(shot_02), full_page=True)
+            raise RuntimeError("GRID_NOT_FOUND: expected frame f3/buscador.asp?Apartado_ID=3 with table.hdr + table.obj.row20px")
+
+        # Espera robusta a que el grid tenga filas (evitar capturar mientras Loading.../0 registros)
+        def _grid_rows_ready(fr) -> bool:
+            try:
+                return bool(
+                    fr.evaluate(
+                        """() => {
+  const obj = document.querySelector('table.obj.row20px');
+  if(!obj) return false;
+  const loading = Array.from(document.querySelectorAll('*')).some(el => {
+    const t = (el.innerText||'').trim();
+    return t === 'Loading...' && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
+  });
+  if(loading) return false;
+  const trs = Array.from(obj.querySelectorAll('tr'));
+  // count rows that have at least one non-empty td text
+  let cnt = 0;
+  for(const tr of trs){
+    const tds = Array.from(tr.querySelectorAll('td'));
+    if(!tds.length) continue;
+    const any = tds.some(td => ((td.innerText||'').replace(/\\s+/g,' ').trim()).length > 0);
+    if(any) cnt++;
+  }
+  // also accept if UI label "X Registros" indicates >0
+  const reg = (document.body ? (document.body.innerText||'') : '');
+  const m = reg.match(/\\b(\\d+)\\s+Registros\\b/i);
+  const regN = m ? parseInt(m[1],10) : 0;
+  return cnt > 0 || regN > 0;
+}"""
+                    )
+                )
+            except Exception:
+                return False
+
+        t_deadline = time.time() + 20.0
+        while time.time() < t_deadline:
+            if _grid_rows_ready(list_frame):
+                break
+            time.sleep(0.25)
+
+        # Evidence 02: grid visible (después de cargar filas)
+        try:
+            list_frame.locator("body").screenshot(path=str(shot_02))
+        except Exception:
+            page.screenshot(path=str(shot_02), full_page=True)
+
+        # 4) Extraer rows + identificar la fila filtrada exacta (must be exactly 1)
+        extraction = list_frame.evaluate(
+            """() => {
+  function norm(s){ return (s||'').replace(/\\s+/g,' ').trim(); }
+  function headersFromHdrTable(hdr){
+    const cells = Array.from(hdr.querySelectorAll('tr:nth-of-type(2) td'));
+    if(cells.length){
+      return cells.map(td => {
+        const span = td.querySelector('.hdrcell span');
+        return span ? norm(span.innerText) : norm(td.innerText);
+      });
+    }
+    return Array.from(hdr.querySelectorAll('.hdrcell span')).map(s => norm(s.innerText));
+  }
+  function scoreHdr(hdr){
+    const hs = headersFromHdrTable(hdr);
+    const nonEmpty = hs.filter(Boolean).length;
+    return nonEmpty * 100 + norm(hdr.innerText).length;
+  }
+  function extractRowsFromObjTable(tbl, headers){
+    const trs = Array.from(tbl.querySelectorAll('tr'));
+    const rows = [];
+    for(const tr of trs){
+      const tds = Array.from(tr.querySelectorAll('td'));
+      if(!tds.length) continue;
+      const cells = tds.map(td => norm(td.innerText));
+      if(!cells.some(x => x)) continue;
+      const mapped = {};
+      for(let i=0;i<cells.length;i++){
+        const k = (i < headers.length && headers[i]) ? headers[i] : `col_${i+1}`;
+        mapped[k] = cells[i] || '';
+      }
+      rows.push({ mapped, raw_cells: cells });
+    }
+    return rows;
+  }
+  const hdrTables = Array.from(document.querySelectorAll('table.hdr'));
+  const objTables = Array.from(document.querySelectorAll('table.obj.row20px'));
+  if(!hdrTables.length || !objTables.length) return { headers: [], rows: [], row_dom_index: null, debug: {hdr_tables: hdrTables.length, obj_tables: objTables.length} };
+  hdrTables.sort((a,b) => scoreHdr(b) - scoreHdr(a));
+  const bestHdr = hdrTables[0];
+  const headers = headersFromHdrTable(bestHdr);
+
+  // select best obj table (max rows)
+  let best = { tbl: null, rows: [] };
+  for(const t of objTables){
+    const rs = extractRowsFromObjTable(t, headers);
+    if(rs.length > best.rows.length){
+      best = { tbl: t, rows: rs };
+    }
+  }
+  return { headers, rows: best.rows, debug: {hdr_tables: hdrTables.length, obj_tables: objTables.length} };
+}"""
+        )
+
+        headers = extraction.get("headers") or []
+        rows_wrapped = extraction.get("rows") or []
+
+        # Build python rows + keep visible index
+        visible_rows: List[Dict[str, Any]] = []
+        for idx, rw in enumerate(rows_wrapped):
+            mapped = rw.get("mapped") or {}
+            mapped["raw_cells"] = rw.get("raw_cells") or []
+            mapped["_visible_index"] = idx
+            visible_rows.append(mapped)
+
+        def _row_matches(r: Dict[str, Any]) -> bool:
+            empresa_raw = str(r.get("Empresa") or r.get("empresa") or "")
+            elemento_raw = str(r.get("Elemento") or r.get("elemento") or "")
+            vals = " | ".join(str(v or "") for v in r.values())
+            return (_match_company(empresa_raw) or _match_company(vals)) and (_match_worker(elemento_raw) or _match_worker(vals))
+
+        matches = [r for r in visible_rows if _row_matches(r)]
+        if len(matches) != 1:
+            # Evidence row highlight not possible if ambiguous; hard-stop
+            try:
+                list_frame.locator("body").screenshot(path=str(shot_03))
+            except Exception:
+                page.screenshot(path=str(shot_03), full_page=True)
+            raise RuntimeError(f"FILTER_NOT_UNIQUE: expected 1 row, got {len(matches)}")
+
+        target = matches[0]
+        target_idx = int(target.get("_visible_index", 0))
+
+        # 5) Highlight row + screenshot
+        try:
+            list_frame.evaluate(
+                """(idx) => {
+  const tbls = Array.from(document.querySelectorAll('table.obj.row20px'));
+  let best = null;
+  let bestCount = -1;
+  for(const t of tbls){
+    const trs = Array.from(t.querySelectorAll('tr')).filter(tr => tr.querySelectorAll('td').length);
+    if(trs.length > bestCount){
+      best = { t, trs };
+      bestCount = trs.length;
+    }
+  }
+  if(!best) return false;
+  const tr = best.trs[idx];
+  if(!tr) return false;
+  tr.style.outline = '4px solid #ff0066';
+  tr.style.outlineOffset = '2px';
+  tr.scrollIntoView({block:'center', inline:'center'});
+  return true;
+}""",
+                target_idx,
+            )
+        except Exception:
+            pass
+        try:
+            list_frame.locator("body").screenshot(path=str(shot_03))
+        except Exception:
+            page.screenshot(path=str(shot_03), full_page=True)
+
+        # 6) Click acción de detalle SOLO de esa fila (robusto, sin abrir otras)
+        # Ejecutamos click dentro del frame via JS para escoger el mejor target clicable en el TR.
+        pre_urls = [fr.url for fr in page.frames]
+        click_result = list_frame.evaluate(
+            """(idx) => {
+  function isVisible(el){
+    if(!el) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+  function hasPointer(el){
+    try { return window.getComputedStyle(el).cursor === 'pointer'; } catch(e){ return false; }
+  }
+  // choose best obj table
+  const tbls = Array.from(document.querySelectorAll('table.obj.row20px'));
+  let best = null;
+  let bestCount = -1;
+  for(const t of tbls){
+    const trs = Array.from(t.querySelectorAll('tr')).filter(tr => tr.querySelectorAll('td').length);
+    if(trs.length > bestCount){
+      best = { t, trs };
+      bestCount = trs.length;
+    }
+  }
+  if(!best) return { ok:false, reason:'no_obj_table' };
+  const tr = best.trs[idx];
+  if(!tr) return { ok:false, reason:'row_not_found', idx };
+
+  // candidates inside row
+  const cands = [];
+  const aTags = Array.from(tr.querySelectorAll('a'));
+  for(const a of aTags){
+    if(isVisible(a)) cands.push({ el:a, kind:'a' });
+  }
+  const imgs = Array.from(tr.querySelectorAll('img'));
+  for(const img of imgs){
+    if(isVisible(img) && (img.getAttribute('onclick') || img.closest('[onclick]') || hasPointer(img))) cands.push({ el: img, kind:'img' });
+  }
+  const onclicks = Array.from(tr.querySelectorAll('[onclick]'));
+  for(const el of onclicks){
+    if(isVisible(el)) cands.push({ el, kind:'onclick' });
+  }
+
+  // prioritize: anchors, then img with onclick, then any onclick
+  const pick = (predicate) => cands.find(c => predicate(c));
+  let chosen = pick(c => c.kind === 'a') || pick(c => c.kind === 'img') || pick(c => c.kind === 'onclick');
+  if(!chosen){
+    // fallback: click on the row itself (some grids open detail on row click)
+    chosen = { el: tr, kind: 'tr' };
+  }
+  const el = chosen.el;
+  const tag = el.tagName ? el.tagName.toLowerCase() : '';
+  const html = (el.outerHTML || '').slice(0, 5000);
+  try { el.click(); } catch(e){
+    // last resort: dispatch click
+    try { el.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true, view: window })); } catch(e2){}
+  }
+  return { ok:true, kind: chosen.kind, tag, outerHTML: html };
+}""",
+            target_idx,
+        )
+        click_strategy = click_result or {}
+
+        # 7) Esperar detalle: modal u otra URL/DOM
+        # Reglas: preferir un frame/iframe cuyo URL apunte a una ficha/detalle de documento.
+        def _detail_frames() -> List[Any]:
+            out = []
+            for fr in page.frames:
+                u = (fr.url or "").lower()
+                if not u or u in ("about:blank",):
+                    continue
+                if ("ficha" in u) or ("documento" in u and "buscador.asp" not in u) or ("detalle" in u):
+                    out.append(fr)
+            return out
+
+        def _modal_info() -> Dict[str, Any]:
+            try:
+                return page.evaluate(
+                    """() => {
+  const els = Array.from(document.querySelectorAll('div,section,article'));
+  function z(el){
+    const s = window.getComputedStyle(el);
+    const zi = parseInt(s.zIndex || '0', 10);
+    return isNaN(zi) ? 0 : zi;
+  }
+  function isVis(el){
+    const r = el.getBoundingClientRect();
+    if(r.width < 200 || r.height < 120) return false;
+    const s = window.getComputedStyle(el);
+    if(s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return false;
+    return true;
+  }
+  function score(el){
+    const txt = ((el.innerText || '') + '').toLowerCase();
+    const kws = ['documento:', 'trabajador:', 'empresa:', 'estado documento'];
+    const hits = kws.reduce((acc,k)=> acc + (txt.includes(k) ? 1 : 0), 0);
+    const r = el.getBoundingClientRect();
+    const area = Math.floor(r.width * r.height);
+    const zi = z(el);
+    // prefer scope keywords strongly, then z-index, then text, then area
+    return hits * 1000000 + zi * 1000 + txt.length + Math.min(area, 1000000);
+  }
+  let best = null;
+  let bestScore = -1;
+  for(const el of els){
+    if(!isVis(el)) continue;
+    const cls = (el.className || '').toString().toLowerCase();
+    const zi = z(el);
+    const looks = (cls.includes('dhtmlx') && (cls.includes('win') || cls.includes('popup') || cls.includes('modal'))) || zi >= 1000;
+    if(!looks) continue;
+    const sc = score(el);
+    if(sc > bestScore){
+      bestScore = sc;
+      best = el;
+    }
+  }
+  if(!best) return { hasModal:false, score:0, textLen:0, iframeSrcs:[] };
+  const txt = (best.innerText || '').trim();
+  const iframes = Array.from(best.querySelectorAll('iframe')).map(f => f.src || f.getAttribute('src') || '');
+  return { hasModal:true, score:bestScore, textLen: txt.length, iframeSrcs: iframes.filter(Boolean) };
+}"""
+                )
+            except Exception:
+                return {"hasModal": False, "score": 0, "textLen": 0, "iframeSrcs": []}
+
+        # Wait up to 25s for a real detail surface to load (modal content or a dedicated detail frame).
+        t_deadline = time.time() + 25.0
+        detail_frame = None
+        modal_info: Dict[str, Any] = {"hasModal": False, "z": 0, "textLen": 0, "iframeSrcs": []}
+        while time.time() < t_deadline:
+            dfs = _detail_frames()
+            if dfs:
+                detail_frame = dfs[0]
+                break
+            modal_info = _modal_info()
+            if modal_info.get("hasModal") and (modal_info.get("textLen") or 0) >= 40:
+                break
+            # if modal contains iframe(s), wait for a matching frame url to appear
+            srcs = modal_info.get("iframeSrcs") or []
+            if srcs:
+                for fr in page.frames:
+                    if fr.url and any(fr.url.startswith(s) or (s in fr.url) for s in srcs):
+                        detail_frame = fr
+                        break
+                if detail_frame:
+                    break
+            time.sleep(0.25)
+
+        # Evidence 04: after click
+        try:
+            page.screenshot(path=str(shot_04), full_page=True)
+        except Exception:
+            pass
+
+        # 8) Dump visible text from likely detail scope:
+        # Prefer: detail_frame (if found) OR modal container text; otherwise fail.
+        def _visible_text_from_frame(fr) -> str:
+            try:
+                return fr.evaluate("() => (document.body ? (document.body.innerText || '') : '')") or ""
+            except Exception:
+                return ""
+
+        texts_by_frame: List[Dict[str, Any]] = []
+        for fr in page.frames:
+            try:
+                txt_len = len(_visible_text_from_frame(fr))
+            except Exception:
+                txt_len = 0
+            texts_by_frame.append({"name": fr.name, "url": fr.url, "len": txt_len})
+
+        detail_text = ""
+        detail_src = {"kind": None, "name": None, "url": None}
+
+        if detail_frame:
+            # wait a bit for detail frame to populate (avoid blank)
+            t2 = time.time() + 15.0
+            while time.time() < t2:
+                detail_text = _visible_text_from_frame(detail_frame)
+                if len(detail_text.strip()) >= 40:
+                    break
+                time.sleep(0.25)
+            detail_src = {"kind": "frame", "name": detail_frame.name, "url": detail_frame.url}
+        else:
+            # modal text from main document
+            try:
+                detail_text = page.evaluate(
+                    """() => {
+  const els = Array.from(document.querySelectorAll('div,section,article'));
+  function z(el){
+    const s = window.getComputedStyle(el);
+    const zi = parseInt(s.zIndex || '0', 10);
+    return isNaN(zi) ? 0 : zi;
+  }
+  function isVis(el){
+    const r = el.getBoundingClientRect();
+    if(r.width < 200 || r.height < 120) return false;
+    const s = window.getComputedStyle(el);
+    if(s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return false;
+    return true;
+  }
+  function score(el){
+    const txt = ((el.innerText || '') + '').toLowerCase();
+    const kws = ['documento:', 'trabajador:', 'empresa:', 'estado documento'];
+    const hits = kws.reduce((acc,k)=> acc + (txt.includes(k) ? 1 : 0), 0);
+    const r = el.getBoundingClientRect();
+    const area = Math.floor(r.width * r.height);
+    const zi = z(el);
+    return hits * 1000000 + zi * 1000 + txt.length + Math.min(area, 1000000);
+  }
+  let best = null;
+  let bestScore = -1;
+  for(const el of els){
+    if(!isVis(el)) continue;
+    const cls = (el.className || '').toString().toLowerCase();
+    const zi = z(el);
+    const looks = (cls.includes('dhtmlx') && (cls.includes('win') || cls.includes('popup') || cls.includes('modal'))) || zi >= 1000;
+    if(!looks) continue;
+    const sc = score(el);
+    if(sc > bestScore){
+      bestScore = sc;
+      best = el;
+    }
+  }
+  return best ? (best.innerText || '') : '';
+}"""
+                )
+            except Exception:
+                detail_text = ""
+            detail_src = {"kind": "modal_text", "name": None, "url": None}
+
+        detail_txt_path.write_text(detail_text or "", encoding="utf-8")
+
+        # 9) Validación scope mínima: TEDELAB + Emilio/Roldán/DNI (EN EL DETALLE, no en el grid)
+        hay = _canon(detail_text or "")
+        ok_company = ("TEDELAB" in hay) or _match_company(detail_text or "")
+        ok_worker = ("EMILIO" in hay) or ("ROLDAN" in hay) or (worker_dni in hay) or _match_worker(detail_text or "")
+        # asegurar que estamos realmente en detalle (labels típicos)
+        ok_detail_labels = ("DOCUMENTO" in hay) and ("TRABAJADOR" in hay) and ("EMPRESA" in hay)
+        if not (ok_company and ok_worker):
+            raise RuntimeError("DETAIL_SCOPE_VALIDATION_FAILED: expected TEDELAB + Emilio/Roldán/DNI visible in detail")
+        if not ok_detail_labels:
+            raise RuntimeError("DETAIL_SCOPE_VALIDATION_FAILED: detail labels Documento/Trabajador/Empresa not found (likely still on grid)")
+
+        # Meta
+        try:
+            list_frame_url = list_frame.evaluate("() => location.href")
+        except Exception:
+            list_frame_url = list_frame.url
+
+        _safe_write_json(
+            meta_path,
+            {
+                "login_url_reused_exact": LOGIN_URL_PREVIOUS_SUCCESS,
+                "page_url": page.url,
+                "page_title": page.title(),
+                "tile_selector": tile_sel,
+                "frame_dashboard_name": "nm_contenido",
+                "frame_dashboard_url": frame_dashboard.url if frame_dashboard else None,
+                "list_frame_name": list_frame.name if list_frame else None,
+                "list_frame_url": list_frame_url,
+                "grid": {"header_selector": "table.hdr", "data_selector": "table.obj.row20px"},
+                "matched_row": {"visible_index": target_idx, "Empresa": target.get("Empresa"), "Elemento": target.get("Elemento")},
+                "click_strategy": click_strategy,
+                "detail_text_source": detail_src,
+                "texts_by_frame": texts_by_frame,
+            },
+        )
+
+        context.close()
+        browser.close()
+
+    finished = time.time()
+    (run_dir / "run_finished.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "status": "success",
+                "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)),
+                "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(finished)),
+                "duration_ms": int((finished - started) * 1000),
+                "reason": "OPENED_PENDING_DOCUMENT_DETAIL",
+                "last_error": None,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    return run_id

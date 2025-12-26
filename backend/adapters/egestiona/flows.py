@@ -33,6 +33,7 @@ from backend.adapters.egestiona.frame_scan_headful import (
     run_frames_screenshots_and_find_tile_headful,
     run_list_pending_documents_readonly_headful,
     run_discovery_pending_table_headful,
+    run_open_pending_document_details_readonly_headful,
 )
 
 
@@ -2833,6 +2834,29 @@ async def egestiona_discovery_pending_table(coord: str = "Kern"):
                 viewport={"width": 1600, "height": 1000},
                 wait_after_login_s=2.0,
                 wait_after_click_s=10.0,
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/open_pending_document_details_readonly")
+async def egestiona_open_pending_document_details_readonly(coord: str = "Kern"):
+    """
+    HEADFUL + READ-ONLY:
+    Abre el detalle de EXACTAMENTE 1 documento pendiente filtrado (TEDELAB + Emilio)
+    desde el grid DHTMLX (frame f3) y valida scope visible.
+    """
+    try:
+        run_id = await run_in_threadpool(
+            lambda: run_open_pending_document_details_readonly_headful(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                slow_mo_ms=300,
+                viewport={"width": 1600, "height": 1000},
+                wait_after_login_s=2.5,
             )
         )
     except ValueError as e:
