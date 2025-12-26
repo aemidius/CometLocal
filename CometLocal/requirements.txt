@@ -1,6 +1,0 @@
-fastapi
-uvicorn[standard]
-pydantic
-playwright
-openai>=1.0.0
-pypdf>=4.0.0  # H7.6+: DocumentInspector v1 (PDF text extraction)
