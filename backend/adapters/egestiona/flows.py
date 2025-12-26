@@ -936,7 +936,10 @@ def run_send_pending_document_kern(
                 ConditionV1(kind=ConditionKindV1.element_visible, args={"target": open_detail_target.model_dump()}, severity=ErrorSeverityV1.critical),
                 ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": open_detail_target.model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
             ],
-            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning),
+                ConditionV1(kind=ConditionKindV1.element_not_visible, args={"target": open_detail_target.model_dump()}, severity=ErrorSeverityV1.critical, description="Detail button should disappear after click"),
+            ],
             timeout_ms=15000,
             criticality="critical",
         )
