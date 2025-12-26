@@ -11,6 +11,9 @@ venv/
 .playwright/
 ms-playwright/
 
+# Runtime data
+data/runs/
+
 # OS
 .DS_Store
 Thumbs.db

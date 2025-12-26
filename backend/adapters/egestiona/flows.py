@@ -28,6 +28,12 @@ from backend.shared.executor_contracts_v1 import (
 from backend.shared.platforms_v1 import SelectorSpecV1
 from backend.repository.document_repository_v1 import DocumentRepositoryV1
 from backend.shared.file_ref_v1 import build_shared_ref
+from backend.adapters.egestiona.frame_scan_headful import (
+    run_find_enviar_doc_in_all_frames_headful,
+    run_frames_screenshots_and_find_tile_headful,
+    run_list_pending_documents_readonly_headful,
+    run_discovery_pending_table_headful,
+)
 
 
 def run_login_and_snapshot(
@@ -597,6 +603,1333 @@ def run_upload_document_cae(
     return run_dir.name
 
 
+def run_buscar_frames_dashboard(
+    *,
+    base_dir: str | Path = "data",
+    platform: str = "egestiona",
+    coordination: str = "Kern",
+    headless: bool = False,  # HEADFUL obligatorio para ver frames
+) -> str:
+    """
+    BÚSQUEDA EN FRAMES: Localizar "Enviar Doc. Pendiente" en todos los frames del dashboard.
+    - Login usando URL anterior (coordinate.egestiona.es)
+    - Listar todos los frames
+    - Buscar texto en cada frame
+    - Capturar evidencia cuando se encuentre
+    """
+    if headless:
+        raise ValueError("HEADFUL_REQUIRED: Frame search requires visible browser (headless=False)")
+
+    base = ensure_data_layout(base_dir=base_dir)
+    store = ConfigStoreV1(base_dir=base)
+    secrets = SecretsStoreV1(base_dir=base)
+
+    platforms = store.load_platforms()
+    plat = next((p for p in platforms.platforms if p.key == platform), None)
+    if not plat:
+        raise ValueError(f"platform not found: {platform}")
+
+    coord = next((c for c in plat.coordinations if c.label == coordination), None)
+    if not coord:
+        raise ValueError(f"coordination not found: {coordination}")
+
+    # Usar EXACTAMENTE la misma URL del run anterior exitoso
+    url = "https://coordinate.egestiona.es/login?origen=subcontrata"
+    print(f"[FRAME_SEARCH] Using EXACT URL from previous successful run: {url}")
+
+    # Resolver credenciales
+    required_missing: list[str] = []
+    client_val = coord.client_code.strip() if (coord.client_code or "").strip() else (secrets.get_secret("egestiona.client") or "")
+    if plat.login_fields.requires_client and not client_val:
+        required_missing.append("egestiona.client (o coord.client_code)")
+    user_val = coord.username.strip() if (coord.username or "").strip() else (secrets.get_secret("egestiona.username") or "")
+    if not user_val:
+        required_missing.append("egestiona.username (o coord.username)")
+    password_ref = (coord.password_ref or "").strip() or "egestiona.password"
+    if secrets.get_secret(password_ref) is None:
+        required_missing.append(password_ref)
+    if required_missing:
+        raise ValueError("Missing required secrets: " + ", ".join(required_missing))
+
+    actions: list[ActionSpecV1] = []
+
+    # 1. Login completo con URL exacta anterior
+    actions.append(
+        ActionSpecV1(
+            action_id="frame_nav",
+            kind=ActionKindV1.navigate,
+            target=TargetV1(type=TargetKindV1.url, url=url),
+            preconditions=[ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": ".*"}, severity=ErrorSeverityV1.warning)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.critical)],
+            timeout_ms=15000,
+        )
+    )
+
+    if plat.login_fields.requires_client:
+        actions.append(
+            ActionSpecV1(
+                action_id="frame_fill_client",
+                kind=ActionKindV1.fill,
+                target=TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]'),
+                input={"text": client_val},
+                preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]').model_dump()}, severity=ErrorSeverityV1.error)],
+                postconditions=[
+                    ConditionV1(
+                        kind=ConditionKindV1.element_value_equals,
+                        args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]').model_dump(), "value": client_val},
+                        severity=ErrorSeverityV1.warning,
+                    )
+                ],
+                timeout_ms=10000,
+            )
+        )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="frame_fill_user",
+            kind=ActionKindV1.fill,
+            target=TargetV1(type=TargetKindV1.css, selector='input[name="Username"]'),
+            input={"text": user_val},
+            preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Username"]').model_dump()}, severity=ErrorSeverityV1.error)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.element_value_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Username"]').model_dump(), "value": user_val}, severity=ErrorSeverityV1.warning)
+            ],
+            timeout_ms=10000,
+        )
+    )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="frame_fill_pass",
+            kind=ActionKindV1.fill,
+            target=TargetV1(type=TargetKindV1.css, selector='input[name="Password"]'),
+            input={"secret_ref": password_ref},
+            preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Password"]').model_dump()}, severity=ErrorSeverityV1.error)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.element_attr_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Password"]').model_dump(), "attr": "type", "value": "password"}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=10000,
+        )
+    )
+
+    # SUBMIT DEL LOGIN
+    actions.append(
+        ActionSpecV1(
+            action_id="frame_submit_login",
+            kind=ActionKindV1.click,
+            target=TargetV1(type=TargetKindV1.css, selector='button[type="submit"]'),
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='button[type="submit"]').model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
+                ConditionV1(kind=ConditionKindV1.element_clickable, args={"target": TargetV1(type=TargetKindV1.css, selector='button[type="submit"]').model_dump()}, severity=ErrorSeverityV1.error),
+            ],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=15000,
+            criticality="normal",
+        )
+    )
+
+    # 2. Esperar dashboard post-login
+    actions.append(
+        ActionSpecV1(
+            action_id="frame_wait_dashboard",
+            kind=ActionKindV1.wait_for,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": r"^(?!.*login).*$"}, severity=ErrorSeverityV1.critical),
+            ],
+            timeout_ms=20000,
+            criticality="critical",  # Screenshot dashboard post-login OBLIGATORIA
+        )
+    )
+
+    # 3. Espera adicional 3s para que cargue todo el contenido dinámico
+    actions.append(
+        ActionSpecV1(
+            action_id="frame_wait_extra",
+            kind=ActionKindV1.wait_for,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=3000,
+            criticality="normal",  # Screenshot dashboard completo con contenido dinámico
+        )
+    )
+
+    # 4. Buscar "Enviar Doc. Pendiente" en el frame principal (por si acaso)
+    enviar_doc_target = TargetV1(type=TargetKindV1.text, text="Enviar Doc. Pendiente", exact=True, normalize_ws=True)
+    actions.append(
+        ActionSpecV1(
+            action_id="frame_search_main",
+            kind=ActionKindV1.wait_for,
+            target=enviar_doc_target,
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning),
+            ],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning),
+            ],
+            timeout_ms=3000,  # Timeout corto para búsqueda rápida
+            criticality="normal",
+        )
+    )
+
+    rt = ExecutorRuntimeH4(
+        runs_root=Path(base) / "runs",
+        project_root=Path(base).parent,
+        data_root="data",
+        execution_mode="production",
+        secrets_store=secrets,
+    )
+    run_dir = rt.run_actions(url=url, actions=actions, headless=headless, fail_fast=True, execution_mode="deterministic")
+    return run_dir.name
+
+
+def run_smoke_test_tenant_correcto(
+    *,
+    base_dir: str | Path = "data",
+    platform: str = "egestiona",
+    coordination: str = "Kern",
+    headless: bool = False,  # HEADFUL obligatorio para smoke test
+) -> str:
+    """
+    SMOKE TEST: Verificar tenant correcto y existencia de "Enviar Doc. Pendiente".
+    - Login en tenant correcto (grupoindukern.egestiona.com)
+    - Verificar hostname post-login
+    - Buscar "Enviar Doc. Pendiente" en todos los frames
+    - Generar screenshots siempre
+    """
+    if headless:
+        raise ValueError("HEADFUL_REQUIRED: Smoke test requires visible browser (headless=False)")
+
+    base = ensure_data_layout(base_dir=base_dir)
+    store = ConfigStoreV1(base_dir=base)
+    secrets = SecretsStoreV1(base_dir=base)
+
+    platforms = store.load_platforms()
+    plat = next((p for p in platforms.platforms if p.key == platform), None)
+    if not plat:
+        raise ValueError(f"platform not found: {platform}")
+
+    coord = next((c for c in plat.coordinations if c.label == coordination), None)
+    if not coord:
+        raise ValueError(f"coordination not found: {coordination}")
+
+    # URL: login_url prioritario (ahora apunta al tenant correcto)
+    if plat.login_url:
+        url = plat.login_url
+    elif coord.url_override:
+        url = coord.url_override
+    elif plat.base_url and ("login" in plat.base_url.lower() or "egestiona.es" in plat.base_url.lower()):
+        # Backward compatibility
+        print(f"[MIGRATION] Using base_url as login_url for platform '{plat.key}': {plat.base_url}")
+        url = plat.base_url
+    else:
+        raise ValueError(
+            f"No login URL configured for platform '{plat.key}'. "
+            "Please set 'login_url' in platforms.json with the actual login URL from your browser. "
+            "Example: 'login_url': 'https://your-tenant.egestiona.es/login?origen=subcontrata'"
+        )
+
+    # Resolver credenciales
+    required_missing: list[str] = []
+    client_val = coord.client_code.strip() if (coord.client_code or "").strip() else (secrets.get_secret("egestiona.client") or "")
+    if plat.login_fields.requires_client and not client_val:
+        required_missing.append("egestiona.client (o coord.client_code)")
+    user_val = coord.username.strip() if (coord.username or "").strip() else (secrets.get_secret("egestiona.username") or "")
+    if not user_val:
+        required_missing.append("egestiona.username (o coord.username)")
+    password_ref = (coord.password_ref or "").strip() or "egestiona.password"
+    if secrets.get_secret(password_ref) is None:
+        required_missing.append(password_ref)
+    if required_missing:
+        raise ValueError("Missing required secrets: " + ", ".join(required_missing))
+
+    actions: list[ActionSpecV1] = []
+
+    # 1. Login completo
+    actions.append(
+        ActionSpecV1(
+            action_id="smoke_nav",
+            kind=ActionKindV1.navigate,
+            target=TargetV1(type=TargetKindV1.url, url=url),
+            preconditions=[ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": ".*"}, severity=ErrorSeverityV1.warning)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.critical)],
+            timeout_ms=15000,
+        )
+    )
+
+    if plat.login_fields.requires_client:
+        actions.append(
+            ActionSpecV1(
+                action_id="smoke_fill_client",
+                kind=ActionKindV1.fill,
+                target=TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]'),
+                input={"text": client_val},
+                preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]').model_dump()}, severity=ErrorSeverityV1.error)],
+                postconditions=[
+                    ConditionV1(
+                        kind=ConditionKindV1.element_value_equals,
+                        args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]').model_dump(), "value": client_val},
+                        severity=ErrorSeverityV1.warning,
+                    )
+                ],
+                timeout_ms=10000,
+            )
+        )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="smoke_fill_user",
+            kind=ActionKindV1.fill,
+            target=TargetV1(type=TargetKindV1.css, selector='input[name="Username"]'),
+            input={"text": user_val},
+            preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Username"]').model_dump()}, severity=ErrorSeverityV1.error)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.element_value_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Username"]').model_dump(), "value": user_val}, severity=ErrorSeverityV1.warning)
+            ],
+            timeout_ms=10000,
+        )
+    )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="smoke_fill_pass",
+            kind=ActionKindV1.fill,
+            target=TargetV1(type=TargetKindV1.css, selector='input[name="Password"]'),
+            input={"secret_ref": password_ref},
+            preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Password"]').model_dump()}, severity=ErrorSeverityV1.error)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.element_attr_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Password"]').model_dump(), "attr": "type", "value": "password"}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=10000,
+        )
+    )
+
+    # SUBMIT DEL LOGIN
+    actions.append(
+        ActionSpecV1(
+            action_id="smoke_submit_login",
+            kind=ActionKindV1.click,
+            target=TargetV1(type=TargetKindV1.css, selector='button[type="submit"]'),
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='button[type="submit"]').model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
+                ConditionV1(kind=ConditionKindV1.element_clickable, args={"target": TargetV1(type=TargetKindV1.css, selector='button[type="submit"]').model_dump()}, severity=ErrorSeverityV1.error),
+            ],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=15000,
+            criticality="normal",
+        )
+    )
+
+    # 2. Esperar dashboard post-login (CRITICAL para asegurar screenshot)
+    actions.append(
+        ActionSpecV1(
+            action_id="smoke_wait_dashboard",
+            kind=ActionKindV1.wait_for,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": r"^(?!.*login).*$"}, severity=ErrorSeverityV1.critical),
+            ],
+            timeout_ms=20000,
+            criticality="critical",  # Screenshot dashboard post-login OBLIGATORIA
+        )
+    )
+
+    # 3. Buscar "Enviar Doc. Pendiente" en el dashboard (NORMAL para no fallar si no existe)
+    enviar_doc_target = TargetV1(type=TargetKindV1.text, text="Enviar Doc. Pendiente", exact=True, normalize_ws=True)
+    actions.append(
+        ActionSpecV1(
+            action_id="smoke_find_enviar_doc",
+            kind=ActionKindV1.wait_for,
+            target=enviar_doc_target,
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning),
+            ],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning),
+            ],
+            timeout_ms=5000,  # Timeout corto para búsqueda
+            criticality="normal",  # No falla si no encuentra el texto
+        )
+    )
+
+    rt = ExecutorRuntimeH4(
+        runs_root=Path(base) / "runs",
+        project_root=Path(base).parent,
+        data_root="data",
+        execution_mode="production",
+        secrets_store=secrets,
+    )
+    run_dir = rt.run_actions(url=url, actions=actions, headless=headless, fail_fast=True, execution_mode="deterministic")
+    return run_dir.name
+
+
+def run_localizacion_geometrica(
+    *,
+    base_dir: str | Path = "data",
+    platform: str = "egestiona",
+    coordination: str = "Kern",
+    headless: bool = False,  # HEADFUL obligatorio para diagnóstico visual
+) -> str:
+    """
+    LOCALIZACIÓN GEOMÉTRICA: encontrar elementos clickables por bounding boxes y geometría.
+    - Enumerar todos los elementos clickables en zona central
+    - Crear overlay visual con índices
+    - Usar heurística para seleccionar candidato más probable
+    - Click y observar cambios
+    """
+    if headless:
+        raise ValueError("HEADFUL_REQUIRED: Geometry location requires visible browser (headless=False)")
+
+    base = ensure_data_layout(base_dir=base_dir)
+    store = ConfigStoreV1(base_dir=base)
+    secrets = SecretsStoreV1(base_dir=base)
+
+    platforms = store.load_platforms()
+    plat = next((p for p in platforms.platforms if p.key == platform), None)
+    if not plat:
+        raise ValueError(f"platform not found: {platform}")
+
+    coord = next((c for c in plat.coordinations if c.label == coordination), None)
+    if not coord:
+        raise ValueError(f"coordination not found: {coordination}")
+
+    # URL: login_url (requerida) > override > platform.base_url > default
+    # MIGRACIÓN AUTOMÁTICA: Si login_url es null pero base_url parece URL de login, usar base_url
+    if plat.login_url:
+        url = plat.login_url
+    elif coord.url_override:
+        url = coord.url_override
+    elif plat.base_url and ("login" in plat.base_url.lower() or "egestiona.es" in plat.base_url.lower()):
+        # Backward compatibility: si base_url parece ser una URL de login, usarla como login_url
+        print(f"[MIGRATION] Using base_url as login_url for platform '{plat.key}': {plat.base_url}")
+        url = plat.base_url
+    else:
+        raise ValueError(
+            f"No login URL configured for platform '{plat.key}'. "
+            "Please set 'login_url' in platforms.json with the actual login URL from your browser. "
+            "Example: 'login_url': 'https://your-tenant.egestiona.es/login?origen=subcontrata'"
+        )
+
+    # Resolver credenciales (solo para login)
+    required_missing: list[str] = []
+    client_val = coord.client_code.strip() if (coord.client_code or "").strip() else (secrets.get_secret("egestiona.client") or "")
+    if plat.login_fields.requires_client and not client_val:
+        required_missing.append("egestiona.client (o coord.client_code)")
+    user_val = coord.username.strip() if (coord.username or "").strip() else (secrets.get_secret("egestiona.username") or "")
+    if not user_val:
+        required_missing.append("egestiona.username (o coord.username)")
+    password_ref = (coord.password_ref or "").strip() or "egestiona.password"
+    if secrets.get_secret(password_ref) is None:
+        required_missing.append(password_ref)
+    if required_missing:
+        raise ValueError("Missing required secrets: " + ", ".join(required_missing))
+
+    actions: list[ActionSpecV1] = []
+
+    # 1. Login completo
+    actions.append(
+        ActionSpecV1(
+            action_id="geom_nav",
+            kind=ActionKindV1.navigate,
+            target=TargetV1(type=TargetKindV1.url, url=url),
+            preconditions=[ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": ".*"}, severity=ErrorSeverityV1.warning)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.critical)],
+            timeout_ms=15000,
+        )
+    )
+
+    if plat.login_fields.requires_client:
+        actions.append(
+            ActionSpecV1(
+                action_id="geom_fill_client",
+                kind=ActionKindV1.fill,
+                target=TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]'),
+                input={"text": client_val},
+                preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]').model_dump()}, severity=ErrorSeverityV1.error)],
+                postconditions=[
+                    ConditionV1(
+                        kind=ConditionKindV1.element_value_equals,
+                        args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]').model_dump(), "value": client_val},
+                        severity=ErrorSeverityV1.warning,
+                    )
+                ],
+                timeout_ms=10000,
+            )
+        )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="geom_fill_user",
+            kind=ActionKindV1.fill,
+            target=TargetV1(type=TargetKindV1.css, selector='input[name="Username"]'),
+            input={"text": user_val},
+            preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Username"]').model_dump()}, severity=ErrorSeverityV1.error)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.element_value_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Username"]').model_dump(), "value": user_val}, severity=ErrorSeverityV1.warning)
+            ],
+            timeout_ms=10000,
+        )
+    )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="geom_fill_pass",
+            kind=ActionKindV1.fill,
+            target=TargetV1(type=TargetKindV1.css, selector='input[name="Password"]'),
+            input={"secret_ref": password_ref},
+            preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Password"]').model_dump()}, severity=ErrorSeverityV1.error)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.element_attr_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Password"]').model_dump(), "attr": "type", "value": "password"}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=10000,
+        )
+    )
+
+    # SUBMIT DEL LOGIN
+    actions.append(
+        ActionSpecV1(
+            action_id="geom_submit_login",
+            kind=ActionKindV1.click,
+            target=TargetV1(type=TargetKindV1.css, selector='button[type="submit"]'),
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='button[type="submit"]').model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
+                ConditionV1(kind=ConditionKindV1.element_clickable, args={"target": TargetV1(type=TargetKindV1.css, selector='button[type="submit"]').model_dump()}, severity=ErrorSeverityV1.error),
+            ],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=15000,
+            criticality="normal",
+        )
+    )
+
+    # 2. Esperar dashboard completo post-login (3 segundos adicionales)
+    actions.append(
+        ActionSpecV1(
+            action_id="geom_wait_dashboard",
+            kind=ActionKindV1.wait_for,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": r"^(?!.*login).*$"}, severity=ErrorSeverityV1.critical),
+            ],
+            timeout_ms=20000,
+            criticality="normal",  # Screenshot dashboard completo + enumeración de clickables
+        )
+    )
+
+    # 3. Esperar 3 segundos adicionales con dashboard visible
+    actions.append(
+        ActionSpecV1(
+            action_id="geom_wait_extra",
+            kind=ActionKindV1.wait_for,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=3000,
+            criticality="normal",  # Screenshot dashboard final (01_dashboard.png)
+        )
+    )
+
+    # 4. Intentar click en elementos del menú lateral (fallback conocido)
+    # Como último recurso, intentar click en "Inicio" para verificar que funciona
+    actions.append(
+        ActionSpecV1(
+            action_id="geom_click_menu_inicio",
+            kind=ActionKindV1.click,
+            target=TargetV1(type=TargetKindV1.text, text="Inicio", exact=True, normalize_ws=True),
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.text, selector=None, role=None, name=None, exact=True, text="Inicio", normalize_ws=True, testid=None, inner_target=None, base_target=None, index=None, url=None).model_dump()}, severity=ErrorSeverityV1.error),
+                ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": TargetV1(type=TargetKindV1.text, selector=None, role=None, name=None, exact=True, text="Inicio", normalize_ws=True, testid=None, inner_target=None, base_target=None, index=None, url=None).model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
+            ],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=5000,
+            criticality="normal",  # Screenshot después del click en "Inicio" del menú
+        )
+    )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="geom_wait_final",
+            kind=ActionKindV1.wait_for,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=3000,
+            criticality="normal",  # Screenshot final después del intento de click
+        )
+    )
+
+    rt = ExecutorRuntimeH4(
+        runs_root=Path(base) / "runs",
+        project_root=Path(base).parent,
+        data_root="data",
+        execution_mode="production",
+        secrets_store=secrets,
+    )
+    run_dir = rt.run_actions(url=url, actions=actions, headless=headless, fail_fast=True, execution_mode="deterministic")
+    return run_dir.name
+
+
+def run_diagnostico_icono_central(
+    *,
+    base_dir: str | Path = "data",
+    platform: str = "egestiona",
+    coordination: str = "Kern",
+    headless: bool = False,  # HEADFUL obligatorio para diagnóstico visual
+) -> str:
+    """
+    DIAGNÓSTICO DEL ICONO CENTRAL: encontrar y activar el icono "Enviar Doc. Pendiente" del dashboard.
+    - Ruta canónica: login -> dashboard -> click icono central
+    - Diagnosticar dónde carga el contenido (iframe vs mismo DOM)
+    - NO usar menú lateral salvo fallback
+    """
+    if headless:
+        raise ValueError("HEADFUL_REQUIRED: Diagnosis mode requires visible browser (headless=False)")
+
+    base = ensure_data_layout(base_dir=base_dir)
+    store = ConfigStoreV1(base_dir=base)
+    secrets = SecretsStoreV1(base_dir=base)
+
+    platforms = store.load_platforms()
+    plat = next((p for p in platforms.platforms if p.key == platform), None)
+    if not plat:
+        raise ValueError(f"platform not found: {platform}")
+
+    coord = next((c for c in plat.coordinations if c.label == coordination), None)
+    if not coord:
+        raise ValueError(f"coordination not found: {coordination}")
+
+    # URL: login_url (requerida) > override > platform.base_url > default
+    # MIGRACIÓN AUTOMÁTICA: Si login_url es null pero base_url parece URL de login, usar base_url
+    if plat.login_url:
+        url = plat.login_url
+    elif coord.url_override:
+        url = coord.url_override
+    elif plat.base_url and ("login" in plat.base_url.lower() or "egestiona.es" in plat.base_url.lower()):
+        # Backward compatibility: si base_url parece ser una URL de login, usarla como login_url
+        print(f"[MIGRATION] Using base_url as login_url for platform '{plat.key}': {plat.base_url}")
+        url = plat.base_url
+    else:
+        raise ValueError(
+            f"No login URL configured for platform '{plat.key}'. "
+            "Please set 'login_url' in platforms.json with the actual login URL from your browser. "
+            "Example: 'login_url': 'https://your-tenant.egestiona.es/login?origen=subcontrata'"
+        )
+
+    # Resolver credenciales (solo para login)
+    required_missing: list[str] = []
+    client_val = coord.client_code.strip() if (coord.client_code or "").strip() else (secrets.get_secret("egestiona.client") or "")
+    if plat.login_fields.requires_client and not client_val:
+        required_missing.append("egestiona.client (o coord.client_code)")
+    user_val = coord.username.strip() if (coord.username or "").strip() else (secrets.get_secret("egestiona.username") or "")
+    if not user_val:
+        required_missing.append("egestiona.username (o coord.username)")
+    password_ref = (coord.password_ref or "").strip() or "egestiona.password"
+    if secrets.get_secret(password_ref) is None:
+        required_missing.append(password_ref)
+    if required_missing:
+        raise ValueError("Missing required secrets: " + ", ".join(required_missing))
+
+    actions: list[ActionSpecV1] = []
+
+    # 1. Login completo
+    actions.append(
+        ActionSpecV1(
+            action_id="icon_diag_nav",
+            kind=ActionKindV1.navigate,
+            target=TargetV1(type=TargetKindV1.url, url=url),
+            preconditions=[ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": ".*"}, severity=ErrorSeverityV1.warning)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.critical)],
+            timeout_ms=15000,
+        )
+    )
+
+    if plat.login_fields.requires_client:
+        actions.append(
+            ActionSpecV1(
+                action_id="icon_diag_fill_client",
+                kind=ActionKindV1.fill,
+                target=TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]'),
+                input={"text": client_val},
+                preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]').model_dump()}, severity=ErrorSeverityV1.error)],
+                postconditions=[
+                    ConditionV1(
+                        kind=ConditionKindV1.element_value_equals,
+                        args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]').model_dump(), "value": client_val},
+                        severity=ErrorSeverityV1.warning,
+                    )
+                ],
+                timeout_ms=10000,
+            )
+        )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="icon_diag_fill_user",
+            kind=ActionKindV1.fill,
+            target=TargetV1(type=TargetKindV1.css, selector='input[name="Username"]'),
+            input={"text": user_val},
+            preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Username"]').model_dump()}, severity=ErrorSeverityV1.error)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.element_value_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Username"]').model_dump(), "value": user_val}, severity=ErrorSeverityV1.warning)
+            ],
+            timeout_ms=10000,
+        )
+    )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="icon_diag_fill_pass",
+            kind=ActionKindV1.fill,
+            target=TargetV1(type=TargetKindV1.css, selector='input[name="Password"]'),
+            input={"secret_ref": password_ref},
+            preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Password"]').model_dump()}, severity=ErrorSeverityV1.error)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.element_attr_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Password"]').model_dump(), "attr": "type", "value": "password"}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=10000,
+        )
+    )
+
+    # SUBMIT DEL LOGIN
+    actions.append(
+        ActionSpecV1(
+            action_id="icon_diag_submit_login",
+            kind=ActionKindV1.click,
+            target=TargetV1(type=TargetKindV1.css, selector='button[type="submit"]'),
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='button[type="submit"]').model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
+                ConditionV1(kind=ConditionKindV1.element_clickable, args={"target": TargetV1(type=TargetKindV1.css, selector='button[type="submit"]').model_dump()}, severity=ErrorSeverityV1.error),
+            ],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=15000,
+            criticality="normal",
+        )
+    )
+
+    # 2. Esperar dashboard completo post-login
+    actions.append(
+        ActionSpecV1(
+            action_id="icon_diag_wait_dashboard",
+            kind=ActionKindV1.wait_for,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": r"^(?!.*login).*$"}, severity=ErrorSeverityV1.critical),
+            ],
+            timeout_ms=20000,
+            criticality="critical",  # Screenshot dashboard completo con iconos centrales
+        )
+    )
+
+    # 3. Buscar icono central "Enviar Doc. Pendiente" por texto exacto
+    enviar_doc_target = TargetV1(type=TargetKindV1.text, text="Enviar Doc. Pendiente", exact=True, normalize_ws=True)
+    actions.append(
+        ActionSpecV1(
+            action_id="icon_diag_find_central_icon",
+            kind=ActionKindV1.wait_for,
+            target=enviar_doc_target,
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": enviar_doc_target.model_dump()}, severity=ErrorSeverityV1.error),
+            ],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": enviar_doc_target.model_dump()}, severity=ErrorSeverityV1.critical),
+            ],
+            timeout_ms=10000,
+            criticality="normal",  # Screenshot dashboard con icono localizado
+        )
+    )
+
+    # 4. Click en el icono central "Enviar Doc. Pendiente"
+    actions.append(
+        ActionSpecV1(
+            action_id="icon_diag_click_central_icon",
+            kind=ActionKindV1.click,
+            target=enviar_doc_target,
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": enviar_doc_target.model_dump()}, severity=ErrorSeverityV1.error),
+                ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": enviar_doc_target.model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
+            ],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning),
+            ],
+            timeout_ms=10000,
+            criticality="normal",  # Screenshot después del click en icono central
+        )
+    )
+
+    # 5. Esperar que cargue el contenido (5 segundos)
+    actions.append(
+        ActionSpecV1(
+            action_id="icon_diag_wait_content_load",
+            kind=ActionKindV1.wait_for,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning),
+            ],
+            timeout_ms=5000,
+            criticality="normal",  # Screenshot del resultado final
+        )
+    )
+
+    rt = ExecutorRuntimeH4(
+        runs_root=Path(base) / "runs",
+        project_root=Path(base).parent,
+        data_root="data",
+        execution_mode="production",
+        secrets_store=secrets,
+    )
+    run_dir = rt.run_actions(url=url, actions=actions, headless=headless, fail_fast=True, execution_mode="deterministic")
+    return run_dir.name
+
+
+def run_diagnostico_paridad(
+    *,
+    base_dir: str | Path = "data",
+    platform: str = "egestiona",
+    coordination: str = "Kern",
+    headless: bool = False,  # HEADFUL obligatorio para diagnóstico visual
+) -> str:
+    """
+    DIAGNÓSTICO DE PARIDAD: investigar por qué iframe#id_contenido no carga contenido.
+    - Captura información de paridad (URL, title, frames, cookies)
+    - Secuencia de clicks "humanos" para intentar activar carga
+    - Diagnóstico detallado del iframe y elementos de menú
+    """
+    if headless:
+        raise ValueError("HEADFUL_REQUIRED: Diagnosis mode requires visible browser (headless=False)")
+
+    base = ensure_data_layout(base_dir=base_dir)
+    store = ConfigStoreV1(base_dir=base)
+    secrets = SecretsStoreV1(base_dir=base)
+
+    platforms = store.load_platforms()
+    plat = next((p for p in platforms.platforms if p.key == platform), None)
+    if not plat:
+        raise ValueError(f"platform not found: {platform}")
+
+    coord = next((c for c in plat.coordinations if c.label == coordination), None)
+    if not coord:
+        raise ValueError(f"coordination not found: {coordination}")
+
+    # URL: login_url (requerida) > override > platform.base_url > default
+    # MIGRACIÓN AUTOMÁTICA: Si login_url es null pero base_url parece URL de login, usar base_url
+    if plat.login_url:
+        url = plat.login_url
+    elif coord.url_override:
+        url = coord.url_override
+    elif plat.base_url and ("login" in plat.base_url.lower() or "egestiona.es" in plat.base_url.lower()):
+        # Backward compatibility: si base_url parece ser una URL de login, usarla como login_url
+        print(f"[MIGRATION] Using base_url as login_url for platform '{plat.key}': {plat.base_url}")
+        url = plat.base_url
+    else:
+        raise ValueError(
+            f"No login URL configured for platform '{plat.key}'. "
+            "Please set 'login_url' in platforms.json with the actual login URL from your browser. "
+            "Example: 'login_url': 'https://your-tenant.egestiona.es/login?origen=subcontrata'"
+        )
+
+    # Resolver credenciales (solo para login)
+    required_missing: list[str] = []
+    client_val = coord.client_code.strip() if (coord.client_code or "").strip() else (secrets.get_secret("egestiona.client") or "")
+    if plat.login_fields.requires_client and not client_val:
+        required_missing.append("egestiona.client (o coord.client_code)")
+    user_val = coord.username.strip() if (coord.username or "").strip() else (secrets.get_secret("egestiona.username") or "")
+    if not user_val:
+        required_missing.append("egestiona.username (o coord.username)")
+    password_ref = (coord.password_ref or "").strip() or "egestiona.password"
+    if secrets.get_secret(password_ref) is None:
+        required_missing.append(password_ref)
+    if required_missing:
+        raise ValueError("Missing required secrets: " + ", ".join(required_missing))
+
+    actions: list[ActionSpecV1] = []
+
+    # 1. Login (solo campos necesarios, NO submit para discovery)
+    actions.append(
+        ActionSpecV1(
+            action_id="diag_nav",
+            kind=ActionKindV1.navigate,
+            target=TargetV1(type=TargetKindV1.url, url=url),
+            preconditions=[ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": ".*"}, severity=ErrorSeverityV1.warning)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.critical)],
+            timeout_ms=15000,
+        )
+    )
+
+    if plat.login_fields.requires_client:
+        actions.append(
+            ActionSpecV1(
+                action_id="diag_fill_client",
+                kind=ActionKindV1.fill,
+                target=TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]'),
+                input={"text": client_val},
+                preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]').model_dump()}, severity=ErrorSeverityV1.error)],
+                postconditions=[
+                    ConditionV1(
+                        kind=ConditionKindV1.element_value_equals,
+                        args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]').model_dump(), "value": client_val},
+                        severity=ErrorSeverityV1.warning,
+                    )
+                ],
+                timeout_ms=10000,
+            )
+        )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="diag_fill_user",
+            kind=ActionKindV1.fill,
+            target=TargetV1(type=TargetKindV1.css, selector='input[name="Username"]'),
+            input={"text": user_val},
+            preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Username"]').model_dump()}, severity=ErrorSeverityV1.error)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.element_value_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Username"]').model_dump(), "value": user_val}, severity=ErrorSeverityV1.warning)
+            ],
+            timeout_ms=10000,
+        )
+    )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="diag_fill_pass",
+            kind=ActionKindV1.fill,
+            target=TargetV1(type=TargetKindV1.css, selector='input[name="Password"]'),
+            input={"secret_ref": password_ref},
+            preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Password"]').model_dump()}, severity=ErrorSeverityV1.error)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.element_attr_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Password"]').model_dump(), "attr": "type", "value": "password"}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=10000,
+        )
+    )
+
+    # SUBMIT DEL LOGIN
+    actions.append(
+        ActionSpecV1(
+            action_id="diag_submit_login",
+            kind=ActionKindV1.click,
+            target=TargetV1(type=TargetKindV1.css, selector='button[type="submit"]'),
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='button[type="submit"]').model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
+                ConditionV1(kind=ConditionKindV1.element_clickable, args={"target": TargetV1(type=TargetKindV1.css, selector='button[type="submit"]').model_dump()}, severity=ErrorSeverityV1.error),
+            ],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=15000,
+            criticality="normal",
+        )
+    )
+
+    # 2. Esperar dashboard post-login
+    actions.append(
+        ActionSpecV1(
+            action_id="diag_wait_dashboard",
+            kind=ActionKindV1.wait_for,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": r"^(?!.*login).*$"}, severity=ErrorSeverityV1.critical),
+            ],
+            timeout_ms=20000,
+            criticality="critical",  # Screenshot dashboard post-login + diagnóstico de paridad
+        )
+    )
+
+    # 3. Secuencia de clicks "humanos" para diagnosticar carga iframe
+    # Click "Inicio" -> espera 2s
+    inicio_target = TargetV1(type=TargetKindV1.text, text="Inicio", exact=True, normalize_ws=True)
+    actions.append(
+        ActionSpecV1(
+            action_id="diag_click_inicio_1",
+            kind=ActionKindV1.click,
+            target=inicio_target,
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": inicio_target.model_dump()}, severity=ErrorSeverityV1.error),
+                ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": inicio_target.model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
+            ],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=5000,
+        )
+    )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="diag_wait_after_inicio_1",
+            kind=ActionKindV1.wait_for,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=2000,
+            criticality="normal",  # Screenshot después de click "Inicio"
+        )
+    )
+
+    # Click "Coordinación" -> espera 5s
+    coordinacion_target = TargetV1(type=TargetKindV1.text, text="Coordinación", exact=True, normalize_ws=True)
+    actions.append(
+        ActionSpecV1(
+            action_id="diag_click_coordinacion_1",
+            kind=ActionKindV1.click,
+            target=coordinacion_target,
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": coordinacion_target.model_dump()}, severity=ErrorSeverityV1.error),
+                ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": coordinacion_target.model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
+            ],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=5000,
+        )
+    )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="diag_wait_after_coordinacion_1",
+            kind=ActionKindV1.wait_for,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=5000,
+            criticality="normal",  # Screenshot después de click "Coordinación" (primera vez)
+        )
+    )
+
+    # Click "Inicio" -> espera 2s (segunda vez)
+    actions.append(
+        ActionSpecV1(
+            action_id="diag_click_inicio_2",
+            kind=ActionKindV1.click,
+            target=inicio_target,
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": inicio_target.model_dump()}, severity=ErrorSeverityV1.error),
+                ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": inicio_target.model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
+            ],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=5000,
+        )
+    )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="diag_wait_after_inicio_2",
+            kind=ActionKindV1.wait_for,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=2000,
+            criticality="normal",  # Screenshot después del segundo click "Inicio"
+        )
+    )
+
+    # Click "Coordinación" -> espera 5s (segunda vez)
+    actions.append(
+        ActionSpecV1(
+            action_id="diag_click_coordinacion_2",
+            kind=ActionKindV1.click,
+            target=coordinacion_target,
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": coordinacion_target.model_dump()}, severity=ErrorSeverityV1.error),
+                ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": coordinacion_target.model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
+            ],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=5000,
+        )
+    )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="diag_wait_after_coordinacion_2",
+            kind=ActionKindV1.wait_for,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=5000,
+            criticality="normal",  # Screenshot después del segundo click "Coordinación" + diagnóstico final
+        )
+    )
+
+    rt = ExecutorRuntimeH4(
+        runs_root=Path(base) / "runs",
+        project_root=Path(base).parent,
+        data_root="data",
+        execution_mode="production",
+        secrets_store=secrets,
+    )
+    run_dir = rt.run_actions(url=url, actions=actions, headless=headless, fail_fast=True, execution_mode="deterministic")
+    return run_dir.name
+
+
+def run_discovery_ui_cae(
+    *,
+    base_dir: str | Path = "data",
+    platform: str = "egestiona",
+    coordination: str = "Kern",
+    headless: bool = False,  # HEADFUL obligatorio para discovery visual
+    execution_mode: str = "production",
+) -> str:
+    """
+    DISCOVERY MODE: Navegación visual read-only hasta pantalla "Enviar Doc. Pendiente".
+    - Navegador VISIBLE obligatorio (headless=False)
+    - NO acciones mutables (no uploads, no submits, no form fills persistentes)
+    - Solo navegación, lectura y screenshots
+    - Para identificar selectores correctos en UI real de eGestiona
+    """
+    if headless:
+        raise ValueError("HEADFUL_REQUIRED: Discovery mode requires visible browser (headless=False)")
+
+    base = ensure_data_layout(base_dir=base_dir)
+    store = ConfigStoreV1(base_dir=base)
+    secrets = SecretsStoreV1(base_dir=base)
+
+    platforms = store.load_platforms()
+    plat = next((p for p in platforms.platforms if p.key == platform), None)
+    if not plat:
+        raise ValueError(f"platform not found: {platform}")
+
+    coord = next((c for c in plat.coordinations if c.label == coordination), None)
+    if not coord:
+        raise ValueError(f"coordination not found: {coordination}")
+
+    # URL: login_url (requerida) > override > platform.base_url > default
+    # MIGRACIÓN AUTOMÁTICA: Si login_url es null pero base_url parece URL de login, usar base_url
+    if plat.login_url:
+        url = plat.login_url
+    elif coord.url_override:
+        url = coord.url_override
+    elif plat.base_url and ("login" in plat.base_url.lower() or "egestiona.es" in plat.base_url.lower()):
+        # Backward compatibility: si base_url parece ser una URL de login, usarla como login_url
+        print(f"[MIGRATION] Using base_url as login_url for platform '{plat.key}': {plat.base_url}")
+        url = plat.base_url
+    else:
+        raise ValueError(
+            f"No login URL configured for platform '{plat.key}'. "
+            "Please set 'login_url' in platforms.json with the actual login URL from your browser. "
+            "Example: 'login_url': 'https://your-tenant.egestiona.es/login?origen=subcontrata'"
+        )
+
+    # Resolver credenciales (solo para login)
+    required_missing: list[str] = []
+    client_val = coord.client_code.strip() if (coord.client_code or "").strip() else (secrets.get_secret("egestiona.client") or "")
+    if plat.login_fields.requires_client and not client_val:
+        required_missing.append("egestiona.client (o coord.client_code)")
+    user_val = coord.username.strip() if (coord.username or "").strip() else (secrets.get_secret("egestiona.username") or "")
+    if not user_val:
+        required_missing.append("egestiona.username (o coord.username)")
+    password_ref = (coord.password_ref or "").strip() or "egestiona.password"
+    if secrets.get_secret(password_ref) is None:
+        required_missing.append(password_ref)
+    if required_missing:
+        raise ValueError("Missing required secrets: " + ", ".join(required_missing))
+
+    actions: list[ActionSpecV1] = []
+
+    # 1. Login (solo campos necesarios, NO submit para discovery)
+    actions.append(
+        ActionSpecV1(
+            action_id="discovery_nav",
+            kind=ActionKindV1.navigate,
+            target=TargetV1(type=TargetKindV1.url, url=url),
+            preconditions=[ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": ".*"}, severity=ErrorSeverityV1.warning)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.critical)],
+            timeout_ms=15000,
+        )
+    )
+
+    if plat.login_fields.requires_client:
+        actions.append(
+            ActionSpecV1(
+                action_id="discovery_fill_client",
+                kind=ActionKindV1.fill,
+                target=TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]'),
+                input={"text": client_val},
+                preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]').model_dump()}, severity=ErrorSeverityV1.error)],
+                postconditions=[
+                    ConditionV1(
+                        kind=ConditionKindV1.element_value_equals,
+                        args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="ClientName"]').model_dump(), "value": client_val},
+                        severity=ErrorSeverityV1.warning,
+                    )
+                ],
+                timeout_ms=10000,
+            )
+        )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="discovery_fill_user",
+            kind=ActionKindV1.fill,
+            target=TargetV1(type=TargetKindV1.css, selector='input[name="Username"]'),
+            input={"text": user_val},
+            preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Username"]').model_dump()}, severity=ErrorSeverityV1.error)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.element_value_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Username"]').model_dump(), "value": user_val}, severity=ErrorSeverityV1.warning)
+            ],
+            timeout_ms=10000,
+        )
+    )
+
+    actions.append(
+        ActionSpecV1(
+            action_id="discovery_fill_pass",
+            kind=ActionKindV1.fill,
+            target=TargetV1(type=TargetKindV1.css, selector='input[name="Password"]'),
+            input={"secret_ref": password_ref},
+            preconditions=[ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Password"]').model_dump()}, severity=ErrorSeverityV1.error)],
+            postconditions=[ConditionV1(kind=ConditionKindV1.element_attr_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='input[name="Password"]').model_dump(), "attr": "type", "value": "password"}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=10000,
+        )
+    )
+
+    # SUBMIT DEL LOGIN (necesario para discovery)
+    actions.append(
+        ActionSpecV1(
+            action_id="discovery_submit_login",
+            kind=ActionKindV1.click,
+            target=TargetV1(type=TargetKindV1.css, selector='button[type="submit"]'),
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": TargetV1(type=TargetKindV1.css, selector='button[type="submit"]').model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
+                ConditionV1(kind=ConditionKindV1.element_clickable, args={"target": TargetV1(type=TargetKindV1.css, selector='button[type="submit"]').model_dump()}, severity=ErrorSeverityV1.error),
+            ],
+            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            timeout_ms=15000,
+            criticality="normal",
+        )
+    )
+
+    # 2. Esperar dashboard post-login
+    actions.append(
+        ActionSpecV1(
+            action_id="discovery_wait_dashboard",
+            kind=ActionKindV1.wait_for,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": r"^(?!.*login).*$"}, severity=ErrorSeverityV1.critical),
+            ],
+            timeout_ms=20000,
+            criticality="critical",  # Screenshot dashboard
+        )
+    )
+
+    # 3. Click en "Coordinación" del menú lateral
+    coordination_target = TargetV1(
+        type=TargetKindV1.text,
+        text="Coordinación",
+        exact=True,
+        normalize_ws=True,
+    )
+    actions.append(
+        ActionSpecV1(
+            action_id="discovery_click_coordinacion",
+            kind=ActionKindV1.click,
+            target=coordination_target,
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": coordination_target.model_dump()}, severity=ErrorSeverityV1.error),
+                ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": coordination_target.model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
+            ],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning),
+                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": coordination_target.model_dump()}, severity=ErrorSeverityV1.critical, description="Coordinacion menu should stay visible after click"),
+            ],
+            timeout_ms=15000,
+            criticality="normal",  # Screenshot menú lateral abierto
+        )
+    )
+
+    # 4. Click en "Coordinación" del menú lateral
+    coordination_target = TargetV1(
+        type=TargetKindV1.text,
+        text="Coordinación",
+        exact=True,
+        normalize_ws=True,
+    )
+    actions.append(
+        ActionSpecV1(
+            action_id="discovery_click_coordinacion",
+            kind=ActionKindV1.click,
+            target=coordination_target,
+            input={},
+            preconditions=[
+                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": coordination_target.model_dump()}, severity=ErrorSeverityV1.error),
+                ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": coordination_target.model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
+            ],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning),
+            ],
+            timeout_ms=15000,
+            criticality="normal",  # Screenshot menú lateral abierto
+        )
+    )
+
+    # 5. Esperar pantalla de Coordinación General con tiles
+    actions.append(
+        ActionSpecV1(
+            action_id="discovery_wait_coordinacion_general",
+            kind=ActionKindV1.wait_for,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
+            input={},
+            preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning),
+            ],
+            timeout_ms=10000,
+            criticality="normal",  # Screenshot pantalla de Coordinación General con tiles
+        )
+    )
+
+    # 6. Buscar dentro del iframe contenido de tiles (patrones específicos)
+    search_patterns = ["Enviar Doc", "Doc. Pendiente", "Pendiente", "Gestión documentos", "Consultar Doc. Recibida"]
+
+    for pattern in search_patterns:
+        target = TargetV1(type=TargetKindV1.text, text=pattern, exact=True, normalize_ws=True)
+        actions.append(
+            ActionSpecV1(
+                action_id=f"discovery_iframe_{pattern.replace(' ', '_').replace('.', '_').lower()}",
+                kind=ActionKindV1.wait_for,
+                target=target,
+                input={"frame_locator": "iframe#id_contenido"},
+                preconditions=[
+                    ConditionV1(kind=ConditionKindV1.element_visible, args={"target": TargetV1(type=TargetKindV1.css, selector='iframe#id_contenido').model_dump()}, severity=ErrorSeverityV1.error),
+                ],
+                postconditions=[
+                    ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning),
+                ],
+                timeout_ms=5000,  # Timeout más corto para búsqueda exploratoria
+                criticality="normal",  # Screenshot contenido iframe con tiles
+            )
+        )
+
+    rt = ExecutorRuntimeH4(
+        runs_root=Path(base) / "runs",
+        project_root=Path(base).parent,
+        data_root="data",
+        execution_mode=execution_mode,
+        secrets_store=secrets,
+    )
+    run_dir = rt.run_actions(url=url, actions=actions, headless=headless, fail_fast=True, execution_mode="deterministic")
+    return run_dir.name
+
+
 def run_send_pending_document_kern(
     *,
     base_dir: str | Path = "data",
@@ -671,11 +2004,14 @@ def run_send_pending_document_kern(
         raise ValueError(f"coordination not found: {coordination}")
 
     # URL: login_url (requerida) > override > platform.base_url > default
+    # MIGRACIÓN AUTOMÁTICA: Si login_url es null pero base_url parece URL de login, usar base_url
     if plat.login_url:
         url = plat.login_url
     elif coord.url_override:
         url = coord.url_override
-    elif plat.base_url:
+    elif plat.base_url and ("login" in plat.base_url.lower() or "egestiona.es" in plat.base_url.lower()):
+        # Backward compatibility: si base_url parece ser una URL de login, usarla como login_url
+        print(f"[MIGRATION] Using base_url as login_url for platform '{plat.key}': {plat.base_url}")
         url = plat.base_url
     else:
         raise ValueError(
@@ -1263,6 +2599,240 @@ async def egestiona_send_pending_document(
                 worker_tax_id=worker_tax_id,
                 headless=True,
                 execution_mode="production",
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/discovery_ui_cae")
+async def egestiona_discovery_ui_cae(coord: str = "Kern"):
+    """
+    DISCOVERY MODE: Navegación visual read-only hasta pantalla "Enviar Doc. Pendiente".
+    - Navegador VISIBLE obligatorio (headless=False)
+    - NO acciones mutables
+    - Para identificar selectores correctos en UI real de eGestiona
+    """
+    try:
+        run_id = await run_in_threadpool(
+            lambda: run_discovery_ui_cae(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                headless=False,  # HEADFUL obligatorio
+                execution_mode="production",
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/diagnostico_paridad")
+async def egestiona_diagnostico_paridad(coord: str = "Kern"):
+    """
+    DIAGNÓSTICO DE PARIDAD: investigar por qué iframe#id_contenido no carga contenido.
+    - Secuencia de clicks "humanos" para activar carga
+    - Captura información de paridad completa
+    - Diagnóstico detallado del iframe y elementos
+    """
+    try:
+        run_id = await run_in_threadpool(
+            lambda: run_diagnostico_paridad(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                headless=False,  # HEADFUL obligatorio para diagnóstico
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/diagnostico_icono_central")
+async def egestiona_diagnostico_icono_central(coord: str = "Kern"):
+    """
+    DIAGNÓSTICO DEL ICONO CENTRAL: encontrar y activar el icono "Enviar Doc. Pendiente" del dashboard.
+    - Ruta canónica: login -> dashboard -> click icono central
+    - Diagnosticar dónde carga el contenido (iframe vs mismo DOM)
+    - NO usar menú lateral salvo fallback
+    """
+    try:
+        run_id = await run_in_threadpool(
+            lambda: run_diagnostico_icono_central(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                headless=False,  # HEADFUL obligatorio para diagnóstico
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/localizacion_geometrica")
+async def egestiona_localizacion_geometrica(coord: str = "Kern"):
+    """
+    LOCALIZACIÓN GEOMÉTRICA: encontrar elementos clickables por bounding boxes y geometría.
+    - Enumerar elementos clickables en zona central
+    - Usar heurística de posición para seleccionar candidato
+    - Click y observar cambios
+    """
+    try:
+        run_id = await run_in_threadpool(
+            lambda: run_localizacion_geometrica(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                headless=False,  # HEADFUL obligatorio para diagnóstico
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/smoke_test_tenant")
+async def egestiona_smoke_test_tenant(coord: str = "Kern"):
+    """
+    SMOKE TEST: Verificar tenant correcto y existencia de "Enviar Doc. Pendiente".
+    - Login en tenant correcto (grupoindukern.egestiona.com)
+    - Verificar hostname post-login
+    - Buscar "Enviar Doc. Pendiente" en dashboard
+    - Generar screenshots obligatorias
+    """
+    try:
+        run_id = await run_in_threadpool(
+            lambda: run_smoke_test_tenant_correcto(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                headless=False,  # HEADFUL obligatorio para smoke test
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/buscar_frames_dashboard")
+async def egestiona_buscar_frames_dashboard(coord: str = "Kern"):
+    """
+    BÚSQUEDA EN FRAMES: Localizar "Enviar Doc. Pendiente" en todos los frames del dashboard.
+    - Login usando EXACTAMENTE la URL anterior correcta
+    - Listar todos los frames
+    - Buscar texto en cada frame
+    - Capturar evidencia
+    """
+    try:
+        run_id = await run_in_threadpool(
+            lambda: run_buscar_frames_dashboard(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                headless=False,  # HEADFUL obligatorio para ver frames
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/buscar_frames_dashboard_headful")
+async def egestiona_buscar_frames_dashboard_headful(coord: str = "Kern"):
+    """
+    HEADFUL + READ-ONLY:
+    - Reutiliza EXACTAMENTE la URL del último run exitoso.
+    - Enumera TODOS los frames y busca "Enviar Doc. Pendiente" dentro de cada frame.
+    - Evidence PNG SIEMPRE (01_dashboard.png, 02_found_or_not.png, 03_tile_element.png).
+    """
+    try:
+        run_id = await run_in_threadpool(
+            lambda: run_find_enviar_doc_in_all_frames_headful(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                slow_mo_ms=300,
+                wait_after_login_s=2.5,
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/frames_screenshots_headful")
+async def egestiona_frames_screenshots_headful(coord: str = "Kern"):
+    """
+    HEADFUL + READ-ONLY:
+    - Login con EXACTAMENTE la misma URL del run anterior.
+    - Espera 3s con dashboard visible.
+    - Enumera frames y genera PNG por frame: evidence/frame_<idx>_<name>.png (SIN omitir).
+    - Solo después busca "Enviar Doc. Pendiente" dentro de cada frame.
+    """
+    try:
+        run_id = await run_in_threadpool(
+            lambda: run_frames_screenshots_and_find_tile_headful(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                slow_mo_ms=300,
+                wait_after_login_s=3.0,
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/list_pending_documents_readonly")
+async def egestiona_list_pending_documents_readonly(coord: str = "Kern"):
+    """
+    HEADFUL + READ-ONLY:
+    - Login
+    - Click tile "Enviar Doc. Pendiente" dentro del frame nm_contenido
+    - Cargar listado y extraer filas (sin mutar datos)
+    - Evidence PNG + JSON en evidence/
+    """
+    try:
+        run_id = await run_in_threadpool(
+            lambda: run_list_pending_documents_readonly_headful(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                slow_mo_ms=300,
+                viewport={"width": 1600, "height": 1000},
+                wait_after_login_s=2.5,
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/discovery_pending_table")
+async def egestiona_discovery_pending_table(coord: str = "Kern"):
+    """
+    HEADFUL + READ-ONLY:
+    Descubre en qué frame vive la tabla REAL de "Documentación Pendiente" y dumpea:
+    - frames_after_gestion3.json
+    - screenshots por frame
+    - tables_detected.json
+    - pending_table_selector.json + pending_table_outerhtml.html
+    """
+    try:
+        run_id = await run_in_threadpool(
+            lambda: run_discovery_pending_table_headful(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                slow_mo_ms=300,
+                viewport={"width": 1600, "height": 1000},
+                wait_after_login_s=2.0,
+                wait_after_click_s=10.0,
             )
         )
     except ValueError as e:

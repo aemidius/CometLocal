@@ -1,0 +1,1420 @@
+from __future__ import annotations
+
+import json
+import time
+import uuid
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from backend.repository.config_store_v1 import ConfigStoreV1
+from backend.repository.data_bootstrap_v1 import ensure_data_layout
+from backend.repository.secrets_store_v1 import SecretsStoreV1
+
+
+LOGIN_URL_PREVIOUS_SUCCESS = "https://coordinate.egestiona.es/login?origen=subcontrata"
+
+
+def _safe_write_json(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def run_find_enviar_doc_in_all_frames_headful(
+    *,
+    base_dir: str | Path = "data",
+    platform: str = "egestiona",
+    coordination: str = "Kern",
+    slow_mo_ms: int = 300,
+    wait_after_login_s: float = 2.5,
+) -> str:
+    """
+    HEADFUL / READ-ONLY:
+    - Login usando EXACTAMENTE la misma URL del último run exitoso (sin tocar config).
+    - Enumerar TODOS los frames y buscar en cada frame el texto exacto "Enviar Doc. Pendiente".
+    - Generar evidencia PNG SIEMPRE + dump JSON de frames/textos.
+    """
+    base = ensure_data_layout(base_dir=base_dir)
+    store = ConfigStoreV1(base_dir=base)
+    secrets = SecretsStoreV1(base_dir=base)
+
+    platforms = store.load_platforms()
+    plat = next((p for p in platforms.platforms if p.key == platform), None)
+    if not plat:
+        raise ValueError(f"platform not found: {platform}")
+    coord = next((c for c in plat.coordinations if c.label == coordination), None)
+    if not coord:
+        raise ValueError(f"coordination not found: {coordination}")
+
+    # Credenciales
+    client_code = (coord.client_code or "").strip()
+    username = (coord.username or "").strip()
+    password_ref = (coord.password_ref or "").strip()
+    password = secrets.get_secret(password_ref) if password_ref else None
+    if not client_code or not username or not password:
+        raise ValueError("Missing credentials: client_code/username/password_ref")
+
+    run_id = f"r_{uuid.uuid4().hex}"
+    run_dir = Path(base) / "runs" / run_id
+    evidence_dir = run_dir / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+
+    # Archivos requeridos
+    shot_01 = evidence_dir / "01_dashboard.png"
+    shot_02 = evidence_dir / "02_found_or_not.png"
+    shot_03 = evidence_dir / "03_tile_element.png"
+    dump_frames_path = evidence_dir / "frames.json"
+    dump_texts_path = evidence_dir / "dump_texts_by_frame.json"
+    dump_clickable_path = evidence_dir / "tile_clickable_outerhtml.html"
+
+    started = time.time()
+    found: Optional[Dict[str, Any]] = None
+    frames_dump: List[Dict[str, Any]] = []
+    texts_dump: Dict[str, List[str]] = {}
+
+    # Playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception as e:
+        raise RuntimeError("Playwright sync_api not available") from e
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False, slow_mo=slow_mo_ms)
+        context = browser.new_context(viewport={"width": 1280, "height": 720})
+        page = context.new_page()
+
+        # 1) Navigate (URL anterior exacta)
+        page.goto(LOGIN_URL_PREVIOUS_SUCCESS, wait_until="domcontentloaded", timeout=60000)
+
+        # 2) Login
+        page.locator('input[name="ClientName"]').fill(client_code, timeout=15000)
+        page.locator('input[name="Username"]').fill(username, timeout=15000)
+        page.locator('input[name="Password"]').fill(password, timeout=15000)
+        page.locator('button[type="submit"]').click(timeout=15000)
+
+        # 3) Esperar post-login + 2-3s
+        try:
+            page.wait_for_load_state("networkidle", timeout=20000)
+        except Exception:
+            pass
+        time.sleep(wait_after_login_s)
+
+        # Evidence 01: siempre
+        page.screenshot(path=str(shot_01), full_page=True)
+
+        # Logs / dumps de paridad
+        try:
+            ua = page.evaluate("() => navigator.userAgent")
+        except Exception:
+            ua = None
+
+        for idx, fr in enumerate(page.frames):
+            frames_dump.append(
+                {
+                    "index": idx,
+                    "name": fr.name,
+                    "url": fr.url,
+                    "is_main": fr == page.main_frame,
+                }
+            )
+
+        _safe_write_json(
+            dump_frames_path,
+            {
+                "login_url_reused_exact": LOGIN_URL_PREVIOUS_SUCCESS,
+                "page_url": page.url,
+                "page_title": page.title(),
+                "user_agent": ua,
+                "frames": frames_dump,
+            },
+        )
+
+        # 4) Buscar en cada frame
+        target_exact = "Enviar Doc. Pendiente"
+        target_fallback = "Enviar Doc"
+
+        def _extract_visible_texts(frame) -> List[str]:
+            try:
+                txt = frame.evaluate("() => (document.body ? (document.body.innerText || '') : '')")
+            except Exception:
+                txt = ""
+            lines = [ln.strip() for ln in (txt or "").splitlines()]
+            lines = [ln for ln in lines if ln]
+            # top 200 unique preserving order
+            seen = set()
+            out: List[str] = []
+            for ln in lines:
+                if ln in seen:
+                    continue
+                seen.add(ln)
+                out.append(ln)
+                if len(out) >= 200:
+                    break
+            return out
+
+        for idx, fr in enumerate(page.frames):
+            # Exact
+            loc = fr.get_by_text(target_exact, exact=True)
+            if loc.count() == 0:
+                # Fallback contains
+                loc = fr.get_by_text(target_fallback, exact=False)
+
+            if loc.count() > 0:
+                try:
+                    loc.first.wait_for(state="visible", timeout=1500)
+                except Exception:
+                    pass
+                # screenshot viewport (02) + element (03)
+                page.screenshot(path=str(shot_02), full_page=True)
+                try:
+                    loc.first.screenshot(path=str(shot_03))
+                except Exception:
+                    # fallback: viewport again
+                    page.screenshot(path=str(shot_03), full_page=True)
+
+                # OuterHTML clickable ancestor
+                try:
+                    outer = loc.first.evaluate(
+                        """(el) => {
+  const clickable = el.closest('a,button,[role="button"],div[onclick],img[onclick],area') || el;
+  return clickable.outerHTML || '';
+}"""
+                    )
+                except Exception:
+                    outer = ""
+                dump_clickable_path.write_text(outer or "", encoding="utf-8")
+
+                found = {
+                    "frame_index": idx,
+                    "frame_name": fr.name,
+                    "frame_url": fr.url,
+                    "matched_text": target_exact if target_exact in (loc.first.inner_text() if loc.count() else "") else target_fallback,
+                    "recommended_selector": {
+                        "strategy": "frame.get_by_text",
+                        "frame": {"name": fr.name, "url": fr.url},
+                        "text": target_exact,
+                        "exact": True,
+                    },
+                }
+                break
+            else:
+                # dump textos visibles por frame (para diagnóstico)
+                key = f"{idx}:{fr.name or ''}:{fr.url or ''}"
+                texts_dump[key] = _extract_visible_texts(fr)
+
+        if found is None:
+            # No encontrado: screenshot obligatorio + dump de textos por frame
+            page.screenshot(path=str(shot_02), full_page=True)
+            _safe_write_json(dump_texts_path, texts_dump)
+        else:
+            _safe_write_json(evidence_dir / "found.json", found)
+
+        context.close()
+        browser.close()
+
+    finished = time.time()
+    (run_dir / "run_finished.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "status": "success" if found else "failed",
+                "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)),
+                "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(finished)),
+                "duration_ms": int((finished - started) * 1000),
+                "reason": "FOUND_TILE" if found else "NOT_FOUND",
+                "last_error": None if found else "NOT_FOUND",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    return run_id
+
+
+def run_frames_screenshots_and_find_tile_headful(
+    *,
+    base_dir: str | Path = "data",
+    platform: str = "egestiona",
+    coordination: str = "Kern",
+    slow_mo_ms: int = 300,
+    wait_after_login_s: float = 3.0,
+) -> str:
+    """
+    HEADFUL / READ-ONLY:
+    1) Login usando EXACTAMENTE la misma URL del run anterior exitoso (sin tocar config).
+    2) Espera 3s con el dashboard visible.
+    3) ENUMERA frames (index/name/url) y guarda screenshot PNG por frame (SIN omitir ninguno).
+    4) Luego busca texto en CADA frame:
+       - exact "Enviar Doc. Pendiente"
+       - fallback contains "Enviar Doc"
+       Si lo encuentra: screenshot elemento + outerHTML clickable y STOP.
+    """
+    base = ensure_data_layout(base_dir=base_dir)
+    store = ConfigStoreV1(base_dir=base)
+    secrets = SecretsStoreV1(base_dir=base)
+
+    platforms = store.load_platforms()
+    plat = next((p for p in platforms.platforms if p.key == platform), None)
+    if not plat:
+        raise ValueError(f"platform not found: {platform}")
+    coord = next((c for c in plat.coordinations if c.label == coordination), None)
+    if not coord:
+        raise ValueError(f"coordination not found: {coordination}")
+
+    client_code = (coord.client_code or "").strip()
+    username = (coord.username or "").strip()
+    password_ref = (coord.password_ref or "").strip()
+    password = secrets.get_secret(password_ref) if password_ref else None
+    if not client_code or not username or not password:
+        raise ValueError("Missing credentials: client_code/username/password_ref")
+
+    run_id = f"r_{uuid.uuid4().hex}"
+    run_dir = Path(base) / "runs" / run_id
+    evidence_dir = run_dir / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+
+    dump_frames_path = evidence_dir / "frames.json"
+    dump_texts_path = evidence_dir / "dump_texts_by_frame.json"
+    found_path = evidence_dir / "found.json"
+    outerhtml_path = evidence_dir / "tile_clickable_outerhtml.html"
+    element_shot_path = evidence_dir / "tile_element.png"
+
+    started = time.time()
+
+    def _safe_name(name: str) -> str:
+        n = (name or "").strip() or "anon"
+        n = "".join(ch if (ch.isalnum() or ch in ("_", "-")) else "_" for ch in n)
+        return n[:80] or "anon"
+
+    # Playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception as e:
+        raise RuntimeError("Playwright sync_api not available") from e
+
+    frames_dump: List[Dict[str, Any]] = []
+    texts_dump: Dict[str, List[str]] = {}
+    found: Optional[Dict[str, Any]] = None
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False, slow_mo=slow_mo_ms)
+        context = browser.new_context(viewport={"width": 1280, "height": 720})
+        page = context.new_page()
+
+        # 1) Navigate (URL anterior exacta)
+        page.goto(LOGIN_URL_PREVIOUS_SUCCESS, wait_until="domcontentloaded", timeout=60000)
+
+        # 2) Login
+        page.locator('input[name="ClientName"]').fill(client_code, timeout=20000)
+        page.locator('input[name="Username"]').fill(username, timeout=20000)
+        page.locator('input[name="Password"]').fill(password, timeout=20000)
+        page.locator('button[type="submit"]').click(timeout=20000)
+
+        # Espera post-login: asegurar que realmente estamos en default_contenido.asp y que el iframe existe
+        try:
+            page.wait_for_url("**/default_contenido.asp", timeout=30000)
+        except Exception:
+            # fallback: no abortar, pero seguimos esperando por DOM estable
+            pass
+        try:
+            page.wait_for_load_state("networkidle", timeout=25000)
+        except Exception:
+            pass
+        try:
+            page.locator("iframe#id_contenido").wait_for(state="attached", timeout=20000)
+        except Exception:
+            pass
+        # Espera adicional solicitada (tiles visibles)
+        time.sleep(wait_after_login_s)
+
+        # Poll: esperar a que aparezcan frames reales (incluido nm_contenido) antes de enumerar
+        t_deadline = time.time() + 20.0
+        while time.time() < t_deadline:
+            frs = list(page.frames)
+            has_nm = any((f.name or "") == "nm_contenido" for f in frs)
+            if len(frs) > 1 and has_nm:
+                break
+            time.sleep(0.25)
+
+        # 3) Enumerar frames (ya con iframes cargados)
+        fr_list = list(page.frames)
+        for idx, fr in enumerate(fr_list):
+            frames_dump.append(
+                {
+                    "index": idx,
+                    "name": fr.name,
+                    "url": fr.url,
+                    "is_main": fr == page.main_frame,
+                }
+            )
+
+        # Guardar frames.json con paridad básica
+        try:
+            ua = page.evaluate("() => navigator.userAgent")
+        except Exception:
+            ua = None
+
+        _safe_write_json(
+            dump_frames_path,
+            {
+                "login_url_reused_exact": LOGIN_URL_PREVIOUS_SUCCESS,
+                "page_url": page.url,
+                "page_title": page.title(),
+                "user_agent": ua,
+                "frames": frames_dump,
+            },
+        )
+
+        # 4) Screenshot por frame (SIN EXCEPCIONES => siempre crear un PNG por frame)
+        for fr_info in frames_dump:
+            idx = fr_info["index"]
+            name = _safe_name(fr_info.get("name") or ("main" if fr_info.get("is_main") else "anon"))
+            out_path = evidence_dir / f"frame_{idx}_{name}.png"
+
+            fr = fr_list[idx] if idx < len(fr_list) else page.frames[idx]
+            if fr == page.main_frame:
+                page.screenshot(path=str(out_path), full_page=False)
+                continue
+
+            # Intento 1: screenshot del body del frame
+            ok = False
+            try:
+                fr.locator("body").screenshot(path=str(out_path))
+                ok = True
+            except Exception:
+                ok = False
+
+            if ok:
+                continue
+
+            # Intento 2: screenshot del elemento iframe en el DOM principal (si se puede localizar)
+            try:
+                if fr.name:
+                    iframe_loc = page.locator(f'iframe[name="{fr.name}"]')
+                    if iframe_loc.count() == 0:
+                        iframe_loc = page.locator(f'iframe#{fr.name}')
+                else:
+                    iframe_loc = page.locator("iframe")
+                if iframe_loc.count() > 0:
+                    iframe_loc.first.screenshot(path=str(out_path))
+                    continue
+            except Exception:
+                pass
+
+            # Intento 3: último recurso, screenshot del viewport (igual deja evidencia, aunque no sea específico)
+            page.screenshot(path=str(out_path), full_page=False)
+
+        # 5) Buscar texto por frame (solo después de screenshots)
+        target_exact = "Enviar Doc. Pendiente"
+        target_fallback = "Enviar Doc"
+
+        def _extract_visible_texts(frame) -> List[str]:
+            try:
+                txt = frame.evaluate("() => (document.body ? (document.body.innerText || '') : '')")
+            except Exception:
+                txt = ""
+            lines = [ln.strip() for ln in (txt or "").splitlines()]
+            lines = [ln for ln in lines if ln]
+            seen = set()
+            out: List[str] = []
+            for ln in lines:
+                if ln in seen:
+                    continue
+                seen.add(ln)
+                out.append(ln)
+                if len(out) >= 200:
+                    break
+            return out
+
+        for idx, fr in enumerate(fr_list):
+            loc = fr.get_by_text(target_exact, exact=True)
+            if loc.count() == 0:
+                loc = fr.get_by_text(target_fallback, exact=False)
+
+            if loc.count() > 0:
+                # Encontrado
+                try:
+                    loc.first.scroll_into_view_if_needed(timeout=1500)
+                except Exception:
+                    pass
+                try:
+                    loc.first.screenshot(path=str(element_shot_path))
+                except Exception:
+                    # fallback: viewport
+                    page.screenshot(path=str(element_shot_path), full_page=False)
+
+                try:
+                    outer = loc.first.evaluate(
+                        """(el) => {
+  const clickable = el.closest('a,button,[role="button"],div[onclick],img[onclick],area') || el;
+  return clickable.outerHTML || '';
+}"""
+                    )
+                except Exception:
+                    outer = ""
+                outerhtml_path.write_text(outer or "", encoding="utf-8")
+
+                found = {
+                    "frame_index": idx,
+                    "frame_name": fr.name,
+                    "frame_url": fr.url,
+                    "matched": target_exact if (fr.get_by_text(target_exact, exact=True).count() > 0) else target_fallback,
+                }
+                _safe_write_json(found_path, found)
+                break
+
+            # No encontrado en este frame: acumular textos visibles para diagnóstico (sin concluir inexistencia)
+            key = f"{idx}:{fr.name or ''}:{fr.url or ''}"
+            texts_dump[key] = _extract_visible_texts(fr)
+
+        if found is None:
+            _safe_write_json(dump_texts_path, texts_dump)
+
+        context.close()
+        browser.close()
+
+    finished = time.time()
+    (run_dir / "run_finished.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "status": "success" if found else "failed",
+                "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)),
+                "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(finished)),
+                "duration_ms": int((finished - started) * 1000),
+                "reason": "FOUND_TILE" if found else "NOT_FOUND_AFTER_FRAME_SCAN",
+                "last_error": None if found else "NOT_FOUND",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    return run_id
+
+
+def run_list_pending_documents_readonly_headful(
+    *,
+    base_dir: str | Path = "data",
+    platform: str = "egestiona",
+    coordination: str = "Kern",
+    slow_mo_ms: int = 300,
+    viewport: Optional[Dict[str, int]] = None,
+    wait_after_login_s: float = 2.5,
+) -> str:
+    """
+    HEADFUL / READ-ONLY:
+    1) Login (misma URL del run anterior exitoso).
+    2) Entra en frame nm_contenido (tiles).
+    3) Click tile "Enviar Doc. Pendiente" (Gestion(3)).
+    4) Espera carga listado REAL en frame hijo (tipicamente f3 / buscador.asp?Apartado_ID=3) y extrae filas visibles del grid DHTMLX:
+       - cabecera: table.hdr
+       - datos: table.obj.row20px
+    5) Filtra en memoria y guarda JSON + evidencia PNG.
+    """
+    base = ensure_data_layout(base_dir=base_dir)
+    store = ConfigStoreV1(base_dir=base)
+    secrets = SecretsStoreV1(base_dir=base)
+
+    platforms = store.load_platforms()
+    plat = next((p for p in platforms.platforms if p.key == platform), None)
+    if not plat:
+        raise ValueError(f"platform not found: {platform}")
+    coord = next((c for c in plat.coordinations if c.label == coordination), None)
+    if not coord:
+        raise ValueError(f"coordination not found: {coordination}")
+
+    client_code = (coord.client_code or "").strip()
+    username = (coord.username or "").strip()
+    password_ref = (coord.password_ref or "").strip()
+    password = secrets.get_secret(password_ref) if password_ref else None
+    if not client_code or not username or not password:
+        raise ValueError("Missing credentials: client_code/username/password_ref")
+
+    run_id = f"r_{uuid.uuid4().hex}"
+    run_dir = Path(base) / "runs" / run_id
+    evidence_dir = run_dir / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+
+    # Evidence paths (nombres requeridos)
+    shot_01 = evidence_dir / "01_dashboard_tiles.png"
+    shot_02 = evidence_dir / "02_listado_grid.png"
+    shot_03 = evidence_dir / "03_listado_grid_filtered.png"
+    raw_json_path = evidence_dir / "pending_documents_raw.json"
+    filtered_json_path = evidence_dir / "pending_documents_filtered.json"
+    meta_path = evidence_dir / "meta.json"
+
+    started = time.time()
+
+    # Playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception as e:
+        raise RuntimeError("Playwright sync_api not available") from e
+
+    total_rows = 0
+    filtered_rows = 0
+    raw_rows: List[Dict[str, Any]] = []
+    filt_rows: List[Dict[str, Any]] = []
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False, slow_mo=slow_mo_ms)
+        context = browser.new_context(
+            viewport=viewport or {"width": 1600, "height": 1000},
+        )
+        page = context.new_page()
+
+        # 1) Login con URL exacta anterior
+        page.goto(LOGIN_URL_PREVIOUS_SUCCESS, wait_until="domcontentloaded", timeout=60000)
+        page.locator('input[name="ClientName"]').fill(client_code, timeout=20000)
+        page.locator('input[name="Username"]').fill(username, timeout=20000)
+        page.locator('input[name="Password"]').fill(password, timeout=20000)
+        page.locator('button[type="submit"]').click(timeout=20000)
+
+        # 2) Esperar post-login: default_contenido.asp + frame nm_contenido (tiles)
+        page.wait_for_url("**/default_contenido.asp", timeout=30000)
+        try:
+            page.wait_for_load_state("networkidle", timeout=25000)
+        except Exception:
+            pass
+        time.sleep(wait_after_login_s)
+
+        # Esperar a que exista el frame nm_contenido
+        t_deadline = time.time() + 25.0
+        frame = None
+        while time.time() < t_deadline:
+            frame = page.frame(name="nm_contenido")
+            if frame and frame.url:
+                break
+            time.sleep(0.25)
+        if not frame:
+            # Evidence y abort limpio
+            page.screenshot(path=str(shot_01), full_page=True)
+            raise RuntimeError("FRAME_NOT_FOUND: nm_contenido")
+
+        # Evidence 01: dashboard con tiles visibles
+        page.screenshot(path=str(shot_01), full_page=True)
+
+        # 3) Click tile Enviar Doc. Pendiente (READ-ONLY)
+        tile_sel = 'a.listado_link[href="javascript:Gestion(3);"]'
+        tile = frame.locator(tile_sel)
+        tile.first.wait_for(state="visible", timeout=20000)
+        tile.first.click(timeout=20000)
+
+        # 4) Esperar frame de listado (f3 o URL buscador.asp?Apartado_ID=3) + grid DHTMLX.
+        def _find_list_frame() -> Any:
+            # prefer name f3
+            fr = page.frame(name="f3")
+            if fr:
+                return fr
+            # fallback by url
+            for fr2 in page.frames:
+                u = (fr2.url or "").lower()
+                if ("buscador.asp" in u) and ("apartado_id=3" in u):
+                    return fr2
+            return None
+
+        def _frame_has_grid(fr) -> bool:
+            try:
+                return fr.locator("table.obj.row20px").count() > 0
+            except Exception:
+                return False
+
+        list_frame = None
+        t_deadline = time.time() + 15.0
+        while time.time() < t_deadline:
+            list_frame = _find_list_frame()
+            if list_frame and _frame_has_grid(list_frame):
+                break
+            time.sleep(0.25)
+
+        # Si no aparece aún, suele requerir "Buscar" (read-only) para renderizar el grid
+        if not (list_frame and _frame_has_grid(list_frame)):
+            try:
+                btn_buscar = frame.get_by_text("Buscar", exact=True)
+                if btn_buscar.count() > 0:
+                    btn_buscar.first.click(timeout=10000)
+            except Exception:
+                pass
+            # Esperar otra vez
+            t_deadline = time.time() + 20.0
+            while time.time() < t_deadline:
+                list_frame = _find_list_frame()
+                if list_frame and _frame_has_grid(list_frame):
+                    break
+                time.sleep(0.25)
+
+        # Último fallback: "Resultados" (read-only)
+        if not (list_frame and _frame_has_grid(list_frame)):
+            try:
+                btn_res = frame.get_by_text("Resultados", exact=True)
+                if btn_res.count() > 0:
+                    btn_res.first.click(timeout=10000)
+            except Exception:
+                pass
+            t_deadline = time.time() + 20.0
+            while time.time() < t_deadline:
+                list_frame = _find_list_frame()
+                if list_frame and _frame_has_grid(list_frame):
+                    break
+                time.sleep(0.25)
+
+        if not (list_frame and _frame_has_grid(list_frame)):
+            # Evidence y abort limpio
+            page.screenshot(path=str(shot_02), full_page=True)
+            raise RuntimeError("GRID_NOT_FOUND: expected frame f3/buscador.asp?Apartado_ID=3 with table.obj.row20px")
+
+        # Esperar también cabecera (hdr)
+        list_frame.locator("table.hdr").first.wait_for(state="attached", timeout=15000)
+        list_frame.locator("table.obj.row20px").first.wait_for(state="attached", timeout=15000)
+
+        # Evidence 02: grid visible
+        try:
+            list_frame.locator("body").screenshot(path=str(shot_02))
+        except Exception:
+            page.screenshot(path=str(shot_02), full_page=True)
+
+        # 5) Extracción real del grid DHTMLX (READ-ONLY): headers + filas visibles
+        extracted = list_frame.evaluate(
+            """() => {
+  function norm(s){ return (s||'').replace(/\\s+/g,' ').trim(); }
+
+  function headersFromHdrTable(hdr){
+    const cells = Array.from(hdr.querySelectorAll('tr:nth-of-type(2) td'));
+    if(cells.length){
+      return cells.map(td => {
+        const span = td.querySelector('.hdrcell span');
+        return span ? norm(span.innerText) : norm(td.innerText);
+      });
+    }
+    return Array.from(hdr.querySelectorAll('.hdrcell span')).map(s => norm(s.innerText));
+  }
+
+  function scoreHdr(hdr){
+    const hs = headersFromHdrTable(hdr);
+    const nonEmpty = hs.filter(Boolean).length;
+    return nonEmpty * 100 + norm(hdr.innerText).length;
+  }
+
+  function extractRowsFromObjTable(tbl, headers){
+    const trs = Array.from(tbl.querySelectorAll('tr'));
+    const rows = [];
+    for(const tr of trs){
+      const tds = Array.from(tr.querySelectorAll('td'));
+      if(!tds.length) continue;
+      const cells = tds.map(td => norm(td.innerText));
+      if(!cells.some(x => x)) continue;
+      const mapped = {};
+      for(let i=0;i<cells.length;i++){
+        const k = (i < headers.length && headers[i]) ? headers[i] : `col_${i+1}`;
+        mapped[k] = cells[i] || '';
+      }
+      rows.push({ ...mapped, raw_cells: cells });
+    }
+    return rows;
+  }
+
+  // DHTMLX grid often has multiple hdr/obj tables (frozen columns etc.)
+  const hdrTables = Array.from(document.querySelectorAll('table.hdr'));
+  const objTables = Array.from(document.querySelectorAll('table.obj.row20px'));
+  if(!hdrTables.length || !objTables.length) return { headers: [], columns_visible: [], rows: [], rows_visible: 0 };
+
+  hdrTables.sort((a,b) => scoreHdr(b) - scoreHdr(a));
+  const bestHdr = hdrTables[0];
+  const headers = headersFromHdrTable(bestHdr);
+  const columns_visible = headers.filter(Boolean);
+
+  // Pick the obj table that yields most non-empty rows
+  let bestObj = null;
+  let bestRows = [];
+  for(const t of objTables){
+    const rs = extractRowsFromObjTable(t, headers);
+    if(rs.length > bestRows.length){
+      bestObj = t;
+      bestRows = rs;
+    } else if(rs.length === bestRows.length && rs.length > 0){
+      // tie-breaker: more text
+      if(norm(t.innerText).length > norm(bestObj ? bestObj.innerText : '').length){
+        bestObj = t;
+        bestRows = rs;
+      }
+    }
+  }
+
+  return {
+    headers,
+    columns_visible,
+    rows: bestRows,
+    rows_visible: bestRows.length,
+    debug: {
+      hdr_tables: hdrTables.length,
+      obj_tables: objTables.length
+    }
+  };
+}"""
+        )
+
+        raw_rows = extracted.get("rows") or []
+        total_rows = len(raw_rows)
+
+        # Frame info real (best-effort)
+        try:
+            list_frame_url = list_frame.evaluate("() => location.href")
+        except Exception:
+            list_frame_url = list_frame.url
+
+        _safe_write_json(
+            raw_json_path,
+            {
+                "frame_name": list_frame.name,
+                "frame_url": list_frame_url,
+                "grid": {"header_selector": "table.hdr", "data_selector": "table.obj.row20px"},
+                "headers": extracted.get("headers") or [],
+                "columns_visible": extracted.get("columns_visible") or [],
+                "rows_visible": extracted.get("rows_visible") or total_rows,
+                "rows": raw_rows,
+            },
+        )
+
+        # 6) Filtrado en memoria por columnas conocidas (Empresa / Elemento) (READ-ONLY)
+        company_target = "TEDELAB INGENIERIA SCCL"
+        worker_target = "Emilio Roldán Molina"
+
+        def _strip_accents(s: str) -> str:
+            # simple accent fold for Spanish chars we expect
+            repl = str.maketrans(
+                {
+                    "á": "a",
+                    "é": "e",
+                    "í": "i",
+                    "ó": "o",
+                    "ú": "u",
+                    "ü": "u",
+                    "ñ": "n",
+                    "Á": "A",
+                    "É": "E",
+                    "Í": "I",
+                    "Ó": "O",
+                    "Ú": "U",
+                    "Ü": "U",
+                    "Ñ": "N",
+                }
+            )
+            return (s or "").translate(repl)
+
+        def _canon(s: str) -> str:
+            s2 = _strip_accents((s or "").strip()).upper()
+            # remove punctuation-ish, keep letters/numbers/spaces
+            out = []
+            for ch in s2:
+                if ch.isalnum() or ch.isspace():
+                    out.append(ch)
+                else:
+                    out.append(" ")
+            return " ".join("".join(out).split())
+
+        def _levenshtein_leq_1(a: str, b: str) -> bool:
+            # fast path: exact or 1 edit
+            if a == b:
+                return True
+            la, lb = len(a), len(b)
+            if abs(la - lb) > 1:
+                return False
+            # classic two-pointer for edit distance <= 1
+            i = j = 0
+            edits = 0
+            while i < la and j < lb:
+                if a[i] == b[j]:
+                    i += 1
+                    j += 1
+                    continue
+                edits += 1
+                if edits > 1:
+                    return False
+                if la == lb:
+                    i += 1
+                    j += 1
+                elif la > lb:
+                    i += 1
+                else:
+                    j += 1
+            if i < la or j < lb:
+                edits += 1
+            return edits <= 1
+
+        def _norm_company(v: str) -> str:
+            s = (v or "").strip()
+            if " (" in s:
+                s = s.split(" (", 1)[0].strip()
+            return s
+
+        def _match_company(cell: str) -> bool:
+            # "exact" match after normalization; tolerate 1-char typo seen in UI (INGENIRIA vs INGENIERIA)
+            a = _canon(_norm_company(cell))
+            b = _canon(company_target)
+            return _levenshtein_leq_1(a, b)
+
+        def _match_worker(cell: str) -> bool:
+            # Match regardless of order ("Apellido, Nombre") by requiring all tokens from target
+            a = _canon(cell)
+            toks = [t for t in _canon(worker_target).split(" ") if t]
+            return all(t in a for t in toks)
+
+        def _row_matches(r: Dict[str, Any]) -> bool:
+            empresa_raw = str(r.get("Empresa") or r.get("empresa") or "")
+            elemento_raw = str(r.get("Elemento") or r.get("elemento") or "")
+            vals = " | ".join(str(v or "") for v in r.values())
+            empresa_ok = _match_company(empresa_raw) or _match_company(vals)
+            worker_ok = _match_worker(elemento_raw) or _match_worker(vals)
+            return bool(empresa_ok and worker_ok)
+
+        filt_rows = [r for r in raw_rows if _row_matches(r)]
+        filtered_rows = len(filt_rows)
+        _safe_write_json(
+            filtered_json_path,
+            {
+                "filter": {"empresa": company_target, "trabajador_contains": worker_target},
+                "rows_visible": extracted.get("rows_visible") or total_rows,
+                "rows": filt_rows,
+            },
+        )
+
+        # Evidence 03: mismo grid (sin mutar UI)
+        try:
+            list_frame.locator("body").screenshot(path=str(shot_03))
+        except Exception:
+            page.screenshot(path=str(shot_03), full_page=True)
+
+        _safe_write_json(
+            meta_path,
+            {
+                "login_url_reused_exact": LOGIN_URL_PREVIOUS_SUCCESS,
+                "page_url": page.url,
+                "page_title": page.title(),
+                "frame_name": "nm_contenido",
+                "frame_url": frame.url,
+                "total_rows": total_rows,
+                "filtered_rows": filtered_rows,
+                "tile_selector": tile_sel,
+                "data_frame_name": list_frame.name if list_frame else None,
+                "data_frame_url": list_frame_url if list_frame else None,
+                "grid": {"header_selector": "table.hdr", "data_selector": "table.obj.row20px"},
+                "rows_visible": extracted.get("rows_visible") if isinstance(extracted, dict) else None,
+            },
+        )
+
+        context.close()
+        browser.close()
+
+    finished = time.time()
+    (run_dir / "run_finished.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "status": "success",
+                "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)),
+                "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(finished)),
+                "duration_ms": int((finished - started) * 1000),
+                "reason": "LISTED_PENDING_DOCUMENTS",
+                "last_error": None,
+                "counts": {"total_rows": total_rows, "filtered_rows": filtered_rows},
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    return run_id
+
+
+def run_discovery_pending_table_headful(
+    *,
+    base_dir: str | Path = "data",
+    platform: str = "egestiona",
+    coordination: str = "Kern",
+    slow_mo_ms: int = 300,
+    viewport: Optional[Dict[str, int]] = None,
+    wait_after_login_s: float = 2.0,
+    wait_after_click_s: float = 10.0,
+) -> str:
+    """
+    HEADFUL / READ-ONLY discovery:
+    - Login estándar (URL anterior exacta)
+    - Screenshot tiles (01_dashboard_tiles.png)
+    - Click Gestion(3) en nm_contenido
+    - Espera robusta de cambio de contenido (frame url cambia / table aparece)
+    - Enumeración completa de frames + screenshots por frame
+    - Detección de tablas por frame (tr/th/headers) -> tables_detected.json
+    - Identificar tabla candidata de "documentación pendiente" y dumpear selector + outerHTML
+    - Screenshot final con tabla resaltada
+    """
+    base = ensure_data_layout(base_dir=base_dir)
+    store = ConfigStoreV1(base_dir=base)
+    secrets = SecretsStoreV1(base_dir=base)
+
+    platforms = store.load_platforms()
+    plat = next((p for p in platforms.platforms if p.key == platform), None)
+    if not plat:
+        raise ValueError(f"platform not found: {platform}")
+    coord = next((c for c in plat.coordinations if c.label == coordination), None)
+    if not coord:
+        raise ValueError(f"coordination not found: {coordination}")
+
+    client_code = (coord.client_code or "").strip()
+    username = (coord.username or "").strip()
+    password_ref = (coord.password_ref or "").strip()
+    password = secrets.get_secret(password_ref) if password_ref else None
+    if not client_code or not username or not password:
+        raise ValueError("Missing credentials: client_code/username/password_ref")
+
+    run_id = f"r_{uuid.uuid4().hex}"
+    run_dir = Path(base) / "runs" / run_id
+    evidence_dir = run_dir / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+
+    # Evidence paths
+    dash_png = evidence_dir / "01_dashboard_tiles.png"
+    frames_json = evidence_dir / "frames_after_gestion3.json"
+    tables_json = evidence_dir / "tables_detected.json"
+    selector_json = evidence_dir / "pending_table_selector.json"
+    outerhtml_html = evidence_dir / "pending_table_outerhtml.html"
+    final_png = evidence_dir / "02_pending_table_identified.png"
+
+    started = time.time()
+
+    def _safe_name(name: str) -> str:
+        n = (name or "").strip() or "anon"
+        n = "".join(ch if (ch.isalnum() or ch in ("_", "-")) else "_" for ch in n)
+        return n[:80] or "anon"
+
+    # Playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception as e:
+        raise RuntimeError("Playwright sync_api not available") from e
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False, slow_mo=slow_mo_ms)
+        context = browser.new_context(viewport=viewport or {"width": 1600, "height": 1000})
+        page = context.new_page()
+
+        # 1) Login (URL exacta anterior)
+        page.goto(LOGIN_URL_PREVIOUS_SUCCESS, wait_until="domcontentloaded", timeout=60000)
+        page.locator('input[name="ClientName"]').fill(client_code, timeout=20000)
+        page.locator('input[name="Username"]').fill(username, timeout=20000)
+        page.locator('input[name="Password"]').fill(password, timeout=20000)
+        page.locator('button[type="submit"]').click(timeout=20000)
+
+        # 2) Esperar default_contenido.asp
+        page.wait_for_url("**/default_contenido.asp", timeout=30000)
+        try:
+            page.wait_for_load_state("networkidle", timeout=25000)
+        except Exception:
+            pass
+        time.sleep(wait_after_login_s)
+
+        # 3) Frame dashboard nm_contenido (tiles)
+        t_deadline = time.time() + 25.0
+        frame_dashboard = None
+        while time.time() < t_deadline:
+            frame_dashboard = page.frame(name="nm_contenido")
+            if frame_dashboard and frame_dashboard.url:
+                break
+            time.sleep(0.25)
+        if not frame_dashboard:
+            page.screenshot(path=str(dash_png), full_page=True)
+            raise RuntimeError("FRAME_NOT_FOUND: nm_contenido")
+
+        # 4) Screenshot tiles
+        page.screenshot(path=str(dash_png), full_page=True)
+
+        # 5) Click Gestion(3)
+        tile_sel = 'a.listado_link[href="javascript:Gestion(3);"]'
+        frame_dashboard.locator(tile_sel).first.wait_for(state="visible", timeout=20000)
+        frame_dashboard.locator(tile_sel).first.click(timeout=20000)
+
+        # 6) Espera robusta de cambio de contenido
+        # Evento A: cambio de URL en algún frame
+        # Evento B: aparición de una <table> con >1 <tr> en algún frame
+        pre_urls = [f.url for f in page.frames]
+        t_deadline = time.time() + max(10.0, float(wait_after_click_s))
+        while time.time() < t_deadline:
+            try:
+                if any(f.url and f.url not in pre_urls for f in page.frames):
+                    break
+            except Exception:
+                pass
+            # Detectar tabla con filas
+            found_table = False
+            for fr in page.frames:
+                try:
+                    if fr.locator("table tr").count() > 2:
+                        found_table = True
+                        break
+                except Exception:
+                    continue
+            if found_table:
+                break
+            time.sleep(0.25)
+
+        # Si aún no hay tablas/grids, en esta pantalla suele existir el botón "Resultados"
+        # y/o "Buscar" para mostrar el listado (READ-ONLY). NO tocamos filtros.
+        try:
+            # Re-resolver el frame nm_contenido (puede haber navegado)
+            fr_tmp = page.frame(name="nm_contenido") or frame_dashboard
+            if fr_tmp:
+                # Intentar detectar si ya hay alguna tabla con filas
+                has_rows = False
+                try:
+                    has_rows = fr_tmp.locator("table tr").count() > 2
+                except Exception:
+                    has_rows = False
+                if not has_rows:
+                    btn_res = fr_tmp.get_by_text("Resultados", exact=True)
+                    if btn_res.count() > 0:
+                        btn_res.first.click(timeout=10000)
+                        # esperar a que aparezcan filas o algún grid
+                        t2 = time.time() + 15.0
+                        while time.time() < t2:
+                            try:
+                                if fr_tmp.locator("table tr").count() > 2:
+                                    break
+                            except Exception:
+                                pass
+                            try:
+                                if fr_tmp.locator('[role="grid"], [role="table"], [role="rowgroup"]').count() > 0:
+                                    break
+                            except Exception:
+                                pass
+                            time.sleep(0.25)
+                    # Si sigue sin aparecer, probar "Buscar" (read-only query) sin tocar filtros
+                    has_rows = False
+                    try:
+                        has_rows = fr_tmp.locator("table tr").count() > 2
+                    except Exception:
+                        has_rows = False
+                    if not has_rows:
+                        btn_buscar = fr_tmp.get_by_text("Buscar", exact=True)
+                        if btn_buscar.count() > 0:
+                            btn_buscar.first.click(timeout=10000)
+                            t3 = time.time() + 20.0
+                            while time.time() < t3:
+                                try:
+                                    if fr_tmp.locator("table tr").count() > 2:
+                                        break
+                                except Exception:
+                                    pass
+                                try:
+                                    if fr_tmp.locator('[role="grid"], [role="table"], [role="rowgroup"]').count() > 0:
+                                        break
+                                except Exception:
+                                    pass
+                                time.sleep(0.25)
+        except Exception:
+            pass
+
+        # 7) Enumeración completa de frames (incluye parent)
+        frames_dump: List[Dict[str, Any]] = []
+        fr_list = list(page.frames)
+        for idx, fr in enumerate(fr_list):
+            parent = fr.parent_frame
+            frames_dump.append(
+                {
+                    "index": idx,
+                    "name": fr.name,
+                    "url": fr.url,
+                    "parent_name": parent.name if parent else None,
+                    "parent_url": parent.url if parent else None,
+                    "is_main": fr == page.main_frame,
+                }
+            )
+        _safe_write_json(frames_json, frames_dump)
+
+        # 8) Screenshot por frame (obligatorio)
+        for fr_info in frames_dump:
+            idx = fr_info["index"]
+            nm = _safe_name(fr_info.get("name") or ("main" if fr_info.get("is_main") else "anon"))
+            out_path = evidence_dir / f"frame_{idx}_{nm}.png"
+            fr = fr_list[idx]
+            if fr == page.main_frame:
+                page.screenshot(path=str(out_path), full_page=False)
+                continue
+            ok = False
+            try:
+                fr.locator("body").screenshot(path=str(out_path))
+                ok = True
+            except Exception:
+                ok = False
+            if ok:
+                continue
+            # fallback: screenshot del iframe desde el DOM principal (si existe)
+            try:
+                if fr.name:
+                    iframe_loc = page.locator(f'iframe[name="{fr.name}"]')
+                    if iframe_loc.count() == 0:
+                        iframe_loc = page.locator(f'iframe#{fr.name}')
+                else:
+                    iframe_loc = page.locator("iframe")
+                if iframe_loc.count() > 0:
+                    iframe_loc.first.screenshot(path=str(out_path))
+                    continue
+            except Exception:
+                pass
+            page.screenshot(path=str(out_path), full_page=False)
+
+        # 9) Detección de tablas por frame
+        detect_js = r"""() => {
+  function norm(s){ return (s||'').replace(/\s+/g,' ').trim(); }
+  function getHeaders(t){
+    const ths = Array.from(t.querySelectorAll('thead th'));
+    if(ths.length) return ths.map(th=>norm(th.innerText));
+    // fallback: first row th/td
+    const first = t.querySelector('tr');
+    if(!first) return [];
+    return Array.from(first.querySelectorAll('th,td')).map(c=>norm(c.innerText));
+  }
+  function getDhtmlxHeadersFromHdrTable(t){
+    // dhtmlx grid header: <td class="ordenable..."><div class="hdrcell"><span>Nombre</span></div>
+    const cells = Array.from(t.querySelectorAll('td .hdrcell span'));
+    return cells
+      .map(s => norm(s.innerText))
+      .filter(Boolean);
+  }
+  const tables = Array.from(document.querySelectorAll('table'));
+  const tableItems = tables.map((t, i) => {
+    const trs = t.querySelectorAll('tr').length;
+    const ths = t.querySelectorAll('th').length;
+    let headers = getHeaders(t).filter(Boolean);
+    // dhtmlx header tables often have no <th>; use hdrcell spans
+    if ((!headers || headers.length === 0) && (t.className || '').toString().toLowerCase().includes('hdr')) {
+      headers = getDhtmlxHeadersFromHdrTable(t);
+    }
+    // cheap keywords score
+    const hay = (headers.join(' ') + ' ' + norm(t.innerText)).toLowerCase();
+    const kws = ['document', 'doc', 'pendiente', 'empresa', 'trabajador', 'estado', 'fecha', 'caduc'];
+    const score = kws.reduce((acc,k)=> acc + (hay.includes(k) ? 1 : 0), 0);
+    return {
+      kind: 'table',
+      index: i,
+      tr_count: trs,
+      th_count: ths,
+      headers,
+      score,
+      id: t.id || null,
+      class: t.className || null,
+    };
+  });
+
+  // Grids (role-based): detect column headers
+  const grids = Array.from(document.querySelectorAll('[role="grid"], [role="table"]'));
+  const gridItems = grids.map((g, i) => {
+    const rowCount = g.querySelectorAll('[role="row"]').length;
+    const headers = Array.from(g.querySelectorAll('[role="columnheader"]')).map(h => norm(h.innerText)).filter(Boolean);
+    const hay = (headers.join(' ') + ' ' + norm(g.innerText)).toLowerCase();
+    const kws = ['document', 'doc', 'pendiente', 'empresa', 'trabajador', 'estado', 'fecha', 'caduc'];
+    const score = kws.reduce((acc,k)=> acc + (hay.includes(k) ? 1 : 0), 0);
+    return {
+      kind: 'grid',
+      index: i,
+      tr_count: rowCount,
+      th_count: headers.length,
+      headers,
+      score,
+      id: g.id || null,
+      class: g.className || null,
+    };
+  });
+
+  return tableItems.concat(gridItems);
+}"""
+
+        tables_detected: List[Dict[str, Any]] = []
+        best_candidate: Optional[Dict[str, Any]] = None
+
+        for idx, fr in enumerate(fr_list):
+            try:
+                tables = fr.evaluate(detect_js)
+            except Exception:
+                continue
+            for t in tables or []:
+                entry = {
+                    "frame_index": idx,
+                    "frame_name": fr.name,
+                    "frame_url": fr.url,
+                    **t,
+                }
+                tables_detected.append(entry)
+                # Candidate heuristic: needs data rows and doc-ish score
+                # Excluir menús dhtmlx del frame principal
+                cls = (t.get("class") or "").lower()
+                if "dhtmlx" in cls and "menu" in cls:
+                    continue
+                # Preferir tablas de datos (dhtmlx: class contiene "obj")
+                is_data_table = ("obj" in cls) or ("grid" in cls and "hdr" not in cls)
+                # candidato si parece listado y tiene contenido de documentos
+                if (t.get("tr_count") or 0) > 2 and (t.get("score") or 0) >= 2 and (is_data_table or (t.get("kind") == "grid")):
+                    if best_candidate is None:
+                        best_candidate = entry
+                    else:
+                        # prefer higher score, then more rows
+                        if (t.get("score") or 0, t.get("tr_count") or 0) > (
+                            best_candidate.get("score") or 0,
+                            best_candidate.get("tr_count") or 0,
+                        ):
+                            best_candidate = entry
+
+        _safe_write_json(tables_json, {"tables": tables_detected})
+
+        # 10-12) Dump selector + outerHTML + screenshot final resaltado
+        if best_candidate:
+            fr = fr_list[best_candidate["frame_index"]]
+            table_idx = best_candidate["index"]
+            kind = best_candidate.get("kind") or "table"
+
+            # Compute best-effort selector + outerHTML via JS
+            selector_payload = fr.evaluate(
+                """(tableIndex) => {
+  const tables = Array.from(document.querySelectorAll('table'));
+  const t = tables[tableIndex];
+  function cssEscape(s){ return (s||'').replace(/([ #;?%&,.+*~\\':\"!^$\\[\\]()=>|\\/])/g,'\\\\$1'); }
+  function cssPath(el){
+    if(!el || el.nodeType !== 1) return '';
+    if(el.id) return el.tagName.toLowerCase() + '#' + cssEscape(el.id);
+    const parts = [];
+    while(el && el.nodeType === 1 && el.tagName.toLowerCase() !== 'html'){
+      let part = el.tagName.toLowerCase();
+      const cls = (el.className || '').toString().trim().split(/\\s+/).filter(Boolean);
+      if(cls.length) part += '.' + cls.slice(0,2).map(cssEscape).join('.');
+      const parent = el.parentElement;
+      if(parent){
+        const same = Array.from(parent.children).filter(c=>c.tagName===el.tagName);
+        if(same.length>1){
+          const idx = same.indexOf(el)+1;
+          part += `:nth-of-type(${idx})`;
+        }
+      }
+      parts.unshift(part);
+      el = parent;
+    }
+    return parts.join(' > ');
+  }
+  if(!t) return { selector: null, outerHTML: null };
+  const selector = cssPath(t);
+  return { selector, outerHTML: t.outerHTML };
+}""",
+                table_idx,
+            )
+            selector = selector_payload.get("selector")
+            outer = selector_payload.get("outerHTML") or ""
+
+            # Si el candidato es grid, recalcular selector/outerHTML con role selector
+            if kind == "grid":
+                selector_payload = fr.evaluate(
+                    """(gridIndex) => {
+  const grids = Array.from(document.querySelectorAll('[role="grid"], [role="table"]'));
+  const g = grids[gridIndex];
+  function cssEscape(s){ return (s||'').replace(/([ #;?%&,.+*~\\':\"!^$\\[\\]()=>|\\/])/g,'\\\\$1'); }
+  function cssPath(el){
+    if(!el || el.nodeType !== 1) return '';
+    if(el.id) return el.tagName.toLowerCase() + '#' + cssEscape(el.id);
+    const parts = [];
+    while(el && el.nodeType === 1 && el.tagName.toLowerCase() !== 'html'){
+      let part = el.tagName.toLowerCase();
+      const cls = (el.className || '').toString().trim().split(/\\s+/).filter(Boolean);
+      if(cls.length) part += '.' + cls.slice(0,2).map(cssEscape).join('.');
+      const parent = el.parentElement;
+      if(parent){
+        const same = Array.from(parent.children).filter(c=>c.tagName===el.tagName);
+        if(same.length>1){
+          const idx = same.indexOf(el)+1;
+          part += `:nth-of-type(${idx})`;
+        }
+      }
+      parts.unshift(part);
+      el = parent;
+    }
+    return parts.join(' > ');
+  }
+  if(!g) return { selector: null, outerHTML: null };
+  return { selector: cssPath(g), outerHTML: g.outerHTML };
+}""",
+                    table_idx,
+                )
+                selector = selector_payload.get("selector")
+                outer = selector_payload.get("outerHTML") or ""
+
+            _safe_write_json(
+                selector_json,
+                {
+                    "frame_index": best_candidate["frame_index"],
+                    "frame_name": best_candidate["frame_name"],
+                    "frame_url": best_candidate["frame_url"],
+                    "table_index_in_frame": table_idx,
+                    "kind": kind,
+                    "selector": selector,
+                    "headers": best_candidate.get("headers") or [],
+                    "tr_count": best_candidate.get("tr_count"),
+                    "score": best_candidate.get("score"),
+                },
+            )
+            outerhtml_html.write_text(outer, encoding="utf-8")
+
+            # Highlight table + screenshot focused
+            try:
+                fr.evaluate(
+                    """(tableIndex) => {
+  const tables = Array.from(document.querySelectorAll('table'));
+  const grids = Array.from(document.querySelectorAll('[role="grid"], [role="table"]'));
+  const t = tables[tableIndex] || grids[tableIndex];
+  if(!t) return;
+  t.style.outline = '4px solid #ff0066';
+  t.style.outlineOffset = '2px';
+  t.scrollIntoView({block:'center', inline:'center'});
+}""",
+                    table_idx,
+                )
+            except Exception:
+                pass
+
+            # Try screenshot of table element; fallback to frame body
+            try:
+                if kind == "grid":
+                    fr.locator('[role="grid"], [role="table"]').nth(table_idx).screenshot(path=str(final_png))
+                else:
+                    fr.locator("table").nth(table_idx).screenshot(path=str(final_png))
+            except Exception:
+                try:
+                    fr.locator("body").screenshot(path=str(final_png))
+                except Exception:
+                    page.screenshot(path=str(final_png), full_page=False)
+        else:
+            # No candidate: still provide a final screenshot of current viewport
+            page.screenshot(path=str(final_png), full_page=True)
+
+        context.close()
+        browser.close()
+
+    finished = time.time()
+    (run_dir / "run_finished.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "status": "success",
+                "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)),
+                "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(finished)),
+                "duration_ms": int((finished - started) * 1000),
+                "reason": "DISCOVERY_PENDING_TABLE",
+                "last_error": None,
+                "found_candidate": bool(best_candidate),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    return run_id
+
