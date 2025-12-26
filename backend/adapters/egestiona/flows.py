@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -607,7 +608,8 @@ def run_send_pending_document_kern(
     repo = DocumentRepositoryV1(project_root=Path(base).parent, data_root="data")
     company_id = "tedelab"
     namespace = "ss_receipts"
-    name = file_path_obj.stem
+    # Sanitizar nombre para file_ref (solo letras, números, _, -, .)
+    name = re.sub(r'[^A-Za-z0-9_\-\.]', '_', file_path_obj.stem)
 
     file_ref = f"doc:company:{company_id}:company_docs:{namespace}:{name}"
     try:
