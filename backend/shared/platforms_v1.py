@@ -108,6 +108,7 @@ class LoginFieldsV1(BaseModel):
 class PlatformV1(BaseModel):
     key: str  # p.ej. "egestiona_kern"
     base_url: str
+    login_url: Optional[str] = None  # URL específica para login (requerida si base_url no funciona)
     login_fields: LoginFieldsV1 = Field(default_factory=LoginFieldsV1)
     coordinations: List[CoordinationV1] = Field(default_factory=list)
 

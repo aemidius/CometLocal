@@ -628,6 +628,9 @@ class BrowserController:
         path = shots_dir / f"{step_id}_{phase}.png"
         try:
             self._page.screenshot(path=str(path), full_page=True)
+            # Verificar que el archivo PNG se creó correctamente
+            if not path.exists():
+                raise RuntimeError(f"Screenshot PNG file was not created: {path}")
         except Exception as e:
             raise ExecutorTypedException(
                 ExecutorErrorV1(

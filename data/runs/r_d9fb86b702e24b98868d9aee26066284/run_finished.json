@@ -1,0 +1,15 @@
+{
+  "run_id": "r_d9fb86b702e24b98868d9aee26066284",
+  "status": "failed",
+  "started_at": "2025-12-26T17:57:31.623997+00:00",
+  "finished_at": "2025-12-26T17:58:02.244542+00:00",
+  "duration_ms": 30620,
+  "reason": "fail_fast_or_deterministic",
+  "terminal_reason": null,
+  "last_error": "TARGET_NOT_FOUND",
+  "counters": {
+    "retries": 0,
+    "recoveries": 0,
+    "same_state_revisits_max": 2
+  }
+}

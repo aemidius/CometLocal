@@ -1,0 +1,22 @@
+{
+  "schema_version": "v1",
+  "url": "https://coordinate.egestiona.es/extranet_subcontratas/default_contenido.asp",
+  "title": "...::: eGestiona. Gestión Integral del Conocimiento Empresarial. Coordinación, medioambiente, calidad, RRHH, gestión documental :::....",
+  "captured_at": "2025-12-26T18:00:25.040986+00:00",
+  "targets": [],
+  "visible_anchors": [],
+  "visible_inputs": [],
+  "visible_buttons": [
+    {
+      "text": "chevron-left",
+      "selector": "#bt-comprimir",
+      "attrs": {
+        "id": "bt-comprimir"
+      }
+    }
+  ],
+  "truncated": false,
+  "metadata": {
+    "source": "playwright"
+  }
+}

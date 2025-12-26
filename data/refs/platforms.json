@@ -4,6 +4,7 @@
     {
       "key": "egestiona",
       "base_url": "https://coordinate.egestiona.es/login?origen=subcontrata",
+      "login_url": null,
       "login_fields": {
         "requires_client": true,
         "client_input": {

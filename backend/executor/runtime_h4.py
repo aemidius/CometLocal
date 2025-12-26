@@ -201,8 +201,8 @@ class ExecutorRuntimeH4:
             manifest = EvidenceManifestV1(
                 run_id=run_id,
                 policy=EvidencePolicyV1(
-                    always=[EvidenceKindV1.dom_snapshot_partial],
-                    on_failure_or_critical=[EvidenceKindV1.html_full, EvidenceKindV1.screenshot],
+                    always=[EvidenceKindV1.dom_snapshot_partial, EvidenceKindV1.screenshot],
+                    on_failure_or_critical=[EvidenceKindV1.html_full],
                 ),
                 redaction=RedactionPolicyV1(enabled=bool(self.redaction_policy.enabled), rules=list(self.redaction_policy.rules or []), mode=self.execution_mode),
                 items=manifest_items or [
