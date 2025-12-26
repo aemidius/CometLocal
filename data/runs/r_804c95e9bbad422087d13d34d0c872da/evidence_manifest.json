@@ -1,0 +1,48 @@
+{
+  "schema_version": "v1",
+  "run_id": "r_804c95e9bbad422087d13d34d0c872da",
+  "created_at_utc": "2025-12-26T16:51:33.529445+00:00",
+  "policy": {
+    "always": [
+      "dom_snapshot_partial"
+    ],
+    "on_failure_or_critical": [
+      "html_full",
+      "screenshot"
+    ],
+    "training_capture_html_every_n_steps": null,
+    "training_capture_screenshot_every_n_steps": null
+  },
+  "redaction": {
+    "enabled": true,
+    "rules": [
+      "emails",
+      "phone",
+      "dni",
+      "tokens"
+    ],
+    "mode": "production"
+  },
+  "items": [
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/none.json",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size_bytes": 0,
+      "step_id": "none",
+      "ts_utc": null,
+      "redacted": null,
+      "mime_type": null,
+      "metadata": {}
+    }
+  ],
+  "redaction_report": {
+    "token": 3,
+    "text_redactions": 3
+  },
+  "metadata": {
+    "execution_mode": "production",
+    "redaction_enabled": true,
+    "inputs_used": []
+  }
+}

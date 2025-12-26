@@ -7,3 +7,4 @@ Motivo: los BLOQUES 1–6 han cerrado invariantes, DSL, errores tipificados y tr
 
 
 
+

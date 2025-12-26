@@ -32,14 +32,16 @@ def build_targets_from_selectors(
     submit_selector: Optional[SelectorSpecV1],
     post_login_selector: Optional[SelectorSpecV1],
 ) -> EgestionaLoginTargetsV1:
-    if not (client_code_selector and username_selector and password_selector and submit_selector and post_login_selector):
+    if not (client_code_selector and username_selector and password_selector and submit_selector):
         raise ValueError("Missing required selectors for eGestiona login flow")
+    # post_login_selector es opcional ahora
+    post_login = _spec_to_target(post_login_selector) if post_login_selector else None
     return EgestionaLoginTargetsV1(
         client_code=_spec_to_target(client_code_selector),
         username=_spec_to_target(username_selector),
         password=_spec_to_target(password_selector),
         submit=_spec_to_target(submit_selector),
-        post_login=_spec_to_target(post_login_selector),
+        post_login=post_login,
     )
 
 

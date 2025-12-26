@@ -9,8 +9,8 @@ from starlette.concurrency import run_in_threadpool
 from backend.adapters.egestiona.profile import EgestionaProfileV1
 from backend.adapters.egestiona.targets import build_targets_from_selectors
 
-# Selector post-login robusto (sidebar): "Desconectar"
-POST_LOGIN_SELECTOR_DEFAULT = EgestionaProfileV1.POST_LOGIN_SELECTOR
+# Selector post-login robusto: verificar que salimos de login (no usar texto específico)
+POST_LOGIN_SELECTOR_DEFAULT = None  # No usar selector de texto, verificar navegación
 from backend.executor.runtime_h4 import ExecutorRuntimeH4
 from backend.repository.config_store_v1 import ConfigStoreV1
 from backend.repository.data_bootstrap_v1 import ensure_data_layout
@@ -70,10 +70,10 @@ def run_login_and_snapshot(
         # CSS-ish / xpath-ish cues
         return any(tok in vv for tok in ("[", "]", "#", ".", "=", ":", "//"))
 
-    # Post-login check: si no viene en config (o parece texto descriptivo), usar default robusto.
-    if (not coord.post_login_selector) or (coord.post_login_selector and not _looks_like_selector(coord.post_login_selector.value)):
-        coord.post_login_selector = SelectorSpecV1(kind="css", value=POST_LOGIN_SELECTOR_DEFAULT)
-        store.save_platforms(platforms)
+    # Post-login check: usar verificación robusta de que salimos de la página de login
+    if not coord.post_login_selector:
+        # No usar selector específico, verificar navegación en las postcondiciones
+        coord.post_login_selector = None
 
     # URL: override > platform.base_url > default
     url = coord.url_override or plat.base_url or EgestionaProfileV1().default_base_url
@@ -128,7 +128,8 @@ def run_login_and_snapshot(
     if not user_val:
         required_missing.append("egestiona.username (o coord.username)")
     password_ref = (coord.password_ref or "").strip() or "egestiona.password"
-    if secrets.get_secret(password_ref) is None:
+    password_val = secrets.get_secret(password_ref)
+    if password_val is None:
         required_missing.append(password_ref)
     if required_missing:
         raise ValueError("Missing required secrets: " + ", ".join(required_missing))
@@ -195,22 +196,24 @@ def run_login_and_snapshot(
         )
     )
 
-    # Último paso (determinista): esperar estado post-login real.
+    # Último paso (determinista): esperar que el login termine y naveguemos fuera de la página de login.
     # IMPORTANTE: este es el paso final; si se cumple, el runtime termina success y no evalúa policies después.
     actions.append(
         ActionSpecV1(
             action_id="eg_wait_post_login_check",
             kind=ActionKindV1.wait_for,
-            target=targets.post_login,
+            target=TargetV1(type=TargetKindV1.url, url=".*"),
             input={},
             preconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
             postconditions=[
-                ConditionV1(kind=ConditionKindV1.element_visible, args={"target": targets.post_login.model_dump()}, severity=ErrorSeverityV1.critical),
-                ConditionV1(kind=ConditionKindV1.element_not_visible, args={"target": targets.client_code.model_dump()}, severity=ErrorSeverityV1.critical, description="Login form must be gone (ClientName not visible)"),
-                # Postcondición fuerte requerida por U5 para acciones críticas
+                # Verificar que salimos de la página de login (postcondición crítica)
                 ConditionV1(kind=ConditionKindV1.url_matches, args={"pattern": r"^(?!.*login).*$"}, severity=ErrorSeverityV1.critical),
+                # Verificar que el formulario de login desapareció
+                ConditionV1(kind=ConditionKindV1.element_not_visible, args={"target": targets.client_code.model_dump()}, severity=ErrorSeverityV1.critical, description="Login form must be gone"),
+                # Verificar que el botón submit desapareció
+                ConditionV1(kind=ConditionKindV1.element_not_visible, args={"target": targets.submit.model_dump()}, severity=ErrorSeverityV1.critical, description="Submit button must be gone"),
             ],
-            timeout_ms=20000,
+            timeout_ms=30000,  # Más tiempo para esperar la navegación post-login
             criticality="critical",
         )
     )

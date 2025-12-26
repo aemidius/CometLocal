@@ -1,0 +1,337 @@
+{
+  "schema_version": "v1",
+  "run_id": "r_df4aa8eadf4b4237b9666766109749b2",
+  "created_at_utc": "2025-12-26T16:55:29.303283+00:00",
+  "policy": {
+    "always": [
+      "dom_snapshot_partial"
+    ],
+    "on_failure_or_critical": [
+      "html_full",
+      "screenshot"
+    ],
+    "training_capture_html_every_n_steps": null,
+    "training_capture_screenshot_every_n_steps": null
+  },
+  "redaction": {
+    "enabled": true,
+    "rules": [
+      "emails",
+      "phone",
+      "dni",
+      "tokens"
+    ],
+    "mode": "production"
+  },
+  "items": [
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_init_before.json",
+      "sha256": "0fd07027956409ca2e98638bb046913611fed1c20d7faa18bc336766838568b7",
+      "size_bytes": 2597,
+      "step_id": "step_init",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_init_before.sha256",
+      "sha256": "d4f19cb121554c097cf5b8090c6cfcd63aae7eacb48324b3aa7359084b47b8e3",
+      "size_bytes": 73,
+      "step_id": "step_init",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_000_before.json",
+      "sha256": "2f4c7eaed0105295b4d721d70c405ef56c2d4fc7340e5c8b6524f3659c8096d2",
+      "size_bytes": 2597,
+      "step_id": "step_000",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_000_before.sha256",
+      "sha256": "d4f19cb121554c097cf5b8090c6cfcd63aae7eacb48324b3aa7359084b47b8e3",
+      "size_bytes": 73,
+      "step_id": "step_000",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_000_after.json",
+      "sha256": "e9f6074c4654178e85f6ca57b00abf83171946c15e92f82036953ca02ae27f03",
+      "size_bytes": 2597,
+      "step_id": "step_000",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_000_after.sha256",
+      "sha256": "d4f19cb121554c097cf5b8090c6cfcd63aae7eacb48324b3aa7359084b47b8e3",
+      "size_bytes": 73,
+      "step_id": "step_000",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_001_before.json",
+      "sha256": "31ec15d6dacbbef47b9d7a74ee06a59e6357d922a18c41d5bac67db6d224db6e",
+      "size_bytes": 2597,
+      "step_id": "step_001",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_001_before.sha256",
+      "sha256": "d4f19cb121554c097cf5b8090c6cfcd63aae7eacb48324b3aa7359084b47b8e3",
+      "size_bytes": 73,
+      "step_id": "step_001",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_001_after.json",
+      "sha256": "d2be367a268266e787d875ae48899dded62d885c0c41dd0a2d03e8c186625621",
+      "size_bytes": 2597,
+      "step_id": "step_001",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_001_after.sha256",
+      "sha256": "d985cd3a8afe79bdab43b7921a47848c9c40c07a9f570f2d38a10d3863084d26",
+      "size_bytes": 73,
+      "step_id": "step_001",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_002_before.json",
+      "sha256": "f00ac6dcf9851855619f91fa124b2bd90beb4e98e57763507bbff3ee67e9496b",
+      "size_bytes": 2597,
+      "step_id": "step_002",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_002_before.sha256",
+      "sha256": "d985cd3a8afe79bdab43b7921a47848c9c40c07a9f570f2d38a10d3863084d26",
+      "size_bytes": 73,
+      "step_id": "step_002",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_002_after.json",
+      "sha256": "6caec27477c3f269cbe9bd430de2cce375a1621a62d7ac80c8204ebb104614d6",
+      "size_bytes": 2597,
+      "step_id": "step_002",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_002_after.sha256",
+      "sha256": "81e6b9e8057ae881a774ff0f04fd869353134f26bbdca25166d67c324568ba72",
+      "size_bytes": 73,
+      "step_id": "step_002",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_003_before.json",
+      "sha256": "db83b3a47ed8b4b49f3abb5aeab44d0e1384231e30de007e256455b815bf4e8f",
+      "size_bytes": 2597,
+      "step_id": "step_003",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_003_before.sha256",
+      "sha256": "881103db47fdf50e6c829f3ab9fa45dfaf6c584ebae17fda5200c68a05a9193a",
+      "size_bytes": 73,
+      "step_id": "step_003",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_003_after.json",
+      "sha256": "dca23a7b368389477d46bdb1dcd7046c87535a7e96b12443c2cf2bf43e9b11f6",
+      "size_bytes": 2597,
+      "step_id": "step_003",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_003_after.sha256",
+      "sha256": "a03e9cadaef79b76a35a57720aedf0e5b22611b9313c27badaa0fb2a2d10b956",
+      "size_bytes": 73,
+      "step_id": "step_003",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_004_before.json",
+      "sha256": "53631f4b7cbfaf6a1446c5fdf6149ed6a906088f9d91d26bd429d9d763610bd2",
+      "size_bytes": 2597,
+      "step_id": "step_004",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_004_before.sha256",
+      "sha256": "fd573d7772c27ff2992850b3bc49fd0bbb32426e95145c8dea6edc46ed0c9bad",
+      "size_bytes": 73,
+      "step_id": "step_004",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_004_after.json",
+      "sha256": "468ed36d2b8a2816e52282de84593210a6341adf6024b71bfc690f7b34efc617",
+      "size_bytes": 2612,
+      "step_id": "step_004",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_004_after.sha256",
+      "sha256": "e9e6c94439e0b289e7516ffb7125ea436907f32c2c52e58bb53cbcece1a5bdd4",
+      "size_bytes": 73,
+      "step_id": "step_004",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_005_before.json",
+      "sha256": "d0974f86812148795c454fd8c68ded39e72a08388d570d913664082604ca03c8",
+      "size_bytes": 2612,
+      "step_id": "step_005",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_005_before.sha256",
+      "sha256": "3474f3e6a8436389eb89d9c765259715a7462835ced9cb1b5ca8f02ce18cac8c",
+      "size_bytes": 73,
+      "step_id": "step_005",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "dom_snapshot_partial",
+      "relative_path": "evidence/dom/step_005_after.json",
+      "sha256": "aeba654dbf3b72dcaff0bd93daf958553d59a2fd494abb847bdb09cb3f8f8ea1",
+      "size_bytes": 2612,
+      "step_id": "step_005",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "application/json",
+      "metadata": {}
+    },
+    {
+      "kind": "screenshot_hash",
+      "relative_path": "evidence/shots/step_005_after.sha256",
+      "sha256": "497114cb2d5ca399696ac78fabd201681e078f6d5906aa840b6d7561da5a49d6",
+      "size_bytes": 73,
+      "step_id": "step_005",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/plain",
+      "metadata": {}
+    },
+    {
+      "kind": "html_full",
+      "relative_path": "evidence/html/step_005_after.html",
+      "sha256": "c84c8a7c769b686ab18f8a05701111855f76fe56cb901a9e06db837973a8e103",
+      "size_bytes": 3666,
+      "step_id": "step_005",
+      "ts_utc": null,
+      "redacted": false,
+      "mime_type": "text/html",
+      "metadata": {}
+    }
+  ],
+  "redaction_report": {
+    "token": 452,
+    "text_redactions": 481,
+    "email": 41,
+    "sensitive_key": 14,
+    "phone": 2
+  },
+  "metadata": {
+    "execution_mode": "production",
+    "redaction_enabled": true,
+    "inputs_used": []
+  }
+}

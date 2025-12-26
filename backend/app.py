@@ -35,6 +35,7 @@ from backend.config import BATCH_RUNS_DIR
 from backend.executor.config_viewer import create_config_viewer_router
 from backend.repository.data_bootstrap_v1 import ensure_data_layout
 from backend.adapters.egestiona.flows import router as egestiona_router
+from backend.config import LLM_CONFIG_FILE, LLM_DEFAULT_CONFIG
 
 # Constantes de rutas
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -102,7 +103,7 @@ async def startup_event():
         f"platforms={platforms_p} secrets={secrets_p} documents={documents_p}"
     )
     # NO arrancamos Playwright/Chromium al startup - solo cuando el executor lo necesite
-    
+
     # Inicializar cliente LLM compartido
     from openai import AsyncOpenAI
     from backend.config import LLM_API_BASE, LLM_API_KEY
@@ -110,6 +111,17 @@ async def startup_event():
         base_url=LLM_API_BASE,
         api_key=LLM_API_KEY,
     )
+
+    # Inicializar config LLM persistente
+    import json
+    import os
+    if not os.path.exists(LLM_CONFIG_FILE):
+        os.makedirs(os.path.dirname(LLM_CONFIG_FILE), exist_ok=True)
+        with open(LLM_CONFIG_FILE, 'w') as f:
+            json.dump(LLM_DEFAULT_CONFIG, f, indent=2)
+        print(f"Created default LLM config: {LLM_CONFIG_FILE}")
+    else:
+        print(f"Using existing LLM config: {LLM_CONFIG_FILE}")
     
     # Abrir navegador del sistema para la UI del chat si OPEN_UI_ON_START=1
     if os.getenv("OPEN_UI_ON_START") == "1":
@@ -145,6 +157,101 @@ async def health():
     return {"status": "ok", "detail": "CometLocal backend running con navegador"}
 
 
+# LLM Config endpoints
+@app.get("/api/config/llm")
+async def get_llm_config():
+    """Obtiene la configuración actual del LLM."""
+    import json
+    try:
+        with open(LLM_CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+        return config
+    except Exception as e:
+        return LLM_DEFAULT_CONFIG
+
+
+@app.post("/api/config/llm")
+async def update_llm_config(config: dict):
+    """Actualiza y persiste la configuración del LLM."""
+    import json
+    import os
+
+    # Validar campos requeridos
+    required_fields = ["base_url", "api_key", "provider", "model", "timeout_seconds"]
+    for field in required_fields:
+        if field not in config:
+            return {"error": f"Missing required field: {field}"}
+
+    # Persistir configuración
+    try:
+        with open(LLM_CONFIG_FILE, 'w') as f:
+            json.dump(config, f, indent=2)
+
+        # Actualizar cliente LLM en memoria
+        from openai import AsyncOpenAI
+        app.state.llm_client = AsyncOpenAI(
+            base_url=config["base_url"],
+            api_key=config["api_key"],
+        )
+
+        return {"status": "ok", "message": "LLM config updated successfully"}
+    except Exception as e:
+        return {"error": f"Failed to save config: {str(e)}"}
+
+
+# LLM Health check endpoint
+@app.get("/api/health/llm")
+async def check_llm_health():
+    """Verifica el estado del servidor LLM externo."""
+    import time
+    import aiohttp
+
+    try:
+        # Obtener config actual
+        config = await get_llm_config()
+        base_url = config["base_url"]
+        timeout = config.get("timeout_seconds", 30)
+
+        # Hacer ping al endpoint más barato (models)
+        start_time = time.time()
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=min(timeout, 5))) as session:
+            async with session.get(f"{base_url}/models") as response:
+                latency_ms = int((time.time() - start_time) * 1000)
+
+                if response.status == 200:
+                    return {
+                        "ok": True,
+                        "latency_ms": latency_ms,
+                        "base_url": base_url,
+                        "status": "online"
+                    }
+                else:
+                    return {
+                        "ok": False,
+                        "latency_ms": latency_ms,
+                        "base_url": base_url,
+                        "status": "degraded",
+                        "detail": f"HTTP {response.status}"
+                    }
+
+    except aiohttp.ClientTimeout:
+        return {
+            "ok": False,
+            "latency_ms": None,
+            "base_url": base_url if 'base_url' in locals() else "unknown",
+            "status": "offline",
+            "detail": "Timeout"
+        }
+    except Exception as e:
+        return {
+            "ok": False,
+            "latency_ms": None,
+            "base_url": base_url if 'base_url' in locals() else "unknown",
+            "status": "offline",
+            "detail": str(e)
+        }
+
+
 @app.get("/", include_in_schema=False)
 async def root_index():
     """
@@ -154,11 +261,15 @@ async def root_index():
 
 
 @app.get("/index.html", include_in_schema=False)
-async def explicit_index():
-    """
-    Alias explícito para index.html.
-    """
-    return FileResponse(FRONTEND_DIR / "index.html")
+async def index_html():
+    """Chat UI principal (legacy route)."""
+    return FileResponse(FRONTEND_DIR / "index.html", media_type="text/html")
+
+
+@app.get("/home", include_in_schema=False)
+async def home_page():
+    """Página HOME con dashboard completo."""
+    return FileResponse(FRONTEND_DIR / "home.html", media_type="text/html")
 
 
 @app.get("/form-sandbox", include_in_schema=False)

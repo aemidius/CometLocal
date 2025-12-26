@@ -4,6 +4,16 @@ from pathlib import Path
 # Defaults apuntando a LM Studio local
 LLM_API_BASE = os.getenv("LLM_API_BASE", "http://127.0.0.1:1234/v1")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "lm-studio")  # LM Studio ignora la key
+
+# LLM Config persistence
+LLM_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "refs", "llm_config.json")
+LLM_DEFAULT_CONFIG = {
+    "base_url": LLM_API_BASE,
+    "api_key": LLM_API_KEY,
+    "provider": "lm-studio",  # lm-studio, openai, anthropic, etc.
+    "model": os.getenv("LLM_MODEL", "default-model"),
+    "timeout_seconds": int(os.getenv("LLM_TIMEOUT", "30"))
+}
 # El usuario debe sobreescribir LLM_MODEL con el Model ID real de LM Studio
 LLM_MODEL = os.getenv("LLM_MODEL", "local-model")
 

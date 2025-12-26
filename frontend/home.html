@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CometLocal - Dashboard</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #0f172a;
+            color: #e5e7eb;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            margin: 10px 0 0 0;
+            color: #94a3b8;
+            font-size: 1.1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid #334155;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h3 {
+            margin: 0 0 16px 0;
+            color: #60a5fa;
+            font-size: 1.25rem;
+        }
+
+        .card p {
+            margin: 0 0 16px 0;
+            color: #94a3b8;
+        }
+
+        .link-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .link-item {
+            display: inline-block;
+            padding: 12px 16px;
+            background: #334155;
+            color: #e5e7eb;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background 0.2s;
+            font-weight: 500;
+        }
+
+        .link-item:hover {
+            background: #475569;
+            color: #f1f5f9;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            color: #e5e7eb;
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            background: #334155;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            color: #e5e7eb;
+            font-size: 14px;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .status-online {
+            background: #065f46;
+            color: #d1fae5;
+        }
+
+        .status-offline {
+            background: #991b1b;
+            color: #fecaca;
+        }
+
+        .status-degraded {
+            background: #92400e;
+            color: #fed7aa;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+
+        .alert-success {
+            background: #065f46;
+            color: #d1fae5;
+            border: 1px solid #047857;
+        }
+
+        .alert-error {
+            background: #991b1b;
+            color: #fecaca;
+            border: 1px solid #dc2626;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #334155;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: #94a3b8;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            color: #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 CometLocal Dashboard</h1>
+            <p>Centro de control y navegación del sistema de automatización CAE</p>
+        </div>
+
+        <div class="grid">
+            <!-- Quick Links -->
+            <div class="card">
+                <h3>🔗 Accesos Rápidos</h3>
+                <p>Navegación a todas las pantallas del sistema</p>
+                <div class="link-grid" id="quick-links">
+                    <!-- Links will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- LLM Configuration -->
+            <div class="card">
+                <h3>🤖 Configuración LLM</h3>
+                <p>Configura el servidor de lenguaje y modelo a utilizar</p>
+
+                <div id="llm-config-alert"></div>
+
+                <form id="llm-config-form">
+                    <div class="form-group">
+                        <label for="base_url">Base URL del servidor LLM</label>
+                        <input type="url" id="base_url" name="base_url" placeholder="http://127.0.0.1:1234/v1" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="api_key">API Key</label>
+                        <input type="password" id="api_key" name="api_key" placeholder="lm-studio" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="provider">Proveedor</label>
+                        <select id="provider" name="provider" required>
+                            <option value="lm-studio">LM Studio</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="anthropic">Anthropic</option>
+                            <option value="ollama">Ollama</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="model">Modelo</label>
+                        <input type="text" id="model" name="model" placeholder="local-model" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="timeout_seconds">Timeout (segundos)</label>
+                        <input type="number" id="timeout_seconds" name="timeout_seconds" min="1" max="300" value="30" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="save-config-btn">
+                        💾 Guardar Configuración
+                    </button>
+                </form>
+            </div>
+
+            <!-- LLM Status Monitor -->
+            <div class="card">
+                <h3>📊 Estado del LLM</h3>
+                <p>Monitor en tiempo real del servidor de lenguaje</p>
+
+                <div class="metric">
+                    <span class="metric-label">Estado:</span>
+                    <span id="llm-status" class="status-indicator">
+                        <span class="status-dot"></span>
+                        <span>Cargando...</span>
+                    </span>
+                </div>
+
+                <div class="metric">
+                    <span class="metric-label">Latencia:</span>
+                    <span id="llm-latency" class="metric-value">-- ms</span>
+                </div>
+
+                <div class="metric">
+                    <span class="metric-label">Último check:</span>
+                    <span id="llm-last-check" class="metric-value">--</span>
+                </div>
+
+                <div class="metric">
+                    <span class="metric-label">Servidor:</span>
+                    <span id="llm-server" class="metric-value">--</span>
+                </div>
+
+                <div style="margin-top: 16px;">
+                    <button class="btn btn-secondary" id="recheck-btn">
+                        🔄 Verificar Ahora
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://127.0.0.1:8000';
+
+        // Quick links configuration
+        const quickLinks = [
+            { name: '💬 Chat Principal', url: '/index.html', description: 'Interfaz de chat con CometLocal' },
+            { name: '📝 Form Sandbox', url: '/form-sandbox', description: 'Pruebas de formularios' },
+            { name: '🎓 CAE Training', url: '/training', description: 'Entrenamiento CAE' },
+            { name: '🏢 Portal CAE A', url: '/simulation/portal_a/login.html', description: 'Portal de pruebas CAE v1' },
+            { name: '🏭 Portal CAE A v2', url: '/simulation/portal_a_v2/login.html', description: 'Portal de pruebas CAE v2' },
+            { name: '📊 Runs Viewer', url: '/runs', description: 'Ver ejecuciones realizadas' },
+            { name: '⚙️ Configuración', url: '/config', description: 'Configurar plataformas y secrets' },
+            { name: '📚 API Docs', url: '/docs', description: 'Documentación de la API' },
+            { name: '❤️ Health Check', url: '/health', description: 'Estado del sistema' }
+        ];
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadQuickLinks();
+            loadLLMConfig();
+            checkLLMStatus();
+
+            // Set up form submission
+            document.getElementById('llm-config-form').addEventListener('submit', saveLLMConfig);
+            document.getElementById('recheck-btn').addEventListener('click', checkLLMStatus);
+
+            // Auto-refresh LLM status every 30 seconds
+            setInterval(checkLLMStatus, 30000);
+        });
+
+        function loadQuickLinks() {
+            const container = document.getElementById('quick-links');
+            quickLinks.forEach(link => {
+                const linkElement = document.createElement('a');
+                linkElement.href = link.url;
+                linkElement.className = 'link-item';
+                linkElement.title = link.description;
+                linkElement.textContent = link.name;
+                container.appendChild(linkElement);
+            });
+        }
+
+        async function loadLLMConfig() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/config/llm`);
+                const config = await response.json();
+
+                document.getElementById('base_url').value = config.base_url || '';
+                document.getElementById('api_key').value = config.api_key || '';
+                document.getElementById('provider').value = config.provider || 'lm-studio';
+                document.getElementById('model').value = config.model || '';
+                document.getElementById('timeout_seconds').value = config.timeout_seconds || 30;
+            } catch (error) {
+                showAlert('llm-config-alert', 'Error al cargar configuración LLM', 'error');
+                console.error('Error loading LLM config:', error);
+            }
+        }
+
+        async function saveLLMConfig(event) {
+            event.preventDefault();
+
+            const formData = new FormData(event.target);
+            const config = {
+                base_url: formData.get('base_url'),
+                api_key: formData.get('api_key'),
+                provider: formData.get('provider'),
+                model: formData.get('model'),
+                timeout_seconds: parseInt(formData.get('timeout_seconds'))
+            };
+
+            const btn = document.getElementById('save-config-btn');
+            const originalText = btn.textContent;
+            btn.textContent = '💾 Guardando...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/config/llm`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showAlert('llm-config-alert', '✅ Configuración guardada correctamente', 'success');
+                    // Refresh status after config change
+                    setTimeout(checkLLMStatus, 1000);
+                } else {
+                    showAlert('llm-config-alert', `❌ Error: ${result.error || 'Error desconocido'}`, 'error');
+                }
+            } catch (error) {
+                showAlert('llm-config-alert', '❌ Error de conexión', 'error');
+                console.error('Error saving LLM config:', error);
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function checkLLMStatus() {
+            const statusElement = document.getElementById('llm-status');
+            const latencyElement = document.getElementById('llm-latency');
+            const lastCheckElement = document.getElementById('llm-last-check');
+            const serverElement = document.getElementById('llm-server');
+
+            statusElement.innerHTML = '<span class="status-dot" style="background: #6b7280;"></span><span>Cargando...</span>';
+            statusElement.className = 'status-indicator';
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/health/llm`);
+                const health = await response.json();
+
+                const now = new Date().toLocaleTimeString();
+
+                // Update status
+                let statusClass = 'status-offline';
+                let statusText = 'Desconocido';
+
+                if (health.ok) {
+                    if (health.status === 'online') {
+                        statusClass = 'status-online';
+                        statusText = '🟢 Online';
+                    } else {
+                        statusClass = 'status-degraded';
+                        statusText = '🟡 Degradado';
+                    }
+                } else {
+                    statusClass = 'status-offline';
+                    if (health.status === 'offline') {
+                        statusText = '🔴 Offline';
+                    } else {
+                        statusText = '🟡 Degradado';
+                    }
+                }
+
+                statusElement.className = `status-indicator ${statusClass}`;
+                statusElement.innerHTML = `<span class="status-dot"></span><span>${statusText}</span>`;
+
+                // Update metrics
+                latencyElement.textContent = health.latency_ms ? `${health.latency_ms}ms` : '--';
+                lastCheckElement.textContent = now;
+                serverElement.textContent = health.base_url || '--';
+
+                // Show detail if there's an issue
+                if (!health.ok && health.detail) {
+                    statusElement.innerHTML += ` <small>(${health.detail})</small>`;
+                }
+
+            } catch (error) {
+                statusElement.className = 'status-indicator status-offline';
+                statusElement.innerHTML = '<span class="status-dot"></span><span>🔴 Error de conexión</span>';
+                latencyElement.textContent = '--';
+                lastCheckElement.textContent = new Date().toLocaleTimeString();
+                serverElement.textContent = '--';
+                console.error('Error checking LLM health:', error);
+            }
+        }
+
+        function showAlert(containerId, message, type) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    container.innerHTML = '';
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>

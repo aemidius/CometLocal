@@ -1,0 +1,15 @@
+{
+  "run_id": "r_c575642c7d5b47c8a82c6c73b709e846",
+  "status": "success",
+  "started_at": "2025-12-26T16:57:08.755327+00:00",
+  "finished_at": "2025-12-26T16:57:22.790657+00:00",
+  "duration_ms": 14035,
+  "reason": "POSTCONDITIONS_OK",
+  "terminal_reason": "POSTCONDITIONS_OK",
+  "last_error": null,
+  "counters": {
+    "retries": 0,
+    "recoveries": 0,
+    "same_state_revisits_max": 2
+  }
+}
