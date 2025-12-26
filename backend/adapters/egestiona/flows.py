@@ -1019,7 +1019,10 @@ def run_send_pending_document_kern(
                 ConditionV1(kind=ConditionKindV1.element_visible, args={"target": send_doc_button_target.model_dump()}, severity=ErrorSeverityV1.error),
                 ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": send_doc_button_target.model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
             ],
-            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning),
+                ConditionV1(kind=ConditionKindV1.element_not_visible, args={"target": send_doc_button_target.model_dump()}, severity=ErrorSeverityV1.critical, description="Send document button should disappear after click"),
+            ],
             timeout_ms=15000,
             criticality="critical",
         )
@@ -1102,7 +1105,10 @@ def run_send_pending_document_kern(
                 ConditionV1(kind=ConditionKindV1.element_visible, args={"target": final_send_button_target.model_dump()}, severity=ErrorSeverityV1.error),
                 ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": final_send_button_target.model_dump(), "count": 1}, severity=ErrorSeverityV1.critical),
             ],
-            postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
+            postconditions=[
+                ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning),
+                ConditionV1(kind=ConditionKindV1.element_not_visible, args={"target": final_send_button_target.model_dump()}, severity=ErrorSeverityV1.critical, description="Final send button should disappear after submission"),
+            ],
             timeout_ms=15000,
             criticality="critical",
         )
