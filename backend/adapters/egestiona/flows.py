@@ -34,6 +34,7 @@ from backend.adapters.egestiona.frame_scan_headful import (
     run_list_pending_documents_readonly_headful,
     run_discovery_pending_table_headful,
     run_open_pending_document_details_readonly_headful,
+    run_upload_pending_document_scoped_headful,
 )
 
 
@@ -2861,6 +2862,26 @@ async def egestiona_open_pending_document_details_readonly(coord: str = "Kern"):
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/upload_pending_document_scoped")
+async def egestiona_upload_pending_document_scoped(coord: str = "Kern"):
+    """
+    HEADFUL + WRITE (guardrails strict):
+    - Encuentra EXACTAMENTE 1 fila (TEDELAB + Emilio), abre detalle, adjunta el ÚNICO PDF en data/samples/,
+      rellena Inicio Vigencia (hoy, Europe/Madrid) y pulsa Enviar solo si scope/inputs validan.
+    """
+    run_id = await run_in_threadpool(
+        lambda: run_upload_pending_document_scoped_headful(
+            base_dir="data",
+            platform="egestiona",
+            coordination=coord,
+            slow_mo_ms=300,
+            viewport={"width": 1600, "height": 1000},
+            wait_after_login_s=2.5,
+        )
+    )
     return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
 
 

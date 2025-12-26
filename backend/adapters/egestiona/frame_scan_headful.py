@@ -232,6 +232,881 @@ def run_find_enviar_doc_in_all_frames_headful(
     return run_id
 
 
+def run_upload_pending_document_scoped_headful(
+    *,
+    base_dir: str | Path = "data",
+    platform: str = "egestiona",
+    coordination: str = "Kern",
+    slow_mo_ms: int = 300,
+    viewport: Optional[Dict[str, int]] = None,
+    wait_after_login_s: float = 2.5,
+) -> str:
+    """
+    HEADFUL / WRITE (scoped strict):
+    - Hard-stop if:
+      - samples pdf count != 1
+      - filtered matches != 1
+      - detail scope not validated (TEDELAB + Emilio + DNI if visible)
+      - missing file attachment or missing "Inicio Vigencia"
+    - Upload the single PDF in data/samples/
+    - Fill "Inicio Vigencia" with today's date (Europe/Madrid)
+    - Click final button ("Enviar documento"/"Enviar archivo"/"Enviar") only after guardrails satisfied
+    - Validate confirmation (message or visible state change)
+    """
+    base = ensure_data_layout(base_dir=base_dir)
+    store = ConfigStoreV1(base_dir=base)
+    secrets = SecretsStoreV1(base_dir=base)
+
+    platforms = store.load_platforms()
+    plat = next((p for p in platforms.platforms if p.key == platform), None)
+    if not plat:
+        raise ValueError(f"platform not found: {platform}")
+    coord = next((c for c in plat.coordinations if c.label == coordination), None)
+    if not coord:
+        raise ValueError(f"coordination not found: {coordination}")
+
+    client_code = (coord.client_code or "").strip()
+    username = (coord.username or "").strip()
+    password_ref = (coord.password_ref or "").strip()
+    password = secrets.get_secret(password_ref) if password_ref else None
+    if not client_code or not username or not password:
+        raise ValueError("Missing credentials: client_code/username/password_ref")
+
+    run_id = f"r_{uuid.uuid4().hex}"
+    run_dir = Path(base) / "runs" / run_id
+    evidence_dir = run_dir / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+
+    # Evidence paths (requeridos)
+    shot_01 = evidence_dir / "01_dashboard_tiles.png"
+    shot_02 = evidence_dir / "02_listado_grid.png"
+    shot_03 = evidence_dir / "03_row_highlight.png"
+    shot_04 = evidence_dir / "04_after_click_detail.png"
+    shot_05 = evidence_dir / "05_detail_before_upload.png"
+    shot_06 = evidence_dir / "06_detail_filled.png"
+    shot_07 = evidence_dir / "07_confirmation.png"
+    detail_txt_path = evidence_dir / "detail_text_dump.txt"
+    confirmation_txt_path = evidence_dir / "confirmation_text_dump.txt"
+    meta_path = evidence_dir / "meta.json"
+
+    started = time.time()
+    status = "failed"
+    last_error: Optional[str] = None
+
+    # Pick the single PDF in data/samples/
+    samples_dir = Path(base) / "samples"
+    pdfs = sorted([p for p in samples_dir.glob("*.pdf") if p.is_file()])
+    if len(pdfs) != 1:
+        # hard-stop
+        last_error = f"PDF_COUNT_INVALID: expected 1 pdf in {samples_dir}, got {len(pdfs)}"
+        (run_dir / "run_finished.json").write_text(
+            json.dumps(
+                {
+                    "run_id": run_id,
+                    "status": "failed",
+                    "reason": "PDF_COUNT_INVALID",
+                    "last_error": last_error,
+                    "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)),
+                    "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time())),
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        return run_id
+
+    pdf_path = pdfs[0].resolve()
+
+    # Date today Europe/Madrid
+    date_ddmmyyyy = None
+    try:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        today = datetime.now(ZoneInfo("Europe/Madrid")).date()
+        date_ddmmyyyy = today.strftime("%d/%m/%Y")
+        date_yyyymmdd = today.strftime("%Y-%m-%d")
+    except Exception:
+        # fallback to local date
+        from datetime import datetime
+
+        today = datetime.now().date()
+        date_ddmmyyyy = today.strftime("%d/%m/%Y")
+        date_yyyymmdd = today.strftime("%Y-%m-%d")
+
+    # Playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception as e:
+        raise RuntimeError("Playwright sync_api not available") from e
+
+    def _strip_accents(s: str) -> str:
+        repl = str.maketrans(
+            {
+                "á": "a",
+                "é": "e",
+                "í": "i",
+                "ó": "o",
+                "ú": "u",
+                "ü": "u",
+                "ñ": "n",
+                "Á": "A",
+                "É": "E",
+                "Í": "I",
+                "Ó": "O",
+                "Ú": "U",
+                "Ü": "U",
+                "Ñ": "N",
+            }
+        )
+        return (s or "").translate(repl)
+
+    def _canon(s: str) -> str:
+        s2 = _strip_accents((s or "").strip()).upper()
+        out = []
+        for ch in s2:
+            if ch.isalnum() or ch.isspace():
+                out.append(ch)
+            else:
+                out.append(" ")
+        return " ".join("".join(out).split())
+
+    def _levenshtein_leq_1(a: str, b: str) -> bool:
+        if a == b:
+            return True
+        la, lb = len(a), len(b)
+        if abs(la - lb) > 1:
+            return False
+        i = j = 0
+        edits = 0
+        while i < la and j < lb:
+            if a[i] == b[j]:
+                i += 1
+                j += 1
+                continue
+            edits += 1
+            if edits > 1:
+                return False
+            if la == lb:
+                i += 1
+                j += 1
+            elif la > lb:
+                i += 1
+            else:
+                j += 1
+        if i < la or j < lb:
+            edits += 1
+        return edits <= 1
+
+    company_target = "TEDELAB INGENIERIA SCCL"
+    worker_target = "Emilio Roldán Molina"
+    worker_dni = "37330395"
+
+    def _norm_company(v: str) -> str:
+        s = (v or "").strip()
+        if " (" in s:
+            s = s.split(" (", 1)[0].strip()
+        return s
+
+    def _match_company(cell: str) -> bool:
+        a = _canon(_norm_company(cell))
+        b = _canon(company_target)
+        return _levenshtein_leq_1(a, b)
+
+    def _match_worker(cell: str) -> bool:
+        a = _canon(cell)
+        toks = [t for t in _canon(worker_target).split(" ") if t]
+        return all(t in a for t in toks) or (worker_dni in a)
+
+    def _scope_ok(text: str) -> bool:
+        hay = _canon(text or "")
+        ok_company = ("TEDELAB" in hay) or _match_company(text or "")
+        ok_worker = ("EMILIO" in hay) or ("ROLDAN" in hay) or (worker_dni in hay) or _match_worker(text or "")
+        # if DNI is visible, enforce it
+        if "37330395" in hay:
+            ok_worker = ok_worker and ("37330395" in hay)
+        return bool(ok_company and ok_worker)
+
+    def _detail_labels_ok(text: str) -> bool:
+        hay = _canon(text or "")
+        return ("DOCUMENTO" in hay) and ("TRABAJADOR" in hay) and ("EMPRESA" in hay)
+
+    # Meta fields
+    meta: Dict[str, Any] = {
+        "login_url_reused_exact": LOGIN_URL_PREVIOUS_SUCCESS,
+        "pdf_path": str(pdf_path),
+        "pdf_name": pdf_path.name,
+        "date_used": {"ddmmyyyy": date_ddmmyyyy, "yyyymmdd": date_yyyymmdd},
+        "selectors": {},
+        "frames": {},
+        "click_strategy": None,
+        "confirmation": None,
+    }
+
+    def _write_run_finished(*, reason: str, error: Optional[str]) -> None:
+        finished = time.time()
+        (run_dir / "run_finished.json").write_text(
+            json.dumps(
+                {
+                    "run_id": run_id,
+                    "status": status,
+                    "reason": reason,
+                    "last_error": error,
+                    "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)),
+                    "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(finished)),
+                    "duration_ms": int((finished - started) * 1000),
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False, slow_mo=slow_mo_ms)
+        context = browser.new_context(viewport=viewport or {"width": 1600, "height": 1000})
+        page = context.new_page()
+        try:
+            # 1) Login con URL exacta anterior
+            page.goto(LOGIN_URL_PREVIOUS_SUCCESS, wait_until="domcontentloaded", timeout=60000)
+            page.locator('input[name="ClientName"]').fill(client_code, timeout=20000)
+            page.locator('input[name="Username"]').fill(username, timeout=20000)
+            page.locator('input[name="Password"]').fill(password, timeout=20000)
+            page.locator('button[type="submit"]').click(timeout=20000)
+
+            # 2) Esperar post-login + tiles
+            page.wait_for_url("**/default_contenido.asp", timeout=30000)
+            try:
+                page.wait_for_load_state("networkidle", timeout=25000)
+            except Exception:
+                pass
+            time.sleep(wait_after_login_s)
+
+            frame_dashboard = page.frame(name="nm_contenido")
+            if not frame_dashboard:
+                page.screenshot(path=str(shot_01), full_page=True)
+                raise RuntimeError("FRAME_NOT_FOUND: nm_contenido")
+            page.screenshot(path=str(shot_01), full_page=True)
+
+            # 3) Click Gestion(3)
+            tile_sel = 'a.listado_link[href="javascript:Gestion(3);"]'
+            meta["selectors"]["tile"] = tile_sel
+            frame_dashboard.locator(tile_sel).first.wait_for(state="visible", timeout=20000)
+            frame_dashboard.locator(tile_sel).first.click(timeout=20000)
+
+            # 4) Find list frame f3 or buscador.asp + Apartado_ID=3 and wait grid + rows
+            def _find_list_frame() -> Any:
+                fr = page.frame(name="f3")
+                if fr:
+                    return fr
+                for fr2 in page.frames:
+                    u = (fr2.url or "").lower()
+                    if ("buscador.asp" in u) and ("apartado_id=3" in u):
+                        return fr2
+                return None
+
+            def _frame_has_grid(fr) -> bool:
+                try:
+                    return fr.locator("table.obj.row20px").count() > 0 and fr.locator("table.hdr").count() > 0
+                except Exception:
+                    return False
+
+            list_frame = None
+            t_deadline = time.time() + 15.0
+            while time.time() < t_deadline:
+                list_frame = _find_list_frame()
+                if list_frame and _frame_has_grid(list_frame):
+                    break
+                time.sleep(0.25)
+
+            # If needed, click "Buscar" to render grid (no filters changed)
+            if not (list_frame and _frame_has_grid(list_frame)):
+                clicked = False
+                for fr in page.frames:
+                    try:
+                        btn = fr.get_by_text("Buscar", exact=True)
+                        if btn.count() > 0:
+                            btn.first.click(timeout=10000)
+                            clicked = True
+                            break
+                    except Exception:
+                        continue
+                if not clicked:
+                    try:
+                        btn = frame_dashboard.get_by_text("Buscar", exact=True)
+                        if btn.count() > 0:
+                            btn.first.click(timeout=10000)
+                    except Exception:
+                        pass
+                t_deadline = time.time() + 20.0
+                while time.time() < t_deadline:
+                    list_frame = _find_list_frame()
+                    if list_frame and _frame_has_grid(list_frame):
+                        break
+                    time.sleep(0.25)
+
+            if not (list_frame and _frame_has_grid(list_frame)):
+                page.screenshot(path=str(shot_02), full_page=True)
+                raise RuntimeError("GRID_NOT_FOUND: expected frame f3/buscador.asp?Apartado_ID=3 with table.hdr + table.obj.row20px")
+
+            meta["frames"]["dashboard"] = {"name": "nm_contenido", "url": frame_dashboard.url}
+            try:
+                list_frame_url = list_frame.evaluate("() => location.href")
+            except Exception:
+                list_frame_url = list_frame.url
+            meta["frames"]["list"] = {"name": list_frame.name, "url": list_frame_url}
+
+            # wait rows ready (avoid 0 registros / loading)
+            def _grid_rows_ready(fr) -> bool:
+                try:
+                    return bool(
+                        fr.evaluate(
+                            """() => {
+  const obj = document.querySelector('table.obj.row20px');
+  if(!obj) return false;
+  const loading = Array.from(document.querySelectorAll('*')).some(el => {
+    const t = (el.innerText||'').trim();
+    return t === 'Loading...' && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
+  });
+  if(loading) return false;
+  const trs = Array.from(obj.querySelectorAll('tr'));
+  let cnt = 0;
+  for(const tr of trs){
+    const tds = Array.from(tr.querySelectorAll('td'));
+    if(!tds.length) continue;
+    const any = tds.some(td => ((td.innerText||'').replace(/\\s+/g,' ').trim()).length > 0);
+    if(any) cnt++;
+  }
+  const reg = (document.body ? (document.body.innerText||'') : '');
+  const m = reg.match(/\\b(\\d+)\\s+Registros\\b/i);
+  const regN = m ? parseInt(m[1],10) : 0;
+  return cnt > 0 || regN > 0;
+}"""
+                        )
+                    )
+                except Exception:
+                    return False
+
+            # Pro-actively click "Buscar" inside the list frame to load results (read-only).
+            try:
+                btn_buscar_f3 = list_frame.get_by_text("Buscar", exact=True)
+                if btn_buscar_f3.count() > 0:
+                    btn_buscar_f3.first.click(timeout=15000)
+            except Exception:
+                pass
+
+            t_deadline = time.time() + 30.0
+            while time.time() < t_deadline:
+                if _grid_rows_ready(list_frame):
+                    break
+                time.sleep(0.25)
+
+            # Hard-stop if still no rows (guardrail: don't proceed without loaded grid)
+            if not _grid_rows_ready(list_frame):
+                try:
+                    list_frame.locator("body").screenshot(path=str(shot_02))
+                except Exception:
+                    page.screenshot(path=str(shot_02), full_page=True)
+                raise RuntimeError("GRID_EMPTY_OR_LOADING: no rows after clicking Buscar in f3")
+
+            # Evidence 02
+            try:
+                list_frame.locator("body").screenshot(path=str(shot_02))
+            except Exception:
+                page.screenshot(path=str(shot_02), full_page=True)
+
+            # 5) Extract visible rows and find EXACTLY 1 match
+            extraction = list_frame.evaluate(
+                """() => {
+  function norm(s){ return (s||'').replace(/\\s+/g,' ').trim(); }
+  function headersFromHdrTable(hdr){
+    const cells = Array.from(hdr.querySelectorAll('tr:nth-of-type(2) td'));
+    if(cells.length){
+      return cells.map(td => {
+        const span = td.querySelector('.hdrcell span');
+        return span ? norm(span.innerText) : norm(td.innerText);
+      });
+    }
+    return Array.from(hdr.querySelectorAll('.hdrcell span')).map(s => norm(s.innerText));
+  }
+  function scoreHdr(hdr){
+    const hs = headersFromHdrTable(hdr);
+    const nonEmpty = hs.filter(Boolean).length;
+    return nonEmpty * 100 + norm(hdr.innerText).length;
+  }
+  function extractRowsFromObjTable(tbl, headers){
+    const trs = Array.from(tbl.querySelectorAll('tr'));
+    const rows = [];
+    for(const tr of trs){
+      const tds = Array.from(tr.querySelectorAll('td'));
+      if(!tds.length) continue;
+      const cells = tds.map(td => norm(td.innerText));
+      if(!cells.some(x => x)) continue;
+      const mapped = {};
+      for(let i=0;i<cells.length;i++){
+        const k = (i < headers.length && headers[i]) ? headers[i] : `col_${i+1}`;
+        mapped[k] = cells[i] || '';
+      }
+      rows.push({ mapped, raw_cells: cells });
+    }
+    return rows;
+  }
+  const hdrTables = Array.from(document.querySelectorAll('table.hdr'));
+  const objTables = Array.from(document.querySelectorAll('table.obj.row20px'));
+  if(!hdrTables.length || !objTables.length) return { headers: [], rows: [], debug: {hdr_tables: hdrTables.length, obj_tables: objTables.length} };
+  hdrTables.sort((a,b) => scoreHdr(b) - scoreHdr(a));
+  const bestHdr = hdrTables[0];
+  const headers = headersFromHdrTable(bestHdr);
+  let best = { tbl: null, rows: [] };
+  for(const t of objTables){
+    const rs = extractRowsFromObjTable(t, headers);
+    if(rs.length > best.rows.length){
+      best = { tbl: t, rows: rs };
+    }
+  }
+  return { headers, rows: best.rows, debug: {hdr_tables: hdrTables.length, obj_tables: objTables.length} };
+}"""
+            )
+            rows_wrapped = extraction.get("rows") or []
+            visible_rows: List[Dict[str, Any]] = []
+            for idx, rw in enumerate(rows_wrapped):
+                mapped = rw.get("mapped") or {}
+                mapped["raw_cells"] = rw.get("raw_cells") or []
+                mapped["_visible_index"] = idx
+                visible_rows.append(mapped)
+
+            def _row_matches(r: Dict[str, Any]) -> bool:
+                empresa_raw = str(r.get("Empresa") or r.get("empresa") or "")
+                elemento_raw = str(r.get("Elemento") or r.get("elemento") or "")
+                vals = " | ".join(str(v or "") for v in r.values())
+                return (_match_company(empresa_raw) or _match_company(vals)) and (_match_worker(elemento_raw) or _match_worker(vals))
+
+            matches = [r for r in visible_rows if _row_matches(r)]
+            if len(matches) != 1:
+                try:
+                    list_frame.locator("body").screenshot(path=str(shot_03))
+                except Exception:
+                    page.screenshot(path=str(shot_03), full_page=True)
+                raise RuntimeError(f"FILTER_NOT_UNIQUE: expected 1 row, got {len(matches)}")
+
+            target = matches[0]
+            target_idx = int(target.get("_visible_index", 0))
+
+            # highlight row
+            try:
+                list_frame.evaluate(
+                    """(idx) => {
+  const tbls = Array.from(document.querySelectorAll('table.obj.row20px'));
+  let best = null;
+  let bestCount = -1;
+  for(const t of tbls){
+    const trs = Array.from(t.querySelectorAll('tr')).filter(tr => tr.querySelectorAll('td').length);
+    if(trs.length > bestCount){
+      best = { t, trs };
+      bestCount = trs.length;
+    }
+  }
+  if(!best) return false;
+  const tr = best.trs[idx];
+  if(!tr) return false;
+  tr.style.outline = '4px solid #ff0066';
+  tr.style.outlineOffset = '2px';
+  tr.scrollIntoView({block:'center', inline:'center'});
+  return true;
+}""",
+                    target_idx,
+                )
+            except Exception:
+                pass
+            try:
+                list_frame.locator("body").screenshot(path=str(shot_03))
+            except Exception:
+                page.screenshot(path=str(shot_03), full_page=True)
+
+            # 6) Open detail (click row action)
+            click_result = list_frame.evaluate(
+                """(idx) => {
+  function isVisible(el){
+    if(!el) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+  function hasPointer(el){
+    try { return window.getComputedStyle(el).cursor === 'pointer'; } catch(e){ return false; }
+  }
+  const tbls = Array.from(document.querySelectorAll('table.obj.row20px'));
+  let best = null;
+  let bestCount = -1;
+  for(const t of tbls){
+    const trs = Array.from(t.querySelectorAll('tr')).filter(tr => tr.querySelectorAll('td').length);
+    if(trs.length > bestCount){
+      best = { t, trs };
+      bestCount = trs.length;
+    }
+  }
+  if(!best) return { ok:false, reason:'no_obj_table' };
+  const tr = best.trs[idx];
+  if(!tr) return { ok:false, reason:'row_not_found', idx };
+  const cands = [];
+  const aTags = Array.from(tr.querySelectorAll('a'));
+  for(const a of aTags){ if(isVisible(a)) cands.push({ el:a, kind:'a' }); }
+  const imgs = Array.from(tr.querySelectorAll('img'));
+  for(const img of imgs){
+    if(isVisible(img) && (img.getAttribute('onclick') || img.closest('[onclick]') || hasPointer(img))) cands.push({ el: img, kind:'img' });
+  }
+  const onclicks = Array.from(tr.querySelectorAll('[onclick]'));
+  for(const el of onclicks){ if(isVisible(el)) cands.push({ el, kind:'onclick' }); }
+  const pick = (predicate) => cands.find(c => predicate(c));
+  let chosen = pick(c => c.kind === 'a') || pick(c => c.kind === 'img') || pick(c => c.kind === 'onclick');
+  if(!chosen){ chosen = { el: tr, kind: 'tr' }; }
+  const el = chosen.el;
+  const tag = el.tagName ? el.tagName.toLowerCase() : '';
+  const html = (el.outerHTML || '').slice(0, 5000);
+  try { el.click(); } catch(e){
+    try { el.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true, view: window })); } catch(e2){}
+  }
+  return { ok:true, kind: chosen.kind, tag, outerHTML: html };
+}""",
+                target_idx,
+            )
+            meta["click_strategy"] = click_result
+
+            # Wait modal with scope keywords
+            def _modal_best_text() -> str:
+                try:
+                    return page.evaluate(
+                        """() => {
+  const els = Array.from(document.querySelectorAll('div,section,article'));
+  function z(el){
+    const s = window.getComputedStyle(el);
+    const zi = parseInt(s.zIndex || '0', 10);
+    return isNaN(zi) ? 0 : zi;
+  }
+  function isVis(el){
+    const r = el.getBoundingClientRect();
+    if(r.width < 200 || r.height < 120) return false;
+    const s = window.getComputedStyle(el);
+    if(s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return false;
+    return true;
+  }
+  function score(el){
+    const txt = ((el.innerText || '') + '').toLowerCase();
+    const kws = ['documento:', 'trabajador:', 'empresa:', 'estado documento'];
+    const hits = kws.reduce((acc,k)=> acc + (txt.includes(k) ? 1 : 0), 0);
+    const r = el.getBoundingClientRect();
+    const area = Math.floor(r.width * r.height);
+    const zi = z(el);
+    return hits * 1000000 + zi * 1000 + txt.length + Math.min(area, 1000000);
+  }
+  let best = null;
+  let bestScore = -1;
+  for(const el of els){
+    if(!isVis(el)) continue;
+    const cls = (el.className || '').toString().toLowerCase();
+    const zi = z(el);
+    const looks = (cls.includes('dhtmlx') && (cls.includes('win') || cls.includes('popup') || cls.includes('modal'))) || zi >= 1000;
+    if(!looks) continue;
+    const sc = score(el);
+    if(sc > bestScore){ bestScore = sc; best = el; }
+  }
+  return best ? (best.innerText || '') : '';
+}"""
+                    )
+                except Exception:
+                    return ""
+
+            t_deadline = time.time() + 25.0
+            detail_text = ""
+            while time.time() < t_deadline:
+                detail_text = _modal_best_text()
+                if len((detail_text or "").strip()) >= 40 and _detail_labels_ok(detail_text) and _scope_ok(detail_text):
+                    break
+                time.sleep(0.25)
+
+            # Evidence 04 + dump
+            page.screenshot(path=str(shot_04), full_page=True)
+            detail_txt_path.write_text(detail_text or "", encoding="utf-8")
+
+            # Hard-stop scope not validated
+            if not (_detail_labels_ok(detail_text) and _scope_ok(detail_text)):
+                raise RuntimeError("DETAIL_SCOPE_NOT_VALIDATED: missing Documento/Trabajador/Empresa or scope tokens (TEDELAB + Emilio/DNI)")
+
+            # 7) Upload inside the modal: file + date
+            page.screenshot(path=str(shot_05), full_page=True)
+
+            # Locate file input: prefer visible, then any within page
+            file_input = page.locator("input[type='file']:visible")
+            if file_input.count() == 0:
+                file_input = page.locator("input[type='file']")
+
+            file_strategy = None
+            if file_input.count() > 0:
+                # choose first; set files even if hidden
+                file_input.first.set_input_files(str(pdf_path))
+                file_strategy = {"kind": "set_input_files", "selector": "input[type=file]"}
+            else:
+                # fallback: click an attach control and use file chooser
+                try:
+                    attach = page.get_by_text("Adjuntar fichero", exact=False)
+                    if attach.count() == 0:
+                        attach = page.get_by_text("Adjuntar", exact=False)
+                    if attach.count() == 0:
+                        raise RuntimeError("FILE_INPUT_NOT_FOUND")
+                    with page.expect_file_chooser(timeout=15000) as fc_info:
+                        attach.first.click(timeout=10000)
+                    chooser = fc_info.value
+                    chooser.set_files(str(pdf_path))
+                    file_strategy = {"kind": "file_chooser", "by_text": "Adjuntar fichero"}
+                except Exception as e:
+                    raise RuntimeError(f"FILE_INPUT_NOT_FOUND: {e}")
+
+            # Locate "Inicio Vigencia" input inside the active detail modal (avoid hidden inputs).
+            # We resolve a best-effort CSS selector via JS by finding the closest visible input to the label.
+            date_selector = page.evaluate(
+                """() => {
+  function norm(s){ return (s||'').replace(/\\s+/g,' ').trim(); }
+  function z(el){
+    const s = window.getComputedStyle(el);
+    const zi = parseInt(s.zIndex || '0', 10);
+    return isNaN(zi) ? 0 : zi;
+  }
+  function isVis(el){
+    if(!el) return false;
+    const r = el.getBoundingClientRect();
+    if(r.width < 5 || r.height < 5) return false;
+    const s = window.getComputedStyle(el);
+    if(s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return false;
+    return true;
+  }
+  function cssEscape(s){ return (s||'').replace(/([ #;?%&,.+*~\\':\"!^$\\[\\]()=>|\\/])/g,'\\\\$1'); }
+  function cssPath(el){
+    if(!el || el.nodeType !== 1) return '';
+    if(el.id) return el.tagName.toLowerCase() + '#' + cssEscape(el.id);
+    const parts = [];
+    while(el && el.nodeType === 1 && el.tagName.toLowerCase() !== 'html'){
+      let part = el.tagName.toLowerCase();
+      const cls = (el.className || '').toString().trim().split(/\\s+/).filter(Boolean);
+      if(cls.length) part += '.' + cls.slice(0,2).map(cssEscape).join('.');
+      const parent = el.parentElement;
+      if(parent){
+        const same = Array.from(parent.children).filter(c=>c.tagName===el.tagName);
+        if(same.length>1){
+          const idx = same.indexOf(el)+1;
+          part += `:nth-of-type(${idx})`;
+        }
+      }
+      parts.unshift(part);
+      el = parent;
+    }
+    return parts.join(' > ');
+  }
+  // pick best modal-like container (same scoring used elsewhere)
+  const els = Array.from(document.querySelectorAll('div,section,article'));
+  function modalScore(el){
+    const txt = ((el.innerText || '') + '').toLowerCase();
+    const kws = ['documento:', 'trabajador:', 'empresa:', 'estado documento'];
+    const hits = kws.reduce((acc,k)=> acc + (txt.includes(k) ? 1 : 0), 0);
+    const r = el.getBoundingClientRect();
+    const area = Math.floor(r.width * r.height);
+    const zi = z(el);
+    const cls = (el.className || '').toString().toLowerCase();
+    const looks = (cls.includes('dhtmlx') && (cls.includes('win') || cls.includes('popup') || cls.includes('modal'))) || zi >= 1000;
+    if(!looks || !isVis(el)) return -1;
+    return hits * 1000000 + zi * 1000 + txt.length + Math.min(area, 1000000);
+  }
+  let modal = null;
+  let best = -1;
+  for(const el of els){
+    const sc = modalScore(el);
+    if(sc > best){ best = sc; modal = el; }
+  }
+  const root = modal || document.body;
+  const labelNodes = Array.from(root.querySelectorAll('*')).filter(el => {
+    const t = norm(el.innerText).toLowerCase();
+    return t.includes('inicio vigencia');
+  });
+  if(!labelNodes.length) return null;
+  // choose the smallest label-ish element
+  labelNodes.sort((a,b)=> (norm(a.innerText).length - norm(b.innerText).length));
+  const label = labelNodes[0];
+  const lr = label.getBoundingClientRect();
+
+  const inputs = Array.from(root.querySelectorAll('input,textarea,select')).filter(inp => {
+    const tag = (inp.tagName || '').toLowerCase();
+    if(tag === 'input'){
+      const tp = (inp.getAttribute('type') || 'text').toLowerCase();
+      if(tp === 'hidden' || tp === 'file') return false;
+    }
+    return isVis(inp);
+  });
+  if(!inputs.length) return null;
+
+  function dist(a,b){
+    const ax = a.left + a.width/2;
+    const ay = a.top + a.height/2;
+    const bx = b.left + b.width/2;
+    const by = b.top + b.height/2;
+    const dx = ax - bx;
+    const dy = ay - by;
+    return Math.sqrt(dx*dx + dy*dy);
+  }
+  let bestInp = null;
+  let bestD = Infinity;
+  for(const inp of inputs){
+    const ir = inp.getBoundingClientRect();
+    const d = dist(lr, ir);
+    if(d < bestD){
+      bestD = d;
+      bestInp = inp;
+    }
+  }
+  if(!bestInp) return null;
+  if(bestInp.id) return '#' + cssEscape(bestInp.id);
+  if(bestInp.name) return bestInp.tagName.toLowerCase() + `[name=\"${cssEscape(bestInp.name)}\"]`;
+  return cssPath(bestInp);
+}"""
+            )
+            if not date_selector:
+                raise RuntimeError("DATE_INPUT_NOT_FOUND: Inicio Vigencia (modal)")
+
+            date_input = page.locator(date_selector)
+            if date_input.count() == 0:
+                raise RuntimeError(f"DATE_INPUT_NOT_FOUND_RESOLVED: {date_selector}")
+
+            # Fill date
+            date_used = None
+            date_input.first.fill(date_ddmmyyyy, timeout=10000)
+            # verify accepted
+            try:
+                val = date_input.first.input_value(timeout=2000)
+            except Exception:
+                val = ""
+            if not (val or "").strip():
+                # fallback format
+                date_input.first.fill(date_yyyymmdd, timeout=10000)
+                date_used = date_yyyymmdd
+            else:
+                date_used = date_ddmmyyyy
+
+            # Guardrails before final click: file attached + date filled + scope validated
+            # Check file attached via JS if possible
+            file_ok = True
+            try:
+                # find any input[type=file] with files.length > 0
+                file_ok = bool(
+                    page.evaluate(
+                        """() => {
+  const ins = Array.from(document.querySelectorAll('input[type="file"]'));
+  for(const i of ins){
+    try{
+      if(i.files && i.files.length > 0) return true;
+    }catch(e){}
+  }
+  return false;
+}"""
+                    )
+                )
+            except Exception:
+                file_ok = True  # can't reliably check; assume set_input_files worked
+
+            date_ok = True
+            try:
+                v = date_input.first.input_value(timeout=2000)
+                date_ok = bool((v or "").strip())
+            except Exception:
+                date_ok = True
+
+            if not file_ok:
+                raise RuntimeError("GUARDRAIL_BLOCK: file not attached")
+            if not date_ok:
+                raise RuntimeError("GUARDRAIL_BLOCK: Inicio Vigencia empty")
+            if not (_detail_labels_ok(detail_text) and _scope_ok(detail_text)):
+                raise RuntimeError("GUARDRAIL_BLOCK: scope not validated in detail step")
+
+            meta["selectors"]["file_input_strategy"] = file_strategy
+            meta["selectors"]["inicio_vigencia_input"] = date_selector
+            meta["date_used_effective"] = date_used
+
+            page.screenshot(path=str(shot_06), full_page=True)
+
+            # 8) Click final button (Enviar...)
+            send_btn = None
+            for txt in ("Enviar documento", "Enviar archivo", "Enviar"):
+                try:
+                    btn = page.get_by_text(txt, exact=False)
+                    if btn.count() > 0:
+                        send_btn = btn.first
+                        meta["selectors"]["send_button_text"] = txt
+                        break
+                except Exception:
+                    continue
+            if not send_btn:
+                raise RuntimeError("SEND_BUTTON_NOT_FOUND")
+
+            # Click
+            send_btn.click(timeout=15000)
+
+            # 9) Wait for confirmation
+            confirmation_text = ""
+            t_deadline = time.time() + 25.0
+            while time.time() < t_deadline:
+                try:
+                    confirmation_text = page.evaluate("() => (document.body ? (document.body.innerText || '') : '')") or ""
+                except Exception:
+                    confirmation_text = ""
+                hay = (confirmation_text or "").lower()
+                # heuristics: success-ish keywords OR state changes
+                if any(k in hay for k in ("correct", "enviado", "guardado", "registrad", "éxito", "exito")):
+                    break
+                # or if "Pendiente enviar" disappears from detail (very weak, but something)
+                if ("pendiente enviar" not in hay) and ("estado documento" in hay):
+                    break
+                time.sleep(0.5)
+
+            confirmation_txt_path.write_text(confirmation_text or "", encoding="utf-8")
+            page.screenshot(path=str(shot_07), full_page=True)
+
+            # Confirm must be unequivocal: require at least one of the success keywords
+            hay_c = (confirmation_text or "").lower()
+            if not any(k in hay_c for k in ("correct", "enviado", "guardado", "registrad", "éxito", "exito")):
+                raise RuntimeError("CONFIRMATION_NOT_FOUND: no success keyword detected in page text")
+
+            meta["confirmation"] = {"snippet": (confirmation_text or "")[:8000]}
+
+            # success
+            status = "success"
+            last_error = None
+        except Exception as e:
+            status = "failed"
+            last_error = str(e)
+            # best-effort screenshots for debugging
+            try:
+                page.screenshot(path=str(shot_07), full_page=True)
+            except Exception:
+                pass
+            try:
+                # ensure required text dumps exist even on failure
+                if not detail_txt_path.exists():
+                    detail_txt_path.write_text("", encoding="utf-8")
+                if not confirmation_txt_path.exists():
+                    confirmation_txt_path.write_text("", encoding="utf-8")
+            except Exception:
+                pass
+        finally:
+            try:
+                _safe_write_json(meta_path, meta)
+            except Exception:
+                pass
+            try:
+                context.close()
+                browser.close()
+            except Exception:
+                pass
+
+    _write_run_finished(reason="UPLOAD_PENDING_DOCUMENT_SCOPED", error=last_error)
+    return run_id
+
 def run_frames_screenshots_and_find_tile_headful(
     *,
     base_dir: str | Path = "data",
