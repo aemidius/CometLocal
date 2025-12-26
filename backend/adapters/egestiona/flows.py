@@ -613,6 +613,7 @@ def run_send_pending_document_kern(
 
     file_ref = f"doc:company:{company_id}:company_docs:{namespace}:{name}"
     try:
+        # Intentar registrar primero
         file_ref = repo.register(
             path=file_path_obj,
             metadata={
@@ -625,8 +626,17 @@ def run_send_pending_document_kern(
                 "tags": ["egestiona_upload", "kern", "pending_document", "ss_receipt"],
             },
         )
-    except Exception as e:
-        raise ValueError(f"Failed to register document: {e}")
+    except ValueError as e:
+        if "already exists" in str(e):
+            # El archivo ya existe, validar que sea el mismo
+            try:
+                existing_entry = repo.validate(file_ref)
+                # Si existe y es válido, usar el file_ref existente
+                print(f"Using existing document: {file_ref}")
+            except (FileNotFoundError, ValueError):
+                raise ValueError(f"Document exists but is invalid: {e}")
+        else:
+            raise ValueError(f"Failed to register document: {e}")
 
     platforms = store.load_platforms()
     plat = next((p for p in platforms.platforms if p.key == platform), None)
