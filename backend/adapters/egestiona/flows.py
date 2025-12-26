@@ -865,6 +865,7 @@ def run_send_pending_document_kern(
             input={},
             preconditions=[
                 ConditionV1(kind=ConditionKindV1.element_visible, args={"target": search_button_target.model_dump()}, severity=ErrorSeverityV1.warning),
+                ConditionV1(kind=ConditionKindV1.element_count_equals, args={"target": search_button_target.model_dump(), "count": 1}, severity=ErrorSeverityV1.warning),
             ],
             postconditions=[ConditionV1(kind=ConditionKindV1.network_idle, args={}, severity=ErrorSeverityV1.warning)],
             timeout_ms=15000,
