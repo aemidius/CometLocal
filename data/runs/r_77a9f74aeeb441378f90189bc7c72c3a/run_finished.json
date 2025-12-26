@@ -1,0 +1,15 @@
+{
+  "run_id": "r_77a9f74aeeb441378f90189bc7c72c3a",
+  "status": "failed",
+  "started_at": "2025-12-26T18:09:52.516694+00:00",
+  "finished_at": "2025-12-26T18:10:03.380899+00:00",
+  "duration_ms": 10864,
+  "reason": "fail_fast_or_deterministic",
+  "terminal_reason": null,
+  "last_error": "AUTH_FAILED",
+  "counters": {
+    "retries": 0,
+    "recoveries": 0,
+    "same_state_revisits_max": 2
+  }
+}

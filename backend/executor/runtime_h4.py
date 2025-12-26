@@ -460,8 +460,7 @@ class ExecutorRuntimeH4:
 
                 if action.criticality == "critical":
                     try:
-                        if self.execution_mode == ExecutionModeV1.training:
-                            add_evidence(step_id, sig_b, None, [ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="before")])
+                        add_evidence(step_id, sig_b, None, [ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="before")])
                     except Exception:
                         pass
 
@@ -485,8 +484,7 @@ class ExecutorRuntimeH4:
                     extra: List[EvidenceItemV1] = []
                     try:
                         extra.append(ctrl.capture_html_full(step_id=step_id, evidence_dir=evidence_dir, phase="after", redactor=redactor))
-                        if self.execution_mode == ExecutionModeV1.training:
-                            extra.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
+                        extra.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
                     except Exception:
                         pass
                     add_evidence(step_id, sig_b, None, extra)
@@ -734,8 +732,7 @@ class ExecutorRuntimeH4:
                         extra_crit: List[EvidenceItemV1] = []
                         try:
                             extra_crit.append(ctrl.capture_html_full(step_id=step_id, evidence_dir=evidence_dir, phase="after", redactor=redactor))
-                            if self.execution_mode == ExecutionModeV1.training:
-                                extra_crit.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
+                            extra_crit.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
                         except Exception:
                             pass
                         add_evidence(step_id, sig_b, sig_a, extra_crit)
@@ -867,9 +864,8 @@ class ExecutorRuntimeH4:
                         try:
                             # en fallo: intentamos capturar html_full + screenshots before/after
                             extra.append(ctrl.capture_html_full(step_id=step_id, evidence_dir=evidence_dir, phase="after", redactor=redactor))
-                            if self.execution_mode == ExecutionModeV1.training:
-                                extra.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="before"))
-                                extra.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
+                            extra.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="before"))
+                            extra.append(ctrl.capture_screenshot_file(step_id=step_id, evidence_dir=evidence_dir, phase="after"))
                         except Exception:
                             pass
                         add_evidence(step_id, sig_b, state_after, extra)
