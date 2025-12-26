@@ -902,7 +902,7 @@ def run_send_pending_document_kern(
     target_row_check = TargetV1(
         type=TargetKindV1.text,
         text=company_name,
-        exact=False,
+        exact=True,
         normalize_ws=True,
     )
     actions.append(
@@ -960,7 +960,7 @@ def run_send_pending_document_kern(
     validate_company_target = TargetV1(
         type=TargetKindV1.text,
         text=company_name,
-        exact=False,
+        exact=True,
         normalize_ws=True,
     )
     actions.append(
@@ -981,7 +981,7 @@ def run_send_pending_document_kern(
     validate_worker_target = TargetV1(
         type=TargetKindV1.text,
         text=worker_name,
-        exact=False,
+        exact=True,
         normalize_ws=True,
     )
     actions.append(
@@ -1109,7 +1109,7 @@ def run_send_pending_document_kern(
     success_confirmation_target = TargetV1(
         type=TargetKindV1.text,
         text="Enviado",
-        exact=False,
+        exact=True,
         normalize_ws=True,
     )
     actions.append(
