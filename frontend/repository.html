@@ -379,6 +379,68 @@
         </div>
     </div>
 
+    <!-- Modal: Confirmar Borrado -->
+    <div id="delete-confirm-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirmar Borrado</h3>
+                <button class="close-btn" onclick="closeDeleteConfirmModal()">&times;</button>
+            </div>
+            <div>
+                <p style="margin-bottom: 20px;">¿Estás seguro de que quieres borrar el documento <strong id="delete-doc-name"></strong>?</p>
+                <p style="color: #ef4444; margin-bottom: 20px;">Esta acción no se puede deshacer.</p>
+                <input type="hidden" id="delete-doc-id">
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeDeleteConfirmModal()">Cancelar</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmDeleteDocument()">Borrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Ver/Editar Documento -->
+    <div id="doc-detail-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Detalle del Documento</h3>
+                <button class="close-btn" onclick="closeDocDetailModal()">&times;</button>
+            </div>
+            <form id="doc-detail-form">
+                <input type="hidden" id="doc-detail-id">
+                <div class="form-group">
+                    <label>Archivo</label>
+                    <div id="doc-detail-filename" style="padding: 10px; background: #111827; border-radius: 6px;"></div>
+                </div>
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <div id="doc-detail-type" style="padding: 10px; background: #111827; border-radius: 6px;"></div>
+                </div>
+                <div class="form-group">
+                    <label>Alcance</label>
+                    <div id="doc-detail-scope" style="padding: 10px; background: #111827; border-radius: 6px;"></div>
+                </div>
+                <div id="doc-detail-subject-fields"></div>
+                <div class="form-group">
+                    <label for="doc-detail-status">Estado *</label>
+                    <select id="doc-detail-status" required>
+                        <option value="draft">Draft</option>
+                        <option value="reviewed">Reviewed</option>
+                        <option value="ready_to_submit">Ready to Submit</option>
+                        <option value="submitted">Submitted</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Validez</label>
+                    <div id="doc-detail-validity" style="padding: 10px; background: #111827; border-radius: 6px;"></div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeDocDetailModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         const BACKEND_URL = 'http://127.0.0.1:8000';
 
@@ -655,7 +717,8 @@
                         <td>${validFrom} → ${validTo}</td>
                         <td><span class="badge badge-active">${doc.status}</span></td>
                         <td class="actions-cell">
-                            <button class="btn btn-secondary btn-small" onclick="viewDocument('${doc.doc_id}')">Ver</button>
+                            <button class="btn btn-secondary btn-small" onclick="viewDocument('${doc.doc_id}')">Editar</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteDocument('${doc.doc_id}', '${doc.file_name_original}', '${doc.status}')" ${doc.status === 'submitted' ? 'disabled title="No se puede borrar un documento enviado"' : ''}>Borrar</button>
                         </td>
                     </tr>
                 `;
@@ -939,6 +1002,43 @@
                 showAlert('docs-alert', 'Error: ' + error.message, 'error');
             }
         });
+
+        // Delete document
+        function deleteDocument(docId, fileName, status) {
+            if (status === 'submitted') {
+                showAlert('docs-alert', 'No se puede borrar un documento con status=submitted', 'error');
+                return;
+            }
+            
+            document.getElementById('delete-doc-id').value = docId;
+            document.getElementById('delete-doc-name').textContent = fileName;
+            document.getElementById('delete-confirm-modal').classList.add('active');
+        }
+
+        function closeDeleteConfirmModal() {
+            document.getElementById('delete-confirm-modal').classList.remove('active');
+        }
+
+        async function confirmDeleteDocument() {
+            const docId = document.getElementById('delete-doc-id').value;
+            
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/docs/${docId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Error al borrar');
+                }
+                
+                showAlert('docs-alert', 'Documento borrado correctamente', 'success');
+                closeDeleteConfirmModal();
+                loadDocuments();
+            } catch (error) {
+                showAlert('docs-alert', 'Error: ' + error.message, 'error');
+            }
+        }
 
         function showAlert(containerId, message, type) {
             const container = document.getElementById(containerId);

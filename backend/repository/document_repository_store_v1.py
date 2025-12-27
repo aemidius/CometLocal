@@ -251,6 +251,35 @@ class DocumentRepositoryStoreV1:
         shutil.copy2(source_path, target_path)
         return target_path
 
+    def delete_document(self, doc_id: str) -> None:
+        """
+        Elimina un documento (PDF + sidecar JSON).
+        Operación atómica: primero verifica, luego elimina ambos archivos.
+        """
+        # Verificar que existe
+        doc = self.get_document(doc_id)
+        if not doc:
+            raise ValueError(f"Document {doc_id} not found")
+        
+        # Validar que no esté submitted
+        if doc.status == "submitted":
+            raise ValueError(f"Cannot delete document with status=submitted")
+        
+        # Eliminar archivos (operación atómica: ambos o ninguno)
+        pdf_path = self._get_doc_pdf_path(doc_id)
+        meta_path = self._get_doc_meta_path(doc_id)
+        
+        try:
+            # Eliminar PDF primero
+            if pdf_path.exists():
+                pdf_path.unlink()
+            # Luego eliminar JSON
+            if meta_path.exists():
+                meta_path.unlink()
+        except Exception as e:
+            # Si falla, intentar restaurar (best-effort)
+            raise RuntimeError(f"Failed to delete document {doc_id}: {e}") from e
+
     # ========== REGLAS Y OVERRIDES (PLACEHOLDER) ==========
 
     def list_submission_rules(self) -> List[SubmissionRuleV1]:

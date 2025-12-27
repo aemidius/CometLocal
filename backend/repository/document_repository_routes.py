@@ -287,3 +287,27 @@ async def update_document(
     
     return doc
 
+
+@router.delete("/docs/{doc_id}")
+async def delete_document(doc_id: str) -> dict:
+    """
+    Elimina un documento (PDF + sidecar JSON).
+    
+    - Si doc_id no existe → 404
+    - Si status == "submitted" → 409 (no se puede borrar)
+    """
+    store = DocumentRepositoryStoreV1()
+    
+    try:
+        store.delete_document(doc_id)
+        return {"ok": True}
+    except ValueError as e:
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            raise HTTPException(status_code=404, detail=error_msg)
+        elif "submitted" in error_msg.lower():
+            raise HTTPException(status_code=409, detail=error_msg)
+        raise HTTPException(status_code=400, detail=error_msg)
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
