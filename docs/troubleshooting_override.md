@@ -68,33 +68,82 @@ Las fechas se validan con formato `YYYY-MM-DD`:
 
 ### Test A: Set override con objeto
 
+**Comando:**
 ```bash
-curl -X PUT http://127.0.0.1:8000/api/repository/docs/1f3a6c92-2cae-4113-8954-c5fa2f30c5c8 \
+curl -X PUT http://127.0.0.1:8000/api/repository/docs/<DOC_ID> \
   -H "Content-Type: application/json" \
   -d '{"validity_override":{"override_valid_from":"2025-11-01","override_valid_to":"2025-12-31","reason":"test"}}'
 ```
 
+**O usando archivo JSON:**
+```bash
+# test_override_obj.json
+{
+  "validity_override": {
+    "override_valid_from": "2025-11-01",
+    "override_valid_to": "2025-12-31",
+    "reason": "test"
+  }
+}
+
+curl -X PUT http://127.0.0.1:8000/api/repository/docs/<DOC_ID> \
+  -H "Content-Type: application/json" \
+  -d "@test_override_obj.json"
+```
+
 **Resultado esperado:** `200 OK` y el GET debe reflejar el override.
+
+**Nota:** Si el servidor no se ha recargado, puede dar `500 Internal Server Error`. Reiniciar el servidor.
 
 ### Test B: Set override con string JSON
 
+**Comando:**
 ```bash
-curl -X PUT http://127.0.0.1:8000/api/repository/docs/1f3a6c92-2cae-4113-8954-c5fa2f30c5c8 \
+curl -X PUT http://127.0.0.1:8000/api/repository/docs/<DOC_ID> \
   -H "Content-Type: application/json" \
   -d '{"validity_override":"{\"override_valid_from\":\"2025-11-01\",\"override_valid_to\":\"2025-12-31\",\"reason\":\"test2\"}"}'
 ```
 
+**O usando archivo JSON:**
+```bash
+# test_override_str.json
+{
+  "validity_override": "{\"override_valid_from\":\"2025-11-01\",\"override_valid_to\":\"2025-12-31\",\"reason\":\"test2\"}"
+}
+
+curl -X PUT http://127.0.0.1:8000/api/repository/docs/<DOC_ID> \
+  -H "Content-Type: application/json" \
+  -d "@test_override_str.json"
+```
+
 **Resultado esperado:** `200 OK` y el GET debe reflejar el override con `reason="test2"`.
+
+**Nota:** Si el servidor no se ha recargado, puede dar `500 Internal Server Error`. Reiniciar el servidor.
 
 ### Test C: Limpiar override
 
+**Comando:**
 ```bash
-curl -X PUT http://127.0.0.1:8000/api/repository/docs/1f3a6c92-2cae-4113-8954-c5fa2f30c5c8 \
+curl -X PUT http://127.0.0.1:8000/api/repository/docs/<DOC_ID> \
   -H "Content-Type: application/json" \
   -d '{"validity_override":null}'
 ```
 
+**O usando archivo JSON:**
+```bash
+# test_override_null.json
+{
+  "validity_override": null
+}
+
+curl -X PUT http://127.0.0.1:8000/api/repository/docs/<DOC_ID> \
+  -H "Content-Type: application/json" \
+  -d "@test_override_null.json"
+```
+
 **Resultado esperado:** `200 OK` y el GET debe mostrar `validity_override: null`.
+
+**Resultado verificado:** ✅ Funciona correctamente.
 
 ## Errores Comunes
 

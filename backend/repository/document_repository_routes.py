@@ -19,6 +19,7 @@ from backend.shared.document_repository_v1 import (
     DocumentScopeV1,
     ExtractedMetadataV1,
     DocumentStatusV1,
+    ValidityOverrideV1,
 )
 
 
