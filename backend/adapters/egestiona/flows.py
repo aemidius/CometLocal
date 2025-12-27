@@ -42,6 +42,9 @@ from backend.adapters.egestiona.match_pending_headful import (
 from backend.adapters.egestiona.submission_plan_headful import (
     run_build_submission_plan_readonly_headful,
 )
+from backend.adapters.egestiona.execute_plan_headful import (
+    run_execute_submission_plan_scoped_headful,
+)
 
 
 def run_login_and_snapshot(
