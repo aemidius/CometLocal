@@ -2935,6 +2935,55 @@ async def egestiona_match_pending_documents_readonly(
     return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
 
 
+@router.post("/runs/egestiona/execute_submission_plan_scoped")
+async def egestiona_execute_submission_plan_scoped(
+    coord: str = "Kern",
+    company_key: str = "",
+    person_key: Optional[str] = None,
+    limit: int = 20,
+    only_target: bool = True,
+    dry_run: bool = True,
+    confirm_execute: bool = False,
+):
+    """
+    HEADFUL / WRITE (con guardrails fuertes): Ejecuta plan de envío para items AUTO_SUBMIT_OK.
+    - Construye submission plan (reutiliza lógica existente)
+    - Si dry_run=true: solo genera plan, NO ejecuta
+    - Si dry_run=false pero confirm_execute=false: hard stop
+    - Si dry_run=false y confirm_execute=true: ejecuta items con AUTO_SUBMIT_OK
+    - Usa fechas del plan (proposed_fields), NO "hoy"
+    - Evidence completa: execution_results.json, confirmation_text_dump.txt, PNGs
+    """
+    if not company_key:
+        raise HTTPException(status_code=400, detail="company_key is required")
+    
+    try:
+        run_id = await run_in_threadpool(
+            lambda: run_execute_submission_plan_scoped_headful(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                company_key=company_key,
+                person_key=person_key,
+                limit=limit,
+                only_target=only_target,
+                dry_run=dry_run,
+                confirm_execute=confirm_execute,
+                slow_mo_ms=300,
+                viewport={"width": 1600, "height": 1000},
+                wait_after_login_s=2.5,
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        error_msg = str(e)
+        if "SECURITY_HARD_STOP" in error_msg or "GUARDRAIL_VIOLATION" in error_msg:
+            raise HTTPException(status_code=403, detail=error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
 @router.post("/runs/egestiona/build_submission_plan_readonly")
 async def egestiona_build_submission_plan_readonly(
     coord: str = "Kern",
@@ -2973,6 +3022,55 @@ async def egestiona_build_submission_plan_readonly(
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/execute_submission_plan_scoped")
+async def egestiona_execute_submission_plan_scoped(
+    coord: str = "Kern",
+    company_key: str = "",
+    person_key: Optional[str] = None,
+    limit: int = 20,
+    only_target: bool = True,
+    dry_run: bool = True,
+    confirm_execute: bool = False,
+):
+    """
+    HEADFUL / WRITE (con guardrails fuertes): Ejecuta plan de envío para items AUTO_SUBMIT_OK.
+    - Construye submission plan (reutiliza lógica existente)
+    - Si dry_run=true: solo genera plan, NO ejecuta
+    - Si dry_run=false pero confirm_execute=false: hard stop
+    - Si dry_run=false y confirm_execute=true: ejecuta items con AUTO_SUBMIT_OK
+    - Usa fechas del plan (proposed_fields), NO "hoy"
+    - Evidence completa: execution_results.json, confirmation_text_dump.txt, PNGs
+    """
+    if not company_key:
+        raise HTTPException(status_code=400, detail="company_key is required")
+    
+    try:
+        run_id = await run_in_threadpool(
+            lambda: run_execute_submission_plan_scoped_headful(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                company_key=company_key,
+                person_key=person_key,
+                limit=limit,
+                only_target=only_target,
+                dry_run=dry_run,
+                confirm_execute=confirm_execute,
+                slow_mo_ms=300,
+                viewport={"width": 1600, "height": 1000},
+                wait_after_login_s=2.5,
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        error_msg = str(e)
+        if "SECURITY_HARD_STOP" in error_msg or "GUARDRAIL_VIOLATION" in error_msg:
+            raise HTTPException(status_code=403, detail=error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
     return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
 
 
