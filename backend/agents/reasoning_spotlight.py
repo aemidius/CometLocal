@@ -310,3 +310,7 @@ Analiza este objetivo y genera el Reasoning Spotlight según las instrucciones.
 
 
 
+
+
+
+

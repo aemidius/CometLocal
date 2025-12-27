@@ -40,6 +40,9 @@ Tipo de documento editable por UI:
 - `scope`: `company` o `worker`
 - `validity_policy`: Política declarativa de validez
 - `required_fields`: Campos requeridos
+- `platform_aliases`: Lista de aliases para matching con plataformas
+- `allow_late_submission`: `bool` (default: `false`) - Permitir envío tardío (después de `valid_to`)
+- `late_submission_max_days`: `int | None` (default: `None`) - Máximo días tarde permitidos (si `None`, usa `grace_days` del `monthly` config)
 - `active`: Si está activo
 
 ### DocumentInstanceV1
@@ -56,6 +59,10 @@ Instancia de documento (PDF + metadatos):
 - `person_key`: Clave de persona (obligatorio si `scope=worker`, null si `scope=company`)
 - `extracted`: Metadatos extraídos (fechas, períodos)
 - `computed_validity`: Validez calculada (determinista)
+- `validity_override`: `ValidityOverrideV1 | None` - Override manual de validez (opcional)
+  - `override_valid_from`: `date | None` - Fecha de inicio override (YYYY-MM-DD)
+  - `override_valid_to`: `date | None` - Fecha de fin override (YYYY-MM-DD)
+  - `reason`: `str | None` - Razón del override
 - `status`: `draft` | `reviewed` | `ready_to_submit` | `submitted`
 
 **Reglas de validación:**
@@ -127,6 +134,14 @@ Política declarativa de validez:
   - Si `scope=worker` => seleccionar empresa + trabajador (ambos obligatorios)
 - Ver propuesta de validez (computed)
 - Estado inicial: `draft`
+- **Editar documento:**
+  - Modificar empresa/trabajador (según scope)
+  - Cambiar estado
+  - **Override de validez (opcional):**
+    - `override_valid_from` (date picker)
+    - `override_valid_to` (date picker)
+    - `reason` (textarea)
+    - Botón "Limpiar Override" para eliminar
 - **Modal de detalle**: Ver y editar empresa/trabajador/estado
 
 ## Cálculo de Validez
@@ -221,10 +236,29 @@ curl "http://127.0.0.1:8000/api/repository/docs/{doc_id}"
 
 ## Guardrails
 
+### Validación de Datos
+
 - **Hard-stop si `matches != 1`**: En operaciones que requieren exactamente un resultado
 - **Validación de scope**: El tipo y el documento deben tener el mismo scope
 - **Validación de PDF**: Solo se aceptan archivos `.pdf`
 - **Thread-safe writes**: Escritura atómica (temp → rename)
+
+### Guardrails de Submission Plan
+
+Los guardrails determinan si un documento puede ser auto-enviado (`AUTO_SUBMIT_OK`) o requiere revisión (`REVIEW_REQUIRED`):
+
+1. **Confidence < 0.75**: `REVIEW_REQUIRED`
+2. **Status = draft**: `REVIEW_REQUIRED`
+3. **Validez vs Today**:
+   - Si `allow_late_submission=false`:
+     - `today` debe estar dentro de `[valid_from, valid_to]`
+     - Si `today` está dentro del período y hay `grace_days > 0`, se permite hasta `valid_to + grace_days`
+   - Si `allow_late_submission=true`:
+     - Se permite hasta `valid_to + late_submission_max_days` (o `grace_days` si `late_submission_max_days` es `None`)
+   - Si `today < valid_from` o `today > valid_until`: `REVIEW_REQUIRED`
+4. **Match count != 1** (si `only_target=true`): `REVIEW_REQUIRED`
+
+**Nota:** Si un documento tiene `validity_override`, se usan esas fechas en lugar de `computed_validity` para los guardrails.
 
 ## Matching & Aliases
 
@@ -275,11 +309,60 @@ Evidence generada:
 - `match_results.json`
 - `meta.json`
 
+## Grace Policy y Validity Override
+
+### Grace Policy (Política de Gracia)
+
+Los tipos de documento pueden configurar:
+
+- **`allow_late_submission`**: Permite envío tardío (después de `valid_to`)
+- **`late_submission_max_days`**: Máximo días tarde permitidos (si `None`, usa `grace_days` del `monthly` config)
+- **`grace_days`** (en `monthly` config): Días de gracia después del fin del período (solo aplica si `today` está dentro del período)
+
+**Ejemplo:**
+```json
+{
+  "type_id": "T104_AUTONOMOS_RECEIPT",
+  "allow_late_submission": true,
+  "late_submission_max_days": 45,
+  "validity_policy": {
+    "mode": "monthly",
+    "monthly": {
+      "grace_days": 5
+    }
+  }
+}
+```
+
+### Validity Override
+
+Los documentos pueden tener un override manual de validez:
+
+- **`override_valid_from`**: Fecha de inicio override (YYYY-MM-DD)
+- **`override_valid_to`**: Fecha de fin override (YYYY-MM-DD)
+- **`reason`**: Razón del override (opcional)
+
+Si existe un override, se usa en lugar de `computed_validity` para:
+- Matching y scoring
+- Guardrails de submission plan
+- Propuestas de fechas en el plan de envío
+
+**Ejemplo:**
+```json
+{
+  "doc_id": "...",
+  "validity_override": {
+    "override_valid_from": "2025-11-01",
+    "override_valid_to": "2025-12-31",
+    "reason": "Extensión excepcional por retraso en emisión"
+  }
+}
+```
+
 ## Próximos Pasos (Placeholder)
 
 - **SubmissionRuleV1**: Reglas de envío a plataformas
-- **ValidityOverrideV1**: Overrides manuales de validez
-- Integración con submissions CAE
+- Integración completa con submissions CAE
 
 ## Notas Técnicas
 

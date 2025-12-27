@@ -516,6 +516,16 @@ def _run_self_test_mode(
     pending = _create_synthetic_pending_from_doc(doc, doc_type_name)
     
     # Hacer matching directo (siempre match al doc seleccionado)
+    # Usar validity_override si existe, sino computed_validity
+    if doc.validity_override:
+        valid_from = doc.validity_override.override_valid_from
+        valid_to = doc.validity_override.override_valid_to
+        has_override = True
+    else:
+        valid_from = doc.computed_validity.valid_from
+        valid_to = doc.computed_validity.valid_to
+        has_override = False
+    
     matcher = DocumentMatcherV1(repo_store)
     match_result = {
         "best_doc": {
@@ -523,11 +533,10 @@ def _run_self_test_mode(
             "type_id": doc.type_id,
             "file_name": doc.file_name_original,
             "status": doc.status.value if hasattr(doc.status, 'value') else str(doc.status),
-            "validity": {
-                "valid_from": doc.computed_validity.valid_from.isoformat() if doc.computed_validity.valid_from else None,
-                "valid_to": doc.computed_validity.valid_to.isoformat() if doc.computed_validity.valid_to else None,
-                "confidence": doc.computed_validity.confidence
-            }
+            "validity_from": valid_from.isoformat() if valid_from else None,
+            "validity_to": valid_to.isoformat() if valid_to else None,
+            "has_override": has_override,
+            "score": 1.0
         },
         "alternatives": [],
         "confidence": 1.0,
@@ -535,12 +544,16 @@ def _run_self_test_mode(
         "needs_operator": False
     }
     
+    # Obtener tipo de documento para guardrails
+    doc_type = repo_store.get_type(doc.type_id)
+    
     # Evaluar guardrails
     decision = _evaluate_submission_guardrails(
         match_result,
         today,
         only_target=True,
-        match_count=1
+        match_count=1,
+        doc_type=doc_type
     )
     
     # Construir plan item

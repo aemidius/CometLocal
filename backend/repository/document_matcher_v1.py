@@ -40,15 +40,24 @@ class MatchResultV1:
         self.reasons = reasons
     
     def to_dict(self) -> dict:
+        # Usar validity_override si existe, sino computed_validity
+        if self.doc.validity_override:
+            valid_from = self.doc.validity_override.override_valid_from
+            valid_to = self.doc.validity_override.override_valid_to
+        else:
+            valid_from = self.doc.computed_validity.valid_from
+            valid_to = self.doc.computed_validity.valid_to
+        
         return {
             "doc_id": self.doc.doc_id,
             "file_name": self.doc.file_name_original,
             "type_id": self.doc.type_id,
-            "validity_from": self.doc.computed_validity.valid_from.isoformat() if self.doc.computed_validity.valid_from else None,
-            "validity_to": self.doc.computed_validity.valid_to.isoformat() if self.doc.computed_validity.valid_to else None,
+            "validity_from": valid_from.isoformat() if valid_from else None,
+            "validity_to": valid_to.isoformat() if valid_to else None,
             "status": self.doc.status,
             "score": self.score,
-            "reasons": self.reasons
+            "reasons": self.reasons,
+            "has_override": self.doc.validity_override is not None
         }
 
 

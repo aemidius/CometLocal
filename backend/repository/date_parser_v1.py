@@ -126,3 +126,6 @@ def compute_period_from_date(d: date) -> Tuple[date, date]:
     
     return period_start, period_end
 
+
+
+

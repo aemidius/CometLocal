@@ -125,6 +125,15 @@ class DocumentTypeV1(BaseModel):
         default_factory=list,
         description="Aliases para matching con plataformas (ej: ['T104.0', 'recibo bancario'])"
     )
+    allow_late_submission: bool = Field(
+        default=False,
+        description="Permitir envío tardío (después de valid_to)"
+    )
+    late_submission_max_days: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description="Máximo días tarde permitidos (si None, usa grace_days del monthly config)"
+    )
     active: bool = Field(
         default=True,
         description="Si está activo (desactivar en lugar de borrar)"
@@ -217,6 +226,10 @@ class DocumentInstanceV1(BaseModel):
         default_factory=ComputedValidityV1,
         description="Validez calculada"
     )
+    validity_override: Optional[ValidityOverrideV1] = Field(
+        default=None,
+        description="Override manual de validez (opcional)"
+    )
     status: DocumentStatusV1 = Field(
         default=DocumentStatusV1.draft,
         description="Estado del documento"
@@ -249,23 +262,17 @@ class SubmissionRuleV1(BaseModel):
 
 
 class ValidityOverrideV1(BaseModel):
-    """Override de validez (placeholder, solo storage básico por ahora)."""
-    override_id: str = Field(
-        description="ID del override"
-    )
-    doc_id: str = Field(
-        description="ID del documento"
-    )
-    valid_from: Optional[date] = Field(
+    """Override de validez para un documento específico."""
+    override_valid_from: Optional[date] = Field(
         default=None,
-        description="Fecha de inicio override"
+        description="Fecha de inicio override (YYYY-MM-DD)"
     )
-    valid_to: Optional[date] = Field(
+    override_valid_to: Optional[date] = Field(
         default=None,
-        description="Fecha de fin override"
+        description="Fecha de fin override (YYYY-MM-DD)"
     )
-    reason: str = Field(
-        default="",
+    reason: Optional[str] = Field(
+        default=None,
         description="Razón del override"
     )
 

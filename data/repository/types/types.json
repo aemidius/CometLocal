@@ -13,7 +13,7 @@
           "month_source": "name_date",
           "valid_from": "period_start",
           "valid_to": "period_end",
-          "grace_days": 0
+          "grace_days": 5
         },
         "annual": null,
         "fixed_end_date": null
@@ -22,6 +22,13 @@
         "valid_from",
         "valid_to"
       ],
+      "platform_aliases": [
+        "T104.0",
+        "recibo bancario",
+        "cuota autónomos"
+      ],
+      "allow_late_submission": true,
+      "late_submission_max_days": 45,
       "active": true
     }
   ]

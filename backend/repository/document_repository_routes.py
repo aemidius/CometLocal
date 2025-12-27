@@ -228,6 +228,7 @@ class DocumentUpdateRequest(BaseModel):
     company_key: Optional[str] = None
     person_key: Optional[str] = None
     status: Optional[str] = None
+    validity_override: Optional[dict] = None
 
 
 @router.put("/docs/{doc_id}", response_model=DocumentInstanceV1)
@@ -279,6 +280,59 @@ async def update_document(
             doc.status = DocumentStatusV1(request.status)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid status: {request.status}")
+    
+    # Actualizar validity_override si se proporciona
+    if request.validity_override is not None:
+        # Verificar si es un dict vacío o todos los valores son None
+        is_empty = False
+        if isinstance(request.validity_override, dict):
+            if request.validity_override == {}:
+                is_empty = True
+            else:
+                # Verificar si todos los valores son None
+                all_none = all(
+                    v is None or (isinstance(v, str) and v.strip() == "")
+                    for v in request.validity_override.values()
+                )
+                is_empty = all_none
+        
+        if is_empty:
+            # Si es un dict vacío o todos los valores son None, eliminar override
+            doc.validity_override = None
+        else:
+            # Validar formato de fechas YYYY-MM-DD
+            override_valid_from = request.validity_override.get("override_valid_from")
+            override_valid_to = request.validity_override.get("override_valid_to")
+            reason = request.validity_override.get("reason")
+            
+            # Parsear fechas si son strings
+            from datetime import date
+            parsed_from = None
+            parsed_to = None
+            
+            if override_valid_from:
+                if isinstance(override_valid_from, str):
+                    try:
+                        parsed_from = datetime.strptime(override_valid_from, "%Y-%m-%d").date()
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail=f"Invalid date format for override_valid_from: {override_valid_from}. Expected YYYY-MM-DD")
+                elif isinstance(override_valid_from, date):
+                    parsed_from = override_valid_from
+            
+            if override_valid_to:
+                if isinstance(override_valid_to, str):
+                    try:
+                        parsed_to = datetime.strptime(override_valid_to, "%Y-%m-%d").date()
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail=f"Invalid date format for override_valid_to: {override_valid_to}. Expected YYYY-MM-DD")
+                elif isinstance(override_valid_to, date):
+                    parsed_to = override_valid_to
+            
+            doc.validity_override = ValidityOverrideV1(
+                override_valid_from=parsed_from,
+                override_valid_to=parsed_to,
+                reason=reason
+            )
     
     doc.updated_at = datetime.utcnow()
     

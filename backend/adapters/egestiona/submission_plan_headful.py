@@ -36,6 +36,7 @@ def _evaluate_submission_guardrails(
     today: date,
     only_target: bool,
     match_count: int,
+    doc_type: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Evalúa guardrails deterministas para decidir si se puede auto-enviar.
@@ -65,21 +66,28 @@ def _evaluate_submission_guardrails(
         return decision
     
     doc_status = best_doc.get("status")
-    validity = best_doc.get("validity", {})
-    valid_from = validity.get("valid_from")
-    valid_to = validity.get("valid_to")
+    # Usar validity_from/validity_to del matcher (ya incluye override si existe)
+    valid_from_str = best_doc.get("validity_from")
+    valid_to_str = best_doc.get("validity_to")
     
     # Parsear fechas si son strings
-    if isinstance(valid_from, str):
+    valid_from = None
+    valid_to = None
+    if isinstance(valid_from_str, str):
         try:
-            valid_from = datetime.strptime(valid_from, "%Y-%m-%d").date()
+            valid_from = datetime.strptime(valid_from_str, "%Y-%m-%d").date()
         except ValueError:
             valid_from = None
-    if isinstance(valid_to, str):
+    elif isinstance(valid_from_str, date):
+        valid_from = valid_from_str
+    
+    if isinstance(valid_to_str, str):
         try:
-            valid_to = datetime.strptime(valid_to, "%Y-%m-%d").date()
+            valid_to = datetime.strptime(valid_to_str, "%Y-%m-%d").date()
         except ValueError:
             valid_to = None
+    elif isinstance(valid_to_str, date):
+        valid_to = valid_to_str
     
     # Inicializar como REVIEW_REQUIRED (más seguro por defecto)
     decision["action"] = "REVIEW_REQUIRED"
@@ -96,22 +104,50 @@ def _evaluate_submission_guardrails(
         decision["reasons"].append("Document is in draft status")
         return decision
     
-    # Regla 3: Si today NOT in [valid_from, valid_to + grace_days] -> REVIEW_REQUIRED
-    # Nota: grace_days se obtiene del tipo, pero por ahora usamos 0
-    grace_days = 0  # TODO: obtener del tipo si es necesario
+    # Regla 3: Si today NOT in [valid_from, valid_to + grace_days/late_submission_max_days] -> REVIEW_REQUIRED
+    from datetime import timedelta
+    
+    # Obtener grace_days y late_submission_max_days del tipo
+    grace_days = 0
+    allow_late_submission = False
+    late_submission_max_days = 0
+    
+    if doc_type:
+        # Obtener grace_days del monthly config si existe
+        if doc_type.validity_policy.monthly:
+            grace_days = doc_type.validity_policy.monthly.grace_days or 0
+        
+        allow_late_submission = doc_type.allow_late_submission or False
+        late_submission_max_days = doc_type.late_submission_max_days
+        
+        # Si late_submission_max_days es None, usar grace_days
+        if late_submission_max_days is None:
+            late_submission_max_days = grace_days
+    
     if valid_from and valid_to:
-        valid_until = valid_to
-        # Añadir grace_days si es necesario
-        from datetime import timedelta
-        if grace_days > 0:
-            valid_until = valid_to + timedelta(days=grace_days)
+        # Determinar fecha límite según política
+        if allow_late_submission:
+            # Permitir envío tardío hasta valid_to + late_submission_max_days
+            valid_until = valid_to + timedelta(days=late_submission_max_days)
+            decision["reasons"].append(f"Late submission allowed: valid_to + {late_submission_max_days} days")
+        else:
+            # Solo permitir dentro del período o con grace_days si hoy está dentro del período
+            valid_until = valid_to
+            if grace_days > 0 and valid_from <= today <= valid_to:
+                # Si hoy está dentro del período, permitir grace_days después de valid_to
+                valid_until = valid_to + timedelta(days=grace_days)
+                decision["reasons"].append(f"Grace period: valid_to + {grace_days} days (today within period)")
+            elif grace_days > 0:
+                # Si hoy está fuera del período, no aplicar grace_days
+                valid_until = valid_to
+                decision["reasons"].append(f"Grace days ({grace_days}) not applied (today outside period)")
         
         if today < valid_from:
             decision["blocking_issues"].append(f"today ({today}) < valid_from ({valid_from})")
             decision["reasons"].append(f"Validity period starts in the future ({valid_from})")
             return decision
         elif today > valid_until:
-            decision["blocking_issues"].append(f"today ({today}) > valid_to+grace ({valid_until})")
+            decision["blocking_issues"].append(f"today ({today}) > valid_until ({valid_until})")
             decision["reasons"].append(f"Validity period expired ({valid_until})")
             return decision
         else:
@@ -397,12 +433,20 @@ def run_build_submission_plan_readonly_headful(
             best_doc = match_result.get("best_doc")
             match_count = 1 if best_doc else 0
             
+            # Obtener tipo de documento para guardrails
+            doc_type = None
+            if best_doc:
+                type_id = best_doc.get("type_id")
+                if type_id:
+                    doc_type = repo_store.get_type(type_id)
+            
             # Evaluar guardrails
             decision = _evaluate_submission_guardrails(
                 match_result,
                 today,
                 only_target,
-                match_count
+                match_count,
+                doc_type=doc_type
             )
 
             # Construir plan item
@@ -423,21 +467,28 @@ def run_build_submission_plan_readonly_headful(
             }
 
             if best_doc:
-                validity = best_doc.get("validity", {})
-                valid_from = validity.get("valid_from")
-                valid_to = validity.get("valid_to")
+                # Usar validity_from/validity_to del matcher (ya incluye override si existe)
+                valid_from_str = best_doc.get("validity_from")
+                valid_to_str = best_doc.get("validity_to")
                 
                 # Parsear fechas si son strings
-                if isinstance(valid_from, str):
+                valid_from = None
+                valid_to = None
+                if isinstance(valid_from_str, str):
                     try:
-                        valid_from = datetime.strptime(valid_from, "%Y-%m-%d").date()
+                        valid_from = datetime.strptime(valid_from_str, "%Y-%m-%d").date()
                     except ValueError:
                         valid_from = None
-                if isinstance(valid_to, str):
+                elif isinstance(valid_from_str, date):
+                    valid_from = valid_from_str
+                
+                if isinstance(valid_to_str, str):
                     try:
-                        valid_to = datetime.strptime(valid_to, "%Y-%m-%d").date()
+                        valid_to = datetime.strptime(valid_to_str, "%Y-%m-%d").date()
                     except ValueError:
                         valid_to = None
+                elif isinstance(valid_to_str, date):
+                    valid_to = valid_to_str
                 
                 plan_item["matched_doc"] = {
                     "doc_id": best_doc.get("doc_id"),
@@ -447,11 +498,12 @@ def run_build_submission_plan_readonly_headful(
                     "validity": {
                         "valid_from": valid_from.isoformat() if valid_from else None,
                         "valid_to": valid_to.isoformat() if valid_to else None,
-                        "confidence": validity.get("confidence", 0.0)
+                        "confidence": best_doc.get("score", 0.0),
+                        "has_override": best_doc.get("has_override", False)
                     }
                 }
                 
-                # Fechas propuestas desde computed_validity
+                # Fechas propuestas desde validity (que ya incluye override si existe)
                 plan_item["proposed_fields"]["fecha_inicio_vigencia"] = _format_date_for_portal(valid_from)
                 plan_item["proposed_fields"]["fecha_fin_vigencia"] = _format_date_for_portal(valid_to)
 

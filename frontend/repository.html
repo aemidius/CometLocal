@@ -343,6 +343,17 @@
                 <div id="validity-extra-fields"></div>
                 <div class="form-group">
                     <label>
+                        <input type="checkbox" id="type-allow-late-submission"> Permitir envío tardío
+                    </label>
+                    <small style="color: #9ca3af;">Permite subir documentos después de la fecha de fin de validez</small>
+                </div>
+                <div class="form-group" id="late-submission-days-group" style="display: none;">
+                    <label for="type-late-submission-max-days">Máximo días tarde</label>
+                    <input type="number" id="type-late-submission-max-days" min="0" placeholder="Si vacío, usa grace_days">
+                    <small style="color: #9ca3af;">Días máximos después de valid_to para permitir envío (si vacío, usa grace_days del modo mensual)</small>
+                </div>
+                <div class="form-group">
+                    <label>
                         <input type="checkbox" id="type-active" checked> Activo
                     </label>
                 </div>
@@ -432,6 +443,26 @@
                 <div class="form-group">
                     <label>Validez</label>
                     <div id="doc-detail-validity" style="padding: 10px; background: #111827; border-radius: 6px;"></div>
+                </div>
+                <div class="form-group">
+                    <label style="font-weight: bold; margin-bottom: 10px; display: block;">Override de Validez (opcional)</label>
+                    <div style="padding: 15px; background: #1f2937; border-radius: 6px; border: 1px solid #374151;">
+                        <div class="form-group">
+                            <label for="doc-override-valid-from">Fecha Inicio Override (YYYY-MM-DD)</label>
+                            <input type="date" id="doc-override-valid-from" style="width: 100%; padding: 8px; background: #111827; border: 1px solid #374151; border-radius: 4px; color: #e5e7eb;">
+                            <small style="color: #9ca3af;">Si se especifica, reemplaza la fecha de inicio calculada</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="doc-override-valid-to">Fecha Fin Override (YYYY-MM-DD)</label>
+                            <input type="date" id="doc-override-valid-to" style="width: 100%; padding: 8px; background: #111827; border: 1px solid #374151; border-radius: 4px; color: #e5e7eb;">
+                            <small style="color: #9ca3af;">Si se especifica, reemplaza la fecha de fin calculada</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="doc-override-reason">Razón del Override</label>
+                            <textarea id="doc-override-reason" rows="2" style="width: 100%; padding: 8px; background: #111827; border: 1px solid #374151; border-radius: 4px; color: #e5e7eb;" placeholder="Razón del override (opcional)"></textarea>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-small" onclick="clearValidityOverride()" style="margin-top: 10px;">Limpiar Override</button>
+                    </div>
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeDocDetailModal()">Cancelar</button>
@@ -532,6 +563,26 @@
                 document.getElementById('type-active').checked = type.active;
                 
                 updateValidityFields();
+                
+                // Cargar grace_days después de crear los campos
+                if (type.validity_policy.monthly) {
+                    const graceEl = document.getElementById('monthly-grace');
+                    if (graceEl) {
+                        graceEl.value = type.validity_policy.monthly.grace_days || 0;
+                    }
+                }
+                
+                // Cargar allow_late_submission y late_submission_max_days
+                document.getElementById('type-allow-late-submission').checked = type.allow_late_submission || false;
+                if (type.late_submission_max_days !== null && type.late_submission_max_days !== undefined) {
+                    document.getElementById('type-late-submission-max-days').value = type.late_submission_max_days;
+                } else {
+                    document.getElementById('type-late-submission-max-days').value = '';
+                }
+                
+                // Mostrar/ocultar campo de días tarde
+                const daysGroup = document.getElementById('late-submission-days-group');
+                daysGroup.style.display = type.allow_late_submission ? 'block' : 'none';
                 document.getElementById('type-modal').classList.add('active');
             } catch (error) {
                 showAlert('types-alert', 'Error al cargar tipo: ' + error.message, 'error');
@@ -555,6 +606,7 @@
                     <div class="form-group">
                         <label for="monthly-grace">Días de Gracia</label>
                         <input type="number" id="monthly-grace" value="0" min="0">
+                        <small style="color: #9ca3af;">Días de gracia después del fin del período</small>
                     </div>
                 `;
             } else if (mode === 'annual') {
@@ -566,6 +618,12 @@
                 `;
             }
         }
+        
+        // Mostrar/ocultar campo de días tarde según checkbox
+        document.getElementById('type-allow-late-submission').addEventListener('change', function() {
+            const daysGroup = document.getElementById('late-submission-days-group');
+            daysGroup.style.display = this.checked ? 'block' : 'none';
+        });
 
         document.getElementById('type-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -604,6 +662,10 @@
                 .map(line => line.trim())
                 .filter(line => line.length > 0);
             
+            const allowLateSubmission = document.getElementById('type-allow-late-submission').checked;
+            const lateSubmissionMaxDaysInput = document.getElementById('type-late-submission-max-days').value;
+            const lateSubmissionMaxDays = lateSubmissionMaxDaysInput === '' ? null : parseInt(lateSubmissionMaxDaysInput);
+            
             const typeData = {
                 type_id: typeId,
                 name: document.getElementById('type-name').value,
@@ -612,6 +674,8 @@
                 scope: document.getElementById('type-scope').value,
                 validity_policy: validityPolicy,
                 required_fields: [],
+                allow_late_submission: allowLateSubmission,
+                late_submission_max_days: lateSubmissionMaxDays,
                 active: document.getElementById('type-active').checked
             };
             
@@ -914,7 +978,31 @@
                 
                 const validFrom = doc.computed_validity.valid_from || '-';
                 const validTo = doc.computed_validity.valid_to || '-';
-                document.getElementById('doc-detail-validity').textContent = `${validFrom} → ${validTo}`;
+                const hasOverride = doc.validity_override !== null && doc.validity_override !== undefined;
+                let validityText = `${validFrom} → ${validTo}`;
+                if (hasOverride) {
+                    const overrideFrom = doc.validity_override.override_valid_from || validFrom;
+                    const overrideTo = doc.validity_override.override_valid_to || validTo;
+                    validityText += ` (Override: ${overrideFrom} → ${overrideTo})`;
+                }
+                document.getElementById('doc-detail-validity').textContent = validityText;
+                
+                // Cargar override si existe
+                if (hasOverride) {
+                    if (doc.validity_override.override_valid_from) {
+                        document.getElementById('doc-override-valid-from').value = doc.validity_override.override_valid_from;
+                    }
+                    if (doc.validity_override.override_valid_to) {
+                        document.getElementById('doc-override-valid-to').value = doc.validity_override.override_valid_to;
+                    }
+                    if (doc.validity_override.reason) {
+                        document.getElementById('doc-override-reason').value = doc.validity_override.reason;
+                    }
+                } else {
+                    document.getElementById('doc-override-valid-from').value = '';
+                    document.getElementById('doc-override-valid-to').value = '';
+                    document.getElementById('doc-override-reason').value = '';
+                }
                 
                 // Renderizar campos de sujeto según scope
                 const container = document.getElementById('doc-detail-subject-fields');
@@ -964,6 +1052,12 @@
         function closeDocDetailModal() {
             document.getElementById('doc-detail-modal').classList.remove('active');
         }
+        
+        function clearValidityOverride() {
+            document.getElementById('doc-override-valid-from').value = '';
+            document.getElementById('doc-override-valid-to').value = '';
+            document.getElementById('doc-override-reason').value = '';
+        }
 
         document.getElementById('doc-detail-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -981,6 +1075,22 @@
             const personKeyEl = document.getElementById('doc-detail-person-key');
             if (personKeyEl) {
                 updateData.person_key = personKeyEl.value;
+            }
+            
+            // Procesar validity_override
+            const overrideFrom = document.getElementById('doc-override-valid-from').value;
+            const overrideTo = document.getElementById('doc-override-valid-to').value;
+            const overrideReason = document.getElementById('doc-override-reason').value.trim();
+            
+            if (overrideFrom || overrideTo || overrideReason) {
+                updateData.validity_override = {
+                    override_valid_from: overrideFrom || null,
+                    override_valid_to: overrideTo || null,
+                    reason: overrideReason || null
+                };
+            } else {
+                // Si todos los campos están vacíos, eliminar override
+                updateData.validity_override = {};
             }
             
             try {
