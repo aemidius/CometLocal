@@ -52,10 +52,15 @@ Instancia de documento (PDF + metadatos):
 - `sha256`: Hash del archivo
 - `type_id`: ID del tipo
 - `scope`: `company` o `worker`
-- `company_key` / `person_key`: Clave según scope
+- `company_key`: Clave de empresa (obligatorio según scope)
+- `person_key`: Clave de persona (obligatorio si `scope=worker`, null si `scope=company`)
 - `extracted`: Metadatos extraídos (fechas, períodos)
 - `computed_validity`: Validez calculada (determinista)
 - `status`: `draft` | `reviewed` | `ready_to_submit` | `submitted`
+
+**Reglas de validación:**
+- Si `scope=company`: `company_key` obligatorio, `person_key` debe ser `null`
+- Si `scope=worker`: `company_key` y `person_key` obligatorios
 
 ### ValidityPolicyV1
 
@@ -84,6 +89,15 @@ Política declarativa de validez:
 - `GET /api/repository/docs` - Lista documentos (con filtros opcionales)
 - `GET /api/repository/docs/{doc_id}` - Obtiene un documento
 - `POST /api/repository/docs/upload` - Sube un PDF (multipart/form-data)
+  - Requiere: `file`, `type_id`, `scope` (se determina del tipo), `company_key`, `person_key` (si `scope=worker`)
+- `PUT /api/repository/docs/{doc_id}` - Actualiza campos editables de un documento
+  - Body: `{ "company_key"?, "person_key"?, "status"? }`
+  - Valida según scope del tipo asociado
+
+### Configuración (para poblar selects en UI)
+
+- `GET /api/config/org` - Obtiene configuración de organización (solo lectura)
+- `GET /api/config/people` - Obtiene lista de personas (solo lectura)
 
 ## UI
 
@@ -105,14 +119,15 @@ Política declarativa de validez:
 
 #### Tab: Documentos
 
-- Lista de documentos
+- Lista de documentos con columnas: Archivo, Tipo, Alcance, **Empresa**, **Trabajador**, Validez, Estado
 - Subir PDF (drag&drop o file picker)
-- Seleccionar tipo (dropdown)
-- Seleccionar scope sujeto:
-  - Si `scope=company` => seleccionar empresa
-  - Si `scope=worker` => seleccionar persona
+- Seleccionar tipo (dropdown) - el scope se determina automáticamente del tipo
+- Seleccionar sujeto según scope:
+  - Si `scope=company` => seleccionar empresa (obligatorio)
+  - Si `scope=worker` => seleccionar empresa + trabajador (ambos obligatorios)
 - Ver propuesta de validez (computed)
 - Estado inicial: `draft`
+- **Modal de detalle**: Ver y editar empresa/trabajador/estado
 
 ## Cálculo de Validez
 
@@ -224,4 +239,6 @@ curl "http://127.0.0.1:8000/api/repository/docs/{doc_id}"
 - **Thread-safe**: Operaciones de escritura protegidas
 - **Seed automático**: Se crea `T104_AUTONOMOS_RECEIPT` si no existe `types.json`
 - **Versionado**: Solo `types.json` inicial se versiona; documentos reales no
+
+
 

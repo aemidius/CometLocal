@@ -363,15 +363,7 @@
                 </div>
                 <div class="form-group">
                     <label for="upload-type-id">Tipo de Documento *</label>
-                    <select id="upload-type-id" required></select>
-                </div>
-                <div class="form-group">
-                    <label for="upload-scope">Alcance *</label>
-                    <select id="upload-scope" required onchange="updateUploadSubjectFields()">
-                        <option value="">Seleccionar...</option>
-                        <option value="company">Empresa</option>
-                        <option value="worker">Trabajador</option>
-                    </select>
+                    <select id="upload-type-id" required onchange="updateUploadSubjectFieldsFromType()"></select>
                 </div>
                 <div id="upload-subject-fields"></div>
                 <div class="form-actions">
@@ -635,7 +627,7 @@
                 return;
             }
 
-            let html = '<table><thead><tr><th>Archivo</th><th>Tipo</th><th>Alcance</th><th>Validez</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>';
+            let html = '<table><thead><tr><th>Archivo</th><th>Tipo</th><th>Alcance</th><th>Empresa</th><th>Trabajador</th><th>Validez</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>';
             docs.forEach(doc => {
                 const validFrom = doc.computed_validity.valid_from || '-';
                 const validTo = doc.computed_validity.valid_to || '-';
@@ -644,6 +636,8 @@
                         <td>${doc.file_name_original}</td>
                         <td><code>${doc.type_id}</code></td>
                         <td><span class="badge badge-${doc.scope}">${doc.scope}</span></td>
+                        <td>${doc.company_key || '-'}</td>
+                        <td>${doc.person_key || '-'}</td>
                         <td>${validFrom} → ${validTo}</td>
                         <td><span class="badge badge-active">${doc.status}</span></td>
                         <td class="actions-cell">
@@ -672,7 +666,7 @@
             }
             
             document.getElementById('upload-form').reset();
-            updateUploadSubjectFields();
+            document.getElementById('upload-subject-fields').innerHTML = '';
             document.getElementById('upload-modal').classList.add('active');
         }
 
@@ -680,42 +674,132 @@
             document.getElementById('upload-modal').classList.remove('active');
         }
 
-        function updateUploadSubjectFields() {
-            const scope = document.getElementById('upload-scope').value;
-            const container = document.getElementById('upload-subject-fields');
-            container.innerHTML = '';
-            
-            if (scope === 'company') {
-                container.innerHTML = `
-                    <div class="form-group">
-                        <label for="upload-company-key">Clave de Empresa *</label>
-                        <input type="text" id="upload-company-key" required>
-                    </div>
-                `;
-            } else if (scope === 'worker') {
-                container.innerHTML = `
-                    <div class="form-group">
-                        <label for="upload-person-key">Clave de Persona *</label>
-                        <input type="text" id="upload-person-key" required>
-                    </div>
-                `;
+        // Cache de org y people
+        let orgData = null;
+        let peopleData = null;
+
+        async function loadOrgAndPeople() {
+            if (!orgData) {
+                try {
+                    const res = await fetch(`${BACKEND_URL}/api/config/org`);
+                    orgData = await res.json();
+                } catch (error) {
+                    console.error('Error loading org:', error);
+                }
+            }
+            if (!peopleData) {
+                try {
+                    const res = await fetch(`${BACKEND_URL}/api/config/people`);
+                    peopleData = await res.json();
+                } catch (error) {
+                    console.error('Error loading people:', error);
+                }
+            }
+        }
+
+        async function updateUploadSubjectFieldsFromType() {
+            const typeId = document.getElementById('upload-type-id').value;
+            if (!typeId) {
+                document.getElementById('upload-subject-fields').innerHTML = '';
+                return;
+            }
+
+            // Cargar org y people si no están cargados
+            await loadOrgAndPeople();
+
+            // Obtener tipo para saber el scope
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/types/${typeId}`);
+                const type = await res.json();
+                const container = document.getElementById('upload-subject-fields');
+                container.innerHTML = '';
+
+                if (type.scope === 'company') {
+                    // Solo empresa
+                    let companyOptions = '<option value="">Seleccionar...</option>';
+                    if (orgData) {
+                        companyOptions += `<option value="${orgData.tax_id}">${orgData.legal_name} (${orgData.tax_id})</option>`;
+                    }
+                    container.innerHTML = `
+                        <div class="form-group">
+                            <label for="upload-company-key">Empresa *</label>
+                            <select id="upload-company-key" required>${companyOptions}</select>
+                        </div>
+                    `;
+                } else if (type.scope === 'worker') {
+                    // Empresa + Trabajador
+                    let companyOptions = '<option value="">Seleccionar...</option>';
+                    if (orgData) {
+                        companyOptions += `<option value="${orgData.tax_id}">${orgData.legal_name} (${orgData.tax_id})</option>`;
+                    }
+                    let personOptions = '<option value="">Seleccionar...</option>';
+                    if (peopleData && peopleData.people) {
+                        peopleData.people.forEach(person => {
+                            personOptions += `<option value="${person.worker_id}">${person.full_name} (${person.worker_id})</option>`;
+                        });
+                    }
+                    container.innerHTML = `
+                        <div class="form-group">
+                            <label for="upload-company-key">Empresa *</label>
+                            <select id="upload-company-key" required>${companyOptions}</select>
+                        </div>
+                        <div class="form-group">
+                            <label for="upload-person-key">Trabajador *</label>
+                            <select id="upload-person-key" required>${personOptions}</select>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                showAlert('docs-alert', 'Error al cargar tipo: ' + error.message, 'error');
             }
         }
 
         document.getElementById('upload-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            const typeId = document.getElementById('upload-type-id').value;
+            if (!typeId) {
+                showAlert('docs-alert', 'Debes seleccionar un tipo de documento', 'error');
+                return;
+            }
+
+            // Obtener scope del tipo
+            let scope = null;
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/types/${typeId}`);
+                const type = await res.json();
+                scope = type.scope;
+            } catch (error) {
+                showAlert('docs-alert', 'Error al obtener tipo: ' + error.message, 'error');
+                return;
+            }
+            
             const formData = new FormData();
             const fileInput = document.getElementById('upload-file');
             formData.append('file', fileInput.files[0]);
-            formData.append('type_id', document.getElementById('upload-type-id').value);
-            formData.append('scope', document.getElementById('upload-scope').value);
+            formData.append('type_id', typeId);
+            formData.append('scope', scope);
             
-            const scope = document.getElementById('upload-scope').value;
             if (scope === 'company') {
-                formData.append('company_key', document.getElementById('upload-company-key').value);
+                const companyKey = document.getElementById('upload-company-key').value;
+                if (!companyKey) {
+                    showAlert('docs-alert', 'Debes seleccionar una empresa', 'error');
+                    return;
+                }
+                formData.append('company_key', companyKey);
             } else if (scope === 'worker') {
-                formData.append('person_key', document.getElementById('upload-person-key').value);
+                const companyKey = document.getElementById('upload-company-key').value;
+                const personKey = document.getElementById('upload-person-key').value;
+                if (!companyKey) {
+                    showAlert('docs-alert', 'Debes seleccionar una empresa', 'error');
+                    return;
+                }
+                if (!personKey) {
+                    showAlert('docs-alert', 'Debes seleccionar un trabajador', 'error');
+                    return;
+                }
+                formData.append('company_key', companyKey);
+                formData.append('person_key', personKey);
             }
             
             try {
@@ -737,9 +821,110 @@
             }
         });
 
-        function viewDocument(docId) {
-            alert('Ver documento ' + docId + ' (implementar vista detalle)');
+        async function viewDocument(docId) {
+            try {
+                // Cargar org y people si no están cargados
+                await loadOrgAndPeople();
+
+                const res = await fetch(`${BACKEND_URL}/api/repository/docs/${docId}`);
+                const doc = await res.json();
+                
+                document.getElementById('doc-detail-id').value = docId;
+                document.getElementById('doc-detail-filename').textContent = doc.file_name_original;
+                document.getElementById('doc-detail-type').textContent = doc.type_id;
+                document.getElementById('doc-detail-scope').innerHTML = `<span class="badge badge-${doc.scope}">${doc.scope}</span>`;
+                document.getElementById('doc-detail-status').value = doc.status;
+                
+                const validFrom = doc.computed_validity.valid_from || '-';
+                const validTo = doc.computed_validity.valid_to || '-';
+                document.getElementById('doc-detail-validity').textContent = `${validFrom} → ${validTo}`;
+                
+                // Renderizar campos de sujeto según scope
+                const container = document.getElementById('doc-detail-subject-fields');
+                if (doc.scope === 'company') {
+                    let companyOptions = '<option value="">Seleccionar...</option>';
+                    if (orgData) {
+                        const selected = doc.company_key === orgData.tax_id ? 'selected' : '';
+                        companyOptions += `<option value="${orgData.tax_id}" ${selected}>${orgData.legal_name} (${orgData.tax_id})</option>`;
+                    }
+                    container.innerHTML = `
+                        <div class="form-group">
+                            <label for="doc-detail-company-key">Empresa *</label>
+                            <select id="doc-detail-company-key" required>${companyOptions}</select>
+                        </div>
+                    `;
+                } else if (doc.scope === 'worker') {
+                    let companyOptions = '<option value="">Seleccionar...</option>';
+                    if (orgData) {
+                        const selected = doc.company_key === orgData.tax_id ? 'selected' : '';
+                        companyOptions += `<option value="${orgData.tax_id}" ${selected}>${orgData.legal_name} (${orgData.tax_id})</option>`;
+                    }
+                    let personOptions = '<option value="">Seleccionar...</option>';
+                    if (peopleData && peopleData.people) {
+                        peopleData.people.forEach(person => {
+                            const selected = doc.person_key === person.worker_id ? 'selected' : '';
+                            personOptions += `<option value="${person.worker_id}" ${selected}>${person.full_name} (${person.worker_id})</option>`;
+                        });
+                    }
+                    container.innerHTML = `
+                        <div class="form-group">
+                            <label for="doc-detail-company-key">Empresa *</label>
+                            <select id="doc-detail-company-key" required>${companyOptions}</select>
+                        </div>
+                        <div class="form-group">
+                            <label for="doc-detail-person-key">Trabajador *</label>
+                            <select id="doc-detail-person-key" required>${personOptions}</select>
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('doc-detail-modal').classList.add('active');
+            } catch (error) {
+                showAlert('docs-alert', 'Error al cargar documento: ' + error.message, 'error');
+            }
         }
+
+        function closeDocDetailModal() {
+            document.getElementById('doc-detail-modal').classList.remove('active');
+        }
+
+        document.getElementById('doc-detail-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const docId = document.getElementById('doc-detail-id').value;
+            const updateData = {
+                status: document.getElementById('doc-detail-status').value
+            };
+            
+            const companyKeyEl = document.getElementById('doc-detail-company-key');
+            if (companyKeyEl) {
+                updateData.company_key = companyKeyEl.value;
+            }
+            
+            const personKeyEl = document.getElementById('doc-detail-person-key');
+            if (personKeyEl) {
+                updateData.person_key = personKeyEl.value;
+            }
+            
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/docs/${docId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updateData)
+                });
+                
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Error al guardar');
+                }
+                
+                showAlert('docs-alert', 'Documento actualizado correctamente', 'success');
+                closeDocDetailModal();
+                loadDocuments();
+            } catch (error) {
+                showAlert('docs-alert', 'Error: ' + error.message, 'error');
+            }
+        });
 
         function showAlert(containerId, message, type) {
             const container = document.getElementById(containerId);
@@ -756,4 +941,6 @@
     </script>
 </body>
 </html>
+
+
 

@@ -131,11 +131,17 @@ async def upload_document(
             detail=f"Type {type_id} requires scope={doc_type.scope}, got {scope}"
         )
     
-    # Validar sujeto según scope
-    if scope == "company" and not company_key:
-        raise HTTPException(status_code=400, detail="company_key required for scope=company")
-    if scope == "worker" and not person_key:
-        raise HTTPException(status_code=400, detail="person_key required for scope=worker")
+    # Validar sujeto según scope (reglas estrictas)
+    if scope == "company":
+        if not company_key:
+            raise HTTPException(status_code=400, detail="company_key required for scope=company")
+        if person_key:
+            raise HTTPException(status_code=400, detail="person_key must be null for scope=company")
+    elif scope == "worker":
+        if not company_key:
+            raise HTTPException(status_code=400, detail="company_key required for scope=worker")
+        if not person_key:
+            raise HTTPException(status_code=400, detail="person_key required for scope=worker")
     
     # Validar que es PDF
     if not file.filename or not file.filename.lower().endswith(".pdf"):
@@ -214,5 +220,70 @@ async def get_document(doc_id: str) -> DocumentInstanceV1:
     doc = store.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail=f"Document {doc_id} not found")
+    return doc
+
+
+class DocumentUpdateRequest(BaseModel):
+    """Request para actualizar un documento."""
+    company_key: Optional[str] = None
+    person_key: Optional[str] = None
+    status: Optional[str] = None
+
+
+@router.put("/docs/{doc_id}", response_model=DocumentInstanceV1)
+async def update_document(
+    doc_id: str,
+    request: DocumentUpdateRequest
+) -> DocumentInstanceV1:
+    """
+    Actualiza campos editables de un documento.
+    
+    - company_key: Clave de empresa
+    - person_key: Clave de persona
+    - status: draft | reviewed | ready_to_submit | submitted
+    """
+    store = DocumentRepositoryStoreV1()
+    
+    # Obtener documento existente
+    doc = store.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"Document {doc_id} not found")
+    
+    # Obtener tipo para validar scope
+    doc_type = store.get_type(doc.type_id)
+    if not doc_type:
+        raise HTTPException(status_code=404, detail=f"Type {doc.type_id} not found")
+    
+    # Validar cambios según scope
+    new_company_key = request.company_key if request.company_key is not None else doc.company_key
+    new_person_key = request.person_key if request.person_key is not None else doc.person_key
+    
+    if doc_type.scope == "company":
+        if not new_company_key:
+            raise HTTPException(status_code=400, detail="company_key required for scope=company")
+        if new_person_key:
+            raise HTTPException(status_code=400, detail="person_key must be null for scope=company")
+    elif doc_type.scope == "worker":
+        if not new_company_key:
+            raise HTTPException(status_code=400, detail="company_key required for scope=worker")
+        if not new_person_key:
+            raise HTTPException(status_code=400, detail="person_key required for scope=worker")
+    
+    # Actualizar campos
+    if request.company_key is not None:
+        doc.company_key = request.company_key
+    if request.person_key is not None:
+        doc.person_key = request.person_key
+    if request.status is not None:
+        try:
+            doc.status = DocumentStatusV1(request.status)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {request.status}")
+    
+    doc.updated_at = datetime.utcnow()
+    
+    # Guardar
+    store.save_document(doc)
+    
     return doc
 

@@ -36,6 +36,7 @@ from backend.executor.config_viewer import create_config_viewer_router
 from backend.repository.data_bootstrap_v1 import ensure_data_layout
 from backend.adapters.egestiona.flows import router as egestiona_router
 from backend.repository.document_repository_routes import router as document_repository_router
+from backend.repository.config_routes import router as config_routes_router
 from backend.config import LLM_CONFIG_FILE, LLM_DEFAULT_CONFIG
 
 # Constantes de rutas
@@ -62,6 +63,7 @@ app.include_router(create_runs_viewer_router(runs_root=BASE_DIR / BATCH_RUNS_DIR
 app.include_router(create_config_viewer_router(base_dir=DATA_DIR))
 app.include_router(egestiona_router)
 app.include_router(document_repository_router)
+app.include_router(config_routes_router)
 
 browser = BrowserController()
 
