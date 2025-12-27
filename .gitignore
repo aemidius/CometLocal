@@ -14,6 +14,12 @@ ms-playwright/
 # Runtime data
 data/runs/
 
+# Document repository (keep seed, ignore actual docs)
+data/repository/docs/
+data/repository/meta/
+data/repository/rules/submission_rules.json
+data/repository/overrides/overrides.json
+
 # OS
 .DS_Store
 Thumbs.db
