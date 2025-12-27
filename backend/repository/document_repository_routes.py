@@ -229,7 +229,7 @@ class DocumentUpdateRequest(BaseModel):
     company_key: Optional[str] = None
     person_key: Optional[str] = None
     status: Optional[str] = None
-    validity_override: Optional[Union[dict, str, Any]] = None
+    validity_override: Optional[Any] = None
     
     @field_validator('validity_override', mode='before')
     @classmethod
