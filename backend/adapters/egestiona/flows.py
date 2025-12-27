@@ -36,6 +36,9 @@ from backend.adapters.egestiona.frame_scan_headful import (
     run_open_pending_document_details_readonly_headful,
     run_upload_pending_document_scoped_headful,
 )
+from backend.adapters.egestiona.match_pending_headful import (
+    run_match_pending_documents_readonly_headful,
+)
 
 
 def run_login_and_snapshot(
@@ -2882,6 +2885,47 @@ async def egestiona_upload_pending_document_scoped(coord: str = "Kern"):
             wait_after_login_s=2.5,
         )
     )
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/match_pending_documents_readonly")
+async def egestiona_match_pending_documents_readonly(
+    coord: str = "Kern",
+    company_key: str = "",
+    person_key: Optional[str] = None,
+    limit: int = 20,
+    only_target: bool = True,
+):
+    """
+    HEADFUL / READ-ONLY: Hace matching de pendientes eGestiona con documentos del repositorio.
+    - Login -> nm_contenido -> click Gestion(3)
+    - Carga grid DHTMLX en frame f3
+    - Para cada pendiente (o solo target si only_target=True), propone mejor documento del repo
+    - Devuelve: candidato, alternativas, confianza y razones
+    - NO sube nada, NO abre modales destructivos
+    """
+    if not company_key:
+        raise HTTPException(status_code=400, detail="company_key is required")
+    
+    try:
+        run_id = await run_in_threadpool(
+            lambda: run_match_pending_documents_readonly_headful(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                company_key=company_key,
+                person_key=person_key,
+                limit=limit,
+                only_target=only_target,
+                slow_mo_ms=300,
+                viewport={"width": 1600, "height": 1000},
+                wait_after_login_s=2.5,
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
     return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
 
 

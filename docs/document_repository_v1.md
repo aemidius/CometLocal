@@ -226,6 +226,55 @@ curl "http://127.0.0.1:8000/api/repository/docs/{doc_id}"
 - **Validación de PDF**: Solo se aceptan archivos `.pdf`
 - **Thread-safe writes**: Escritura atómica (temp → rename)
 
+## Matching & Aliases
+
+### Platform Aliases
+
+Los tipos de documento pueden tener `platform_aliases` para matching con plataformas externas (eGestiona, etc.).
+
+**Ejemplo:**
+```json
+{
+  "type_id": "T104_AUTONOMOS_RECEIPT",
+  "platform_aliases": ["T104.0", "recibo bancario", "cuota autónomos"]
+}
+```
+
+### Matching de Pendientes
+
+El endpoint `POST /runs/egestiona/match_pending_documents_readonly` hace matching determinista:
+
+1. **Normaliza texto**: `(Tipo Documento + " " + Elemento).lower()`
+2. **Encuentra tipos candidatos**: Busca `platform_aliases` en el texto normalizado
+3. **Filtra documentos**: Por `company_key` y `person_key` (según scope)
+4. **Scoring**:
+   - +0.6 si type match por alias
+   - +0.3 si `status` in (reviewed, ready_to_submit)
+   - +0.2 si validity cubre el período solicitado
+   - -0.2 si `status=draft`
+5. **Retorna**: `best_doc`, `alternatives[]`, `confidence`, `reasons[]`, `needs_operator`
+
+**Parámetros:**
+- `company_key`: Clave de empresa (obligatorio)
+- `person_key`: Clave de persona (opcional, según scope)
+- `limit`: Máximo de pendientes a procesar (default: 20)
+- `only_target`: Si `true`, solo procesa pendientes del sujeto especificado
+
+**Respuesta:**
+```json
+{
+  "run_id": "...",
+  "runs_url": "/runs/..."
+}
+```
+
+Evidence generada:
+- `01_dashboard_tiles.png`
+- `02_listado_grid.png`
+- `pending_items.json`
+- `match_results.json`
+- `meta.json`
+
 ## Próximos Pasos (Placeholder)
 
 - **SubmissionRuleV1**: Reglas de envío a plataformas

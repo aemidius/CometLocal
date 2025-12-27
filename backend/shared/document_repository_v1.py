@@ -121,6 +121,10 @@ class DocumentTypeV1(BaseModel):
         default_factory=list,
         description="Campos requeridos (ej: ['valid_from', 'valid_to'])"
     )
+    platform_aliases: List[str] = Field(
+        default_factory=list,
+        description="Aliases para matching con plataformas (ej: ['T104.0', 'recibo bancario'])"
+    )
     active: bool = Field(
         default=True,
         description="Si está activo (desactivar en lugar de borrar)"
@@ -264,4 +268,6 @@ class ValidityOverrideV1(BaseModel):
         default="",
         description="Razón del override"
     )
+
+
 

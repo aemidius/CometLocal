@@ -71,6 +71,7 @@ class DocumentRepositoryStoreV1:
                     )
                 ),
                 required_fields=["valid_from", "valid_to"],
+                platform_aliases=[],
                 active=True
             )
             self._write_types([seed_type])
@@ -200,7 +201,9 @@ class DocumentRepositoryStoreV1:
         self,
         type_id: Optional[str] = None,
         scope: Optional[str] = None,
-        status: Optional[str] = None
+        status: Optional[str] = None,
+        company_key: Optional[str] = None,
+        person_key: Optional[str] = None
     ) -> List[DocumentInstanceV1]:
         """Lista todos los documentos (con filtros opcionales)."""
         result: List[DocumentInstanceV1] = []
@@ -214,6 +217,10 @@ class DocumentRepositoryStoreV1:
                 if scope and doc.scope != scope:
                     continue
                 if status and doc.status != status:
+                    continue
+                if company_key and doc.company_key != company_key:
+                    continue
+                if person_key and doc.person_key != person_key:
                     continue
                 
                 result.append(doc)
