@@ -39,6 +39,9 @@ from backend.adapters.egestiona.frame_scan_headful import (
 from backend.adapters.egestiona.match_pending_headful import (
     run_match_pending_documents_readonly_headful,
 )
+from backend.adapters.egestiona.submission_plan_headful import (
+    run_build_submission_plan_readonly_headful,
+)
 
 
 def run_login_and_snapshot(
@@ -2910,6 +2913,47 @@ async def egestiona_match_pending_documents_readonly(
     try:
         run_id = await run_in_threadpool(
             lambda: run_match_pending_documents_readonly_headful(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                company_key=company_key,
+                person_key=person_key,
+                limit=limit,
+                only_target=only_target,
+                slow_mo_ms=300,
+                viewport={"width": 1600, "height": 1000},
+                wait_after_login_s=2.5,
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/build_submission_plan_readonly")
+async def egestiona_build_submission_plan_readonly(
+    coord: str = "Kern",
+    company_key: str = "",
+    person_key: Optional[str] = None,
+    limit: int = 20,
+    only_target: bool = True,
+):
+    """
+    HEADFUL / READ-ONLY: Genera plan de envío determinista para pendientes eGestiona.
+    - Login -> nm_contenido -> click Gestion(3)
+    - Carga grid DHTMLX en frame f3
+    - Para cada pendiente: matching + evaluación de guardrails
+    - Genera submission_plan.json con decisiones (AUTO_SUBMIT_OK | REVIEW_REQUIRED | NO_MATCH)
+    - NO sube nada, NO hace clicks de "Enviar documento"
+    """
+    if not company_key:
+        raise HTTPException(status_code=400, detail="company_key is required")
+    
+    try:
+        run_id = await run_in_threadpool(
+            lambda: run_build_submission_plan_readonly_headful(
                 base_dir="data",
                 platform="egestiona",
                 coordination=coord,
