@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repositorio Documental - CometLocal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #111827;
+            color: #e5e7eb;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        .header p {
+            color: #9ca3af;
+        }
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #374151;
+        }
+        .nav-tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            font-size: 1rem;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+        .nav-tab.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+        .nav-tab:hover {
+            color: #e5e7eb;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .card {
+            background: #1f2937;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .card h2 {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #374151;
+        }
+        th {
+            background: #111827;
+            font-weight: 600;
+            color: #9ca3af;
+        }
+        tr:hover {
+            background: #374151;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .badge-active {
+            background: #10b981;
+            color: white;
+        }
+        .badge-inactive {
+            background: #6b7280;
+            color: white;
+        }
+        .badge-company {
+            background: #3b82f6;
+            color: white;
+        }
+        .badge-worker {
+            background: #8b5cf6;
+            color: white;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: #1f2937;
+            border-radius: 8px;
+            padding: 24px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-header h3 {
+            font-size: 1.5rem;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .close-btn:hover {
+            color: #e5e7eb;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #d1d5db;
+            font-weight: 500;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            color: #e5e7eb;
+            font-size: 0.95rem;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+        .alert {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .alert-success {
+            background: #10b981;
+            color: white;
+        }
+        .alert-error {
+            background: #ef4444;
+            color: white;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+        }
+        .actions-cell {
+            display: flex;
+            gap: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Repositorio Documental</h1>
+            <p>Gestión de tipos de documento y documentos</p>
+            <div style="margin-top: 10px;">
+                <a href="/home" style="color: #3b82f6; text-decoration: none;">← Volver a Home</a>
+            </div>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-tab="types">Tipos de Documento</button>
+            <button class="nav-tab" data-tab="docs">Documentos</button>
+        </div>
+
+        <!-- Tab: Tipos -->
+        <div id="tab-types" class="tab-content active">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Tipos de Documento</h2>
+                    <button class="btn btn-primary" onclick="openCreateTypeModal()">+ Crear Tipo</button>
+                </div>
+                <div id="types-alert"></div>
+                <div id="types-table-container">
+                    <div class="empty-state">Cargando tipos...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Documentos -->
+        <div id="tab-docs" class="tab-content">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Documentos</h2>
+                    <button class="btn btn-primary" onclick="openUploadModal()">+ Subir Documento</button>
+                </div>
+                <div id="docs-alert"></div>
+                <div id="docs-table-container">
+                    <div class="empty-state">Cargando documentos...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Crear/Editar Tipo -->
+    <div id="type-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="type-modal-title">Crear Tipo de Documento</h3>
+                <button class="close-btn" onclick="closeTypeModal()">&times;</button>
+            </div>
+            <form id="type-form">
+                <input type="hidden" id="type-edit-id">
+                <div class="form-group">
+                    <label for="type-id">ID del Tipo *</label>
+                    <input type="text" id="type-id" required pattern="[A-Z0-9_]+" placeholder="T104_AUTONOMOS_RECEIPT">
+                    <small style="color: #9ca3af;">Solo mayúsculas, números y guiones bajos</small>
+                </div>
+                <div class="form-group">
+                    <label for="type-name">Nombre *</label>
+                    <input type="text" id="type-name" required placeholder="Recibo autónomos">
+                </div>
+                <div class="form-group">
+                    <label for="type-description">Descripción</label>
+                    <textarea id="type-description" placeholder="Descripción del tipo de documento"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="type-scope">Alcance *</label>
+                    <select id="type-scope" required>
+                        <option value="company">Empresa</option>
+                        <option value="worker">Trabajador</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="type-validity-mode">Modo de Validez *</label>
+                    <select id="type-validity-mode" required onchange="updateValidityFields()">
+                        <option value="monthly">Mensual</option>
+                        <option value="annual">Anual</option>
+                        <option value="fixed_end_date">Fecha Fija</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="type-validity-basis">Base de Cálculo *</label>
+                    <select id="type-validity-basis" required>
+                        <option value="issue_date">Fecha de Emisión</option>
+                        <option value="name_date">Fecha desde Nombre</option>
+                        <option value="manual">Manual</option>
+                    </select>
+                </div>
+                <div id="validity-extra-fields"></div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="type-active" checked> Activo
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeTypeModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Subir Documento -->
+    <div id="upload-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Subir Documento</h3>
+                <button class="close-btn" onclick="closeUploadModal()">&times;</button>
+            </div>
+            <form id="upload-form" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="upload-file">Archivo PDF *</label>
+                    <input type="file" id="upload-file" accept=".pdf" required>
+                </div>
+                <div class="form-group">
+                    <label for="upload-type-id">Tipo de Documento *</label>
+                    <select id="upload-type-id" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="upload-scope">Alcance *</label>
+                    <select id="upload-scope" required onchange="updateUploadSubjectFields()">
+                        <option value="">Seleccionar...</option>
+                        <option value="company">Empresa</option>
+                        <option value="worker">Trabajador</option>
+                    </select>
+                </div>
+                <div id="upload-subject-fields"></div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeUploadModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Subir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://127.0.0.1:8000';
+
+        // Tab navigation
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(`tab-${tabName}`).classList.add('active');
+                
+                if (tabName === 'types') {
+                    loadTypes();
+                } else if (tabName === 'docs') {
+                    loadDocuments();
+                }
+            });
+        });
+
+        // Load types
+        async function loadTypes() {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/types`);
+                const types = await res.json();
+                renderTypesTable(types);
+            } catch (error) {
+                showAlert('types-alert', 'Error al cargar tipos: ' + error.message, 'error');
+            }
+        }
+
+        function renderTypesTable(types) {
+            const container = document.getElementById('types-table-container');
+            if (types.length === 0) {
+                container.innerHTML = '<div class="empty-state">No hay tipos de documento. Crea el primero.</div>';
+                return;
+            }
+
+            let html = '<table><thead><tr><th>ID</th><th>Nombre</th><th>Alcance</th><th>Modo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>';
+            types.forEach(type => {
+                html += `
+                    <tr>
+                        <td><code>${type.type_id}</code></td>
+                        <td>${type.name}</td>
+                        <td><span class="badge badge-${type.scope}">${type.scope}</span></td>
+                        <td>${type.validity_policy.mode}</td>
+                        <td><span class="badge ${type.active ? 'badge-active' : 'badge-inactive'}">${type.active ? 'Activo' : 'Inactivo'}</span></td>
+                        <td class="actions-cell">
+                            <button class="btn btn-secondary btn-small" onclick="editType('${type.type_id}')">Editar</button>
+                            <button class="btn btn-secondary btn-small" onclick="duplicateType('${type.type_id}')">Duplicar</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteType('${type.type_id}')">Borrar</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        // Type modal
+        function openCreateTypeModal() {
+            document.getElementById('type-modal-title').textContent = 'Crear Tipo de Documento';
+            document.getElementById('type-form').reset();
+            document.getElementById('type-edit-id').value = '';
+            document.getElementById('type-id').disabled = false;
+            updateValidityFields();
+            document.getElementById('type-modal').classList.add('active');
+        }
+
+        function closeTypeModal() {
+            document.getElementById('type-modal').classList.remove('active');
+        }
+
+        async function editType(typeId) {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/types/${typeId}`);
+                const type = await res.json();
+                
+                document.getElementById('type-modal-title').textContent = 'Editar Tipo de Documento';
+                document.getElementById('type-edit-id').value = typeId;
+                document.getElementById('type-id').value = type.type_id;
+                document.getElementById('type-id').disabled = true;
+                document.getElementById('type-name').value = type.name;
+                document.getElementById('type-description').value = type.description || '';
+                document.getElementById('type-scope').value = type.scope;
+                document.getElementById('type-validity-mode').value = type.validity_policy.mode;
+                document.getElementById('type-validity-basis').value = type.validity_policy.basis;
+                document.getElementById('type-active').checked = type.active;
+                
+                updateValidityFields();
+                document.getElementById('type-modal').classList.add('active');
+            } catch (error) {
+                showAlert('types-alert', 'Error al cargar tipo: ' + error.message, 'error');
+            }
+        }
+
+        function updateValidityFields() {
+            const mode = document.getElementById('type-validity-mode').value;
+            const container = document.getElementById('validity-extra-fields');
+            container.innerHTML = '';
+            
+            if (mode === 'monthly') {
+                container.innerHTML = `
+                    <div class="form-group">
+                        <label for="monthly-source">Origen del Mes *</label>
+                        <select id="monthly-source" required>
+                            <option value="issue_date">Fecha de Emisión</option>
+                            <option value="name_date">Fecha desde Nombre</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="monthly-grace">Días de Gracia</label>
+                        <input type="number" id="monthly-grace" value="0" min="0">
+                    </div>
+                `;
+            } else if (mode === 'annual') {
+                container.innerHTML = `
+                    <div class="form-group">
+                        <label for="annual-months">Meses de Validez *</label>
+                        <input type="number" id="annual-months" value="12" min="1" required>
+                    </div>
+                `;
+            }
+        }
+
+        document.getElementById('type-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const isEdit = document.getElementById('type-edit-id').value !== '';
+            const typeId = document.getElementById('type-id').value;
+            
+            const validityPolicy = {
+                mode: document.getElementById('type-validity-mode').value,
+                basis: document.getElementById('type-validity-basis').value
+            };
+            
+            if (validityPolicy.mode === 'monthly') {
+                validityPolicy.monthly = {
+                    month_source: document.getElementById('monthly-source').value,
+                    valid_from: 'period_start',
+                    valid_to: 'period_end',
+                    grace_days: parseInt(document.getElementById('monthly-grace').value) || 0
+                };
+            } else if (validityPolicy.mode === 'annual') {
+                validityPolicy.annual = {
+                    months: parseInt(document.getElementById('annual-months').value) || 12,
+                    valid_from: 'issue_date',
+                    valid_to: 'issue_date_plus_months'
+                };
+            } else if (validityPolicy.mode === 'fixed_end_date') {
+                validityPolicy.fixed_end_date = {
+                    valid_from: 'issue_date',
+                    valid_to: 'manual_end_date'
+                };
+            }
+            
+            const typeData = {
+                type_id: typeId,
+                name: document.getElementById('type-name').value,
+                description: document.getElementById('type-description').value,
+                scope: document.getElementById('type-scope').value,
+                validity_policy: validityPolicy,
+                required_fields: [],
+                active: document.getElementById('type-active').checked
+            };
+            
+            try {
+                const url = isEdit 
+                    ? `${BACKEND_URL}/api/repository/types/${typeId}`
+                    : `${BACKEND_URL}/api/repository/types`;
+                const method = isEdit ? 'PUT' : 'POST';
+                
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(typeData)
+                });
+                
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Error al guardar');
+                }
+                
+                showAlert('types-alert', `Tipo ${isEdit ? 'actualizado' : 'creado'} correctamente`, 'success');
+                closeTypeModal();
+                loadTypes();
+            } catch (error) {
+                showAlert('types-alert', 'Error: ' + error.message, 'error');
+            }
+        });
+
+        async function duplicateType(typeId) {
+            const newId = prompt('Nuevo ID del tipo:');
+            if (!newId) return;
+            
+            const newName = prompt('Nuevo nombre (opcional):') || null;
+            
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/types/${typeId}/duplicate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_type_id: newId, new_name: newName })
+                });
+                
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Error al duplicar');
+                }
+                
+                showAlert('types-alert', 'Tipo duplicado correctamente', 'success');
+                loadTypes();
+            } catch (error) {
+                showAlert('types-alert', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteType(typeId) {
+            if (!confirm(`¿Estás seguro de borrar el tipo ${typeId}?`)) return;
+            
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/types/${typeId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Error al borrar');
+                }
+                
+                showAlert('types-alert', 'Tipo borrado correctamente', 'success');
+                loadTypes();
+            } catch (error) {
+                showAlert('types-alert', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        // Documents
+        async function loadDocuments() {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/docs`);
+                const docs = await res.json();
+                renderDocumentsTable(docs);
+            } catch (error) {
+                showAlert('docs-alert', 'Error al cargar documentos: ' + error.message, 'error');
+            }
+        }
+
+        function renderDocumentsTable(docs) {
+            const container = document.getElementById('docs-table-container');
+            if (docs.length === 0) {
+                container.innerHTML = '<div class="empty-state">No hay documentos. Sube el primero.</div>';
+                return;
+            }
+
+            let html = '<table><thead><tr><th>Archivo</th><th>Tipo</th><th>Alcance</th><th>Validez</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>';
+            docs.forEach(doc => {
+                const validFrom = doc.computed_validity.valid_from || '-';
+                const validTo = doc.computed_validity.valid_to || '-';
+                html += `
+                    <tr>
+                        <td>${doc.file_name_original}</td>
+                        <td><code>${doc.type_id}</code></td>
+                        <td><span class="badge badge-${doc.scope}">${doc.scope}</span></td>
+                        <td>${validFrom} → ${validTo}</td>
+                        <td><span class="badge badge-active">${doc.status}</span></td>
+                        <td class="actions-cell">
+                            <button class="btn btn-secondary btn-small" onclick="viewDocument('${doc.doc_id}')">Ver</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        async function openUploadModal() {
+            // Load types for dropdown
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/types`);
+                const types = await res.json();
+                const select = document.getElementById('upload-type-id');
+                select.innerHTML = '<option value="">Seleccionar...</option>';
+                types.filter(t => t.active).forEach(type => {
+                    select.innerHTML += `<option value="${type.type_id}">${type.name}</option>`;
+                });
+            } catch (error) {
+                showAlert('docs-alert', 'Error al cargar tipos: ' + error.message, 'error');
+                return;
+            }
+            
+            document.getElementById('upload-form').reset();
+            updateUploadSubjectFields();
+            document.getElementById('upload-modal').classList.add('active');
+        }
+
+        function closeUploadModal() {
+            document.getElementById('upload-modal').classList.remove('active');
+        }
+
+        function updateUploadSubjectFields() {
+            const scope = document.getElementById('upload-scope').value;
+            const container = document.getElementById('upload-subject-fields');
+            container.innerHTML = '';
+            
+            if (scope === 'company') {
+                container.innerHTML = `
+                    <div class="form-group">
+                        <label for="upload-company-key">Clave de Empresa *</label>
+                        <input type="text" id="upload-company-key" required>
+                    </div>
+                `;
+            } else if (scope === 'worker') {
+                container.innerHTML = `
+                    <div class="form-group">
+                        <label for="upload-person-key">Clave de Persona *</label>
+                        <input type="text" id="upload-person-key" required>
+                    </div>
+                `;
+            }
+        }
+
+        document.getElementById('upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('upload-file');
+            formData.append('file', fileInput.files[0]);
+            formData.append('type_id', document.getElementById('upload-type-id').value);
+            formData.append('scope', document.getElementById('upload-scope').value);
+            
+            const scope = document.getElementById('upload-scope').value;
+            if (scope === 'company') {
+                formData.append('company_key', document.getElementById('upload-company-key').value);
+            } else if (scope === 'worker') {
+                formData.append('person_key', document.getElementById('upload-person-key').value);
+            }
+            
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/docs/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Error al subir');
+                }
+                
+                showAlert('docs-alert', 'Documento subido correctamente', 'success');
+                closeUploadModal();
+                loadDocuments();
+            } catch (error) {
+                showAlert('docs-alert', 'Error: ' + error.message, 'error');
+            }
+        });
+
+        function viewDocument(docId) {
+            alert('Ver documento ' + docId + ' (implementar vista detalle)');
+        }
+
+        function showAlert(containerId, message, type) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTypes();
+        });
+    </script>
+</body>
+</html>
+

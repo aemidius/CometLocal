@@ -1,0 +1,28 @@
+{
+  "schema_version": "v1",
+  "types": [
+    {
+      "type_id": "T104_AUTONOMOS_RECEIPT",
+      "name": "Recibo autónomos",
+      "description": "Recibo de autónomos mensual",
+      "scope": "worker",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "name_date",
+        "monthly": {
+          "month_source": "name_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null
+      },
+      "required_fields": [
+        "valid_from",
+        "valid_to"
+      ],
+      "active": true
+    }
+  ]
+}

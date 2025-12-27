@@ -35,6 +35,7 @@ from backend.config import BATCH_RUNS_DIR
 from backend.executor.config_viewer import create_config_viewer_router
 from backend.repository.data_bootstrap_v1 import ensure_data_layout
 from backend.adapters.egestiona.flows import router as egestiona_router
+from backend.repository.document_repository_routes import router as document_repository_router
 from backend.config import LLM_CONFIG_FILE, LLM_DEFAULT_CONFIG
 
 # Constantes de rutas
@@ -60,6 +61,7 @@ app.include_router(training_router)
 app.include_router(create_runs_viewer_router(runs_root=BASE_DIR / BATCH_RUNS_DIR))
 app.include_router(create_config_viewer_router(base_dir=DATA_DIR))
 app.include_router(egestiona_router)
+app.include_router(document_repository_router)
 
 browser = BrowserController()
 
@@ -278,6 +280,14 @@ async def form_sandbox_ui():
     Sandbox de formularios para entrenar y probar el form filler.
     """
     return FileResponse(FRONTEND_DIR / "form_sandbox.html")
+
+
+@app.get("/repository", include_in_schema=False)
+async def repository_ui():
+    """
+    UI del Repositorio Documental (tipos y documentos).
+    """
+    return FileResponse(FRONTEND_DIR / "repository.html", media_type="text/html")
 
 
 @app.get("/simulation/portal_a/login.html", include_in_schema=False)
