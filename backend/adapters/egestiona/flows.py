@@ -2944,6 +2944,8 @@ async def egestiona_execute_submission_plan_scoped(
     only_target: bool = True,
     dry_run: bool = True,
     confirm_execute: bool = False,
+    self_test: bool = False,
+    self_test_doc_id: Optional[str] = None,
 ):
     """
     HEADFUL / WRITE (con guardrails fuertes): Ejecuta plan de envío para items AUTO_SUBMIT_OK.
@@ -3036,6 +3038,8 @@ async def egestiona_execute_submission_plan_scoped(
     only_target: bool = True,
     dry_run: bool = True,
     confirm_execute: bool = False,
+    self_test: bool = False,
+    self_test_doc_id: Optional[str] = None,
 ):
     """
     HEADFUL / WRITE (con guardrails fuertes): Ejecuta plan de envío para items AUTO_SUBMIT_OK.
