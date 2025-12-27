@@ -7,8 +7,8 @@ from uuid import uuid4
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
-from pydantic import BaseModel
-from typing import Optional, List, Union
+from pydantic import BaseModel, field_validator
+from typing import Optional, List, Union, Any
 
 from backend.repository.document_repository_store_v1 import DocumentRepositoryStoreV1
 from backend.repository.date_parser_v1 import parse_date_from_filename
@@ -229,32 +229,34 @@ class DocumentUpdateRequest(BaseModel):
     company_key: Optional[str] = None
     person_key: Optional[str] = None
     status: Optional[str] = None
-    validity_override: Optional[Union[dict, str]] = None
+    validity_override: Optional[Union[dict, str, Any]] = None
     
-    def normalize_validity_override(self) -> Optional[dict]:
+    @field_validator('validity_override', mode='before')
+    @classmethod
+    def normalize_validity_override(cls, v: Any) -> Optional[dict]:
         """
-        Normaliza validity_override:
+        Normaliza validity_override antes de la validación de Pydantic:
         - Si es None -> None
         - Si es dict -> dict
         - Si es str -> intenta json.loads() -> dict
         - Si falla -> lanza ValueError
         """
-        if self.validity_override is None:
+        if v is None:
             return None
         
-        if isinstance(self.validity_override, dict):
-            return self.validity_override
+        if isinstance(v, dict):
+            return v
         
-        if isinstance(self.validity_override, str):
+        if isinstance(v, str):
             try:
-                parsed = json.loads(self.validity_override)
+                parsed = json.loads(v)
                 if not isinstance(parsed, dict):
                     raise ValueError(f"validity_override string must parse to dict, got {type(parsed).__name__}")
                 return parsed
             except json.JSONDecodeError as e:
                 raise ValueError(f"Invalid JSON in validity_override string: {e}")
         
-        raise ValueError(f"validity_override must be dict, str (JSON), or None, got {type(self.validity_override).__name__}")
+        raise ValueError(f"validity_override must be dict, str (JSON), or None, got {type(v).__name__}")
 
 
 @router.put("/docs/{doc_id}", response_model=DocumentInstanceV1)
@@ -308,12 +310,9 @@ async def update_document(
             raise HTTPException(status_code=400, detail=f"Invalid status: {request.status}")
     
     # Actualizar validity_override si se proporciona
+    # Nota: ya está normalizado por el field_validator de Pydantic
     if request.validity_override is not None:
-        try:
-            # Normalizar: acepta dict, string JSON, o None
-            normalized_override = request.normalize_validity_override()
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid validity_override format: {e}")
+        normalized_override = request.validity_override  # Ya es dict o None después del validator
         
         # Si después de normalizar es None, limpiar override
         if normalized_override is None:
