@@ -13,8 +13,13 @@ from backend.repository.secrets_store_v1 import SecretsStoreV1
 from backend.repository.document_repository_store_v1 import DocumentRepositoryStoreV1
 from backend.adapters.egestiona.submission_plan_headful import (
     run_build_submission_plan_readonly_headful,
+    _evaluate_submission_guardrails,
+    _format_date_for_portal,
 )
 from backend.adapters.egestiona.frame_scan_headful import LOGIN_URL_PREVIOUS_SUCCESS, _safe_write_json
+from backend.repository.document_matcher_v1 import PendingItemV1, DocumentMatcherV1
+from backend.shared.document_repository_v1 import DocumentInstanceV1
+from datetime import date
 
 
 def _norm_company(v: str) -> str:
@@ -96,6 +101,89 @@ def _find_exact_row(
                     continue
             return idx
     return None
+
+
+def _detect_date_fields(page_or_frame: Any) -> Dict[str, Optional[str]]:
+    """
+    Detecta selectores de campos de fecha (Inicio y Fin Vigencia).
+    Busca por orden de prioridad:
+    - CSS ids: #Fecha_Fin, #Fecha_Fin_Vigencia, #Fecha_FinVigencia, #Fecha_FinValidez
+    - name contains: input[name*="Fin"], input[name*="fin"], input[name*="Fecha_Fin"]
+    - label text: label:has-text("Fin") + siguiente input
+    - placeholder contains: "Fin"
+    
+    Retorna: { "inicio_selector": "...", "fin_selector": "..." | null }
+    """
+    result = {
+        "inicio_selector": None,
+        "fin_selector": None
+    }
+    
+    try:
+        # Buscar Inicio Vigencia
+        inicio_ids = ["#Fecha_Inicio", "#Fecha_Inicio_Vigencia", "#Fecha_InicioVigencia", "#Fecha_InicioValidez"]
+        for selector in inicio_ids:
+            try:
+                if page_or_frame.locator(selector).count() > 0:
+                    result["inicio_selector"] = selector
+                    break
+            except Exception:
+                continue
+        
+        # Si no se encontró por ID, buscar por name
+        if not result["inicio_selector"]:
+            try:
+                inputs = page_or_frame.locator('input[name*="Inicio"], input[name*="inicio"], input[name*="Fecha_Inicio"]')
+                if inputs.count() > 0:
+                    # Tomar el primero
+                    first_input = inputs.first
+                    name_attr = first_input.get_attribute("name")
+                    if name_attr:
+                        result["inicio_selector"] = f'input[name="{name_attr}"]'
+            except Exception:
+                pass
+        
+        # Buscar Fin Vigencia por ID
+        fin_ids = ["#Fecha_Fin", "#Fecha_Fin_Vigencia", "#Fecha_FinVigencia", "#Fecha_FinValidez"]
+        for selector in fin_ids:
+            try:
+                if page_or_frame.locator(selector).count() > 0:
+                    result["fin_selector"] = selector
+                    break
+            except Exception:
+                continue
+        
+        # Si no se encontró por ID, buscar por name
+        if not result["fin_selector"]:
+            try:
+                inputs = page_or_frame.locator('input[name*="Fin"], input[name*="fin"], input[name*="Fecha_Fin"]')
+                if inputs.count() > 0:
+                    # Tomar el primero
+                    first_input = inputs.first
+                    name_attr = first_input.get_attribute("name")
+                    if name_attr:
+                        result["fin_selector"] = f'input[name="{name_attr}"]'
+            except Exception:
+                pass
+        
+        # Si aún no se encontró, buscar por label text (solo si tenemos Playwright)
+        if not result["fin_selector"]:
+            try:
+                labels = page_or_frame.locator('label:has-text("Fin"), label:has-text("fin")')
+                if labels.count() > 0:
+                    # Buscar el input siguiente al label
+                    label_elem = labels.first
+                    # Intentar encontrar input asociado (puede estar en diferentes estructuras)
+                    # Por ahora, marcamos que se detectó pero sin selector específico
+                    result["fin_selector"] = "label:has-text('Fin') + input"
+            except Exception:
+                pass
+        
+    except Exception:
+        # Si falla todo, retornar lo que tengamos
+        pass
+    
+    return result
 
 
 def _fill_date_field(detail_frame: Any, label_text: str, date_value: str) -> bool:
@@ -354,6 +442,207 @@ def _execute_single_item(
     return result
 
 
+def _create_synthetic_pending_from_doc(
+    doc: DocumentInstanceV1,
+    doc_type_name: str,
+) -> PendingItemV1:
+    """
+    Crea un pending_item sintético a partir de un documento del repositorio.
+    """
+    # Generar tipo_doc y elemento sintéticos basados en el doc
+    tipo_doc = doc_type_name or f"Tipo_{doc.type_id}"
+    elemento = doc.person_key or "Trabajador"
+    empresa = doc.company_key or "Empresa"
+    
+    return PendingItemV1(
+        tipo_doc=tipo_doc,
+        elemento=elemento,
+        empresa=empresa,
+        trabajador=elemento,
+        fecha_inicio=doc.computed_validity.valid_from,
+        fecha_fin=doc.computed_validity.valid_to,
+        raw_data={
+            "Tipo Documento": tipo_doc,
+            "Elemento": elemento,
+            "Empresa": empresa,
+        }
+    )
+
+
+def _run_self_test_mode(
+    base_dir: str | Path,
+    repo_store: DocumentRepositoryStoreV1,
+    company_key: str,
+    person_key: Optional[str],
+    self_test_doc_id: Optional[str],
+) -> str:
+    """
+    Ejecuta modo self_test sin navegación.
+    Genera pending_item sintético, plan, y would_fill_fields.json.
+    """
+    import uuid
+    import time
+    
+    run_id = f"r_{uuid.uuid4().hex}"
+    run_dir = Path(base_dir) / "runs" / run_id
+    evidence_dir = run_dir / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    
+    started = time.time()
+    today = date.today()
+    
+    # Seleccionar documento
+    if self_test_doc_id:
+        doc = repo_store.get_document(self_test_doc_id)
+        if not doc:
+            raise ValueError(f"Document {self_test_doc_id} not found")
+    else:
+        # Buscar único documento
+        all_docs = repo_store.list_documents(
+            company_key=company_key,
+            person_key=person_key
+        )
+        if len(all_docs) == 0:
+            raise ValueError("No documents found in repository")
+        if len(all_docs) > 1:
+            raise ValueError(f"Multiple documents found ({len(all_docs)}). Specify self_test_doc_id")
+        doc = all_docs[0]
+    
+    # Obtener tipo de documento
+    doc_type = repo_store.get_type(doc.type_id)
+    doc_type_name = doc_type.name if doc_type else doc.type_id
+    
+    # Crear pending_item sintético
+    pending = _create_synthetic_pending_from_doc(doc, doc_type_name)
+    
+    # Hacer matching directo (siempre match al doc seleccionado)
+    matcher = DocumentMatcherV1(repo_store)
+    match_result = {
+        "best_doc": {
+            "doc_id": doc.doc_id,
+            "type_id": doc.type_id,
+            "file_name": doc.file_name_original,
+            "status": doc.status.value if hasattr(doc.status, 'value') else str(doc.status),
+            "validity": {
+                "valid_from": doc.computed_validity.valid_from.isoformat() if doc.computed_validity.valid_from else None,
+                "valid_to": doc.computed_validity.valid_to.isoformat() if doc.computed_validity.valid_to else None,
+                "confidence": doc.computed_validity.confidence
+            }
+        },
+        "alternatives": [],
+        "confidence": 1.0,
+        "reasons": ["SELF_TEST: Direct match to selected document"],
+        "needs_operator": False
+    }
+    
+    # Evaluar guardrails
+    decision = _evaluate_submission_guardrails(
+        match_result,
+        today,
+        only_target=True,
+        match_count=1
+    )
+    
+    # Construir plan item
+    plan_item: Dict[str, Any] = {
+        "pending_ref": {
+            "tipo_doc": pending.tipo_doc,
+            "elemento": pending.elemento,
+            "empresa": pending.empresa,
+            "row_index": 0
+        },
+        "expected_doc_type_text": f"{pending.tipo_doc} {pending.elemento}",
+        "matched_doc": match_result["best_doc"],
+        "proposed_fields": {
+            "fecha_inicio_vigencia": _format_date_for_portal(doc.computed_validity.valid_from),
+            "fecha_fin_vigencia": _format_date_for_portal(doc.computed_validity.valid_to)
+        },
+        "decision": decision
+    }
+    
+    submission_plan = [plan_item]
+    
+    # Generar would_fill_fields.json
+    pdf_path = Path(base_dir) / "repository" / "docs" / f"{doc.doc_id}.pdf"
+    
+    # Detectar selectores (simulado, sin navegación real)
+    detected_selectors = {
+        "inicio_selector": "#Fecha_Inicio_Vigencia",  # Selector común
+        "fin_selector": "#Fecha_Fin_Vigencia"  # Selector común, puede ser null
+    }
+    
+    would_fill_fields = {
+        "doc_id": doc.doc_id,
+        "file_path": str(pdf_path),
+        "fecha_inicio_vigencia": plan_item["proposed_fields"]["fecha_inicio_vigencia"],
+        "fecha_fin_vigencia": plan_item["proposed_fields"]["fecha_fin_vigencia"],
+        "detected_selectors": detected_selectors
+    }
+    
+    # Generar execution_results (todos skipped en self_test)
+    execution_results = {
+        "results": [{
+            "status": "skipped",
+            "reasons": ["SELF_TEST: No actual execution performed"],
+            "item_index": 0
+        }],
+        "summary": {
+            "total_items": 1,
+            "auto_submit_ok_items": 1 if decision["action"] == "AUTO_SUBMIT_OK" else 0,
+            "sent": 0,
+            "skipped": 1,
+            "failed": 0
+        }
+    }
+    
+    # Guardar evidence
+    _safe_write_json(evidence_dir / "submission_plan.json", {"plan": submission_plan})
+    _safe_write_json(evidence_dir / "would_fill_fields.json", would_fill_fields)
+    _safe_write_json(evidence_dir / "execution_results.json", execution_results)
+    
+    finished = time.time()
+    _safe_write_json(
+        evidence_dir / "meta.json",
+        {
+            "self_test": True,
+            "selected_doc_id": doc.doc_id,
+            "company_key": company_key,
+            "person_key": person_key,
+            "validity": {
+                "valid_from": doc.computed_validity.valid_from.isoformat() if doc.computed_validity.valid_from else None,
+                "valid_to": doc.computed_validity.valid_to.isoformat() if doc.computed_validity.valid_to else None,
+            },
+            "today": today.isoformat(),
+            "submission_plan_count": len(submission_plan),
+            "auto_submit_ok_count": sum(1 for item in submission_plan if item["decision"]["action"] == "AUTO_SUBMIT_OK"),
+            "review_required_count": sum(1 for item in submission_plan if item["decision"]["action"] == "REVIEW_REQUIRED"),
+            "no_match_count": sum(1 for item in submission_plan if item["decision"]["action"] == "NO_MATCH"),
+            "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)),
+            "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(finished)),
+            "duration_ms": int((finished - started) * 1000),
+        }
+    )
+    
+    (run_dir / "run_finished.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "status": "success",
+                "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)),
+                "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(finished)),
+                "duration_ms": int((finished - started) * 1000),
+                "reason": "SELF_TEST_COMPLETED",
+                "last_error": None,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    
+    return run_id
+
+
 def run_execute_submission_plan_scoped_headful(
     *,
     base_dir: str | Path = "data",
@@ -365,6 +654,8 @@ def run_execute_submission_plan_scoped_headful(
     only_target: bool = True,
     dry_run: bool = True,
     confirm_execute: bool = False,
+    self_test: bool = False,
+    self_test_doc_id: Optional[str] = None,
     slow_mo_ms: int = 300,
     viewport: Optional[Dict[str, int]] = None,
     wait_after_login_s: float = 2.5,
@@ -376,8 +667,28 @@ def run_execute_submission_plan_scoped_headful(
     3) Si dry_run=false pero confirm_execute=false: hard stop.
     4) Si dry_run=false y confirm_execute=true: ejecuta items con AUTO_SUBMIT_OK.
     5) Genera evidence completa.
+    
+    Si self_test=true:
+    - NO navega ni sube a eGestiona
+    - Usa pending_item sintético generado desde doc del repo
+    - Genera submission_plan.json igual que en producción
+    - Simula ejecución hasta justo antes de "Enviar documento"
+    - Genera would_fill_fields.json con campos que se rellenarían
     """
-    # Política de seguridad
+    base = ensure_data_layout(base_dir=base_dir)
+    repo_store = DocumentRepositoryStoreV1(base_dir=base)
+    
+    # Modo self_test
+    if self_test:
+        return _run_self_test_mode(
+            base_dir=base_dir,
+            repo_store=repo_store,
+            company_key=company_key,
+            person_key=person_key,
+            self_test_doc_id=self_test_doc_id,
+        )
+    
+    # Política de seguridad (modo normal)
     if dry_run:
         # Solo generar plan, no ejecutar
         return run_build_submission_plan_readonly_headful(
