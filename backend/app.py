@@ -37,6 +37,8 @@ from backend.repository.data_bootstrap_v1 import ensure_data_layout
 from backend.adapters.egestiona.flows import router as egestiona_router
 from backend.repository.document_repository_routes import router as document_repository_router
 from backend.repository.config_routes import router as config_routes_router
+from backend.repository.submission_rules_routes import router as submission_rules_router
+from backend.repository.submission_history_routes import router as submission_history_router
 from backend.config import LLM_CONFIG_FILE, LLM_DEFAULT_CONFIG
 
 # Constantes de rutas
@@ -64,6 +66,8 @@ app.include_router(create_config_viewer_router(base_dir=DATA_DIR))
 app.include_router(egestiona_router)
 app.include_router(document_repository_router)
 app.include_router(config_routes_router)
+app.include_router(submission_rules_router)
+app.include_router(submission_history_router)
 
 browser = BrowserController()
 
@@ -206,53 +210,77 @@ async def update_llm_config(config: dict):
 # LLM Health check endpoint
 @app.get("/api/health/llm")
 async def check_llm_health():
-    """Verifica el estado del servidor LLM externo."""
+    """Verifica el estado del servidor LLM externo. NUNCA devuelve 500, siempre 200 con status."""
     import time
+    import asyncio
     import aiohttp
 
+    base_url = "unknown"
     try:
         # Obtener config actual
         config = await get_llm_config()
-        base_url = config["base_url"]
+        base_url = config.get("base_url", "unknown")
         timeout = config.get("timeout_seconds", 30)
+        
+        # Si no hay base_url configurado, devolver disabled
+        if not base_url or base_url == "unknown":
+            return {
+                "ok": False,
+                "latency_ms": None,
+                "base_url": base_url,
+                "status": "disabled",
+                "detail": "LLM no configurado"
+            }
 
         # Hacer ping al endpoint más barato (models)
         start_time = time.time()
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=min(timeout, 5))) as session:
-            async with session.get(f"{base_url}/models") as response:
-                latency_ms = int((time.time() - start_time) * 1000)
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=min(timeout, 5))) as session:
+                async with session.get(f"{base_url}/models") as response:
+                    latency_ms = int((time.time() - start_time) * 1000)
 
-                if response.status == 200:
-                    return {
-                        "ok": True,
-                        "latency_ms": latency_ms,
-                        "base_url": base_url,
-                        "status": "online"
-                    }
-                else:
-                    return {
-                        "ok": False,
-                        "latency_ms": latency_ms,
-                        "base_url": base_url,
-                        "status": "degraded",
-                        "detail": f"HTTP {response.status}"
-                    }
+                    if response.status == 200:
+                        return {
+                            "ok": True,
+                            "latency_ms": latency_ms,
+                            "base_url": base_url,
+                            "status": "online"
+                        }
+                    else:
+                        return {
+                            "ok": False,
+                            "latency_ms": latency_ms,
+                            "base_url": base_url,
+                            "status": "degraded",
+                            "detail": f"HTTP {response.status}"
+                        }
+        except Exception as e:
+            # Capturar cualquier excepción (timeout, conexión rechazada, DNS error, etc.)
+            latency_ms = int((time.time() - start_time) * 1000) if 'start_time' in locals() else None
+            error_msg = str(e)
+            
+            # Determinar si es timeout
+            if "timeout" in error_msg.lower() or "Timeout" in type(e).__name__:
+                detail = "Timeout al conectar con el servidor LLM"
+            else:
+                detail = f"Error de conexión: {error_msg}"
+            
+            return {
+                "ok": False,
+                "latency_ms": latency_ms,
+                "base_url": base_url,
+                "status": "offline",
+                "detail": detail
+            }
 
-    except aiohttp.ClientTimeout:
-        return {
-            "ok": False,
-            "latency_ms": None,
-            "base_url": base_url if 'base_url' in locals() else "unknown",
-            "status": "offline",
-            "detail": "Timeout"
-        }
     except Exception as e:
+        # Cualquier otra excepción (incluyendo errores al leer config)
         return {
             "ok": False,
             "latency_ms": None,
-            "base_url": base_url if 'base_url' in locals() else "unknown",
-            "status": "offline",
-            "detail": str(e)
+            "base_url": base_url,
+            "status": "disabled" if base_url == "unknown" else "offline",
+            "detail": f"Error: {str(e)}"
         }
 
 
@@ -289,7 +317,7 @@ async def repository_ui():
     """
     UI del Repositorio Documental (tipos y documentos).
     """
-    return FileResponse(FRONTEND_DIR / "repository.html", media_type="text/html")
+    return FileResponse(FRONTEND_DIR / "repository_v3.html", media_type="text/html")
 
 
 @app.get("/simulation/portal_a/login.html", include_in_schema=False)
