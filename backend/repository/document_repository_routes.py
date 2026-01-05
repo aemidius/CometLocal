@@ -4,7 +4,7 @@ import shutil
 import json
 from pathlib import Path
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime, date
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Request
 from pydantic import BaseModel, field_validator
@@ -13,6 +13,8 @@ from typing import Optional, List, Union, Any
 from backend.repository.document_repository_store_v1 import DocumentRepositoryStoreV1
 from backend.repository.date_parser_v1 import parse_date_from_filename
 from backend.repository.validity_calculator_v1 import compute_validity
+from backend.repository.period_planner_v1 import PeriodPlannerV1, PeriodInfoV1
+from backend.repository.config_store_v1 import ConfigStoreV1
 from backend.shared.document_repository_v1 import (
     DocumentTypeV1,
     DocumentInstanceV1,
@@ -20,6 +22,7 @@ from backend.shared.document_repository_v1 import (
     ExtractedMetadataV1,
     DocumentStatusV1,
     ValidityOverrideV1,
+    PeriodKindV1,
 )
 
 
@@ -31,11 +34,116 @@ router = APIRouter(
 
 # ========== TIPOS DE DOCUMENTO ==========
 
-@router.get("/types", response_model=List[DocumentTypeV1])
-async def list_types(include_inactive: bool = False) -> List[DocumentTypeV1]:
-    """Lista todos los tipos de documento."""
-    store = DocumentRepositoryStoreV1()
-    return store.list_types(include_inactive=include_inactive)
+class TypesListResponse(BaseModel):
+    """Respuesta paginada para listado de tipos."""
+    items: List[DocumentTypeV1]
+    total: int
+    page: int
+    page_size: int
+
+
+@router.get("/types", response_model=Union[List[DocumentTypeV1], TypesListResponse])
+async def list_types(
+    include_inactive: bool = False,
+    query: Optional[str] = None,
+    period: Optional[str] = None,  # "monthly", "annual", "quarter", "none"
+    scope: Optional[str] = None,  # "worker", "company"
+    active: Optional[bool] = None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
+    sort: Optional[str] = None,  # "name", "type_id", "period", "relevance"
+) -> Union[List[DocumentTypeV1], TypesListResponse]:
+    """
+    Lista tipos de documento con filtros avanzados y paginación.
+    
+    Si se proporcionan page/page_size, devuelve TypesListResponse.
+    Si no, devuelve List[DocumentTypeV1] (compatibilidad hacia atrás).
+    """
+    try:
+        store = DocumentRepositoryStoreV1()
+        types = store.list_types(include_inactive=True)  # Traer todos y filtrar después
+        
+        # Filtros
+        if active is not None:
+            types = [t for t in types if t.active == active]
+        elif not include_inactive:
+            types = [t for t in types if t.active]
+        
+        if scope:
+            types = [t for t in types if t.scope.value == scope]
+        
+        if period:
+            period_map = {
+                "monthly": "monthly",
+                "annual": "annual",
+                "quarter": None,  # No existe en ValidityModeV1, pero podemos detectarlo
+                "none": "fixed_end_date"  # Aproximación
+            }
+            if period in period_map:
+                target_mode = period_map[period]
+                if target_mode:
+                    types = [t for t in types if t.validity_policy.mode.value == target_mode]
+                elif period == "quarter":
+                    # No hay modo quarter, filtrar por configuración especial si existe
+                    pass  # Por ahora no filtramos quarter
+        
+        if query:
+            query_lower = query.lower()
+            filtered = []
+            for t in types:
+                # Buscar en nombre, type_id, aliases
+                if (query_lower in t.name.lower() or 
+                    query_lower in t.type_id.lower() or
+                    any(query_lower in alias.lower() for alias in t.platform_aliases)):
+                    filtered.append(t)
+            types = filtered
+        
+        # Ordenación
+        if sort == "name":
+            types.sort(key=lambda t: t.name.lower())
+        elif sort == "type_id":
+            types.sort(key=lambda t: t.type_id)
+        elif sort == "period":
+            types.sort(key=lambda t: t.validity_policy.mode.value)
+        elif sort == "relevance" and query:
+            # Ordenar por relevancia (más matches primero)
+            def relevance_score(t: DocumentTypeV1) -> int:
+                score = 0
+                query_lower = query.lower()
+                if query_lower in t.type_id.lower():
+                    score += 10
+                if query_lower in t.name.lower():
+                    score += 5
+                for alias in t.platform_aliases:
+                    if query_lower in alias.lower():
+                        score += 3
+                return -score  # Negativo para orden descendente
+            types.sort(key=relevance_score)
+        else:
+            # Orden por defecto: nombre
+            types.sort(key=lambda t: t.name.lower())
+        
+        # Paginación
+        total = len(types)
+        if page is not None and page_size is not None:
+            start = (page - 1) * page_size
+            end = start + page_size
+            paginated = types[start:end]
+            return TypesListResponse(
+                items=paginated,
+                total=total,
+                page=page,
+                page_size=page_size
+            )
+        
+        # Sin paginación: devolver lista simple (compatibilidad)
+        if not isinstance(types, list):
+            return []
+        return types
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=f"Error al leer tipos: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error inesperado: {str(e)}")
 
 
 @router.get("/types/{type_id}", response_model=DocumentTypeV1)
@@ -60,16 +168,23 @@ async def create_type(doc_type: DocumentTypeV1) -> DocumentTypeV1:
 
 @router.put("/types/{type_id}", response_model=DocumentTypeV1)
 async def update_type(type_id: str, doc_type: DocumentTypeV1) -> DocumentTypeV1:
-    """Actualiza un tipo existente."""
+    """Actualiza un tipo existente. El type_id no se puede cambiar."""
     store = DocumentRepositoryStoreV1()
     try:
+        # Asegurar que el type_id del body coincide con el de la URL
+        # Si no coincide, usar el de la URL (el type_id no se puede cambiar)
+        if doc_type.type_id != type_id:
+            # Crear nuevo objeto con el type_id correcto
+            doc_type_dict = doc_type.model_dump()
+            doc_type_dict['type_id'] = type_id
+            doc_type = DocumentTypeV1(**doc_type_dict)
         return store.update_type(type_id, doc_type)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 class DuplicateTypeRequest(BaseModel):
-    new_type_id: str
+    new_type_id: Optional[str] = None
     new_name: Optional[str] = None
 
 
@@ -81,9 +196,25 @@ async def duplicate_type(
     """Duplica un tipo con nuevo ID."""
     store = DocumentRepositoryStoreV1()
     try:
-        return store.duplicate_type(type_id, request.new_type_id, request.new_name)
+        # Si no se proporciona new_type_id, generar uno automáticamente
+        new_type_id = request.new_type_id
+        if not new_type_id:
+            new_type_id = store._generate_unique_type_id(type_id)
+        return store.duplicate_type(type_id, new_type_id, request.new_name)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            raise HTTPException(status_code=404, detail=error_msg)
+        elif "already exists" in error_msg.lower():
+            raise HTTPException(status_code=409, detail=error_msg)
+        else:
+            raise HTTPException(status_code=400, detail=error_msg)
+    except Exception as e:
+        # Log error para debugging
+        import traceback
+        print(f"Error in duplicate_type: {type(e).__name__}: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @router.delete("/types/{type_id}")
@@ -106,6 +237,9 @@ async def upload_document(
     scope: str = Form(...),
     company_key: Optional[str] = Form(None),
     person_key: Optional[str] = Form(None),
+    period_key: Optional[str] = Form(None),
+    issue_date: Optional[str] = Form(None),
+    validity_start_date: Optional[str] = Form(None),
 ) -> DocumentInstanceV1:
     """
     Sube un PDF al repositorio y lo asocia a un tipo + sujeto.
@@ -169,13 +303,66 @@ async def upload_document(
         # Parsear fecha desde nombre
         name_date, name_date_confidence = parse_date_from_filename(file.filename)
         
+        # Parsear issue_date si viene en el form
+        parsed_issue_date = None
+        if issue_date:
+            try:
+                parsed_issue_date = datetime.strptime(issue_date, "%Y-%m-%d").date()
+            except ValueError:
+                pass  # Si no se puede parsear, usar None
+        
+        # Resolver validity_start_date según el modo del tipo
+        parsed_validity_start_date = None
+        validity_start_mode = getattr(doc_type, 'validity_start_mode', 'issue_date')
+        
+        if validity_start_mode == "issue_date":
+            # Inicio de vigencia = issue_date
+            parsed_validity_start_date = parsed_issue_date or name_date
+        elif validity_start_mode == "manual":
+            # Inicio de vigencia viene del form (obligatorio)
+            if validity_start_date:
+                try:
+                    parsed_validity_start_date = datetime.strptime(validity_start_date, "%Y-%m-%d").date()
+                except ValueError:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="validity_start_date debe estar en formato YYYY-MM-DD"
+                    )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail="validity_start_date es obligatorio cuando validity_start_mode=manual"
+                )
+        
         # Crear metadatos extraídos
         extracted = ExtractedMetadataV1(
-            name_date=name_date
+            issue_date=parsed_issue_date,
+            name_date=name_date,
+            validity_start_date=parsed_validity_start_date
         )
         
         # Calcular validez
         computed_validity = compute_validity(doc_type.validity_policy, extracted)
+        
+        # Inferir period_key si el tipo es periódico
+        planner = PeriodPlannerV1(store)
+        period_kind = planner.get_period_kind_from_type(doc_type)
+        period_key_param = period_key  # Guardar el parámetro del form
+        needs_period = False
+        
+        if period_kind != PeriodKindV1.NONE:
+            # Use provided period_key or try to infer
+            if not period_key_param:
+                # Usar validity_start_date como fecha base para calcular periodo si está disponible
+                base_date = extracted.validity_start_date or extracted.issue_date or name_date
+                period_key_param = planner.infer_period_key(
+                    doc_type=doc_type,
+                    issue_date=base_date,  # Usar validity_start_date como base
+                    name_date=name_date,
+                    filename=file.filename or "unknown.pdf",
+                )
+            if not period_key_param:
+                needs_period = True
         
         # Crear instancia de documento
         doc = DocumentInstanceV1(
@@ -189,6 +376,10 @@ async def upload_document(
             person_key=person_key,
             extracted=extracted,
             computed_validity=computed_validity,
+            period_kind=period_kind,
+            period_key=period_key_param,
+            issued_at=extracted.issue_date or name_date,
+            needs_period=needs_period,
             status=DocumentStatusV1.draft,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
@@ -204,15 +395,163 @@ async def upload_document(
         tmp_path.unlink(missing_ok=True)
 
 
-@router.get("/docs", response_model=List[DocumentInstanceV1])
+@router.get("/docs")
 async def list_documents(
     type_id: Optional[str] = None,
     scope: Optional[str] = None,
-    status: Optional[str] = None
-) -> List[DocumentInstanceV1]:
-    """Lista todos los documentos (con filtros opcionales)."""
-    store = DocumentRepositoryStoreV1()
-    return store.list_documents(type_id=type_id, scope=scope, status=status)
+    status: Optional[str] = None,
+    validity_status: Optional[str] = None  # VALID, EXPIRING_SOON, EXPIRED
+) -> List[dict]:
+    """
+    Lista todos los documentos (con filtros opcionales).
+    Incluye estado de validez calculado (validity_status, validity_end_date, days_until_expiry).
+    """
+    from backend.repository.document_status_calculator_v1 import calculate_document_status
+    
+    try:
+        store = DocumentRepositoryStoreV1()
+        docs = store.list_documents(type_id=type_id, scope=scope, status=status)
+        # Asegurar que siempre es una lista
+        if not isinstance(docs, list):
+            return []
+        
+        # Calcular estado de validez para cada documento
+        result = []
+        for doc in docs:
+            doc_dict = doc.model_dump() if hasattr(doc, 'model_dump') else doc.dict()
+            
+            # Calcular estado de validez (con tipo de documento para cálculo correcto)
+            doc_type = store.get_type(doc.type_id)
+            validity_status_calc, validity_end_date, days_until_expiry, base_date, base_reason = calculate_document_status(
+                doc, doc_type=doc_type
+            )
+            
+            # Añadir campos calculados
+            doc_dict['validity_status'] = validity_status_calc
+            doc_dict['validity_end_date'] = validity_end_date.isoformat() if validity_end_date else None
+            doc_dict['days_until_expiry'] = days_until_expiry
+            # Campos de debug (opcional, se pueden quitar después)
+            doc_dict['validity_base_date'] = base_date.isoformat() if base_date else None
+            doc_dict['validity_base_reason'] = base_reason
+            
+            # Filtrar por validity_status si se especifica
+            if validity_status and validity_status_calc != validity_status:
+                continue
+            
+            result.append(doc_dict)
+        
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=f"Error al leer documentos: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error inesperado: {str(e)}")
+
+
+@router.get("/docs/pending")
+async def get_pending_documents(
+    months_ahead: int = 3,  # Meses hacia adelante para considerar "expira pronto"
+    max_months_back: int = 24  # Máximo de meses hacia atrás para generar períodos faltantes
+) -> dict:
+    """
+    Obtiene documentos pendientes, expirados y próximos a expirar.
+    
+    IMPORTANTE: Esta ruta debe ir ANTES de /docs/{doc_id} para evitar conflictos de routing.
+    
+    Retorna:
+    - expired: Documentos expirados
+    - expiring_soon: Documentos que expiran pronto (dentro de months_ahead meses)
+    - missing: Períodos esperados sin documento (agrupados por tipo y sujeto)
+    """
+    from backend.repository.document_status_calculator_v1 import calculate_document_status, DocumentValidityStatus
+    from backend.repository.period_planner_v1 import PeriodPlannerV1
+    
+    try:
+        store = DocumentRepositoryStoreV1()
+        planner = PeriodPlannerV1(store)
+        
+        # Obtener todos los documentos (usar la misma fuente que /docs)
+        all_docs = store.list_documents()
+        if not isinstance(all_docs, list):
+            all_docs = []
+        
+        # Calcular estados usando la MISMA función que /docs
+        expired = []
+        expiring_soon = []
+        
+        for doc in all_docs:
+            # Obtener tipo de documento para cálculo correcto
+            doc_type = store.get_type(doc.type_id)
+            # Usar la misma función calculate_document_status con el mismo threshold
+            status, validity_end_date, days_until_expiry, base_date, base_reason = calculate_document_status(
+                doc,
+                doc_type=doc_type,
+                expiring_soon_threshold_days=months_ahead * 30
+            )
+            
+            doc_dict = doc.model_dump() if hasattr(doc, 'model_dump') else doc.dict()
+            doc_dict['validity_status'] = status
+            doc_dict['validity_end_date'] = validity_end_date.isoformat() if validity_end_date else None
+            doc_dict['days_until_expiry'] = days_until_expiry
+            
+            # Clasificar usando el mismo enum
+            if status == DocumentValidityStatus.EXPIRED:
+                expired.append(doc_dict)
+            elif status == DocumentValidityStatus.EXPIRING_SOON:
+                expiring_soon.append(doc_dict)
+        
+        # Ordenar por fecha de caducidad
+        expired.sort(key=lambda d: d.get('validity_end_date') or '9999-12-31')
+        expiring_soon.sort(key=lambda d: d.get('validity_end_date') or '9999-12-31')
+        
+        # Obtener tipos periódicos y generar períodos faltantes
+        types = store.list_types()
+        missing = []
+        
+        for doc_type in types:
+            period_kind = planner.get_period_kind_from_type(doc_type)
+            if period_kind.value == 'NONE':
+                continue  # Solo tipos periódicos
+            
+            # Obtener sujetos únicos de documentos existentes de este tipo
+            type_docs = [d for d in all_docs if d.type_id == doc_type.type_id]
+            subjects = set()
+            for doc in type_docs:
+                if doc.scope.value == 'worker' and doc.person_key:
+                    subjects.add(('worker', doc.company_key, doc.person_key))
+                elif doc.scope.value == 'company' and doc.company_key:
+                    subjects.add(('company', doc.company_key, None))
+            
+            # Para cada sujeto, verificar períodos faltantes
+            for scope, company_key, person_key in subjects:
+                periods = planner.generate_expected_periods(
+                    doc_type=doc_type,
+                    months_back=max_months_back,
+                    company_key=company_key,
+                    person_key=person_key
+                )
+                
+                for period in periods:
+                    if period.status.value == 'MISSING' or period.status.value == 'LATE':
+                        missing.append({
+                            'type_id': doc_type.type_id,
+                            'type_name': doc_type.name,
+                            'scope': scope,
+                            'company_key': company_key,
+                            'person_key': person_key,
+                            'period_key': period.period_key,
+                            'period_start': period.period_start.isoformat() if period.period_start else None,
+                            'period_end': period.period_end.isoformat() if period.period_end else None,
+                            'status': period.status.value,
+                            'days_late': period.days_late if hasattr(period, 'days_late') else None
+                        })
+        
+        return {
+            'expired': expired,
+            'expiring_soon': expiring_soon,
+            'missing': missing
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener documentos pendientes: {str(e)}")
 
 
 @router.get("/docs/{doc_id}", response_model=DocumentInstanceV1)
@@ -225,12 +564,129 @@ async def get_document(doc_id: str) -> DocumentInstanceV1:
     return doc
 
 
+@router.get("/docs/{doc_id}/pdf")
+async def get_document_pdf(doc_id: str):
+    """Sirve el PDF de un documento."""
+    from fastapi.responses import FileResponse
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    store = DocumentRepositoryStoreV1()
+    
+    # Verificar que el documento existe
+    doc = store.get_document(doc_id)
+    if not doc:
+        logger.warning(f"Document {doc_id} not found in store")
+        raise HTTPException(status_code=404, detail=f"Document {doc_id} not found")
+    
+    # Intentar usar stored_path del documento si existe, sino usar la ruta estándar
+    pdf_path = None
+    if hasattr(doc, 'stored_path') and doc.stored_path:
+        # stored_path puede ser relativo o absoluto
+        stored_path = Path(doc.stored_path)
+        if stored_path.is_absolute():
+            pdf_path = stored_path
+        else:
+            # Si es relativo, intentar desde base_dir
+            pdf_path = Path(store.base_dir) / stored_path
+    else:
+        # Fallback a ruta estándar
+        pdf_path = store._get_doc_pdf_path(doc_id)
+    
+    logger.info(f"Looking for PDF at: {pdf_path}")
+    
+    # Verificar que el archivo existe
+    if not pdf_path.exists():
+        # Intentar también la ruta estándar como fallback
+        fallback_path = store._get_doc_pdf_path(doc_id)
+        logger.info(f"Primary path not found, trying fallback: {fallback_path}")
+        if fallback_path.exists():
+            pdf_path = fallback_path
+        else:
+            logger.error(f"PDF file not found for document {doc_id}. Tried: {pdf_path}, {fallback_path}")
+            raise HTTPException(
+                status_code=404, 
+                detail=f"PDF file not found for document {doc_id}. Expected at: {pdf_path}"
+            )
+    
+    # Servir el archivo
+    # Usar file_name_original del modelo DocumentInstanceV1
+    filename = doc.file_name_original if hasattr(doc, 'file_name_original') and doc.file_name_original else f"{doc_id}.pdf"
+    logger.info(f"Serving PDF: {pdf_path} as {filename}")
+    return FileResponse(
+        path=str(pdf_path),
+        media_type="application/pdf",
+        filename=filename,
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"'
+        }
+    )
+
+
+@router.put("/docs/{doc_id}/pdf", response_model=DocumentInstanceV1)
+async def replace_document_pdf(
+    doc_id: str,
+    file: UploadFile = File(...)
+) -> DocumentInstanceV1:
+    """
+    Reemplaza el PDF de un documento existente.
+    Conserva todos los metadatos, solo actualiza el archivo PDF y su hash.
+    """
+    store = DocumentRepositoryStoreV1()
+    
+    # Verificar que el documento existe
+    doc = store.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"Document {doc_id} not found")
+    
+    # Validar que es PDF
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="File must be a PDF")
+    
+    # Guardar archivo temporalmente
+    import tempfile
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+        shutil.copyfileobj(file.file, tmp_file)
+        tmp_path = Path(tmp_file.name)
+    
+    try:
+        # Calcular nuevo hash
+        new_sha256 = store.compute_file_hash(tmp_path)
+        
+        # Reemplazar PDF
+        store.store_pdf(tmp_path, doc_id)
+        
+        # Actualizar hash en el documento (campo real del modelo)
+        doc.sha256 = new_sha256
+        
+        # Actualizar nombre de archivo si es diferente
+        if file.filename and file.filename != doc.file_name_original:
+            doc.file_name_original = file.filename
+
+        # Actualizar timestamp
+        doc.updated_at = datetime.utcnow()
+        
+        # Guardar documento actualizado
+        store.save_document(doc)
+        
+        return doc
+    
+    finally:
+        # Limpiar archivo temporal
+        tmp_path.unlink(missing_ok=True)
+
+
 class DocumentUpdateRequest(BaseModel):
     """Request para actualizar un documento."""
     company_key: Optional[str] = None
     person_key: Optional[str] = None
     status: Optional[str] = None
     validity_override: Optional[Any] = None
+    # Campos de metadatos editables
+    issue_date: Optional[str] = None  # Fecha de emisión (YYYY-MM-DD)
+    validity_start_date: Optional[str] = None  # Fecha inicio de vigencia (YYYY-MM-DD)
+    period_key: Optional[str] = None  # Clave del período (YYYY-MM, YYYY, YYYY-Qn)
     
     @field_validator('validity_override', mode='before')
     @classmethod
@@ -341,7 +797,6 @@ async def update_document(
                 reason = normalized_override.get("reason")
                 
                 # Parsear fechas si son strings
-                from datetime import date
                 parsed_from = None
                 parsed_to = None
                 
@@ -369,12 +824,150 @@ async def update_document(
                     reason=reason
                 )
     
+    # Actualizar issue_date (fecha de emisión)
+    if request.issue_date is not None:
+        try:
+            parsed_issue_date = datetime.strptime(request.issue_date, "%Y-%m-%d").date() if request.issue_date else None
+            doc.issued_at = parsed_issue_date
+            # También actualizar en extracted si existe
+            if doc.extracted:
+                doc.extracted.issue_date = parsed_issue_date
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid date format for issue_date: {request.issue_date}. Expected YYYY-MM-DD")
+    
+    # Actualizar validity_start_date (fecha inicio de vigencia)
+    if request.validity_start_date is not None:
+        try:
+            parsed_validity_start = datetime.strptime(request.validity_start_date, "%Y-%m-%d").date() if request.validity_start_date else None
+            # Actualizar en extracted
+            if doc.extracted:
+                doc.extracted.validity_start_date = parsed_validity_start
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid date format for validity_start_date: {request.validity_start_date}. Expected YYYY-MM-DD")
+    
+    # Actualizar period_key
+    if request.period_key is not None:
+        doc.period_key = request.period_key if request.period_key else None
+        # Si se actualiza period_key, también actualizar issued_at si se puede inferir
+        if request.period_key and not doc.issued_at:
+            # Intentar inferir fecha desde period_key (YYYY-MM)
+            try:
+                if len(request.period_key) == 7 and request.period_key[4] == '-':  # YYYY-MM
+                    year, month = request.period_key.split('-')
+                    # Usar primer día del mes como issue_date por defecto
+                    doc.issued_at = date(int(year), int(month), 1)
+                    if doc.extracted:
+                        doc.extracted.issue_date = doc.issued_at
+            except (ValueError, IndexError):
+                pass  # Si no se puede parsear, no hacer nada
+    
+    # Recalcular validez si se modificaron fechas relevantes
+    if request.issue_date is not None or request.validity_start_date is not None or request.period_key is not None:
+        from backend.repository.validity_calculator_v1 import compute_validity
+        # Recalcular computed_validity
+        doc.computed_validity = compute_validity(doc_type.validity_policy, doc.extracted)
+    
     doc.updated_at = datetime.utcnow()
     
     # Guardar
     store.save_document(doc)
     
     return doc
+
+
+@router.get("/types/{type_id}/expected")
+async def get_expected_periods(
+    type_id: str,
+    company_key: Optional[str] = None,
+    person_key: Optional[str] = None,
+    months: int = 24,
+) -> List[dict]:
+    """
+    Obtiene períodos esperados para un tipo de documento y sujeto.
+    
+    Args:
+        type_id: ID del tipo de documento
+        company_key: Clave de empresa (si scope=company)
+        person_key: Clave de persona (si scope=worker)
+        months: Cuántos meses hacia atrás generar (default: 24)
+    
+    Returns:
+        Lista de períodos con estado (AVAILABLE, MISSING, LATE)
+    """
+    store = DocumentRepositoryStoreV1()
+    doc_type = store.get_type(type_id)
+    if not doc_type:
+        raise HTTPException(status_code=404, detail=f"Type {type_id} not found")
+    
+    planner = PeriodPlannerV1(store)
+    periods = planner.generate_expected_periods(
+        doc_type=doc_type,
+        months_back=months,
+        company_key=company_key,
+        person_key=person_key,
+    )
+    
+    return [p.to_dict() for p in periods]
+
+
+@router.get("/subjects")
+async def get_subjects() -> dict:
+    """
+    Obtiene empresas y trabajadores agrupados por empresa.
+    
+    Returns:
+        {
+            "companies": [{"id": "E1", "name": "Empresa 1", "tax_id": "..."}, ...],
+            "workers_by_company": {
+                "E1": [{"id": "W1", "name": "Juan", "tax_id": "..."}, ...],
+                "E2": [...]
+            }
+        }
+    """
+    try:
+        config_store = ConfigStoreV1()
+        org = config_store.load_org()
+        people = config_store.load_people()
+        
+        # Crear empresa desde org
+        # org es OrgV1 con schema_version, legal_name, tax_id, etc.
+        company_id = org.tax_id if org.tax_id else "DEFAULT"
+        company_name = org.legal_name if org.legal_name else "Empresa Principal"
+        company_tax_id = org.tax_id if org.tax_id else ""
+        
+        companies = [{
+            "id": company_id,
+            "name": company_name,
+            "tax_id": company_tax_id
+        }]
+        
+        # Agrupar trabajadores por empresa (todos en la misma empresa por ahora)
+        workers_list = []
+        for person in people.people:
+            workers_list.append({
+                "id": person.worker_id,
+                "name": person.full_name,
+                "tax_id": person.tax_id,
+                "role": person.role
+            })
+        
+        workers_by_company = {
+            company_id: workers_list
+        }
+        
+        return {
+            "companies": companies,
+            "workers_by_company": workers_by_company
+        }
+    except Exception as e:
+        # Fallback: devolver estructura vacía con log del error
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error loading subjects: {e}", exc_info=True)
+        return {
+            "companies": [],
+            "workers_by_company": {}
+        }
 
 
 @router.delete("/docs/{doc_id}")

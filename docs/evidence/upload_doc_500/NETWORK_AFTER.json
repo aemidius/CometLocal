@@ -1,0 +1,23 @@
+{
+  "request": {
+    "url": "http://127.0.0.1:8000/api/repository/docs/7db82a52-b444-4e31-98eb-61a3095d92c5/pdf",
+    "method": "PUT",
+    "headers": {
+      "sec-ch-ua-platform": "\"Windows\"",
+      "referer": "http://127.0.0.1:8000/repository",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+      "sec-ch-ua": "\"HeadlessChrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
+      "content-type": "multipart/form-data; boundary=----WebKitFormBoundaryUjwvHxdhVaA5rMY0",
+      "sec-ch-ua-mobile": "?0"
+    }
+  },
+  "response": {
+    "url": "http://127.0.0.1:8000/api/repository/docs/7db82a52-b444-4e31-98eb-61a3095d92c5/pdf",
+    "status": 200,
+    "body": "{\"doc_id\":\"7db82a52-b444-4e31-98eb-61a3095d92c5\",\"file_name_original\":\"AEAT-16-oct-2025.pdf\",\"stored_path\":\"data/repository/docs/7db82a52-b444-4e31-98eb-61a3095d92c5.pdf\",\"sha256\":\"46b07fba1e1d4d6a388fe277c2799e31328b1ae4e500e4d534a37e203c321f68\",\"type_id\":\"T8447_RC_CERTIFICADO\",\"scope\":\"company\",\"company_key\":\"F63161988\",\"person_key\":null,\"extracted\":{\"issue_date\":\"2025-08-01\",\"name_date\":\"2025-08-01\",\"validity_start_date\":\"2026-01-06\",\"period_start\":\"2025-08-01\",\"period_end\":\"2025-08-31\"},\"computed_validity\":{\"valid_from\":\"2025-08-01\",\"valid_to\":\"2025-08-31\",\"confidence\":0.7,\"reasons\":[\"parsed name_date: 2025-08-01\",\"month_source=name_date: 2025-08-01\",\"computed period: 2025-08-01 to 2025-08-31\",\"valid_from=period_start\",\"valid_to=period_end\"]},\"validity_override\":null,\"status\":\"draft\",\"period_kind\":\"MONTH\",\"period_key\":\"2025-08\",\"issued_at\":\"2025-08-01\",\"needs_period\":false,\"created_at\":\"2026-01-04T14:35:07.909416\",\"updated_at\":\"2026-01-05T15:08:20.928718\"}"
+  },
+  "dialog": {
+    "type": "alert",
+    "message": "¡Guardados 1 documento(s) exitosamente!"
+  }
+}

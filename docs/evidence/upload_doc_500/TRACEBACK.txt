@@ -1,0 +1,15 @@
+## BEFORE (500) — traceback real
+
+Fuente: `docs/evidence/upload_doc_500/BACKEND_LOG_SNAPSHOT.txt`
+
+Request:
+- `PUT /api/repository/docs/ea307c95-db5f-4ed5-a966-a9e715e85390/pdf` → `500 Internal Server Error`
+
+Traceback (extracto relevante):
+```
+File "backend/repository/document_repository_routes.py", line 661, in replace_document_pdf
+  doc.file_hash = new_sha256
+ValueError: "DocumentInstanceV1" object has no field "file_hash"
+```
+
+

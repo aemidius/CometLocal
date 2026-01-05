@@ -1,0 +1,16 @@
+## BEFORE (500)
+
+- Endpoint: `PUT /api/repository/docs/{doc_id}/pdf`
+- Status: `500 Internal Server Error`
+- Error: `ValueError: "DocumentInstanceV1" object has no field "file_hash"`
+
+Ver:
+- `docs/evidence/upload_doc_500/BACKEND_LOG_SNAPSHOT.txt`
+- `docs/evidence/upload_doc_500/TRACEBACK.txt`
+
+## AFTER (200)
+
+Ver captura real (request/response):
+- `docs/evidence/upload_doc_500/NETWORK_AFTER.json`
+
+

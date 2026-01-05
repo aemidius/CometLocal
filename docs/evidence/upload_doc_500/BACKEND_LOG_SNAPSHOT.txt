@@ -1,0 +1,205 @@
+---
+pid: -1
+cwd: |
+  D:\Proyectos_Cursor\CometLocal
+active_command: |
+  D:\Proyectos_Cursor\CometLocal\.venv\Scripts\python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8000
+---
+$ D:\Proyectos_Cursor\CometLocal\.venv\Scripts\python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8000
+INFO:     Started server process [51168]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+Using data dir: D:\Proyectos_Cursor\CometLocal\data
+Config paths: org=D:\Proyectos_Cursor\CometLocal\data\refs\org.json people=D:\Proyectos_Cursor\CometLocal\data\refs\people.json platforms=D:\Proyectos_Cursor\CometLocal\data\refs\platforms.json secrets=D:\Proyectos_Cursor\CometLocal\data\refs\secrets.json documents=D:\Proyectos_Cursor\CometLocal\data\refs\documents.json
+Using existing LLM config: D:\Proyectos_Cursor\CometLocal\backend\..\data\refs\llm_config.json
+INFO:     127.0.0.1:57610 - "GET /repository HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57610 - "GET /api/repository/types HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63668 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63668 - "GET /api/repository/types?active=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63668 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63668 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63668 - "GET /api/repository/docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63668 - "PUT /api/repository/docs/7db82a52-b444-4e31-98eb-61a3095d92c5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63668 - "GET /api/repository/docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55792 - "GET /repository HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55792 - "GET /api/repository/types HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57351 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57351 - "GET /api/repository/types?active=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57351 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57351 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57351 - "GET /api/repository/docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54809 - "GET /repository HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54809 - "GET /api/repository/types HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61938 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61938 - "GET /api/repository/types?active=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61938 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61938 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61938 - "GET /api/repository/docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61938 - "PUT /api/repository/docs/7db82a52-b444-4e31-98eb-61a3095d92c5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61938 - "GET /api/repository/docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49893 - "GET /repository HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49893 - "GET /api/repository/types HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53361 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53361 - "GET /api/repository/types?active=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49893 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:49893 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49893 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49893 - "GET /api/repository/docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49893 - "PUT /api/repository/docs/7db82a52-b444-4e31-98eb-61a3095d92c5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49893 - "GET /api/repository/docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55427 - "GET /api/repository/docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51003 - "GET /repository HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51003 - "GET /api/repository/types HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060 - "GET /api/repository/types?active=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060 - "GET /api/repository/docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060 - "PUT /api/repository/docs/7db82a52-b444-4e31-98eb-61a3095d92c5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060 - "GET /api/repository/docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52904 - "GET /repository HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52904 - "GET /api/repository/types HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55153 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55153 - "GET /api/repository/types?active=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55153 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55153 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55153 - "GET /api/repository/docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55153 - "PUT /api/repository/docs/7db82a52-b444-4e31-98eb-61a3095d92c5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55153 - "GET /api/repository/docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56272 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56272 - "GET /repository HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56272 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56272 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56272 - "GET /api/repository/docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54728 - "PUT /api/repository/docs/7db82a52-b444-4e31-98eb-61a3095d92c5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54728 - "GET /api/repository/docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61460 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61460 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61460 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61460 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61460 - "GET /api/repository/docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57089 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=24 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57089 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53774 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53774 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53766 - "GET /api/config/people HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53766 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51685 - "PUT /api/repository/docs/ea307c95-db5f-4ed5-a966-a9e715e85390/pdf HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 409, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\fastapi\applications.py", line 1134, in __call__
+    await super().__call__(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    raise exc
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\fastapi\routing.py", line 125, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\fastapi\routing.py", line 111, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\fastapi\routing.py", line 391, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\fastapi\routing.py", line 290, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Proyectos_Cursor\CometLocal\backend\repository\document_repository_routes.py", line 661, in replace_document_pdf
+    doc.file_hash = new_sha256
+    ^^^^^^^^^^^^^
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\pydantic\main.py", line 1032, in __setattr__
+    elif (setattr_handler := self._setattr_handler(name, value)) is not None:
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\pydantic\main.py", line 1079, in _setattr_handler
+    raise ValueError(f'"{cls.__name__}" object has no field "{name}"')
+ValueError: "DocumentInstanceV1" object has no field "file_hash"
+INFO:     127.0.0.1:53528 - "PUT /api/repository/docs/ea307c95-db5f-4ed5-a966-a9e715e85390/pdf HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 409, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\fastapi\applications.py", line 1134, in __call__
+    await super().__call__(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    raise exc
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\fastapi\routing.py", line 125, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\fastapi\routing.py", line 111, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\fastapi\routing.py", line 391, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\fastapi\routing.py", line 290, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Proyectos_Cursor\CometLocal\backend\repository\document_repository_routes.py", line 661, in replace_document_pdf
+    doc.file_hash = new_sha256
+    ^^^^^^^^^^^^^
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\pydantic\main.py", line 1032, in __setattr__
+    elif (setattr_handler := self._setattr_handler(name, value)) is not None:
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Proyectos_Cursor\CometLocal\.venv\Lib\site-packages\pydantic\main.py", line 1079, in _setattr_handler
+    raise ValueError(f'"{cls.__name__}" object has no field "{name}"')
+ValueError: "DocumentInstanceV1" object has no field "file_hash"
