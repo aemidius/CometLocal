@@ -462,6 +462,11 @@ async def get_pending_documents(
     - expiring_soon: Documentos que expiran pronto (dentro de months_ahead meses)
     - missing: Períodos esperados sin documento (agrupados por tipo y sujeto)
     """
+    import time
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    t0 = time.time()
     from backend.repository.document_status_calculator_v1 import calculate_document_status, DocumentValidityStatus
     from backend.repository.period_planner_v1 import PeriodPlannerV1
     
@@ -469,24 +474,57 @@ async def get_pending_documents(
         store = DocumentRepositoryStoreV1()
         planner = PeriodPlannerV1(store)
         
+        t1 = time.time()
         # Obtener todos los documentos (usar la misma fuente que /docs)
         all_docs = store.list_documents()
         if not isinstance(all_docs, list):
             all_docs = []
         
+        t2 = time.time()
+        # SPRINT C2.9.24: Cachear tipos de documentos para evitar llamadas repetidas
+        types_cache = {}
+        all_types = store.list_types()
+        for doc_type in all_types:
+            types_cache[doc_type.type_id] = doc_type
+        
         # Calcular estados usando la MISMA función que /docs
         expired = []
         expiring_soon = []
         
+        # SPRINT C2.9.24: Optimización: usar computed_validity cuando esté disponible para evitar recálculo
+        today = date.today()
+        expiring_soon_threshold_days = months_ahead * 30
+        
         for doc in all_docs:
-            # Obtener tipo de documento para cálculo correcto
-            doc_type = store.get_type(doc.type_id)
-            # Usar la misma función calculate_document_status con el mismo threshold
-            status, validity_end_date, days_until_expiry, base_date, base_reason = calculate_document_status(
-                doc,
-                doc_type=doc_type,
-                expiring_soon_threshold_days=months_ahead * 30
-            )
+            # Intentar usar computed_validity si existe y es reciente
+            status = None
+            validity_end_date = None
+            days_until_expiry = None
+            
+            if doc.computed_validity and doc.computed_validity.valid_to:
+                # Usar computed_validity existente (ya calculado)
+                validity_end_date = doc.computed_validity.valid_to
+                days_until_expiry = (validity_end_date - today).days
+                
+                if days_until_expiry < 0:
+                    status = DocumentValidityStatus.EXPIRED
+                elif days_until_expiry <= expiring_soon_threshold_days:
+                    status = DocumentValidityStatus.EXPIRING_SOON
+                else:
+                    status = DocumentValidityStatus.VALID
+            else:
+                # Recalcular solo si no hay computed_validity
+                doc_type = types_cache.get(doc.type_id)
+                if not doc_type:
+                    doc_type = store.get_type(doc.type_id)
+                    if doc_type:
+                        types_cache[doc.type_id] = doc_type
+                
+                status, validity_end_date, days_until_expiry, base_date, base_reason = calculate_document_status(
+                    doc,
+                    doc_type=doc_type,
+                    expiring_soon_threshold_days=expiring_soon_threshold_days
+                )
             
             doc_dict = doc.model_dump() if hasattr(doc, 'model_dump') else doc.dict()
             doc_dict['validity_status'] = status
@@ -503,6 +541,7 @@ async def get_pending_documents(
         expired.sort(key=lambda d: d.get('validity_end_date') or '9999-12-31')
         expiring_soon.sort(key=lambda d: d.get('validity_end_date') or '9999-12-31')
         
+        t3 = time.time()
         # Obtener tipos periódicos y generar períodos faltantes
         types = store.list_types()
         missing = []
@@ -544,6 +583,16 @@ async def get_pending_documents(
                             'status': period.status.value,
                             'days_late': period.days_late if hasattr(period, 'days_late') else None
                         })
+        
+        t4 = time.time()
+        ms_total = int((t4 - t0) * 1000)
+        ms_read = int((t2 - t1) * 1000)
+        ms_calc = int((t3 - t2) * 1000)
+        ms_missing = int((t4 - t3) * 1000)
+        
+        # SPRINT C2.9.24: Log de timing (usar print para asegurar que se vea)
+        print(f"[PENDING] ms_total={ms_total}, ms_read={ms_read}, ms_calc={ms_calc}, ms_missing={ms_missing}, "
+              f"counts=docs={len(all_docs)}, expired={len(expired)}, expiring={len(expiring_soon)}, missing={len(missing)}")
         
         return {
             'expired': expired,
