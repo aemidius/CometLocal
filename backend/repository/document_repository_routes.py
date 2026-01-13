@@ -400,11 +400,14 @@ async def list_documents(
     type_id: Optional[str] = None,
     scope: Optional[str] = None,
     status: Optional[str] = None,
-    validity_status: Optional[str] = None  # VALID, EXPIRING_SOON, EXPIRED
+    validity_status: Optional[str] = None,  # VALID, EXPIRING_SOON, EXPIRED
+    limit: Optional[int] = None,  # SPRINT C2.10.1: Límite de documentos a retornar
+    sort: Optional[str] = None  # SPRINT C2.10.1: Ordenación ('date_desc', 'date_asc')
 ) -> List[dict]:
     """
     Lista todos los documentos (con filtros opcionales).
     Incluye estado de validez calculado (validity_status, validity_end_date, days_until_expiry).
+    SPRINT C2.10.1: Soporta limit y sort para optimizar carga en UI.
     """
     from backend.repository.document_status_calculator_v1 import calculate_document_status
     
@@ -414,6 +417,17 @@ async def list_documents(
         # Asegurar que siempre es una lista
         if not isinstance(docs, list):
             return []
+        
+        # SPRINT C2.10.1: Aplicar ordenación antes de calcular validez (más eficiente)
+        if sort == 'date_asc':
+            docs = sorted(docs, key=lambda d: d.created_at)
+        elif sort == 'date_desc' or sort is None:
+            # Por defecto: más recientes primero (ya viene ordenado así de list_documents)
+            pass
+        
+        # SPRINT C2.10.1: Aplicar limit ANTES de calcular validez (optimización)
+        if limit is not None and limit > 0:
+            docs = docs[:limit]
         
         # Calcular estado de validez para cada documento
         result = []
