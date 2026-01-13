@@ -1516,18 +1516,36 @@
             }
             
             try {
-                const [types, docs, rules, platforms] = await Promise.all([
+                // SPRINT C2.10.1: Limitar carga de documentos para evitar timeouts con miles de docs
+                // Pedir solo 50 docs más recientes para "subidas recientes" y KPIs
+                const [types, docsResponse, rules, platforms] = await Promise.all([
                     fetch(`${BACKEND_URL}/api/repository/types`).then(r => {
                         if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
                         return r.json();
                     }),
-                    fetch(`${BACKEND_URL}/api/repository/docs`).then(r => {
+                    fetch(`${BACKEND_URL}/api/repository/docs?limit=50&sort=date_desc`).then(r => {
                         if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
                         return r.json();
                     }),
                     fetch(`${BACKEND_URL}/api/repository/rules`).then(r => r.json()).catch(() => []),
                     fetch(`${BACKEND_URL}/api/config/platforms`).then(r => r.json()).catch(() => ({platforms: []}))
                 ]);
+                
+                const docs = Array.isArray(docsResponse) ? docsResponse : [];
+                
+                // SPRINT C2.10.1: Obtener total de docs para KPI (sin cargar todos)
+                let totalDocs = docs.length;
+                let hasMoreDocs = false;
+                try {
+                    // Intentar obtener total desde un endpoint separado o estimar
+                    // Por ahora, si tenemos 50 docs, asumimos que puede haber más
+                    if (docs.length >= 50) {
+                        hasMoreDocs = true;
+                        // Para el KPI, usar el número cargado (será aproximado)
+                    }
+                } catch (e) {
+                    console.warn('[repo] Could not determine total docs count:', e);
+                }
                 
                 // Calculate KPIs
                 const periodicTypes = types.filter(t => {
@@ -1539,7 +1557,7 @@
                 const thisMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
                 const missingThisMonth = 0; // TODO: Calculate from expected periods
                 
-                // Count expiring soon (next 30 days)
+                // Count expiring soon (next 30 days) - solo en los docs cargados
                 const expiringSoon = docs.filter(d => {
                     if (!d.computed_validity?.valid_to) return false;
                     const validTo = new Date(d.computed_validity.valid_to);
@@ -1559,10 +1577,8 @@
                     return !hasRule;
                 }).length;
                 
-                // Recent uploads (last 5)
-                const recentDocs = docs
-                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                    .slice(0, 5);
+                // Recent uploads (last 50, ya vienen ordenados por fecha desc)
+                const recentDocs = docs.slice(0, 50);
                 
                 // Quick actions (missing documents)
                 const quickActions = []; // TODO: Generate from expected periods
@@ -1586,8 +1602,8 @@
                         </div>
                         <div class="kpi-card">
                             <div class="kpi-card-title">Documentos</div>
-                            <div class="kpi-card-value">${docs.length}</div>
-                            <div class="kpi-card-subtitle">En el repositorio</div>
+                            <div class="kpi-card-value">${hasMoreDocs ? '50+' : totalDocs}</div>
+                            <div class="kpi-card-subtitle">En el repositorio${hasMoreDocs ? ' (mostrando primeros 50)' : ''}</div>
                         </div>
                     </div>
                     
@@ -1626,6 +1642,7 @@
                     <div class="card">
                         <h3>Subidas recientes</h3>
                         ${recentDocs.length > 0 ? `
+                            ${hasMoreDocs ? '<p style="color: #94a3b8; font-size: 0.875rem; margin-bottom: 12px;">Mostrando últimas 50 subidas (hay más resultados)</p>' : ''}
                             <div class="table-container">
                                 <table>
                                     <thead>
@@ -1686,6 +1703,12 @@
         };
         let calendarSubjects = { companies: [], workers_by_company: {} };
         let calendarMaxMonthsBack = 24;  // Máximo de meses hacia atrás para períodos faltantes
+        // SPRINT C2.10.1: Estado de paginación del calendario
+        let calendarPagination = {
+            subjectsPerPage: 50,  // Máximo de sujetos a mostrar por página
+            maxTotalRows: 300,    // Límite duro de filas totales
+            currentPage: { expired: 1, expiring_soon: 1, missing: 1 }
+        };
         
         // Función auxiliar para formatear fechas
         function formatDate(dateStr) {
@@ -2104,6 +2127,39 @@
         function renderPendingDocuments(expired, expiringSoon, missing, activeSection = 'expired') {
             const subjectsCache = window.subjectsCache || { companies: {}, people: {} };
             
+            // SPRINT C2.10.1: Helper para paginar sujetos y aplicar límite de filas
+            function paginateSubjects(grouped, sectionKey) {
+                const page = calendarPagination.currentPage[sectionKey] || 1;
+                const subjectsPerPage = calendarPagination.subjectsPerPage;
+                const maxTotalRows = calendarPagination.maxTotalRows;
+                
+                const subjectKeys = Object.keys(grouped);
+                const totalSubjects = subjectKeys.length;
+                const startIdx = (page - 1) * subjectsPerPage;
+                const endIdx = startIdx + subjectsPerPage;
+                const paginatedKeys = subjectKeys.slice(startIdx, endIdx);
+                
+                // Calcular total de filas
+                let totalRows = 0;
+                const paginatedGroups = {};
+                for (const key of paginatedKeys) {
+                    const items = grouped[key];
+                    totalRows += items.length;
+                    // SPRINT C2.10.1: Límite duro de 300 filas
+                    if (totalRows > maxTotalRows) {
+                        // Cortar items del último sujeto si excede el límite
+                        const remainingRows = maxTotalRows - (totalRows - items.length);
+                        paginatedGroups[key] = items.slice(0, remainingRows);
+                        break;
+                    }
+                    paginatedGroups[key] = items;
+                }
+                
+                const hasMore = endIdx < totalSubjects || totalRows >= maxTotalRows;
+                
+                return { groups: paginatedGroups, hasMore, totalSubjects, currentPage: page };
+            }
+            
             // Agrupar por sujeto
             function groupBySubject(items, getSubjectKey) {
                 const groups = {};
@@ -2152,9 +2208,11 @@
                     }
                 } else {
                     const grouped = groupBySubject(expired, d => `${d.scope || 'unknown'}_${d.company_key || ''}_${d.person_key || ''}`);
+                    // SPRINT C2.10.1: Paginar sujetos
+                    const { groups: paginatedGroups, hasMore, totalSubjects, currentPage } = paginateSubjects(grouped, 'expired');
                     
-                    Object.keys(grouped).forEach(subjectKey => {
-                        const items = grouped[subjectKey];
+                    Object.keys(paginatedGroups).forEach(subjectKey => {
+                        const items = paginatedGroups[subjectKey];
                         const firstItem = items[0];
                         const subjectName = getSubjectName(firstItem);
                         const subjectScope = getSubjectScope(firstItem);
@@ -2206,6 +2264,17 @@
                             </div>
                         `;
                     });
+                    
+                    // SPRINT C2.10.1: Botón "Cargar más" si hay más sujetos
+                    if (hasMore) {
+                        html += `
+                            <div style="margin-top: 16px; text-align: center;">
+                                <button class="btn btn-secondary" onclick="loadMoreCalendarSubjects('expired')" data-testid="calendar-load-more-expired">
+                                    Cargar más (mostrando ${Object.keys(paginatedGroups).length} de ${totalSubjects} sujetos)
+                                </button>
+                            </div>
+                        `;
+                    }
                 }
             }
             
@@ -2220,9 +2289,11 @@
                     }
                 } else {
                     const grouped = groupBySubject(expiringSoon, d => `${d.scope || 'unknown'}_${d.company_key || ''}_${d.person_key || ''}`);
+                    // SPRINT C2.10.1: Paginar sujetos
+                    const { groups: paginatedGroups, hasMore, totalSubjects, currentPage } = paginateSubjects(grouped, 'expiring_soon');
                     
-                    Object.keys(grouped).forEach(subjectKey => {
-                        const items = grouped[subjectKey];
+                    Object.keys(paginatedGroups).forEach(subjectKey => {
+                        const items = paginatedGroups[subjectKey];
                         const firstItem = items[0];
                         const subjectName = getSubjectName(firstItem);
                         const subjectScope = getSubjectScope(firstItem);
@@ -2274,6 +2345,17 @@
                             </div>
                         `;
                     });
+                    
+                    // SPRINT C2.10.1: Botón "Cargar más" si hay más sujetos
+                    if (hasMore) {
+                        html += `
+                            <div style="margin-top: 16px; text-align: center;">
+                                <button class="btn btn-secondary" onclick="loadMoreCalendarSubjects('expiring_soon')" data-testid="calendar-load-more-expiring_soon">
+                                    Cargar más (mostrando ${Object.keys(paginatedGroups).length} de ${totalSubjects} sujetos)
+                                </button>
+                            </div>
+                        `;
+                    }
                 }
             }
             
@@ -2300,9 +2382,11 @@
                     }
                 } else {
                     const grouped = groupBySubject(missing, d => `${d.scope || 'unknown'}_${d.company_key || ''}_${d.person_key || ''}`);
+                    // SPRINT C2.10.1: Paginar sujetos
+                    const { groups: paginatedGroups, hasMore, totalSubjects, currentPage } = paginateSubjects(grouped, 'missing');
                     
-                    Object.keys(grouped).forEach(subjectKey => {
-                        const items = grouped[subjectKey];
+                    Object.keys(paginatedGroups).forEach(subjectKey => {
+                        const items = paginatedGroups[subjectKey];
                         const firstItem = items[0];
                         const subjectName = getSubjectName(firstItem);
                         const subjectScope = getSubjectScope(firstItem);
@@ -2368,10 +2452,44 @@
                             </div>
                         `;
                     });
+                    
+                    // SPRINT C2.10.1: Botón "Cargar más" si hay más sujetos
+                    if (hasMore) {
+                        html += `
+                            <div style="margin-top: 16px; text-align: center;">
+                                <button class="btn btn-secondary" onclick="loadMoreCalendarSubjects('missing')" data-testid="calendar-load-more-missing">
+                                    Cargar más (mostrando ${Object.keys(paginatedGroups).length} de ${totalSubjects} sujetos)
+                                </button>
+                            </div>
+                        `;
+                    }
                 }
             }
             
             return html;
+        }
+        
+        // SPRINT C2.10.1: Función para cargar más sujetos en el calendario
+        function loadMoreCalendarSubjects(section) {
+            if (!calendarPagination.currentPage[section]) {
+                calendarPagination.currentPage[section] = 1;
+            }
+            calendarPagination.currentPage[section]++;
+            
+            // Re-renderizar la sección activa
+            const rawData = window.pendingDocumentsDataRaw || { expired: [], expiring_soon: [], missing: [] };
+            const filtered = applyCalendarFilters(rawData, calendarFilters, calendarMaxMonthsBack);
+            window.pendingDocumentsData = filtered;
+            
+            // Determinar sección activa
+            const activeTab = document.querySelector('#pending-tab-expired[style*="border-bottom: 2px solid"]') ? 'expired' :
+                              document.querySelector('#pending-tab-expiring_soon[style*="border-bottom: 2px solid"]') ? 'expiring_soon' :
+                              document.querySelector('#pending-tab-missing[style*="border-bottom: 2px solid"]') ? 'missing' : section;
+            
+            const container = document.getElementById('pending-documents-container');
+            if (container) {
+                container.innerHTML = renderPendingDocuments(filtered.expired, filtered.expiringSoon, filtered.missing, activeTab);
+            }
         }
         
         // Función para normalizar strings (reutilizar de #buscar si existe, sino crear)
