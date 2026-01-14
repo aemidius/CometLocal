@@ -7989,6 +7989,23 @@
                         <button class="btn btn-secondary" onclick="closeCAEPlanModal()" data-testid="cae-plan-cancel">Cancelar</button>
                         <button class="btn btn-primary" onclick="generateCAEPlan()" data-testid="cae-plan-generate">Generar plan</button>
                     </div>
+                    
+                    <!-- SPRINT C2.11.1: Pack Export Section (hidden until plan is generated) -->
+                    <div id="cae-pack-section" style="display: none; margin-top: 24px; padding-top: 24px; border-top: 1px solid #334155;">
+                        <h3 style="margin-bottom: 16px;">Exportar Pack CAE (ZIP)</h3>
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label class="form-label">Plataforma para pack</label>
+                            <select id="cae-pack-platform" class="form-input" data-testid="cae-pack-platform">
+                                <option value="generic">Genérica</option>
+                                <option value="cetaima">Cetaima</option>
+                                <option value="ecoordina">Ecoordina</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="generateCAEPack()" data-testid="cae-pack-generate-button" style="width: 100%;" disabled>
+                            Generar pack (ZIP)
+                        </button>
+                        <div id="cae-pack-status" style="margin-top: 8px; display: none;"></div>
+                    </div>
                 </div>
             `;
             
@@ -8185,6 +8202,31 @@
                 // Guardar plan_id en el modal para uso posterior
                 resultDiv.setAttribute('data-plan-id', plan.plan_id);
                 
+                // SPRINT C2.11.1: Guardar plan completo para pack export
+                resultDiv.setAttribute('data-plan-json', JSON.stringify(plan));
+                
+                // SPRINT C2.11.1: Mostrar sección de pack siempre que haya un plan generado
+                const packSection = document.getElementById('cae-pack-section');
+                if (packSection) {
+                    packSection.style.display = 'block';
+                    
+                    // Habilitar/deshabilitar botón según si hay doc_ids disponibles
+                    const packButton = document.getElementById('cae-pack-generate-button');
+                    const docIds = plan.items
+                        .filter(item => item.suggested_doc_id)
+                        .map(item => item.suggested_doc_id);
+                    
+                    if (packButton) {
+                        if (docIds.length > 0) {
+                            packButton.disabled = false;
+                            packButton.textContent = 'Generar pack (ZIP)';
+                        } else {
+                            packButton.disabled = true;
+                            packButton.textContent = 'Generar pack (ZIP) - No hay documentos seleccionados';
+                        }
+                    }
+                }
+                
                 // SPRINT C2.9.11: Actualizar marker a success
                 if (stateMarker) {
                     stateMarker.setAttribute('data-state', 'done');
@@ -8213,6 +8255,129 @@
                         stateMarker.setAttribute('data-outcome', 'error');
                         stateMarker.setAttribute('data-error', 'Generation was interrupted');
                     }
+                }
+            }
+        }
+        
+        // SPRINT C2.11.1: Generar pack CAE (ZIP)
+        async function generateCAEPack() {
+            const resultDiv = document.getElementById('cae-plan-result');
+            const packButton = document.getElementById('cae-pack-generate-button');
+            const packStatus = document.getElementById('cae-pack-status');
+            
+            if (!resultDiv) {
+                console.error('[repo] No se encontró el div de resultado del plan');
+                return;
+            }
+            
+            // Obtener plan guardado
+            const planJson = resultDiv.getAttribute('data-plan-json');
+            if (!planJson) {
+                packStatus.innerHTML = '<div class="alert alert-error">No hay plan disponible. Genera un plan primero.</div>';
+                packStatus.style.display = 'block';
+                return;
+            }
+            
+            let plan;
+            try {
+                plan = JSON.parse(planJson);
+            } catch (e) {
+                packStatus.innerHTML = '<div class="alert alert-error">Error al parsear el plan guardado.</div>';
+                packStatus.style.display = 'block';
+                return;
+            }
+            
+            // Obtener plataforma seleccionada
+            const platformSelect = document.getElementById('cae-pack-platform');
+            const platform = platformSelect ? platformSelect.value : 'generic';
+            
+            // Extraer doc_ids de los items del plan que tienen suggested_doc_id
+            const docIds = plan.items
+                .filter(item => item.suggested_doc_id)
+                .map(item => item.suggested_doc_id);
+            
+            if (docIds.length === 0) {
+                packStatus.innerHTML = '<div class="alert alert-warning">El plan no contiene documentos seleccionados.</div>';
+                packStatus.style.display = 'block';
+                return;
+            }
+            
+            // Extraer missing items (items sin suggested_doc_id)
+            const missing = plan.items
+                .filter(item => !item.suggested_doc_id && item.kind === 'MISSING_PERIOD')
+                .map(item => ({
+                    type_id: item.type_id,
+                    company_key: item.company_key,
+                    person_key: item.person_key,
+                    period_key: item.period_key
+                }));
+            
+            // Deshabilitar botón y mostrar estado
+            if (packButton) {
+                packButton.disabled = true;
+                packButton.textContent = 'Generando...';
+            }
+            packStatus.innerHTML = '<div style="color: #94a3b8;">Generando pack...</div>';
+            packStatus.style.display = 'block';
+            
+            try {
+                // Llamar al endpoint
+                const response = await fetch(`${BACKEND_URL}/api/repository/cae/pack`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        platform: platform,
+                        doc_ids: docIds,
+                        missing: missing.length > 0 ? missing : null,
+                        meta: {
+                            plan_id: plan.plan_id,
+                            decision: plan.decision,
+                            created_at: plan.created_at
+                        }
+                    }),
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Error ${response.status}: ${errorText}`);
+                }
+                
+                // Obtener blob del ZIP
+                const blob = await response.blob();
+                
+                // Crear URL temporal y forzar descarga
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                
+                // Obtener nombre del archivo del header Content-Disposition
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = `CAE_PACK_${platform}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.zip`;
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                    if (filenameMatch) {
+                        filename = filenameMatch[1];
+                    }
+                }
+                
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                // Mostrar éxito
+                packStatus.innerHTML = '<div class="alert alert-success">Pack descargado correctamente.</div>';
+                
+            } catch (error) {
+                console.error('[repo] Error al generar pack:', error);
+                packStatus.innerHTML = `<div class="alert alert-error">Error al generar pack: ${escapeHtml(error.message)}</div>`;
+            } finally {
+                if (packButton) {
+                    packButton.disabled = false;
+                    packButton.textContent = 'Generar pack (ZIP)';
                 }
             }
         }
