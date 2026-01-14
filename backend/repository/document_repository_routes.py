@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import shutil
 import json
+import re
+import zipfile
+import io
 from pathlib import Path
 from uuid import uuid4
 from datetime import datetime, date
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Request
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Request, Response
 from pydantic import BaseModel, field_validator
 from typing import Optional, List, Union, Any
 
@@ -1055,4 +1058,232 @@ async def delete_document(doc_id: str) -> dict:
         raise HTTPException(status_code=400, detail=error_msg)
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== SPRINT C2.11.1: CAE Pack Export (ZIP) ==========
+
+class CAEPackRequest(BaseModel):
+    """Request para generar pack CAE (ZIP)."""
+    platform: str = "generic"  # "generic" | "cetaima" | "ecoordina"
+    doc_ids: List[str] = []  # Lista de doc_ids a incluir
+    missing: Optional[List[dict]] = None  # Items faltantes (opcional)
+    meta: Optional[dict] = None  # Metadata adicional (opcional)
+
+
+def normalize_filename(filename: str, max_length: int = 120) -> str:
+    """
+    Normaliza nombre de archivo para ser seguro en sistemas de archivos.
+    
+    - Quita caracteres peligrosos: / \\ : * ? " < > | y control chars
+    - Espacios -> _
+    - Limita longitud conservando extensión
+    """
+    # Obtener extensión
+    ext = ""
+    if "." in filename:
+        parts = filename.rsplit(".", 1)
+        if len(parts) == 2:
+            ext = "." + parts[1]
+            filename = parts[0]
+    
+    # Quitar caracteres peligrosos
+    dangerous = r'[/\\:*?"<>|]'
+    filename = re.sub(dangerous, '_', filename)
+    
+    # Quitar caracteres de control
+    filename = re.sub(r'[\x00-\x1f\x7f]', '', filename)
+    
+    # Espacios -> _
+    filename = filename.replace(' ', '_')
+    
+    # Limitar longitud (reservando espacio para extensión)
+    max_base = max_length - len(ext)
+    if len(filename) > max_base:
+        filename = filename[:max_base]
+    
+    return filename + ext
+
+
+@router.post("/cae/pack")
+async def generate_cae_pack(request: CAEPackRequest) -> Response:
+    """
+    SPRINT C2.11.1: Genera un pack CAE (ZIP) con documentos seleccionados.
+    
+    El ZIP contiene:
+    - /CAE_PACK/docs/<SUBJECT>/<TYPE>/<PERIOD>/<normalized_filename>.pdf
+    - README.txt con información del pack
+    - checklist.json con metadata estructurada
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Validar platform
+    valid_platforms = ["generic", "cetaima", "ecoordina"]
+    if request.platform not in valid_platforms:
+        raise HTTPException(
+            status_code=400,
+            detail=f"platform debe ser uno de: {', '.join(valid_platforms)}"
+        )
+    
+    # Validar que hay doc_ids
+    if not request.doc_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="doc_ids no puede estar vacío"
+        )
+    
+    store = DocumentRepositoryStoreV1()
+    
+    # Crear ZIP en memoria
+    zip_buffer = io.BytesIO()
+    zip_file = zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED)
+    
+    # Información para README y checklist
+    now = datetime.now()
+    timestamp = now.strftime("%Y-%m-%d_%H%M%S")
+    zip_filename = f"CAE_PACK_{request.platform}_{timestamp}.zip"
+    
+    included_docs = []
+    missing_docs = []
+    total_size = 0
+    
+    # Procesar cada doc_id
+    for doc_id in request.doc_ids:
+        try:
+            # Obtener documento
+            doc = store.get_document(doc_id)
+            if not doc:
+                missing_docs.append({
+                    "doc_id": doc_id,
+                    "reason": "Documento no encontrado en el repositorio"
+                })
+                continue
+            
+            # Obtener path del PDF
+            pdf_path = store._get_doc_pdf_path(doc_id)
+            if not pdf_path.exists():
+                missing_docs.append({
+                    "doc_id": doc_id,
+                    "reason": f"PDF no encontrado en {pdf_path}"
+                })
+                continue
+            
+            # Obtener tipo de documento
+            doc_type = store.get_type(doc.type_id)
+            type_name = doc_type.name if doc_type else doc.type_id
+            
+            # Determinar subject (company o person)
+            subject_key = doc.company_key or doc.person_key or "UNKNOWN"
+            subject_label = f"COMPANY_{doc.company_key}" if doc.company_key else f"PERSON_{doc.person_key}" if doc.person_key else "UNKNOWN"
+            
+            # Period
+            period_key = doc.period_key or "NO_PERIOD"
+            
+            # Normalizar nombre de archivo
+            original_filename = doc.file_name_original or f"{doc_id}.pdf"
+            normalized_name = normalize_filename(original_filename)
+            
+            # Ruta dentro del ZIP
+            zip_path = f"CAE_PACK/docs/{subject_label}/{type_name}/{period_key}/{normalized_name}"
+            
+            # Añadir PDF al ZIP
+            zip_file.write(str(pdf_path), zip_path)
+            
+            # Información del documento incluido
+            file_size = pdf_path.stat().st_size
+            total_size += file_size
+            
+            included_docs.append({
+                "doc_id": doc_id,
+                "type_id": doc.type_id,
+                "type_name": type_name,
+                "subject": subject_label,
+                "period": period_key,
+                "filename": normalized_name,
+                "size_bytes": file_size,
+                "scope": doc.scope,
+                "status": doc.status
+            })
+            
+        except Exception as e:
+            logger.warning(f"Error procesando doc_id {doc_id}: {e}")
+            missing_docs.append({
+                "doc_id": doc_id,
+                "reason": f"Error: {str(e)}"
+            })
+    
+    # Generar README.txt
+    readme_lines = [
+        f"CAE PACK - {request.platform.upper()}",
+        f"Generado: {now.isoformat()}",
+        f"",
+        f"=== RESUMEN ===",
+        f"Plataforma: {request.platform}",
+        f"Documentos incluidos: {len(included_docs)}",
+        f"Documentos no incluidos: {len(missing_docs)}",
+        f"Tamaño total: {total_size:,} bytes ({total_size / 1024 / 1024:.2f} MB)",
+        f"",
+        f"=== DOCUMENTOS INCLUIDOS ===",
+    ]
+    
+    for doc_info in included_docs:
+        readme_lines.append(
+            f"{doc_info['subject']} | {doc_info['type_name']} | {doc_info['period']} | {doc_info['filename']}"
+        )
+    
+    if missing_docs:
+        readme_lines.extend([
+            f"",
+            f"=== DOCUMENTOS NO INCLUIDOS ===",
+        ])
+        for missing in missing_docs:
+            readme_lines.append(f"{missing['doc_id']}: {missing['reason']}")
+    
+    if request.missing:
+        readme_lines.extend([
+            f"",
+            f"=== FALTANTES DETECTADOS POR EL PLAN ===",
+        ])
+        for missing_item in request.missing:
+            type_id = missing_item.get('type_id', 'N/A')
+            subject = missing_item.get('company_key') or missing_item.get('person_key', 'N/A')
+            period = missing_item.get('period_key', 'N/A')
+            readme_lines.append(f"{subject} | {type_id} | {period}")
+    
+    readme_content = "\n".join(readme_lines)
+    zip_file.writestr("CAE_PACK/README.txt", readme_content.encode('utf-8'))
+    
+    # Generar checklist.json
+    checklist = {
+        "generated_at": now.isoformat(),
+        "platform": request.platform,
+        "summary": {
+            "included_count": len(included_docs),
+            "missing_count": len(missing_docs),
+            "total_size_bytes": total_size
+        },
+        "included_documents": included_docs,
+        "missing_documents": missing_docs,
+        "plan_missing": request.missing or [],
+        "meta": request.meta or {}
+    }
+    zip_file.writestr("CAE_PACK/checklist.json", json.dumps(checklist, indent=2, ensure_ascii=False).encode('utf-8'))
+    
+    # Cerrar ZIP
+    zip_file.close()
+    zip_buffer.seek(0)
+    
+    # Verificar tamaño (warning si > 200MB)
+    zip_size = len(zip_buffer.getvalue())
+    if zip_size > 200 * 1024 * 1024:
+        logger.warning(f"CAE Pack generado es muy grande: {zip_size / 1024 / 1024:.2f} MB")
+    
+    # Devolver ZIP como respuesta
+    return Response(
+        content=zip_buffer.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{zip_filename}"'
+        }
+    )
 
