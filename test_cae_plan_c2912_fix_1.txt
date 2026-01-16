@@ -1,0 +1,115 @@
+[WebServer] INFO:     Started server process [46084]
+[WebServer] INFO:     Waiting for application startup.
+[WebServer] Using data dir: D:\Proyectos_Cursor\CometLocal\data
+[WebServer] [job_queue] Cargados 18 jobs desde disco
+[WebServer] [job_queue] Worker iniciado
+[WebServer] Config paths: org=D:\Proyectos_Cursor\CometLocal\data\refs\org.json people=D:\Proyectos_Cursor\CometLocal\data\refs\people.json platforms=D:\Proyectos_Cursor\CometLocal\data\refs\platforms.json secrets=D:\Proyectos_Cursor\CometLocal\data\refs\secrets.json documents=D:\Proyectos_Cursor\CometLocal\data\refs\documents.json
+[WebServer] Using existing LLM config: D:\Proyectos_Cursor\CometLocal\backend\..\data\refs\llm_config.json
+[WebServer] INFO:     Application startup complete.
+[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+[WebServer] INFO:     127.0.0.1:54460 - "GET /api/health HTTP/1.1" 200 OK
+
+Running 1 test using 1 worker
+
+(node:44424) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44424) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] INFO:     127.0.0.1:54463 - "GET /api/health HTTP/1.1" 200 OK
+[E2E] Server health OK - patch: v1.1.1, build_id: undefined
+[WebServer] INFO:     127.0.0.1:54463 - "POST /api/test/seed/reset HTTP/1.1" 200 OK
+[SEED] reset status: 200
+[WebServer] INFO:     127.0.0.1:54463 - "POST /api/test/seed/basic_repository HTTP/1.1" 200 OK
+[SEED] basic_repository status: 200 {
+  company_key: [32m'E2E_COMPANY_312b0cd6'[39m,
+  person_key: [32m'E2E_PERSON_312b0cd6'[39m,
+  type_ids: [ [32m'E2E_TYPE_312b0cd6_0'[39m ],
+  doc_ids: [ [32m'E2E_DOC_312b0cd6_0_0'[39m, [32m'E2E_DOC_312b0cd6_0_1'[39m ],
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  message: [32m'Created basic repository: 1 types, 2 docs, 2 missing periods'[39m
+}
+[WebServer] INFO:     127.0.0.1:63035 - "GET /repository HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768165728553 bootstrap: start
+[CONSOLE] [VIEWDBG] 1768165728553 bootstrap: app-ready set
+[WebServer] INFO:     127.0.0.1:63035 - "GET /api/health HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768165728553 initHashRouting: registering hashchange listener
+[CONSOLE] [VIEWDBG] 1768165728553 bootstrap: calling runRoutingNow for initial hash
+[CONSOLE] [VIEWDBG] 1768165728554 runRoutingNow: hash=, route=null
+[CONSOLE] [VIEWDBG] 1768165728554 runRoutingNow: normalizing hash from  to #inicio
+[CONSOLE] [VIEWDBG] 1768165728554 bootstrap: completed
+[CONSOLE] [VIEWDBG] 1768165728588 hashchange event fired
+[CONSOLE] [VIEWDBG] 1768165728589 runRoutingNow: hash=#inicio, route=inicio
+[CONSOLE] [VIEWDBG] 1768165728589 updateNavActive: updated nav for route=inicio
+[CONSOLE] [VIEWDBG] 1768165728589 runRoutingNow: calling loadPage(inicio)
+[CONSOLE] [VIEWDBG] 1768165728589 loadPage: start page=inicio
+[CONSOLE] [VIEWDBG] 1768165728589 loadPage: content.innerHTML set to loading
+[CONSOLE] [VIEWDBG] 1768165728590 setViewState: inicio -> loaded on view-state-root
+[CONSOLE] [VIEWDBG] 1768165728590 setViewState: inicio -> loaded applied, testId=view-inicio-loaded
+[WebServer] INFO:     127.0.0.1:63035 - "GET /api/repository/types HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768165728598 bootstrap: E2E mode detected: true
+[gotoHash] app-ready found, now changing hash to #calendario
+[CONSOLE] [VIEWDBG] 1768165728614 hashchange event fired
+[CONSOLE] [VIEWDBG] 1768165728614 runRoutingNow: hash=#calendario, route=calendario
+[CONSOLE] [VIEWDBG] 1768165728614 updateNavActive: updated nav for route=calendario
+[CONSOLE] [VIEWDBG] 1768165728614 runRoutingNow: calling loadPage(calendario)
+[CONSOLE] [VIEWDBG] 1768165728614 loadPage: start page=calendario
+[CONSOLE] [VIEWDBG] 1768165728614 loadPage: content.innerHTML set to loading
+[CONSOLE] [VIEWDBG] 1768165728614 calendario: entered case
+[CONSOLE] [VIEWDBG] 1768165728614 dbg-calendario-route-hit marker inserted
+[CONSOLE] [VIEWDBG] 1768165728614 setViewState: calendario -> loaded on view-state-root
+[CONSOLE] [VIEWDBG] 1768165728614 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+[CONSOLE] [VIEWDBG] 1768165728614 calendario: set loaded
+[CONSOLE] [VIEWDBG] 1768165728614 calendario: before loadCalendario
+[CONSOLE] [VIEWDBG] 1768165728615 loadCalendario: start
+[CONSOLE] [VIEWDBG] 1768165728615 ensureRepoDataLoaded: start
+[CONSOLE] [VIEWDBG] 1768165728615 Loading types...
+[CONSOLE] [VIEWDBG] 1768165728616 Loading people...
+[gotoHash] View calendario marked as loaded
+[gotoHash] Waiting for calendario load-start marker...
+[WebServer] INFO:     127.0.0.1:63350 - "GET /api/repository/docs HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:61834 - "GET /api/repository/rules HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:63168 - "GET /api/config/platforms HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:63035 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[WebServer] INFO:     127.0.0.1:53905 - "GET /api/repository/types HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:52618 - "GET /api/config/people HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:61291 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[CONSOLE] [VIEWDBG] 1768165735597 setViewState: inicio -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768165735597 setViewState: inicio -> ready applied, testId=view-inicio-ready
+[CONSOLE] [VIEWDBG] 1768165735597 runRoutingNow: loadPage(inicio) completed
+[CONSOLE] [VIEWDBG] 1768165735605 Types loaded:
+[CONSOLE] [VIEWDBG] 1768165735606 People loaded:
+[CONSOLE] [VIEWDBG] 1768165735606 ensureRepoDataLoaded: done
+[CONSOLE] [VIEWDBG] 1768165735606 loadCalendario: max_months_back=12 (E2E=true, original=24)
+[CONSOLE] [VIEWDBG] 1768165735606 loadCalendario: before fetch pendings
+[WebServer] INFO:     127.0.0.1:61291 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+  x  1 tests\cae_plan_e2e.spec.js:96:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 2: Genera plan con scope m├¡nimo (15.8s)
+
+
+  1) tests\cae_plan_e2e.spec.js:96:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 2: Genera plan con scope m├¡nimo 
+
+    Error: calendario routing/handler issue: loadCalendario() was never called (dbg-calendario-load-start not found) | Screenshot: D:\Proyectos_Cursor\CometLocal\docs\evidence\core_failures\calendario_no_load_start_1768165743672.png
+
+       at helpers\e2eSeed.js:362
+
+      360 |                 page.waitForSelector(`[data-testid="${viewErrorTestId}"]`, { timeout: timeout, state: 'attached' }).then(() => 'error')
+      361 |             ]);
+    > 362 |             
+          |             ^
+      363 |             // Verificar cu├íl apareci├│
+      364 |             const readyExists = await page.locator(`[data-testid="${viewReadyTestId}"]`).count() > 0;
+      365 |             const errorExists = await page.locator(`[data-testid="${viewErrorTestId}"]`).count() > 0;
+        at gotoHash (D:\Proyectos_Cursor\CometLocal\tests\helpers\e2eSeed.js:362:15)
+        at D:\Proyectos_Cursor\CometLocal\tests\cae_plan_e2e.spec.js:48:9
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_plan_e2e-CAE-Plan-E2E--da510-enera-plan-con-scope-m├¡nimo\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_plan_e2e-CAE-Plan-E2E--da510-enera-plan-con-scope-m├¡nimo\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\cae_plan_e2e-CAE-Plan-E2E--da510-enera-plan-con-scope-m├¡nimo\error-context.md
+
+  1 failed
+    tests\cae_plan_e2e.spec.js:96:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 2: Genera plan con scope m├¡nimo 

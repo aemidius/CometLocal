@@ -1,0 +1,6 @@
+
+> cometlocal@1.0.0 test:e2e:core
+> playwright test --workers=1 --retries=0 tests/e2e_config_smoke.spec.js tests/e2e_search_smoke.spec.js tests/e2e_calendar_pending_smoke.spec.js tests/e2e_upload_preview.spec.js tests/e2e_edit_document.spec.js tests/cae_plan_e2e.spec.js
+
+Error: http://127.0.0.1:8000/api/health is already used, make sure that nothing is running on the port/url or set reuseExistingServer:true in config.webServer.
+

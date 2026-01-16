@@ -1,0 +1,50 @@
+{
+  "plan_id": "CAEPLAN-20260108-142944-d2d516eb",
+  "created_at": "2026-01-08T14:29:44.389305",
+  "scope": {
+    "platform_key": "egestiona",
+    "type_ids": [],
+    "company_key": null,
+    "person_key": "E2E_PERSON_e7e4f4f1",
+    "period_keys": null,
+    "mode": "PREPARE_WRITE"
+  },
+  "decision": "BLOCKED",
+  "reasons": [
+    "Item E2E_TYPE_e7e4f4f1_0: company_key y person_key requeridos",
+    "Item E2E_TYPE_e7e4f4f1_0: company_key y person_key requeridos"
+  ],
+  "items": [
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "E2E_TYPE_e7e4f4f1_0",
+      "scope": "worker",
+      "company_key": null,
+      "person_key": "E2E_PERSON_e7e4f4f1",
+      "period_key": "2026-01",
+      "suggested_doc_id": "",
+      "resolved_dates": null,
+      "status": "BLOCKED",
+      "reason": "company_key y person_key requeridos para scope=worker"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "E2E_TYPE_e7e4f4f1_0",
+      "scope": "worker",
+      "company_key": null,
+      "person_key": "E2E_PERSON_e7e4f4f1",
+      "period_key": "2025-12",
+      "suggested_doc_id": "",
+      "resolved_dates": null,
+      "status": "BLOCKED",
+      "reason": "company_key y person_key requeridos para scope=worker"
+    }
+  ],
+  "summary": {
+    "total_items": 2,
+    "items_planned": 0,
+    "items_needs_confirmation": 0,
+    "items_blocked": 2
+  },
+  "executor_hint": "egestiona_upload_v1"
+}

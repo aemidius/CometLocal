@@ -1,0 +1,77 @@
+[
+  {
+    "time": 1767867405275,
+    "text": "[repo-upload] listener installed {time: 1767867405268}",
+    "type": "log"
+  },
+  {
+    "time": 1767867405277,
+    "text": "[VIEWDBG] 1767867405273 initHashRouting: start route=coordinacion",
+    "type": "log"
+  },
+  {
+    "time": 1767867405278,
+    "text": "[VIEWDBG] 1767867405273 initHashRouting: hash already correct, skipping update",
+    "type": "log"
+  },
+  {
+    "time": 1767867405278,
+    "text": "[VIEWDBG] 1767867405273 waitForElement: start",
+    "type": "log"
+  },
+  {
+    "time": 1767867405278,
+    "text": "[VIEWDBG] 1767867405274 waitForElement: found",
+    "type": "log"
+  },
+  {
+    "time": 1767867405278,
+    "text": "[VIEWDBG] 1767867405274 initHashRouting: DOM ready, loading page coordinacion",
+    "type": "log"
+  },
+  {
+    "time": 1767867405279,
+    "text": "[VIEWDBG] 1767867405274 initHashRouting: calling loadPage(coordinacion)",
+    "type": "log"
+  },
+  {
+    "time": 1767867405280,
+    "text": "[VIEWDBG] 1767867405274 loadPage: start page=coordinacion",
+    "type": "log"
+  },
+  {
+    "time": 1767867405280,
+    "text": "[VIEWDBG] 1767867405275 loadPage: content.innerHTML set to loading",
+    "type": "log"
+  },
+  {
+    "time": 1767867405280,
+    "text": "[VIEWDBG] 1767867405275 setViewState: coordinacion -> loaded on element DIV",
+    "type": "log"
+  },
+  {
+    "time": 1767867405280,
+    "text": "[VIEWDBG] 1767867405276 setViewState: coordinacion -> loaded applied, testId=view-coordinacion-loaded",
+    "type": "log"
+  },
+  {
+    "time": 1767867405308,
+    "text": "[VIEWDBG] 1767867405295 setViewState: coordinacion -> ready on element DIV",
+    "type": "log"
+  },
+  {
+    "time": 1767867405308,
+    "text": "[VIEWDBG] 1767867405295 setViewState: coordinacion -> ready applied, testId=view-coordinacion-ready",
+    "type": "log"
+  },
+  {
+    "time": 1767867405308,
+    "text": "[VIEWDBG] 1767867405295 initHashRouting: loadPage(coordinacion) completed",
+    "type": "log"
+  },
+  {
+    "time": 1767867405364,
+    "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "type": "error"
+  }
+]

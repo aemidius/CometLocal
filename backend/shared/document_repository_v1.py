@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Literal, Optional, List
+from typing import Literal, Optional, List, Dict, Any
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -11,6 +11,14 @@ class DocumentScopeV1(str, Enum):
     """Alcance del documento: empresa o trabajador."""
     company = "company"
     worker = "worker"
+
+
+class PeriodKindV1(str, Enum):
+    """Tipo de período para documentos periódicos."""
+    NONE = "NONE"
+    MONTH = "MONTH"
+    YEAR = "YEAR"
+    QUARTER = "QUARTER"
 
 
 class ValidityBasisV1(str, Enum):
@@ -77,6 +85,32 @@ class FixedEndDateValidityConfigV1(BaseModel):
     )
 
 
+class NMonthsValidityConfigV1(BaseModel):
+    """Configuración para validez de N meses (override de monthly)."""
+    n: int = Field(
+        ge=1,
+        le=120,
+        description="Número de meses (ej: 12 = cada 12 meses)"
+    )
+    month_source: Literal["issue_date", "name_date"] = Field(
+        default="issue_date",
+        description="Origen del mes para el período"
+    )
+    valid_from: Literal["period_start"] = Field(
+        default="period_start",
+        description="Inicio de validez"
+    )
+    valid_to: Literal["period_end"] = Field(
+        default="period_end",
+        description="Fin de validez"
+    )
+    grace_days: int = Field(
+        default=0,
+        ge=0,
+        description="Días de gracia después del fin del período"
+    )
+
+
 class ValidityPolicyV1(BaseModel):
     """Política declarativa de validez (determinista)."""
     mode: ValidityModeV1 = Field(
@@ -96,6 +130,10 @@ class ValidityPolicyV1(BaseModel):
     fixed_end_date: Optional[FixedEndDateValidityConfigV1] = Field(
         default=None,
         description="Configuración si mode=fixed_end_date"
+    )
+    n_months: Optional[NMonthsValidityConfigV1] = Field(
+        default=None,
+        description="Override para 'Cada N meses' (compatible con mode=monthly)"
     )
 
 
@@ -138,6 +176,14 @@ class DocumentTypeV1(BaseModel):
         default=True,
         description="Si está activo (desactivar en lugar de borrar)"
     )
+    issue_date_required: bool = Field(
+        default=True,
+        description="Si la fecha de emisión es obligatoria al subir documentos de este tipo"
+    )
+    validity_start_mode: Literal["issue_date", "manual"] = Field(
+        default="issue_date",
+        description="Cómo se determina la fecha de inicio de vigencia: issue_date=igual a emisión, manual=fecha independiente"
+    )
 
 
 class ExtractedMetadataV1(BaseModel):
@@ -149,6 +195,10 @@ class ExtractedMetadataV1(BaseModel):
     name_date: Optional[date] = Field(
         default=None,
         description="Fecha parseada desde el nombre del archivo"
+    )
+    validity_start_date: Optional[date] = Field(
+        default=None,
+        description="Fecha de inicio de vigencia (independiente de issue_date si validity_start_mode=manual)"
     )
     period_start: Optional[date] = Field(
         default=None,
@@ -234,6 +284,22 @@ class DocumentInstanceV1(BaseModel):
         default=DocumentStatusV1.draft,
         description="Estado del documento"
     )
+    period_kind: PeriodKindV1 = Field(
+        default=PeriodKindV1.NONE,
+        description="Tipo de período: NONE, MONTH, YEAR, QUARTER (derivable de validity_policy.mode)"
+    )
+    period_key: Optional[str] = Field(
+        default=None,
+        description="Clave del período: MONTH => YYYY-MM, YEAR => YYYY, QUARTER => YYYY-Qn"
+    )
+    issued_at: Optional[date] = Field(
+        default=None,
+        description="Fecha de emisión del documento (si está disponible)"
+    )
+    needs_period: bool = Field(
+        default=False,
+        description="Si el documento necesita que se le asigne un period_key (migración pendiente)"
+    )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
         description="Fecha de creación"
@@ -244,20 +310,73 @@ class DocumentInstanceV1(BaseModel):
     )
 
 
-class SubmissionRuleV1(BaseModel):
-    """Regla de envío (placeholder, solo storage básico por ahora)."""
-    rule_id: str = Field(
-        description="ID de la regla"
+class SubmissionRuleMatchV1(BaseModel):
+    """Criterios de matching para una regla."""
+    pending_text_contains: List[str] = Field(
+        default_factory=list,
+        description="Tokens que deben aparecer en el texto del pendiente (todos deben estar)"
     )
-    type_id: str = Field(
-        description="ID del tipo de documento"
+    empresa_contains: List[str] = Field(
+        default_factory=list,
+        description="Tokens opcionales que deben aparecer en el nombre de empresa"
+    )
+
+
+class SubmissionRuleFormV1(BaseModel):
+    """Configuración de formulario para la regla."""
+    upload_field_selector: str = Field(
+        default="input[type='file']",
+        description="Selector CSS para el campo de upload"
+    )
+    date_fields: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Campos de fecha: { 'inicio': { 'selector': str, 'format': str }, 'fin': { 'selector': str, 'format': str, 'optional': bool } }"
+    )
+    submit_button: Dict[str, Optional[str]] = Field(
+        default_factory=lambda: {"selector": None, "by_text": None},
+        description="Botón de submit: { 'selector'?: str, 'by_text'?: str }"
+    )
+    confirmation: Dict[str, List[str]] = Field(
+        default_factory=lambda: {"text_contains": []},
+        description="Confirmación esperada: { 'text_contains': List[str] }"
+    )
+
+
+class RuleScopeV1(str, Enum):
+    """Alcance de una regla: GLOBAL (plataforma+tipo) o COORD (plataforma+coord+tipo)."""
+    GLOBAL = "GLOBAL"
+    COORD = "COORD"
+
+
+class SubmissionRuleV1(BaseModel):
+    """Regla de envío configurable por UI."""
+    rule_id: str = Field(
+        description="ID único de la regla"
+    )
+    scope: RuleScopeV1 = Field(
+        default=RuleScopeV1.COORD,
+        description="Alcance: GLOBAL (plataforma+tipo) o COORD (plataforma+coord+tipo)"
     )
     platform_key: str = Field(
-        description="Clave de la plataforma destino"
+        description="Clave de la plataforma destino (ej: 'egestiona')"
     )
-    active: bool = Field(
+    coord_label: Optional[str] = Field(
+        default=None,
+        description="Etiqueta de coordinación (requerido si scope=COORD, ignorado si scope=GLOBAL)"
+    )
+    enabled: bool = Field(
         default=True,
-        description="Si está activa"
+        description="Si la regla está habilitada"
+    )
+    match: SubmissionRuleMatchV1 = Field(
+        description="Criterios de matching"
+    )
+    document_type_id: str = Field(
+        description="ID del tipo de documento asociado"
+    )
+    form: SubmissionRuleFormV1 = Field(
+        default_factory=SubmissionRuleFormV1,
+        description="Configuración del formulario"
     )
 
 
@@ -274,6 +393,70 @@ class ValidityOverrideV1(BaseModel):
     reason: Optional[str] = Field(
         default=None,
         description="Razón del override"
+    )
+
+
+class SubmissionRecordV1(BaseModel):
+    """Registro de envío de documento (historial determinista)."""
+    record_id: str = Field(
+        description="ID único del registro"
+    )
+    platform_key: str = Field(
+        description="Clave de la plataforma (ej: 'egestiona')"
+    )
+    coord_label: Optional[str] = Field(
+        default=None,
+        description="Etiqueta de coordinación"
+    )
+    company_key: Optional[str] = Field(
+        default=None,
+        description="Clave de empresa"
+    )
+    person_key: Optional[str] = Field(
+        default=None,
+        description="Clave de persona/trabajador"
+    )
+    pending_fingerprint: str = Field(
+        description="Fingerprint determinista del pending item (SHA256 hex)"
+    )
+    pending_snapshot: Dict[str, Any] = Field(
+        description="Snapshot del pending item al momento del registro"
+    )
+    doc_id: str = Field(
+        description="ID del documento del repositorio"
+    )
+    type_id: str = Field(
+        description="ID del tipo de documento"
+    )
+    file_sha256: Optional[str] = Field(
+        default=None,
+        description="SHA256 del archivo PDF (opcional)"
+    )
+    action: Literal["planned", "submitted", "skipped", "failed"] = Field(
+        description="Acción realizada: planned (planificado), submitted (enviado), skipped (omitido), failed (fallido)"
+    )
+    decision: str = Field(
+        description="Decisión del guardrail (ej: AUTO_SUBMIT_OK, SKIP_ALREADY_SUBMITTED)"
+    )
+    run_id: str = Field(
+        description="ID del run que generó este registro"
+    )
+    evidence_path: str = Field(
+        description="Ruta al directorio de evidence (ej: 'data/runs/<run_id>/evidence')"
+    )
+    created_at: str = Field(
+        description="Fecha de creación (ISO 8601)"
+    )
+    updated_at: str = Field(
+        description="Fecha de última actualización (ISO 8601)"
+    )
+    submitted_at: Optional[str] = Field(
+        default=None,
+        description="Fecha de envío real (ISO 8601, solo si action=submitted)"
+    )
+    error_message: Optional[str] = Field(
+        default=None,
+        description="Mensaje de error si action=failed"
     )
 
 

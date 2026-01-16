@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-01-15T22:52:26.856Z",
+  "url": "http://127.0.0.1:8000/home",
+  "buildStamp": "1768517502613",
+  "status": "error",
+  "errorCode": "run_id_missing",
+  "httpStatus": 200,
+  "hasRunIdMissingInUI": true,
+  "consoleErrors": 1,
+  "pageErrors": 1,
+  "evidenceDir": "D:\\Proyectos_Cursor\\CometLocal\\docs\\evidence\\egestiona_manual",
+  "fieldsSelected": {
+    "company": "Tedelab Ingeniería SCCL (F63161988)",
+    "coord": "Aigues de Manresa (egestiona)",
+    "platform": "egestiona",
+    "worker": "Emilio Roldán Molina (erm)",
+    "scope": "worker"
+  }
+}

@@ -1,0 +1,519 @@
+[WebServer] INFO:     Started server process [34384]
+[WebServer] INFO:     Waiting for application startup.
+[WebServer] Using data dir: D:\Proyectos_Cursor\CometLocal\data
+[WebServer] [job_queue] Cargados 18 jobs desde disco
+[WebServer] [job_queue] Worker iniciado[WebServer] 
+[WebServer] Config paths: org=D:\Proyectos_Cursor\CometLocal\data\refs\org.json people=D:\Proyectos_Cursor\CometLocal\data\refs\people.json platforms=D:\Proyectos_Cursor\CometLocal\data\refs\platforms.json secrets=D:\Proyectos_Cursor\CometLocal\data\refs\secrets.json documents=D:\Proyectos_Cursor\CometLocal\data\refs\documents.json
+[WebServer] Using existing LLM config: D:\Proyectos_Cursor\CometLocal\backend\..\data\refs\llm_config.json
+[WebServer] INFO:     Application startup complete.
+[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+[WebServer] INFO:     127.0.0.1:61063 - "GET /api/health HTTP/1.1" 200 OK
+
+Running 4 tests using 1 worker
+
+(node:43944) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:43944) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] INFO:     127.0.0.1:61064 - "GET /api/health HTTP/1.1" 200 OK
+[E2E] Server health OK - patch: v1.1.1, build_id: undefined
+[WebServer] INFO:     127.0.0.1:61064 - "POST /api/test/seed/reset HTTP/1.1" 200 OK
+[SEED] reset status: 200
+[WebServer] INFO:     127.0.0.1:61064 - "POST /api/test/seed/basic_repository HTTP/1.1" 200 OK
+[SEED] basic_repository status: 200 {
+  company_key: [32m'E2E_COMPANY_57ebc8ee'[39m,
+  person_key: [32m'E2E_PERSON_57ebc8ee'[39m,
+  type_ids: [ [32m'E2E_TYPE_57ebc8ee_0'[39m ],
+  doc_ids: [ [32m'E2E_DOC_57ebc8ee_0_0'[39m, [32m'E2E_DOC_57ebc8ee_0_1'[39m ],
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  message: [32m'Created basic repository: 1 types, 2 docs, 2 missing periods'[39m
+}
+[WebServer] INFO:     127.0.0.1:59798 - "GET /repository HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164293841 bootstrap: start
+[CONSOLE] [VIEWDBG] 1768164293841 bootstrap: app-ready set
+[WebServer] INFO:     127.0.0.1:59798 - "GET /api/health HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164293842 initHashRouting: registering hashchange listener
+[CONSOLE] [VIEWDBG] 1768164293842 bootstrap: calling runRoutingNow for initial hash
+[CONSOLE] [VIEWDBG] 1768164293842 runRoutingNow: hash=, route=null
+[CONSOLE] [VIEWDBG] 1768164293842 runRoutingNow: normalizing hash from  to #inicio
+[CONSOLE] [VIEWDBG] 1768164293842 bootstrap: completed
+[CONSOLE] [VIEWDBG] 1768164293875 hashchange event fired
+[CONSOLE] [VIEWDBG] 1768164293875 runRoutingNow: hash=#inicio, route=inicio
+[CONSOLE] [VIEWDBG] 1768164293875 updateNavActive: updated nav for route=inicio
+[CONSOLE] [VIEWDBG] 1768164293875 runRoutingNow: calling loadPage(inicio)
+[CONSOLE] [VIEWDBG] 1768164293875 loadPage: start page=inicio
+[CONSOLE] [VIEWDBG] 1768164293875 loadPage: content.innerHTML set to loading
+[CONSOLE] [VIEWDBG] 1768164293875 setViewState: inicio -> loaded on view-state-root
+[CONSOLE] [VIEWDBG] 1768164293876 setViewState: inicio -> loaded applied, testId=view-inicio-loaded
+[WebServer] INFO:     127.0.0.1:59798 - "GET /api/repository/types HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164293883 bootstrap: E2E mode detected: true
+[gotoHash] app-ready found, now changing hash to #calendario
+[CONSOLE] [VIEWDBG] 1768164293891 hashchange event fired
+[CONSOLE] [VIEWDBG] 1768164293891 runRoutingNow: hash=#calendario, route=calendario
+[CONSOLE] [VIEWDBG] 1768164293891 updateNavActive: updated nav for route=calendario
+[CONSOLE] [VIEWDBG] 1768164293891 runRoutingNow: calling loadPage(calendario)
+[CONSOLE] [VIEWDBG] 1768164293891 loadPage: start page=calendario
+[CONSOLE] [VIEWDBG] 1768164293891 loadPage: content.innerHTML set to loading
+[CONSOLE] [VIEWDBG] 1768164293891 calendario: entered case
+[CONSOLE] [VIEWDBG] 1768164293892 dbg-calendario-route-hit marker inserted
+[CONSOLE] [VIEWDBG] 1768164293892 setViewState: calendario -> loaded on view-state-root
+[CONSOLE] [VIEWDBG] 1768164293892 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+[CONSOLE] [VIEWDBG] 1768164293892 calendario: set loaded
+[CONSOLE] [VIEWDBG] 1768164293892 calendario: before loadCalendario
+[CONSOLE] [VIEWDBG] 1768164293892 loadCalendario: start
+[CONSOLE] [VIEWDBG] 1768164293892 ensureRepoDataLoaded: start
+[CONSOLE] [VIEWDBG] 1768164293892 Loading types...
+[CONSOLE] [VIEWDBG] 1768164293893 Loading people...
+[gotoHash] View calendario marked as loaded
+[WebServer] INFO:     127.0.0.1:49447 - "GET /api/repository/docs HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:57750 - "GET /api/repository/rules HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:57752 - "GET /api/config/platforms HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:59798 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[WebServer] INFO:     127.0.0.1:54727 - "GET /api/repository/types HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:49447 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[WebServer] INFO:     127.0.0.1:56482 - "GET /api/config/people HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164299937 setViewState: inicio -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164299937 setViewState: inicio -> ready applied, testId=view-inicio-ready
+[CONSOLE] [VIEWDBG] 1768164299937 runRoutingNow: loadPage(inicio) completed
+[CONSOLE] [VIEWDBG] 1768164299944 Types loaded:
+[CONSOLE] [VIEWDBG] 1768164299945 People loaded:
+[CONSOLE] [VIEWDBG] 1768164299945 ensureRepoDataLoaded: done
+[CONSOLE] [VIEWDBG] 1768164299945 loadCalendario: max_months_back=12 (E2E=true, original=24)
+[CONSOLE] [VIEWDBG] 1768164299945 loadCalendario: before fetch pendings
+[WebServer] INFO:     127.0.0.1:56482 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164307001 loadCalendario: after fetch pendings
+[WebServer] INFO:     127.0.0.1:56482 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164307184 loadCalendario: after render table
+[CONSOLE] [VIEWDBG] 1768164307184 loadCalendario: end
+[CONSOLE] [VIEWDBG] 1768164307184 setViewState: calendario -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164307184 setViewState: calendario -> ready applied, testId=view-calendario-ready
+[CONSOLE] [VIEWDBG] 1768164307184 calendario: after loadCalendario
+[CONSOLE] [VIEWDBG] 1768164307184 calendario: before set ready
+[CONSOLE] [VIEWDBG] 1768164307184 setViewState: calendario -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164307184 setViewState: calendario -> ready applied, testId=view-calendario-ready
+[CONSOLE] [VIEWDBG] 1768164307184 calendario: after set ready
+[CONSOLE] [VIEWDBG] 1768164307184 calendario: finally block
+[CONSOLE] [VIEWDBG] 1768164307184 runRoutingNow: loadPage(calendario) completed
+[gotoHash] View calendario marked as ready
+[WebServer] INFO:     127.0.0.1:56482 - "GET /api/config/platforms HTTP/1.1" 200 OK
+  ok 1 tests\cae_plan_e2e.spec.js:51:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 1: Abre modal de CAE plan desde tab Pendientes (15.5s)
+[WebServer] INFO:     127.0.0.1:56300 - "GET /repository HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164309151 bootstrap: start
+[CONSOLE] [VIEWDBG] 1768164309151 bootstrap: app-ready set
+[CONSOLE] [VIEWDBG] 1768164309152 initHashRouting: registering hashchange listener
+[CONSOLE] [VIEWDBG] 1768164309152 bootstrap: calling runRoutingNow for initial hash
+[WebServer] INFO:     127.0.0.1:56300 - "GET /api/health HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164309152 runRoutingNow: hash=, route=null
+[CONSOLE] [VIEWDBG] 1768164309152 runRoutingNow: normalizing hash from  to #inicio
+[CONSOLE] [VIEWDBG] 1768164309153 bootstrap: completed
+[CONSOLE] [VIEWDBG] 1768164309182 hashchange event fired
+[CONSOLE] [VIEWDBG] 1768164309182 runRoutingNow: hash=#inicio, route=inicio
+[CONSOLE] [VIEWDBG] 1768164309182 updateNavActive: updated nav for route=inicio
+[CONSOLE] [VIEWDBG] 1768164309182 runRoutingNow: calling loadPage(inicio)
+[CONSOLE] [VIEWDBG] 1768164309182 loadPage: start page=inicio
+[CONSOLE] [VIEWDBG] 1768164309183 loadPage: content.innerHTML set to loading
+[CONSOLE] [VIEWDBG] 1768164309183 setViewState: inicio -> loaded on view-state-root
+[CONSOLE] [VIEWDBG] 1768164309183 setViewState: inicio -> loaded applied, testId=view-inicio-loaded
+[WebServer] INFO:     127.0.0.1:56300 - "GET /api/repository/types HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164309190 bootstrap: E2E mode detected: true
+[gotoHash] app-ready found, now changing hash to #calendario
+[CONSOLE] [VIEWDBG] 1768164309196 hashchange event fired
+[CONSOLE] [VIEWDBG] 1768164309196 runRoutingNow: hash=#calendario, route=calendario
+[CONSOLE] [VIEWDBG] 1768164309196 updateNavActive: updated nav for route=calendario
+[CONSOLE] [VIEWDBG] 1768164309196 runRoutingNow: calling loadPage(calendario)
+[CONSOLE] [VIEWDBG] 1768164309196 loadPage: start page=calendario
+[CONSOLE] [VIEWDBG] 1768164309196 loadPage: content.innerHTML set to loading
+[CONSOLE] [VIEWDBG] 1768164309197 calendario: entered case
+[CONSOLE] [VIEWDBG] 1768164309197 dbg-calendario-route-hit marker inserted
+[CONSOLE] [VIEWDBG] 1768164309197 setViewState: calendario -> loaded on view-state-root
+[CONSOLE] [VIEWDBG] 1768164309197 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+[CONSOLE] [VIEWDBG] 1768164309197 calendario: set loaded
+[CONSOLE] [VIEWDBG] 1768164309197 calendario: before loadCalendario
+[CONSOLE] [VIEWDBG] 1768164309197 loadCalendario: start
+[CONSOLE] [VIEWDBG] 1768164309197 ensureRepoDataLoaded: start
+[CONSOLE] [VIEWDBG] 1768164309197 Loading types...
+[CONSOLE] [VIEWDBG] 1768164309198 Loading people...
+[gotoHash] View calendario marked as loaded
+[WebServer] INFO:     127.0.0.1:60297 - "GET /api/repository/docs HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:62399 - "GET /api/repository/rules HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:50060 - "GET /api/config/platforms HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:56300 - "GET /api/repository/types HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:54019 - "GET /api/config/people HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164314851 setViewState: inicio -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164314851 setViewState: inicio -> ready applied, testId=view-inicio-ready
+[CONSOLE] [VIEWDBG] 1768164314851 runRoutingNow: loadPage(inicio) completed
+[CONSOLE] [VIEWDBG] 1768164314858 Types loaded:
+[CONSOLE] [VIEWDBG] 1768164314859 People loaded:
+[CONSOLE] [VIEWDBG] 1768164314859 ensureRepoDataLoaded: done
+[CONSOLE] [VIEWDBG] 1768164314859 loadCalendario: max_months_back=12 (E2E=true, original=24)
+[CONSOLE] [VIEWDBG] 1768164314859 loadCalendario: before fetch pendings
+[WebServer] INFO:     127.0.0.1:54019 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164321458 loadCalendario: after fetch pendings
+[WebServer] INFO:     127.0.0.1:54019 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164321640 loadCalendario: after render table
+[CONSOLE] [VIEWDBG] 1768164321640 loadCalendario: end
+[CONSOLE] [VIEWDBG] 1768164321640 setViewState: calendario -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164321640 setViewState: calendario -> ready applied, testId=view-calendario-ready
+[CONSOLE] [VIEWDBG] 1768164321640 calendario: after loadCalendario
+[CONSOLE] [VIEWDBG] 1768164321640 calendario: before set ready
+[CONSOLE] [VIEWDBG] 1768164321640 setViewState: calendario -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164321640 setViewState: calendario -> ready applied, testId=view-calendario-ready
+[CONSOLE] [VIEWDBG] 1768164321640 calendario: after set ready
+[CONSOLE] [VIEWDBG] 1768164321640 calendario: finally block
+[CONSOLE] [VIEWDBG] 1768164321640 runRoutingNow: loadPage(calendario) completed
+[gotoHash] View calendario marked as ready
+[WebServer] INFO:     127.0.0.1:54019 - "GET /repository HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:54019 - "GET /api/health HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164322135 bootstrap: start
+[CONSOLE] [VIEWDBG] 1768164322135 bootstrap: start
+[CONSOLE] [VIEWDBG] 1768164322135 bootstrap: app-ready set
+[CONSOLE] [VIEWDBG] 1768164322135 bootstrap: app-ready set
+[CONSOLE] [VIEWDBG] 1768164322136 initHashRouting: registering hashchange listener
+[CONSOLE] [VIEWDBG] 1768164322136 initHashRouting: registering hashchange listener
+[CONSOLE] [VIEWDBG] 1768164322136 bootstrap: calling runRoutingNow for initial hash
+[CONSOLE] [VIEWDBG] 1768164322136 bootstrap: calling runRoutingNow for initial hash
+[CONSOLE] [VIEWDBG] 1768164322136 runRoutingNow: hash=, route=null
+[CONSOLE] [VIEWDBG] 1768164322136 runRoutingNow: hash=, route=null
+[CONSOLE] [VIEWDBG] 1768164322136 runRoutingNow: normalizing hash from  to #inicio
+[CONSOLE] [VIEWDBG] 1768164322136 runRoutingNow: normalizing hash from  to #inicio
+[CONSOLE] [VIEWDBG] 1768164322136 bootstrap: completed
+[CONSOLE] [VIEWDBG] 1768164322136 bootstrap: completed
+[WebServer] INFO:     127.0.0.1:54019 - "GET /api/repository/types HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164322137 hashchange event fired
+[CONSOLE] [VIEWDBG] 1768164322137 hashchange event fired
+[CONSOLE] [VIEWDBG] 1768164322137 runRoutingNow: hash=#inicio, route=inicio
+[CONSOLE] [VIEWDBG] 1768164322137 runRoutingNow: hash=#inicio, route=inicio
+[CONSOLE] [VIEWDBG] 1768164322137 updateNavActive: updated nav for route=inicio
+[CONSOLE] [VIEWDBG] 1768164322137 updateNavActive: updated nav for route=inicio
+[CONSOLE] [VIEWDBG] 1768164322137 runRoutingNow: calling loadPage(inicio)
+[CONSOLE] [VIEWDBG] 1768164322137 runRoutingNow: calling loadPage(inicio)
+[CONSOLE] [VIEWDBG] 1768164322137 loadPage: start page=inicio
+[CONSOLE] [VIEWDBG] 1768164322137 loadPage: start page=inicio
+[CONSOLE] [VIEWDBG] 1768164322137 loadPage: content.innerHTML set to loading
+[CONSOLE] [VIEWDBG] 1768164322137 loadPage: content.innerHTML set to loading
+[CONSOLE] [VIEWDBG] 1768164322137 setViewState: inicio -> loaded on view-state-root
+[CONSOLE] [VIEWDBG] 1768164322137 setViewState: inicio -> loaded on view-state-root
+[CONSOLE] [VIEWDBG] 1768164322137 setViewState: inicio -> loaded applied, testId=view-inicio-loaded
+[CONSOLE] [VIEWDBG] 1768164322137 setViewState: inicio -> loaded applied, testId=view-inicio-loaded
+[CONSOLE] [VIEWDBG] 1768164322138 bootstrap: E2E mode detected: true
+[CONSOLE] [VIEWDBG] 1768164322138 bootstrap: E2E mode detected: true
+[gotoHash] app-ready found, now changing hash to #calendario
+[CONSOLE] [VIEWDBG] 1768164322155 hashchange event fired
+[CONSOLE] [VIEWDBG] 1768164322155 hashchange event fired
+[CONSOLE] [VIEWDBG] 1768164322155 runRoutingNow: hash=#calendario, route=calendario
+[CONSOLE] [VIEWDBG] 1768164322155 runRoutingNow: hash=#calendario, route=calendario
+[CONSOLE] [VIEWDBG] 1768164322155 updateNavActive: updated nav for route=calendario
+[CONSOLE] [VIEWDBG] 1768164322155 updateNavActive: updated nav for route=calendario
+[CONSOLE] [VIEWDBG] 1768164322155 runRoutingNow: calling loadPage(calendario)
+[CONSOLE] [VIEWDBG] 1768164322155 runRoutingNow: calling loadPage(calendario)
+[CONSOLE] [VIEWDBG] 1768164322155 loadPage: start page=calendario
+[CONSOLE] [VIEWDBG] 1768164322155 loadPage: start page=calendario
+[CONSOLE] [VIEWDBG] 1768164322155 loadPage: content.innerHTML set to loading
+[CONSOLE] [VIEWDBG] 1768164322155 loadPage: content.innerHTML set to loading
+[CONSOLE] [VIEWDBG] 1768164322155 calendario: entered case
+[CONSOLE] [VIEWDBG] 1768164322155 calendario: entered case
+[CONSOLE] [VIEWDBG] 1768164322155 dbg-calendario-route-hit marker inserted
+[CONSOLE] [VIEWDBG] 1768164322155 dbg-calendario-route-hit marker inserted
+[CONSOLE] [VIEWDBG] 1768164322155 setViewState: calendario -> loaded on view-state-root
+[CONSOLE] [VIEWDBG] 1768164322155 setViewState: calendario -> loaded on view-state-root
+[CONSOLE] [VIEWDBG] 1768164322156 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+[CONSOLE] [VIEWDBG] 1768164322156 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+[CONSOLE] [VIEWDBG] 1768164322156 calendario: set loaded
+[CONSOLE] [VIEWDBG] 1768164322156 calendario: set loaded
+[CONSOLE] [VIEWDBG] 1768164322156 calendario: before loadCalendario
+[CONSOLE] [VIEWDBG] 1768164322156 calendario: before loadCalendario
+[CONSOLE] [VIEWDBG] 1768164322156 loadCalendario: start
+[CONSOLE] [VIEWDBG] 1768164322156 loadCalendario: start
+[CONSOLE] [VIEWDBG] 1768164322156 ensureRepoDataLoaded: start
+[CONSOLE] [VIEWDBG] 1768164322156 ensureRepoDataLoaded: start
+[CONSOLE] [VIEWDBG] 1768164322156 Loading types...
+[CONSOLE] [VIEWDBG] 1768164322156 Loading types...
+[CONSOLE] [VIEWDBG] 1768164322156 Loading people...
+[CONSOLE] [VIEWDBG] 1768164322156 Loading people...
+[gotoHash] View calendario marked as loaded
+[WebServer] INFO:     127.0.0.1:49369 - "GET /api/repository/docs HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:63814 - "GET /api/repository/rules HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:61424 - "GET /api/config/platforms HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:54019 - "GET /api/repository/types HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:54228 - "GET /api/config/people HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164328712 setViewState: inicio -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164328712 setViewState: inicio -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164328712 setViewState: inicio -> ready applied, testId=view-inicio-ready
+[CONSOLE] [VIEWDBG] 1768164328712 setViewState: inicio -> ready applied, testId=view-inicio-ready
+[CONSOLE] [VIEWDBG] 1768164328712 runRoutingNow: loadPage(inicio) completed
+[CONSOLE] [VIEWDBG] 1768164328712 runRoutingNow: loadPage(inicio) completed
+[CONSOLE] [VIEWDBG] 1768164328713 Types loaded:
+[CONSOLE] [VIEWDBG] 1768164328713 Types loaded:
+[CONSOLE] [VIEWDBG] 1768164328713 People loaded:
+[CONSOLE] [VIEWDBG] 1768164328713 People loaded:
+[CONSOLE] [VIEWDBG] 1768164328713 ensureRepoDataLoaded: done
+[CONSOLE] [VIEWDBG] 1768164328713 ensureRepoDataLoaded: done
+[CONSOLE] [VIEWDBG] 1768164328713 loadCalendario: max_months_back=12 (E2E=true, original=24)
+[CONSOLE] [VIEWDBG] 1768164328713 loadCalendario: max_months_back=12 (E2E=true, original=24)
+[CONSOLE] [VIEWDBG] 1768164328713 loadCalendario: before fetch pendings
+[CONSOLE] [VIEWDBG] 1768164328713 loadCalendario: before fetch pendings
+[WebServer] INFO:     127.0.0.1:54228 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164335257 loadCalendario: after fetch pendings
+[CONSOLE] [VIEWDBG] 1768164335257 loadCalendario: after fetch pendings
+[WebServer] INFO:     127.0.0.1:54228 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164335444 loadCalendario: after render table
+[CONSOLE] [VIEWDBG] 1768164335444 loadCalendario: after render table
+[CONSOLE] [VIEWDBG] 1768164335444 loadCalendario: end
+[CONSOLE] [VIEWDBG] 1768164335444 loadCalendario: end
+[CONSOLE] [VIEWDBG] 1768164335445 setViewState: calendario -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164335445 setViewState: calendario -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164335445 setViewState: calendario -> ready applied, testId=view-calendario-ready
+[CONSOLE] [VIEWDBG] 1768164335445 setViewState: calendario -> ready applied, testId=view-calendario-ready
+[CONSOLE] [VIEWDBG] 1768164335445 calendario: after loadCalendario
+[CONSOLE] [VIEWDBG] 1768164335445 calendario: after loadCalendario
+[CONSOLE] [VIEWDBG] 1768164335445 calendario: before set ready
+[CONSOLE] [VIEWDBG] 1768164335445 calendario: before set ready
+[CONSOLE] [VIEWDBG] 1768164335445 setViewState: calendario -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164335445 setViewState: calendario -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164335445 setViewState: calendario -> ready applied, testId=view-calendario-ready
+[CONSOLE] [VIEWDBG] 1768164335445 setViewState: calendario -> ready applied, testId=view-calendario-ready
+[CONSOLE] [VIEWDBG] 1768164335445 calendario: after set ready
+[CONSOLE] [VIEWDBG] 1768164335445 calendario: after set ready
+[CONSOLE] [VIEWDBG] 1768164335445 calendario: finally block
+[CONSOLE] [VIEWDBG] 1768164335445 calendario: finally block
+[CONSOLE] [VIEWDBG] 1768164335445 runRoutingNow: loadPage(calendario) completed
+[CONSOLE] [VIEWDBG] 1768164335445 runRoutingNow: loadPage(calendario) completed
+[gotoHash] View calendario marked as ready
+[WebServer] INFO:     127.0.0.1:54228 - "GET /api/config/platforms HTTP/1.1" 200 OK
+  x  2 tests\cae_plan_e2e.spec.js:96:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 2: Genera plan con scope m├¡nimo (30.2s)
+(node:9320) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:9320) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] INFO:     127.0.0.1:54228 - "POST /api/cae/plan HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:57964 - "GET /api/health HTTP/1.1" 200 OK
+[E2E] Server health OK - patch: v1.1.1, build_id: undefined
+[WebServer] INFO:     127.0.0.1:57964 - "POST /api/test/seed/reset HTTP/1.1" 200 OK
+[SEED] reset status: 200
+[WebServer] INFO:     127.0.0.1:57964 - "POST /api/test/seed/basic_repository HTTP/1.1" 200 OK
+[SEED] basic_repository status: 200 {
+  company_key: [32m'E2E_COMPANY_57339e8f'[39m,
+  person_key: [32m'E2E_PERSON_57339e8f'[39m,
+  type_ids: [ [32m'E2E_TYPE_57339e8f_0'[39m ],
+  doc_ids: [ [32m'E2E_DOC_57339e8f_0_0'[39m, [32m'E2E_DOC_57339e8f_0_1'[39m ],
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  message: [32m'Created basic repository: 1 types, 2 docs, 2 missing periods'[39m
+}
+[WebServer] INFO:     127.0.0.1:61469 - "GET /repository HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164355824 bootstrap: start
+[CONSOLE] [VIEWDBG] 1768164355824 bootstrap: app-ready set
+[WebServer] INFO:     127.0.0.1:61469 - "GET /api/health HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164355824 initHashRouting: registering hashchange listener
+[CONSOLE] [VIEWDBG] 1768164355824 bootstrap: calling runRoutingNow for initial hash
+[CONSOLE] [VIEWDBG] 1768164355825 runRoutingNow: hash=, route=null
+[CONSOLE] [VIEWDBG] 1768164355825 runRoutingNow: normalizing hash from  to #inicio
+[CONSOLE] [VIEWDBG] 1768164355825 bootstrap: completed
+[CONSOLE] [VIEWDBG] 1768164355854 hashchange event fired
+[CONSOLE] [VIEWDBG] 1768164355854 runRoutingNow: hash=#inicio, route=inicio
+[CONSOLE] [VIEWDBG] 1768164355854 updateNavActive: updated nav for route=inicio
+[CONSOLE] [VIEWDBG] 1768164355854 runRoutingNow: calling loadPage(inicio)
+[CONSOLE] [VIEWDBG] 1768164355854 loadPage: start page=inicio
+[CONSOLE] [VIEWDBG] 1768164355854 loadPage: content.innerHTML set to loading
+[CONSOLE] [VIEWDBG] 1768164355855 setViewState: inicio -> loaded on view-state-root
+[CONSOLE] [VIEWDBG] 1768164355855 setViewState: inicio -> loaded applied, testId=view-inicio-loaded
+[CONSOLE] [VIEWDBG] 1768164355862 bootstrap: E2E mode detected: true
+[gotoHash] app-ready found, now changing hash to #calendario
+[CONSOLE] [VIEWDBG] 1768164355873 hashchange event fired
+[CONSOLE] [VIEWDBG] 1768164355873 runRoutingNow: hash=#calendario, route=calendario
+[CONSOLE] [VIEWDBG] 1768164355873 updateNavActive: updated nav for route=calendario
+[CONSOLE] [VIEWDBG] 1768164355873 runRoutingNow: calling loadPage(calendario)
+[CONSOLE] [VIEWDBG] 1768164355873 loadPage: start page=calendario
+[WebServer] INFO:     127.0.0.1:61469 - "GET /api/repository/types HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164355873 loadPage: content.innerHTML set to loading
+[CONSOLE] [VIEWDBG] 1768164355873 calendario: entered case
+[CONSOLE] [VIEWDBG] 1768164355873 dbg-calendario-route-hit marker inserted
+[CONSOLE] [VIEWDBG] 1768164355873 setViewState: calendario -> loaded on view-state-root
+[CONSOLE] [VIEWDBG] 1768164355873 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+[CONSOLE] [VIEWDBG] 1768164355873 calendario: set loaded
+[CONSOLE] [VIEWDBG] 1768164355873 calendario: before loadCalendario
+[CONSOLE] [VIEWDBG] 1768164355874 loadCalendario: start
+[CONSOLE] [VIEWDBG] 1768164355874 ensureRepoDataLoaded: start
+[CONSOLE] [VIEWDBG] 1768164355874 Loading types...
+[CONSOLE] [VIEWDBG] 1768164355874 Loading people...
+[gotoHash] View calendario marked as loaded
+[WebServer] INFO:     127.0.0.1:60574 - "GET /api/repository/docs HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:61469 - "GET /api/repository/types HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:57750 - "GET /api/repository/rules HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:56205 - "GET /api/config/platforms HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:64400 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[WebServer] INFO:     127.0.0.1:56129 - "GET /api/config/people HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:56205 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[CONSOLE] [VIEWDBG] 1768164362115 Types loaded:
+[CONSOLE] [VIEWDBG] 1768164362125 setViewState: inicio -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164362125 setViewState: inicio -> ready applied, testId=view-inicio-ready
+[CONSOLE] [VIEWDBG] 1768164362125 runRoutingNow: loadPage(inicio) completed
+[CONSOLE] [VIEWDBG] 1768164362132 People loaded:
+[CONSOLE] [VIEWDBG] 1768164362133 ensureRepoDataLoaded: done
+[CONSOLE] [VIEWDBG] 1768164362133 loadCalendario: max_months_back=12 (E2E=true, original=24)
+[CONSOLE] [VIEWDBG] 1768164362133 loadCalendario: before fetch pendings
+[WebServer] INFO:     127.0.0.1:56205 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164369474 loadCalendario: after fetch pendings
+[WebServer] INFO:     127.0.0.1:56205 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164369658 loadCalendario: after render table
+[CONSOLE] [VIEWDBG] 1768164369659 loadCalendario: end
+[CONSOLE] [VIEWDBG] 1768164369659 setViewState: calendario -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164369659 setViewState: calendario -> ready applied, testId=view-calendario-ready
+[CONSOLE] [VIEWDBG] 1768164369659 calendario: after loadCalendario
+[CONSOLE] [VIEWDBG] 1768164369659 calendario: before set ready
+[CONSOLE] [VIEWDBG] 1768164369659 setViewState: calendario -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164369659 setViewState: calendario -> ready applied, testId=view-calendario-ready
+[CONSOLE] [VIEWDBG] 1768164369659 calendario: after set ready
+[CONSOLE] [VIEWDBG] 1768164369659 calendario: finally block
+[CONSOLE] [VIEWDBG] 1768164369659 runRoutingNow: loadPage(calendario) completed
+[gotoHash] View calendario marked as ready
+[WebServer] INFO:     127.0.0.1:56205 - "GET /api/config/platforms HTTP/1.1" 200 OK
+  x  3 tests\cae_plan_e2e.spec.js:202:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 3: Verifica que decision y reasons son visibles (30.7s)
+(node:48908) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:48908) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] INFO:     127.0.0.1:56205 - "POST /api/cae/plan HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:61253 - "GET /api/health HTTP/1.1" 200 OK
+[E2E] Server health OK - patch: v1.1.1, build_id: undefined
+[WebServer] INFO:     127.0.0.1:61253 - "POST /api/test/seed/reset HTTP/1.1" 200 OK
+[SEED] reset status: 200
+[WebServer] INFO:     127.0.0.1:61253 - "POST /api/test/seed/basic_repository HTTP/1.1" 200 OK
+[SEED] basic_repository status: 200 {
+  company_key: [32m'E2E_COMPANY_c91a6099'[39m,
+  person_key: [32m'E2E_PERSON_c91a6099'[39m,
+  type_ids: [ [32m'E2E_TYPE_c91a6099_0'[39m ],
+  doc_ids: [ [32m'E2E_DOC_c91a6099_0_0'[39m, [32m'E2E_DOC_c91a6099_0_1'[39m ],
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  message: [32m'Created basic repository: 1 types, 2 docs, 2 missing periods'[39m
+}
+[WebServer] INFO:     127.0.0.1:51372 - "GET /repository HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164391917 bootstrap: start
+[CONSOLE] [VIEWDBG] 1768164391917 bootstrap: app-ready set
+[WebServer] INFO:     127.0.0.1:51372 - "GET /api/health HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164391917 initHashRouting: registering hashchange listener
+[CONSOLE] [VIEWDBG] 1768164391918 bootstrap: calling runRoutingNow for initial hash
+[CONSOLE] [VIEWDBG] 1768164391918 runRoutingNow: hash=, route=null
+[CONSOLE] [VIEWDBG] 1768164391918 runRoutingNow: normalizing hash from  to #inicio
+[CONSOLE] [VIEWDBG] 1768164391918 bootstrap: completed
+[WebServer] INFO:     127.0.0.1:51372 - "GET /api/repository/types HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164391920 hashchange event fired
+[CONSOLE] [VIEWDBG] 1768164391920 runRoutingNow: hash=#inicio, route=inicio
+[CONSOLE] [VIEWDBG] 1768164391920 updateNavActive: updated nav for route=inicio
+[CONSOLE] [VIEWDBG] 1768164391920 runRoutingNow: calling loadPage(inicio)
+[CONSOLE] [VIEWDBG] 1768164391921 loadPage: start page=inicio
+[CONSOLE] [VIEWDBG] 1768164391921 loadPage: content.innerHTML set to loading
+[CONSOLE] [VIEWDBG] 1768164391921 setViewState: inicio -> loaded on view-state-root
+[CONSOLE] [VIEWDBG] 1768164391921 setViewState: inicio -> loaded applied, testId=view-inicio-loaded
+[CONSOLE] [VIEWDBG] 1768164391923 bootstrap: E2E mode detected: true
+[gotoHash] app-ready found, now changing hash to #calendario
+[CONSOLE] [VIEWDBG] 1768164391949 hashchange event fired
+[CONSOLE] [VIEWDBG] 1768164391949 runRoutingNow: hash=#calendario, route=calendario
+[CONSOLE] [VIEWDBG] 1768164391949 updateNavActive: updated nav for route=calendario
+[CONSOLE] [VIEWDBG] 1768164391949 runRoutingNow: calling loadPage(calendario)
+[CONSOLE] [VIEWDBG] 1768164391949 loadPage: start page=calendario
+[CONSOLE] [VIEWDBG] 1768164391949 loadPage: content.innerHTML set to loading
+[CONSOLE] [VIEWDBG] 1768164391949 calendario: entered case
+[CONSOLE] [VIEWDBG] 1768164391949 dbg-calendario-route-hit marker inserted
+[CONSOLE] [VIEWDBG] 1768164391949 setViewState: calendario -> loaded on view-state-root
+[CONSOLE] [VIEWDBG] 1768164391949 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+[CONSOLE] [VIEWDBG] 1768164391949 calendario: set loaded
+[CONSOLE] [VIEWDBG] 1768164391949 calendario: before loadCalendario
+[CONSOLE] [VIEWDBG] 1768164391950 loadCalendario: start
+[CONSOLE] [VIEWDBG] 1768164391950 ensureRepoDataLoaded: start
+[CONSOLE] [VIEWDBG] 1768164391950 Loading types...
+[CONSOLE] [VIEWDBG] 1768164391950 Loading people...
+[gotoHash] View calendario marked as loaded
+[WebServer] INFO:     127.0.0.1:53174 - "GET /api/repository/docs HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:50722 - "GET /api/repository/rules HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:56281 - "GET /api/config/platforms HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:51372 - "GET /api/repository/types HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:62201 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[WebServer] INFO:     127.0.0.1:50750 - "GET /api/config/people HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:56281 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[CONSOLE] [VIEWDBG] 1768164398118 setViewState: inicio -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164398118 setViewState: inicio -> ready applied, testId=view-inicio-ready
+[CONSOLE] [VIEWDBG] 1768164398118 runRoutingNow: loadPage(inicio) completed
+[CONSOLE] [VIEWDBG] 1768164398127 Types loaded:
+[CONSOLE] [VIEWDBG] 1768164398127 People loaded:
+[CONSOLE] [VIEWDBG] 1768164398127 ensureRepoDataLoaded: done
+[CONSOLE] [VIEWDBG] 1768164398127 loadCalendario: max_months_back=12 (E2E=true, original=24)
+[CONSOLE] [VIEWDBG] 1768164398127 loadCalendario: before fetch pendings
+[WebServer] INFO:     127.0.0.1:56281 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164405534 loadCalendario: after fetch pendings
+[WebServer] INFO:     127.0.0.1:56281 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+[CONSOLE] [VIEWDBG] 1768164405730 loadCalendario: after render table
+[CONSOLE] [VIEWDBG] 1768164405730 loadCalendario: end
+[CONSOLE] [VIEWDBG] 1768164405730 setViewState: calendario -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164405730 setViewState: calendario -> ready applied, testId=view-calendario-ready
+[CONSOLE] [VIEWDBG] 1768164405730 calendario: after loadCalendario
+[CONSOLE] [VIEWDBG] 1768164405730 calendario: before set ready
+[CONSOLE] [VIEWDBG] 1768164405731 setViewState: calendario -> ready on view-state-root
+[CONSOLE] [VIEWDBG] 1768164405731 setViewState: calendario -> ready applied, testId=view-calendario-ready
+[CONSOLE] [VIEWDBG] 1768164405731 calendario: after set ready
+[CONSOLE] [VIEWDBG] 1768164405731 calendario: finally block
+[CONSOLE] [VIEWDBG] 1768164405731 runRoutingNow: loadPage(calendario) completed
+[gotoHash] View calendario marked as ready
+[WebServer] INFO:     127.0.0.1:56281 - "GET /api/config/platforms HTTP/1.1" 200 OK
+  ok 4 tests\cae_plan_e2e.spec.js:259:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 4: Cierra modal correctamente (18.5s)
+
+
+  1) tests\cae_plan_e2e.spec.js:96:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 2: Genera plan con scope m├¡nimo 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForSelector: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="cae-plan-decision"]')[22m
+
+
+      154 |         // Race: esperar a que aparezca decision O error (attached, no visible)
+      155 |         await Promise.race([
+    > 156 |             page.waitForSelector('[data-testid="cae-plan-decision"]', { state: 'attached', timeout: 30000 }).then(async () => {
+          |                  ^
+      157 |                 // Verificar que data-decision no est├® vac├¡o
+      158 |                 await expect(decisionElement).toHaveAttribute('data-decision', /.+/, { timeout: 1000 });
+      159 |                 return 'decision';
+        at D:\Proyectos_Cursor\CometLocal\tests\cae_plan_e2e.spec.js:156:18
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_plan_e2e-CAE-Plan-E2E--da510-enera-plan-con-scope-m├¡nimo\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_plan_e2e-CAE-Plan-E2E--da510-enera-plan-con-scope-m├¡nimo\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\cae_plan_e2e-CAE-Plan-E2E--da510-enera-plan-con-scope-m├¡nimo\error-context.md
+
+  2) tests\cae_plan_e2e.spec.js:202:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 3: Verifica que decision y reasons son visibles 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForSelector: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="cae-plan-decision"]') to be visible[22m
+
+
+      232 |         
+      233 |         // SPRINT C2.7: Usar testid determinista en lugar de selector fr├ígil .badge
+    > 234 |         await page.waitForSelector('[data-testid="cae-plan-decision"]', { timeout: 15000 });
+          |                    ^
+      235 |         const decisionElement = page.locator('[data-testid="cae-plan-decision"]');
+      236 |         await expect(decisionElement).toBeVisible({ timeout: 5000 });
+      237 |         
+        at D:\Proyectos_Cursor\CometLocal\tests\cae_plan_e2e.spec.js:234:20
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_plan_e2e-CAE-Plan-E2E--7fbb1-sion-y-reasons-son-visibles\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_plan_e2e-CAE-Plan-E2E--7fbb1-sion-y-reasons-son-visibles\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\cae_plan_e2e-CAE-Plan-E2E--7fbb1-sion-y-reasons-son-visibles\error-context.md
+
+  2 failed
+    tests\cae_plan_e2e.spec.js:96:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 2: Genera plan con scope m├¡nimo 
+    tests\cae_plan_e2e.spec.js:202:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 3: Verifica que decision y reasons son visibles 
+  2 passed (2.0m)

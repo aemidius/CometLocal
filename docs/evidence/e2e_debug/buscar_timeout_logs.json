@@ -1,0 +1,222 @@
+[
+  {
+    "time": 1768157819741,
+    "text": "[repo-upload] listener installed {time: 1768157819735}",
+    "type": "log"
+  },
+  {
+    "time": 1768157819742,
+    "text": "[VIEWDBG] 1768157819741 bootstrap: start",
+    "type": "log"
+  },
+  {
+    "time": 1768157819742,
+    "text": "[VIEWDBG] 1768157819741 bootstrap: app-ready set",
+    "type": "log"
+  },
+  {
+    "time": 1768157819744,
+    "text": "[VIEWDBG] 1768157819741 initHashRouting: registering hashchange listener",
+    "type": "log"
+  },
+  {
+    "time": 1768157819744,
+    "text": "[VIEWDBG] 1768157819742 bootstrap: calling runRoutingNow for initial hash",
+    "type": "log"
+  },
+  {
+    "time": 1768157819745,
+    "text": "[VIEWDBG] 1768157819742 runRoutingNow: hash=, route=null",
+    "type": "log"
+  },
+  {
+    "time": 1768157819745,
+    "text": "[VIEWDBG] 1768157819742 runRoutingNow: normalizing hash from  to #inicio",
+    "type": "log"
+  },
+  {
+    "time": 1768157819746,
+    "text": "[VIEWDBG] 1768157819742 bootstrap: completed",
+    "type": "log"
+  },
+  {
+    "time": 1768157819778,
+    "text": "[VIEWDBG] 1768157819776 hashchange event fired",
+    "type": "log"
+  },
+  {
+    "time": 1768157819778,
+    "text": "[VIEWDBG] 1768157819776 runRoutingNow: hash=#inicio, route=inicio",
+    "type": "log"
+  },
+  {
+    "time": 1768157819779,
+    "text": "[VIEWDBG] 1768157819776 updateNavActive: updated nav for route=inicio",
+    "type": "log"
+  },
+  {
+    "time": 1768157819779,
+    "text": "[VIEWDBG] 1768157819776 runRoutingNow: calling loadPage(inicio)",
+    "type": "log"
+  },
+  {
+    "time": 1768157819780,
+    "text": "[VIEWDBG] 1768157819777 loadPage: start page=inicio",
+    "type": "log"
+  },
+  {
+    "time": 1768157819780,
+    "text": "[VIEWDBG] 1768157819777 loadPage: content.innerHTML set to loading",
+    "type": "log"
+  },
+  {
+    "time": 1768157819780,
+    "text": "[SETVIEWSTATE] inicio loaded readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1768157819781,
+    "text": "[VIEWDBG] 1768157819777 setViewState: inicio -> loaded on view-state-root",
+    "type": "log"
+  },
+  {
+    "time": 1768157819781,
+    "text": "[VIEWDBG] 1768157819778 setViewState: inicio -> loaded applied, testId=view-inicio-loaded",
+    "type": "log"
+  },
+  {
+    "time": 1768157819787,
+    "text": "[VIEWDBG] 1768157819785 bootstrap: E2E mode detected: true",
+    "type": "log"
+  },
+  {
+    "time": 1768157819809,
+    "text": "[VIEWDBG] 1768157819798 hashchange event fired",
+    "type": "log"
+  },
+  {
+    "time": 1768157819809,
+    "text": "[VIEWDBG] 1768157819798 runRoutingNow: hash=#buscar, route=buscar",
+    "type": "log"
+  },
+  {
+    "time": 1768157819810,
+    "text": "[VIEWDBG] 1768157819798 updateNavActive: updated nav for route=buscar",
+    "type": "log"
+  },
+  {
+    "time": 1768157819810,
+    "text": "[VIEWDBG] 1768157819798 runRoutingNow: calling loadPage(buscar)",
+    "type": "log"
+  },
+  {
+    "time": 1768157819810,
+    "text": "[VIEWDBG] 1768157819799 loadPage: start page=buscar",
+    "type": "log"
+  },
+  {
+    "time": 1768157819810,
+    "text": "[VIEWDBG] 1768157819799 loadPage: content.innerHTML set to loading",
+    "type": "log"
+  },
+  {
+    "time": 1768157819811,
+    "text": "[SETVIEWSTATE] buscar loaded readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1768157819811,
+    "text": "[VIEWDBG] 1768157819799 setViewState: buscar -> loaded on view-state-root",
+    "type": "log"
+  },
+  {
+    "time": 1768157819811,
+    "text": "[VIEWDBG] 1768157819799 setViewState: buscar -> loaded applied, testId=view-buscar-loaded",
+    "type": "log"
+  },
+  {
+    "time": 1768157819811,
+    "text": "[VIEWDBG] 1768157819799 loadBuscar: start",
+    "type": "log"
+  },
+  {
+    "time": 1768157819818,
+    "text": "[VIEWDBG] 1768157819800 ensureRepoDataLoaded: start",
+    "type": "log"
+  },
+  {
+    "time": 1768157819818,
+    "text": "[VIEWDBG] 1768157819800 Loading types...",
+    "type": "log"
+  },
+  {
+    "time": 1768157819818,
+    "text": "[VIEWDBG] 1768157819800 Loading people...",
+    "type": "log"
+  },
+  {
+    "time": 1768157827089,
+    "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "type": "error"
+  },
+  {
+    "time": 1768157827100,
+    "text": "[SETVIEWSTATE] inicio ready readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1768157827100,
+    "text": "[VIEWDBG] 1768157827099 setViewState: inicio -> ready on view-state-root",
+    "type": "log"
+  },
+  {
+    "time": 1768157827101,
+    "text": "[VIEWDBG] 1768157827100 setViewState: inicio -> ready applied, testId=view-inicio-ready",
+    "type": "log"
+  },
+  {
+    "time": 1768157827101,
+    "text": "[VIEWDBG] 1768157827100 runRoutingNow: loadPage(inicio) completed",
+    "type": "log"
+  },
+  {
+    "time": 1768157827108,
+    "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "type": "error"
+  },
+  {
+    "time": 1768157827109,
+    "text": "[VIEWDBG] 1768157827108 Types loaded:",
+    "type": "log"
+  },
+  {
+    "time": 1768157827109,
+    "text": "[VIEWDBG] 1768157827108 People loaded:",
+    "type": "log"
+  },
+  {
+    "time": 1768157827110,
+    "text": "[VIEWDBG] 1768157827108 ensureRepoDataLoaded: done",
+    "type": "log"
+  },
+  {
+    "time": 1768157834776,
+    "text": "[SETVIEWSTATE] buscar ready readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1768157834776,
+    "text": "[VIEWDBG] 1768157834775 setViewState: buscar -> ready on view-state-root",
+    "type": "log"
+  },
+  {
+    "time": 1768157834777,
+    "text": "[VIEWDBG] 1768157834775 setViewState: buscar -> ready applied, testId=view-buscar-ready",
+    "type": "log"
+  },
+  {
+    "time": 1768157834777,
+    "text": "[VIEWDBG] 1768157834775 runRoutingNow: loadPage(buscar) completed",
+    "type": "log"
+  }
+]

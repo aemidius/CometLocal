@@ -1,0 +1,145 @@
+
+Running 4 tests using 1 worker
+
+(node:10096) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:10096) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[E2E] Server health OK - patch: v1.1.1, build_id: undefined
+[SEED] reset status: 200
+[SEED] basic_repository status: 200 {
+  company_key: [32m'E2E_COMPANY_3923cff7'[39m,
+  person_key: [32m'E2E_PERSON_3923cff7'[39m,
+  type_ids: [ [32m'E2E_TYPE_3923cff7_0'[39m ],
+  doc_ids: [ [32m'E2E_DOC_3923cff7_0_0'[39m, [32m'E2E_DOC_3923cff7_0_1'[39m ],
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  message: [32m'Created basic repository: 1 types, 2 docs, 2 missing periods'[39m
+}
+[gotoHash] app-ready found, now changing hash to #calendario
+[gotoHash] Timeout screenshot saved: D:\Proyectos_Cursor\CometLocal\docs\evidence\core_failures\gotoHash_calendario_timeout_1768233270799.png
+[gotoHash] Fetch events saved: D:\Proyectos_Cursor\CometLocal\docs\evidence\core_failures\gotoHash_calendario_timeout_1768233270799.json
+[gotoHash] Fetch events summary: 0 events
+[gotoHash] runRoutingNow not available, will rely on hashchange event
+  x  1 tests\cae_plan_e2e.spec.js:70:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 1: Abre modal de CAE plan desde tab Pendientes (1.0m)
+(node:45788) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45788) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[E2E] Waiting for server... (attempt 1/10)
+[E2E] Waiting for server... (attempt 2/10)
+[E2E] Waiting for server... (attempt 3/10)
+[E2E] Waiting for server... (attempt 4/10)
+[E2E] Waiting for server... (attempt 5/10)
+[E2E] Waiting for server... (attempt 6/10)
+[E2E] Waiting for server... (attempt 7/10)
+[E2E] Waiting for server... (attempt 8/10)
+[E2E] Waiting for server... (attempt 9/10)
+[SEED] Retry 1/6 after 200ms (network error: apiRequestContext.post: connect ECONNREFUSED 127.0.0.1:8000
+Call log:
+[2m  - ÔåÆ POST http://127.0.0.1:8000/api/test/seed/reset[22m
+[2m    - user-agent: Playwright/1.57.0 (x64; windows 10.0) node/22.20[22m
+[2m    - accept: */*[22m
+[2m    - accept-encoding: gzip,deflate,br[22m
+)
+[SEED] Retry 2/6 after 400ms (network error: apiRequestContext.post: connect ECONNREFUSED 127.0.0.1:8000
+Call log:
+[2m  - ÔåÆ POST http://127.0.0.1:8000/api/test/seed/reset[22m
+[2m    - user-agent: Playwright/1.57.0 (x64; windows 10.0) node/22.20[22m
+[2m    - accept: */*[22m
+[2m    - accept-encoding: gzip,deflate,br[22m
+)
+[SEED] Retry 3/6 after 800ms (network error: apiRequestContext.post: connect ECONNREFUSED 127.0.0.1:8000
+Call log:
+[2m  - ÔåÆ POST http://127.0.0.1:8000/api/test/seed/reset[22m
+[2m    - user-agent: Playwright/1.57.0 (x64; windows 10.0) node/22.20[22m
+[2m    - accept: */*[22m
+[2m    - accept-encoding: gzip,deflate,br[22m
+)
+[SEED] Retry 4/6 after 1600ms (network error: apiRequestContext.post: connect ECONNREFUSED 127.0.0.1:8000
+Call log:
+[2m  - ÔåÆ POST http://127.0.0.1:8000/api/test/seed/reset[22m
+[2m    - user-agent: Playwright/1.57.0 (x64; windows 10.0) node/22.20[22m
+[2m    - accept: */*[22m
+[2m    - accept-encoding: gzip,deflate,br[22m
+)
+[SEED] Retry 5/6 after 3200ms (network error: apiRequestContext.post: connect ECONNREFUSED 127.0.0.1:8000
+Call log:
+[2m  - ÔåÆ POST http://127.0.0.1:8000/api/test/seed/reset[22m
+[2m    - user-agent: Playwright/1.57.0 (x64; windows 10.0) node/22.20[22m
+[2m    - accept: */*[22m
+[2m    - accept-encoding: gzip,deflate,br[22m
+)
+  x  2 tests\cae_plan_e2e.spec.js:115:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 2: Genera plan con scope m├¡nimo (0ms)
+  -  3 tests\cae_plan_e2e.spec.js:223:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 3: Verifica que decision y reasons son visibles
+  -  4 tests\cae_plan_e2e.spec.js:280:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 4: Cierra modal correctamente
+
+
+  1) tests\cae_plan_e2e.spec.js:70:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 1: Abre modal de CAE plan desde tab Pendientes 
+
+    Error: gotoHash(calendario) exceeded 60000ms | Screenshot: D:\Proyectos_Cursor\CometLocal\docs\evidence\core_failures\gotoHash_calendario_timeout_1768233270799.png | Events: D:\Proyectos_Cursor\CometLocal\docs\evidence\core_failures\gotoHash_calendario_timeout_1768233270799.json
+
+       at helpers\e2eSeed.js:535
+
+      533 |         try {
+      534 |             await Promise.race([navigationPromise, timeoutPromise]);
+    > 535 |         } catch (error) {
+          |                  ^
+      536 |             // Si es el timeout propio, ya tiene screenshot
+      537 |             if (error.message.includes('gotoHash(calendario) exceeded')) {
+      538 |                 throw error;
+        at Timeout._onTimeout (D:\Proyectos_Cursor\CometLocal\tests\helpers\e2eSeed.js:535:18)
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_plan_e2e-CAE-Plan-E2E--73622-E-plan-desde-tab-Pendientes\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_plan_e2e-CAE-Plan-E2E--73622-E-plan-desde-tab-Pendientes\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\cae_plan_e2e-CAE-Plan-E2E--73622-E-plan-desde-tab-Pendientes\error-context.md
+
+  2) tests\cae_plan_e2e.spec.js:115:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 2: Genera plan con scope m├¡nimo 
+
+    Error: Server health check failed after 10 attempts: apiRequestContext.get: connect ECONNREFUSED 127.0.0.1:8000
+    Call log:
+    [2m  - ÔåÆ GET http://127.0.0.1:8000/api/health[22m
+    [2m    - user-agent: Playwright/1.57.0 (x64; windows 10.0) node/22.20[22m
+    [2m    - accept: */*[22m
+    [2m    - accept-encoding: gzip,deflate,br[22m
+
+
+      31 |                     continue;
+      32 |                 }
+    > 33 |                 throw new Error(`Server health check failed after ${maxRetries} attempts: ${error.message}`);
+         |                       ^
+      34 |             }
+      35 |         }
+      36 |         throw new Error(`Server health check failed: server not responding or wrong version`);
+        at D:\Proyectos_Cursor\CometLocal\tests\cae_plan_e2e.spec.js:33:23
+
+    Error: apiRequestContext.post: connect ECONNREFUSED 127.0.0.1:8000
+    Call log:
+    [2m  - ÔåÆ POST http://127.0.0.1:8000/api/test/seed/reset[22m
+    [2m    - user-agent: Playwright/1.57.0 (x64; windows 10.0) node/22.20[22m
+    [2m    - accept: */*[22m
+    [2m    - accept-encoding: gzip,deflate,br[22m
+
+
+       at helpers\e2eSeed.js:20
+
+      18 |         try {
+      19 |             const response = await request.post(url);
+    > 20 |             const status = response.status();
+         |                                      ^
+      21 |             
+      22 |             // Si es ├®xito o error 4xx (excepto 409), no reintentar
+      23 |             if (response.ok() || (status >= 400 && status < 500 && status !== 409)) {
+        at seedRequestWithRetry (D:\Proyectos_Cursor\CometLocal\tests\helpers\e2eSeed.js:20:38)
+        at seedReset (D:\Proyectos_Cursor\CometLocal\tests\helpers\e2eSeed.js:70:20)
+        at D:\Proyectos_Cursor\CometLocal\tests\cae_plan_e2e.spec.js:45:9
+
+  2 failed
+    tests\cae_plan_e2e.spec.js:70:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 1: Abre modal de CAE plan desde tab Pendientes 
+    tests\cae_plan_e2e.spec.js:115:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 2: Genera plan con scope m├¡nimo 
+  2 did not run

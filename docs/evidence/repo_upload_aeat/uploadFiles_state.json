@@ -1,0 +1,14 @@
+[
+  {
+    "id": 1767879010015.1433,
+    "name": "AEAT-16-oct-2025.pdf",
+    "type_id": "E2E_TYPE_15e11e80_1",
+    "company_key": "F63161988",
+    "issue_date": "2025-10-16",
+    "period_key": "",
+    "requires_issue_date": true,
+    "errors": [
+      "El mes es obligatorio"
+    ]
+  }
+]

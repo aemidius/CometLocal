@@ -1,0 +1,37 @@
+{
+  "doc_id": "5e1a9372-c0fb-4e70-a393-11452ef87be9",
+  "file_name_original": "12 SS ERM 31-dic-25.pdf",
+  "stored_path": "data/repository/docs/5e1a9372-c0fb-4e70-a393-11452ef87be9.pdf",
+  "sha256": "0ad47bc631dc36c26a13c00224a9d7835bd9923e460a574695739fe76a9b2c86",
+  "type_id": "T9977_AUTONOMOS",
+  "scope": "worker",
+  "company_key": "F63161988",
+  "person_key": "erm",
+  "extracted": {
+    "issue_date": "2025-12-31",
+    "name_date": "2025-12-31",
+    "validity_start_date": "2025-12-31",
+    "period_start": "2025-12-01",
+    "period_end": "2025-12-31"
+  },
+  "computed_validity": {
+    "valid_from": "2025-12-01",
+    "valid_to": "2025-12-31",
+    "confidence": 0.7,
+    "reasons": [
+      "parsed name_date: 2025-12-31",
+      "month_source=name_date: 2025-12-31",
+      "computed period: 2025-12-01 to 2025-12-31",
+      "valid_from=period_start",
+      "valid_to=period_end"
+    ]
+  },
+  "validity_override": null,
+  "status": "draft",
+  "period_kind": "MONTH",
+  "period_key": "2025-12",
+  "issued_at": "2025-12-31",
+  "needs_period": false,
+  "created_at": "2026-01-05T15:13:00.751881",
+  "updated_at": "2026-01-05T15:13:00.751881"
+}

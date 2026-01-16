@@ -1,0 +1,43 @@
+
+[1A[2K[WebServer] INFO:     Started server process [48912]
+[1A[2K[WebServer] INFO:     Waiting for application startup.
+
+[1A[2K[WebServer] Using data dir: D:\Proyectos_Cursor\CometLocal\data
+
+[1A[2K[WebServer] [job_queue] Cargados 18 jobs desde disco
+
+[1A[2K[WebServer] [job_queue] Worker iniciado
+[WebServer] Config paths: org=D:\Proyectos_Cursor\CometLocal\data\refs\org.json people=D:\Proyectos_Cursor\CometLocal\data\refs\people.json platforms=D:\Proyectos_Cursor\CometLocal\data\refs\platforms.json secrets=D:\Proyectos_Cursor\CometLocal\data\refs\secrets.json documents=D:\Proyectos_Cursor\CometLocal\data\refs\documents.json
+
+[1A[2K[WebServer] Using existing LLM config: D:\Proyectos_Cursor\CometLocal\backend\..\data\refs\llm_config.json
+
+[1A[2K[WebServer] INFO:     Application startup complete.
+
+[1A[2K[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63122 - "GET /api/health HTTP/1.1" 200 OK
+
+
+Running 1 test using 1 worker
+
+
+
+[1A[2K(node:42376) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:42376) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[1/1] tests\isolation_repository_data_dir.spec.js:4:5 ÔÇ║ SPRINT C2.10.2: Aislamiento de datos E2E ÔÇ║ Verifica que E2E usa directorio aislado (repository_e2e)
+[1A[2K[WebServer] INFO:     127.0.0.1:63123 - "GET /api/health HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63123 - "GET /api/repository/debug/data_dir HTTP/1.1" 200 OK
+
+[1A[2Ktests\isolation_repository_data_dir.spec.js:4:5 ÔÇ║ SPRINT C2.10.2: Aislamiento de datos E2E ÔÇ║ Verifica que E2E usa directorio aislado (repository_e2e)
+[ISOLATION] Data dir: D:\Proyectos_Cursor\CometLocal\data\repository_e2e
+
+[1A[2K[ISOLATION] Repository root: D:\Proyectos_Cursor\CometLocal\data\repository_e2e\repository
+
+[1A[2K[ISOLATION] Env var: data/repository_e2e
+
+[1A[2K  1 passed (5.1s)

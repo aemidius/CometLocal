@@ -1,0 +1,55 @@
+{
+  "plan_id": "CAEPLAN-20260106-230646-f4201a6c",
+  "created_at": "2026-01-06T23:06:46.372695",
+  "scope": {
+    "platform_key": "egestiona",
+    "type_ids": [],
+    "company_key": "TEDELAB",
+    "person_key": "EMILIO",
+    "period_keys": null,
+    "mode": "PREPARE_WRITE"
+  },
+  "decision": "READY",
+  "reasons": [],
+  "items": [
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "E2E_MONTHLY_0a6434e0",
+      "scope": "worker",
+      "company_key": "TEDELAB",
+      "person_key": "EMILIO",
+      "period_key": "2025-12",
+      "suggested_doc_id": "E2E_DOC_0a6434e0_0",
+      "resolved_dates": {
+        "issued_at": "2025-12-01",
+        "valid_from": "2025-12-01",
+        "valid_to": "2025-12-31"
+      },
+      "status": "PLANNED",
+      "reason": "Item listo para envío"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "E2E_MONTHLY_0a6434e0",
+      "scope": "worker",
+      "company_key": "TEDELAB",
+      "person_key": "EMILIO",
+      "period_key": "2025-11",
+      "suggested_doc_id": "E2E_DOC_0a6434e0_1",
+      "resolved_dates": {
+        "issued_at": "2025-11-01",
+        "valid_from": "2025-11-01",
+        "valid_to": "2025-11-30"
+      },
+      "status": "PLANNED",
+      "reason": "Item listo para envío"
+    }
+  ],
+  "summary": {
+    "total_items": 2,
+    "items_planned": 2,
+    "items_needs_confirmation": 0,
+    "items_blocked": 0
+  },
+  "executor_hint": "egestiona_upload_v1"
+}

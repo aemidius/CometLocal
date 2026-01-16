@@ -1,0 +1,72 @@
+[WebServer] INFO:     Started server process [18160]
+[WebServer] INFO:     Waiting for application startup.
+[WebServer] Using data dir: D:\Proyectos_Cursor\CometLocal\data
+[WebServer] [job_queue] Cargados 18 jobs desde disco
+[WebServer] [job_queue] Worker iniciado
+[WebServer] Config paths: org=D:\Proyectos_Cursor\CometLocal\data\refs\org.json people=D:\Proyectos_Cursor\CometLocal\data\refs\people.json platforms=D:\Proyectos_Cursor\CometLocal\data\refs\platforms.json secrets=D:\Proyectos_Cursor\CometLocal\data\refs\secrets.json documents=D:\Proyectos_Cursor\CometLocal\data\refs\documents.json
+[WebServer] Using existing LLM config: D:\Proyectos_Cursor\CometLocal\backend\..\data\refs\llm_config.json
+[WebServer] INFO:     Application startup complete.
+[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+[WebServer] INFO:     127.0.0.1:50826 - "GET /api/health HTTP/1.1" 200 OK
+
+Running 4 tests using 1 worker
+
+(node:44408) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44408) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] INFO:     127.0.0.1:50828 - "GET /api/health HTTP/1.1" 200 OK
+[E2E] Server health OK - patch: v1.1.1, build_id: undefined
+[WebServer] INFO:     127.0.0.1:50828 - "POST /api/test/seed/reset HTTP/1.1" 200 OK
+[SEED] reset status: 200
+[WebServer] INFO:     127.0.0.1:50828 - "POST /api/test/seed/basic_repository HTTP/1.1" 200 OK
+[SEED] basic_repository status: 200 {
+  company_key: [32m'E2E_COMPANY_7ddc02ef'[39m,
+  person_key: [32m'E2E_PERSON_7ddc02ef'[39m,
+  type_ids: [ [32m'E2E_TYPE_7ddc02ef_0'[39m ],
+  doc_ids: [ [32m'E2E_DOC_7ddc02ef_0_0'[39m, [32m'E2E_DOC_7ddc02ef_0_1'[39m ],
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  message: [32m'Created basic repository: 1 types, 2 docs, 2 missing periods'[39m
+}
+[WebServer] INFO:     127.0.0.1:51227 - "GET /repository HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:51227 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+  x  1 tests\cae_plan_e2e.spec.js:96:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 1: Abre modal de CAE plan desde tab Pendientes (1.6m)
+(node:45068) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45068) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] INFO:     127.0.0.1:60410 - "GET /api/health HTTP/1.1" 200 OK
+[E2E] Server health OK - patch: v1.1.1, build_id: undefined
+[WebServer] INFO:     127.0.0.1:60410 - "POST /api/test/seed/reset HTTP/1.1" 200 OK
+[SEED] reset status: 200
+[WebServer] INFO:     127.0.0.1:60410 - "POST /api/test/seed/basic_repository HTTP/1.1" 200 OK
+[SEED] basic_repository status: 200 {
+  company_key: [32m'E2E_COMPANY_ebe177a8'[39m,
+  person_key: [32m'E2E_PERSON_ebe177a8'[39m,
+  type_ids: [ [32m'E2E_TYPE_ebe177a8_0'[39m ],
+  doc_ids: [ [32m'E2E_DOC_ebe177a8_0_0'[39m, [32m'E2E_DOC_ebe177a8_0_1'[39m ],
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  message: [32m'Created basic repository: 1 types, 2 docs, 2 missing periods'[39m
+}
+[WebServer] INFO:     127.0.0.1:65166 - "GET /repository HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:51534 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+  x  2 tests\cae_plan_e2e.spec.js:141:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 2: Genera plan con scope m├¡nimo (1.5m)
+(node:45032) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45032) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] INFO:     127.0.0.1:61620 - "GET /api/health HTTP/1.1" 200 OK
+[E2E] Server health OK - patch: v1.1.1, build_id: undefined
+[WebServer] INFO:     127.0.0.1:61620 - "POST /api/test/seed/reset HTTP/1.1" 200 OK
+[SEED] reset status: 200
+[WebServer] INFO:     127.0.0.1:61620 - "POST /api/test/seed/basic_repository HTTP/1.1" 200 OK
+[SEED] basic_repository status: 200 {
+  company_key: [32m'E2E_COMPANY_100c39aa'[39m,
+  person_key: [32m'E2E_PERSON_100c39aa'[39m,
+  type_ids: [ [32m'E2E_TYPE_100c39aa_0'[39m ],
+  doc_ids: [ [32m'E2E_DOC_100c39aa_0_0'[39m, [32m'E2E_DOC_100c39aa_0_1'[39m ],
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  message: [32m'Created basic repository: 1 types, 2 docs, 2 missing periods'[39m
+}
+[WebServer] INFO:     127.0.0.1:60567 - "GET /repository HTTP/1.1" 200 OK
+[WebServer] INFO:     127.0.0.1:60567 - "GET /favicon.ico HTTP/1.1" 404 Not Found

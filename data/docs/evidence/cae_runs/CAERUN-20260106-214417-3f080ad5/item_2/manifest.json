@@ -1,0 +1,15 @@
+{
+  "run_id": "CAERUN-20260106-214417-3f080ad5_item2",
+  "plan_id": "CAEPLAN-20260106-214416-98303a6a",
+  "item": {
+    "kind": "MISSING_PERIOD",
+    "type_id": "E2E_MONTHLY_08805bbf",
+    "scope": "worker",
+    "company_key": "TEDELAB",
+    "person_key": "EMILIO",
+    "period_key": "2025-11"
+  },
+  "started_at": "2026-01-06T21:44:17.441371",
+  "mode": "FAKE",
+  "dry_run": true
+}

@@ -1,0 +1,6 @@
+{
+  "status": "error",
+  "error_code": "run_id_missing",
+  "message": "No se pudo generar run_id. El proceso falló antes de crear el directorio de runs.",
+  "details": null
+}

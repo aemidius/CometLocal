@@ -1,0 +1,1021 @@
+
+[1A[2K[WebServer] INFO:     Started server process [47236]
+[1A[2K[WebServer] INFO:     Waiting for application startup.
+
+[1A[2K[WebServer] Using data dir: D:\Proyectos_Cursor\CometLocal\data
+
+[1A[2K[WebServer] [job_queue] Cargados 18 jobs desde disco
+[WebServer] [job_queue] Worker iniciado
+
+[1A[2K[WebServer] 
+[WebServer] Config paths: org=D:\Proyectos_Cursor\CometLocal\data\refs\org.json people=D:\Proyectos_Cursor\CometLocal\data\refs\people.json platforms=D:\Proyectos_Cursor\CometLocal\data\refs\platforms.json secrets=D:\Proyectos_Cursor\CometLocal\data\refs\secrets.json documents=D:\Proyectos_Cursor\CometLocal\data\refs\documents.json
+
+[1A[2K[WebServer] Using existing LLM config: D:\Proyectos_Cursor\CometLocal\backend\..\data\refs\llm_config.json
+
+[1A[2K[WebServer] INFO:     Application startup complete.
+
+[1A[2K[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50064 - "GET /api/health HTTP/1.1" 200 OK
+
+
+Running 4 tests using 1 worker
+
+
+
+[1A[2K(node:47384) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:47384) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K[1/4] tests\cae_plan_e2e.spec.js:91:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 1: Abre modal de CAE plan desde tab Pendientes
+[1A[2K[WebServer] INFO:     127.0.0.1:50138 - "GET /api/health HTTP/1.1" 200 OK
+
+[1A[2Ktests\cae_plan_e2e.spec.js:91:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 1: Abre modal de CAE plan desde tab Pendientes
+[E2E] Server health OK - patch: v1.1.1, build_id: undefined
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50138 - "POST /api/test/seed/reset HTTP/1.1" 200 OK
+
+[1A[2K[SEED] reset status: 200
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50138 - "POST /api/test/seed/basic_repository HTTP/1.1" 200 OK
+
+[1A[2K[SEED] basic_repository status: 200 {
+  company_key: [32m'E2E_COMPANY_3f915656'[39m,
+  person_key: [32m'E2E_PERSON_3f915656'[39m,
+  type_ids: [ [32m'E2E_TYPE_3f915656_0'[39m ],
+  doc_ids: [ [32m'E2E_DOC_3f915656_0_0'[39m, [32m'E2E_DOC_3f915656_0_1'[39m ],
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  message: [32m'Created basic repository: 1 types, 2 docs, 2 missing periods'[39m
+}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50492 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [BOOT] __REPO_SCRIPT_LOADED__ = true
+
+[1A[2K[CONSOLE LOG] [BOOT] repository_v3 script loaded
+
+[1A[2K[CONSOLE LOG] [BOOT] typeof window.ensureCalendarioLoaded: function
+
+[1A[2K[CONSOLE LOG] [BOOT] __REPO_API_READY__ set to true
+
+[1A[2K[CONSOLE LOG] [BOOT] ensureCalendarioLoaded defined
+
+[1A[2K[CONSOLE LOG] [BOOT] window.ensureCalendarioLoaded === undefined ? DEFINED
+
+[1A[2K[CONSOLE LOG] [repo-upload] listener installed {time: 1768344361293}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50492 - "GET /api/health HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361295 bootstrap: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361296 bootstrap: app-ready set
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361296 initHashRouting: registering hashchange listener
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361296 bootstrap: calling runRoutingNow for initial hash
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361296 runRoutingNow: hash=, route=null
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361297 runRoutingNow: normalizing hash from  to #inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361297 bootstrap: completed
+
+[1A[2K[CONSOLE LOG] [BOOT] __REPO_BOOTSTRAP_DONE__ set to true
+
+[1A[2K[CONSOLE LOG] [EVENT] DOMContentLoaded
+
+[1A[2K[CONSOLE LOG] [EVENT] window load
+
+[1A[2K[CONSOLE LOG] [EVENT] hashchange -> #inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361330 hashchange event fired
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361330 runRoutingNow: hash=#inicio, route=inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361330 updateNavActive: updated nav for route=inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361330 runRoutingNow: calling loadPage(inicio)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361330 loadPage: start page=inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361331 loadPage: content.innerHTML set to loading
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] inicio loaded readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361331 setViewState: inicio -> loaded on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361331 setViewState: inicio -> loaded applied, testId=view-inicio-loaded
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50492 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361340 bootstrap: E2E mode detected: true
+
+[1A[2K[CONSOLE LOG] [EVENT] hashchange -> #calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361349 hashchange event fired
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361349 runRoutingNow: hash=#calendario, route=calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361349 updateNavActive: updated nav for route=calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361349 runRoutingNow: calling loadPage(calendario)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361349 loadPage: start page=calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361349 loadPage: content.innerHTML set to loading
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario loaded readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361349 setViewState: calendario -> loaded on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361349 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+
+[1A[2K[CONSOLE LOG] [CAL] start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361350 loadCalendario: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361350 ensureRepoDataLoaded: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361350 Loading types...
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361350 Loading people...
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario loaded readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361364 setViewState: calendario -> loaded on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361365 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+
+[1A[2K[CONSOLE LOG] [CAL] start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361365 loadCalendario: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361365 ensureRepoDataLoaded: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361365 Loading types...
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361365 Loading people...
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65124 - "GET /api/repository/docs?limit=50&sort=date_desc HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:51132 - "GET /api/repository/rules HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50492 - "GET /api/config/platforms HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62584 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56581 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52681 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] inicio ready readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361412 setViewState: inicio -> ready on view-state-root
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50492 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361412 setViewState: inicio -> ready applied, testId=view-inicio-ready
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361412 runRoutingNow: loadPage(inicio) completed
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62584 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56581 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE ERROR] Failed to load resource: the server responded with a status of 404 (Not Found)
+
+[1A[2K[CONSOLE ERROR] Failed to load resource: the server responded with a status of 404 (Not Found)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361427 People loaded:
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361427 Types loaded:
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361427 ensureRepoDataLoaded: done
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361427 loadCalendario: max_months_back=12 (E2E=true, original=24)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361427 loadCalendario: before fetch pendings
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361428 People loaded:
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361428 Types loaded:
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361428 ensureRepoDataLoaded: done
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361428 loadCalendario: max_months_back=12 (E2E=true, original=24)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361428 loadCalendario: before fetch pendings
+
+[1A[2K[WebServer] [PENDING] ms_total=19, ms_read=5, ms_calc=0, ms_missing=10, counts=docs=9, expired=9, expiring=0, missing=21
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56581 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361450 loadCalendario: after fetch pendings
+
+[1A[2K[CONSOLE LOG] [CAL] after fetch pending {expired: 9, expiringSoon: 0, missing: 21}
+
+[1A[2K[WebServer] [PENDING] ms_total=16, ms_read=3, ms_calc=1, ms_missing=8, counts=docs=9, expired=9, expiring=0, missing=21
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62584 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361468 loadCalendario: after fetch pendings
+
+[1A[2K[CONSOLE LOG] [CAL] after fetch pending {expired: 9, expiringSoon: 0, missing: 21}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56581 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361478 loadCalendario: after render table
+
+[1A[2K[CONSOLE LOG] [CAL] after render
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361478 loadCalendario: end
+
+[1A[2K[CONSOLE LOG] [CAL] end
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario ready readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361478 setViewState: calendario -> ready on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361478 setViewState: calendario -> ready applied, testId=view-calendario-ready
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361478 runRoutingNow: loadPage(calendario) completed
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62584 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361495 loadCalendario: after render table
+
+[1A[2K[CONSOLE LOG] [CAL] after render
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361495 loadCalendario: end
+
+[1A[2K[CONSOLE LOG] [CAL] end
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario ready readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361495 setViewState: calendario -> ready on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344361495 setViewState: calendario -> ready applied, testId=view-calendario-ready
+
+[1A[2K[E2E] Calendario navigated once
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62584 - "GET /api/config/platforms HTTP/1.1" 200 OK
+
+[1A[2K[2/4] tests\cae_plan_e2e.spec.js:136:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 2: Genera plan con scope m├¡nimo
+[1A[2Ktests\cae_plan_e2e.spec.js:136:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 2: Genera plan con scope m├¡nimo
+[E2E] Not in calendario, navigating...
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61618 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [BOOT] __REPO_SCRIPT_LOADED__ = true
+
+[1A[2K[CONSOLE LOG] [BOOT] repository_v3 script loaded
+
+[1A[2K[CONSOLE LOG] [BOOT] typeof window.ensureCalendarioLoaded: function
+
+[1A[2K[CONSOLE LOG] [BOOT] __REPO_API_READY__ set to true
+
+[1A[2K[CONSOLE LOG] [BOOT] ensureCalendarioLoaded defined
+
+[1A[2K[CONSOLE LOG] [BOOT] window.ensureCalendarioLoaded === undefined ? DEFINED
+
+[1A[2K[CONSOLE LOG] [repo-upload] listener installed {time: 1768344368224}
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368263 bootstrap: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368263 bootstrap: app-ready set
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368264 initHashRouting: registering hashchange listener
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368264 bootstrap: calling runRoutingNow for initial hash
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61618 - "GET /api/health HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368265 runRoutingNow: hash=, route=null
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368265 runRoutingNow: normalizing hash from  to #inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368265 bootstrap: completed
+
+[1A[2K[CONSOLE LOG] [BOOT] __REPO_BOOTSTRAP_DONE__ set to true
+
+[1A[2K[CONSOLE LOG] [EVENT] DOMContentLoaded
+
+[1A[2K[CONSOLE LOG] [EVENT] window load
+
+[1A[2K[CONSOLE LOG] [EVENT] hashchange -> #inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368267 hashchange event fired
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368267 runRoutingNow: hash=#inicio, route=inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368267 updateNavActive: updated nav for route=inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368268 runRoutingNow: calling loadPage(inicio)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368268 loadPage: start page=inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368268 loadPage: content.innerHTML set to loading
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] inicio loaded readyState= complete body exists= true
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61618 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368268 setViewState: inicio -> loaded on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368268 setViewState: inicio -> loaded applied, testId=view-inicio-loaded
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368270 bootstrap: E2E mode detected: true
+
+[1A[2K[CONSOLE LOG] [EVENT] hashchange -> #calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368295 hashchange event fired
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368295 runRoutingNow: hash=#calendario, route=calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368295 updateNavActive: updated nav for route=calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368295 runRoutingNow: calling loadPage(calendario)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368295 loadPage: start page=calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368295 loadPage: content.innerHTML set to loading
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario loaded readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368295 setViewState: calendario -> loaded on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368295 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+
+[1A[2K[CONSOLE LOG] [CAL] start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368296 loadCalendario: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368296 ensureRepoDataLoaded: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368296 Loading types...
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368296 Loading people...
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario loaded readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368311 setViewState: calendario -> loaded on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368312 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+
+[1A[2K[CONSOLE LOG] [CAL] start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368312 loadCalendario: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368312 ensureRepoDataLoaded: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368312 Loading types...
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368312 Loading people...
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61222 - "GET /api/repository/docs?limit=50&sort=date_desc HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52683 - "GET /api/repository/rules HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62418 - "GET /api/config/platforms HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61618 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52684 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61222 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] inicio ready readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368359 setViewState: inicio -> ready on view-state-root
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61618 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368359 setViewState: inicio -> ready applied, testId=view-inicio-ready
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368359 runRoutingNow: loadPage(inicio) completed
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368371 Types loaded:
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368372 People loaded:
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368372 ensureRepoDataLoaded: done
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368372 loadCalendario: max_months_back=12 (E2E=true, original=24)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368372 loadCalendario: before fetch pendings
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368373 Types loaded:
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368373 People loaded:
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368373 ensureRepoDataLoaded: done
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368373 loadCalendario: max_months_back=12 (E2E=true, original=24)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368373 loadCalendario: before fetch pendings
+
+[1A[2K[WebServer] [PENDING] ms_total=19, ms_read=4, ms_calc=0, ms_missing=10, counts=docs=9, expired=9, expiring=0, missing=21
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61618 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368396 loadCalendario: after fetch pendings
+
+[1A[2K[CONSOLE LOG] [CAL] after fetch pending {expired: 9, expiringSoon: 0, missing: 21}
+
+[1A[2K[WebServer] [PENDING] ms_total=18, ms_read=4, ms_calc=0, ms_missing=9, counts=docs=9, expired=9, expiring=0, missing=21
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61222 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368415 loadCalendario: after fetch pendings
+
+[1A[2K[CONSOLE LOG] [CAL] after fetch pending {expired: 9, expiringSoon: 0, missing: 21}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61618 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61222 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368425 loadCalendario: after render table
+
+[1A[2K[CONSOLE LOG] [CAL] after render
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368426 loadCalendario: end
+
+[1A[2K[CONSOLE LOG] [CAL] end
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario ready readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368426 setViewState: calendario -> ready on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368426 setViewState: calendario -> ready applied, testId=view-calendario-ready
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368426 runRoutingNow: loadPage(calendario) completed
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368450 loadCalendario: after render table
+
+[1A[2K[CONSOLE LOG] [CAL] after render
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368450 loadCalendario: end
+
+[1A[2K[CONSOLE LOG] [CAL] end
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario ready readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368450 setViewState: calendario -> ready on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368450 setViewState: calendario -> ready applied, testId=view-calendario-ready
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario loaded readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368487 setViewState: calendario -> loaded on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368487 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+
+[1A[2K[CONSOLE LOG] [CAL] start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368487 loadCalendario: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368487 ensureRepoDataLoaded: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368487 ensureRepoDataLoaded: done
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368488 loadCalendario: max_months_back=12 (E2E=true, original=24)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368488 loadCalendario: before fetch pendings
+
+[1A[2K[WebServer] [PENDING] ms_total=16, ms_read=3, ms_calc=0, ms_missing=8, counts=docs=9, expired=9, expiring=0, missing=21
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61222 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368508 loadCalendario: after fetch pendings
+
+[1A[2K[CONSOLE LOG] [CAL] after fetch pending {expired: 9, expiringSoon: 0, missing: 21}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61222 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368519 loadCalendario: after render table
+
+[1A[2K[CONSOLE LOG] [CAL] after render
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368519 loadCalendario: end
+
+[1A[2K[CONSOLE LOG] [CAL] end
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario ready readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368519 setViewState: calendario -> ready on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344368519 setViewState: calendario -> ready applied, testId=view-calendario-ready
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61222 - "GET /api/config/platforms HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [repo-upload] change captured {targetTag: SELECT, hasClass: false, fileIdAttr: null, time: 1768344369155}
+
+[1A[2K[CONSOLE LOG] [repo-upload] change captured {targetTag: SELECT, hasClass: false, fileIdAttr: null, time: 1768344369365}
+
+[1A[2K[CONSOLE LOG] [repo-upload] change captured {targetTag: SELECT, hasClass: false, fileIdAttr: null, time: 1768344369583}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61222 - "POST /api/cae/plan HTTP/1.1" 200 OK
+
+[1A[2K[E2E] CAE Plan decision: READY
+
+[1A[2K[3/4] tests\cae_plan_e2e.spec.js:263:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 3: Verifica que decision y reasons son visibles
+[1A[2Ktests\cae_plan_e2e.spec.js:263:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 3: Verifica que decision y reasons son visibles
+[E2E] Not in calendario, navigating...
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59462 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [BOOT] __REPO_SCRIPT_LOADED__ = true
+
+[1A[2K[CONSOLE LOG] [BOOT] repository_v3 script loaded
+
+[1A[2K[CONSOLE LOG] [BOOT] typeof window.ensureCalendarioLoaded: function
+
+[1A[2K[CONSOLE LOG] [BOOT] __REPO_API_READY__ set to true
+
+[1A[2K[CONSOLE LOG] [BOOT] ensureCalendarioLoaded defined
+
+[1A[2K[CONSOLE LOG] [BOOT] window.ensureCalendarioLoaded === undefined ? DEFINED
+
+[1A[2K[CONSOLE LOG] [repo-upload] listener installed {time: 1768344378541}
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378579 bootstrap: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378579 bootstrap: app-ready set
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378580 initHashRouting: registering hashchange listener
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378580 bootstrap: calling runRoutingNow for initial hash
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378580 runRoutingNow: hash=, route=null
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59462 - "GET /api/health HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378581 runRoutingNow: normalizing hash from  to #inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378581 bootstrap: completed
+
+[1A[2K[CONSOLE LOG] [BOOT] __REPO_BOOTSTRAP_DONE__ set to true
+
+[1A[2K[CONSOLE LOG] [EVENT] DOMContentLoaded
+
+[1A[2K[CONSOLE LOG] [EVENT] window load
+
+[1A[2K[CONSOLE LOG] [EVENT] hashchange -> #inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378583 hashchange event fired
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378583 runRoutingNow: hash=#inicio, route=inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378583 updateNavActive: updated nav for route=inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378584 runRoutingNow: calling loadPage(inicio)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378584 loadPage: start page=inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378584 loadPage: content.innerHTML set to loading
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59462 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] inicio loaded readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378584 setViewState: inicio -> loaded on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378585 setViewState: inicio -> loaded applied, testId=view-inicio-loaded
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378586 bootstrap: E2E mode detected: true
+
+[1A[2K[CONSOLE LOG] [EVENT] hashchange -> #calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378610 hashchange event fired
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378610 runRoutingNow: hash=#calendario, route=calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378611 updateNavActive: updated nav for route=calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378611 runRoutingNow: calling loadPage(calendario)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378611 loadPage: start page=calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378611 loadPage: content.innerHTML set to loading
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario loaded readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378611 setViewState: calendario -> loaded on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378611 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+
+[1A[2K[CONSOLE LOG] [CAL] start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378612 loadCalendario: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378612 ensureRepoDataLoaded: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378612 Loading types...
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378612 Loading people...
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario loaded readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378623 setViewState: calendario -> loaded on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378623 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+
+[1A[2K[CONSOLE LOG] [CAL] start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378624 loadCalendario: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378624 ensureRepoDataLoaded: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378624 Loading types...
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378624 Loading people...
+
+[1A[2K[WebServer] INFO:     127.0.0.1:49495 - "GET /api/repository/docs?limit=50&sort=date_desc HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59462 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378637 Types loaded:
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61923 - "GET /api/repository/rules HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:51662 - "GET /api/config/platforms HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:49495 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64343 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:51662 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] inicio ready readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378665 setViewState: inicio -> ready on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378665 setViewState: inicio -> ready applied, testId=view-inicio-ready
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378665 runRoutingNow: loadPage(inicio) completed
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378678 Types loaded:
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378678 People loaded:
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378678 ensureRepoDataLoaded: done
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378678 loadCalendario: max_months_back=12 (E2E=true, original=24)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378678 loadCalendario: before fetch pendings
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378679 People loaded:
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378679 ensureRepoDataLoaded: done
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378679 loadCalendario: max_months_back=12 (E2E=true, original=24)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378679 loadCalendario: before fetch pendings
+
+[1A[2K[WebServer] [PENDING] ms_total=17, ms_read=3, ms_calc=0, ms_missing=9, counts=docs=9, expired=9, expiring=0, missing=21
+
+[1A[2K[WebServer] INFO:     127.0.0.1:51662 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378700 loadCalendario: after fetch pendings
+
+[1A[2K[CONSOLE LOG] [CAL] after fetch pending {expired: 9, expiringSoon: 0, missing: 21}
+
+[1A[2K[WebServer] [PENDING] ms_total=17, ms_read=4, ms_calc=0, ms_missing=9, counts=docs=9, expired=9, expiring=0, missing=21
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64343 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378719 loadCalendario: after fetch pendings
+
+[1A[2K[CONSOLE LOG] [CAL] after fetch pending {expired: 9, expiringSoon: 0, missing: 21}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:51662 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378728 loadCalendario: after render table
+
+[1A[2K[CONSOLE LOG] [CAL] after render
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378729 loadCalendario: end
+
+[1A[2K[CONSOLE LOG] [CAL] end
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario ready readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378729 setViewState: calendario -> ready on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378729 setViewState: calendario -> ready applied, testId=view-calendario-ready
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64343 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378729 runRoutingNow: loadPage(calendario) completed
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378751 loadCalendario: after render table
+
+[1A[2K[CONSOLE LOG] [CAL] after render
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378752 loadCalendario: end
+
+[1A[2K[CONSOLE LOG] [CAL] end
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario ready readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378752 setViewState: calendario -> ready on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378752 setViewState: calendario -> ready applied, testId=view-calendario-ready
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario loaded readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378782 setViewState: calendario -> loaded on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378782 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+
+[1A[2K[CONSOLE LOG] [CAL] start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378782 loadCalendario: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378782 ensureRepoDataLoaded: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378782 ensureRepoDataLoaded: done
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378782 loadCalendario: max_months_back=12 (E2E=true, original=24)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378782 loadCalendario: before fetch pendings
+
+[1A[2K[WebServer] [PENDING] ms_total=17, ms_read=3, ms_calc=0, ms_missing=10, counts=docs=9, expired=9, expiring=0, missing=21
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64343 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378803 loadCalendario: after fetch pendings
+
+[1A[2K[CONSOLE LOG] [CAL] after fetch pending {expired: 9, expiringSoon: 0, missing: 21}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64343 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378813 loadCalendario: after render table
+
+[1A[2K[CONSOLE LOG] [CAL] after render
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378813 loadCalendario: end
+
+[1A[2K[CONSOLE LOG] [CAL] end
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario ready readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378814 setViewState: calendario -> ready on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344378814 setViewState: calendario -> ready applied, testId=view-calendario-ready
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64343 - "GET /api/config/platforms HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64343 - "POST /api/cae/plan HTTP/1.1" 200 OK
+
+[1A[2K[4/4] tests\cae_plan_e2e.spec.js:343:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 4: Cierra modal correctamente
+[1A[2Ktests\cae_plan_e2e.spec.js:343:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 4: Cierra modal correctamente
+[E2E] Not in calendario, navigating...
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63911 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [BOOT] __REPO_SCRIPT_LOADED__ = true
+
+[1A[2K[CONSOLE LOG] [BOOT] repository_v3 script loaded
+
+[1A[2K[CONSOLE LOG] [BOOT] typeof window.ensureCalendarioLoaded: function
+
+[1A[2K[CONSOLE LOG] [BOOT] __REPO_API_READY__ set to true
+
+[1A[2K[CONSOLE LOG] [BOOT] ensureCalendarioLoaded defined
+
+[1A[2K[CONSOLE LOG] [BOOT] window.ensureCalendarioLoaded === undefined ? DEFINED
+
+[1A[2K[CONSOLE LOG] [repo-upload] listener installed {time: 1768344387560}
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387602 bootstrap: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387602 bootstrap: app-ready set
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387603 initHashRouting: registering hashchange listener
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387603 bootstrap: calling runRoutingNow for initial hash
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63911 - "GET /api/health HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387603 runRoutingNow: hash=, route=null
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387603 runRoutingNow: normalizing hash from  to #inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387604 bootstrap: completed
+
+[1A[2K[CONSOLE LOG] [BOOT] __REPO_BOOTSTRAP_DONE__ set to true
+
+[1A[2K[CONSOLE LOG] [EVENT] DOMContentLoaded
+
+[1A[2K[CONSOLE LOG] [EVENT] window load
+
+[1A[2K[CONSOLE LOG] [EVENT] hashchange -> #inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387606 hashchange event fired
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387606 runRoutingNow: hash=#inicio, route=inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387606 updateNavActive: updated nav for route=inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387606 runRoutingNow: calling loadPage(inicio)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387607 loadPage: start page=inicio
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387607 loadPage: content.innerHTML set to loading
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] inicio loaded readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387607 setViewState: inicio -> loaded on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387607 setViewState: inicio -> loaded applied, testId=view-inicio-loaded
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387609 bootstrap: E2E mode detected: true
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63911 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [EVENT] hashchange -> #calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387634 hashchange event fired
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387634 runRoutingNow: hash=#calendario, route=calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387634 updateNavActive: updated nav for route=calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387634 runRoutingNow: calling loadPage(calendario)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387634 loadPage: start page=calendario
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387634 loadPage: content.innerHTML set to loading
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario loaded readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387634 setViewState: calendario -> loaded on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387634 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+
+[1A[2K[CONSOLE LOG] [CAL] start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387635 loadCalendario: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387635 ensureRepoDataLoaded: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387635 Loading types...
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387635 Loading people...
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario loaded readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387647 setViewState: calendario -> loaded on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387647 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+
+[1A[2K[CONSOLE LOG] [CAL] start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387647 loadCalendario: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387647 ensureRepoDataLoaded: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387647 Loading types...
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387648 Loading people...
+
+[1A[2K[WebServer] INFO:     127.0.0.1:58650 - "GET /api/repository/docs?limit=50&sort=date_desc HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:57295 - "GET /api/repository/rules HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63911 - "GET /api/config/platforms HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53947 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62823 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] inicio ready readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387681 setViewState: inicio -> ready on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387681 setViewState: inicio -> ready applied, testId=view-inicio-ready
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387682 runRoutingNow: loadPage(inicio) completed
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63911 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53947 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387695 Types loaded:
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387696 People loaded:
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387696 ensureRepoDataLoaded: done
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387696 loadCalendario: max_months_back=12 (E2E=true, original=24)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387696 loadCalendario: before fetch pendings
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387697 Types loaded:
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387697 People loaded:
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387697 ensureRepoDataLoaded: done
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387697 loadCalendario: max_months_back=12 (E2E=true, original=24)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387697 loadCalendario: before fetch pendings
+
+[1A[2K[WebServer] [PENDING] ms_total=19, ms_read=5, ms_calc=0, ms_missing=10, counts=docs=9, expired=9, expiring=0, missing=21
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53947 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387720 loadCalendario: after fetch pendings
+
+[1A[2K[CONSOLE LOG] [CAL] after fetch pending {expired: 9, expiringSoon: 0, missing: 21}
+
+[1A[2K[WebServer] [PENDING] ms_total=20, ms_read=5, ms_calc=1, ms_missing=10, counts=docs=9, expired=9, expiring=0, missing=21
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63911 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387741 loadCalendario: after fetch pendings
+
+[1A[2K[CONSOLE LOG] [CAL] after fetch pending {expired: 9, expiringSoon: 0, missing: 21}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53947 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387752 loadCalendario: after render table
+
+[1A[2K[CONSOLE LOG] [CAL] after render
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387753 loadCalendario: end
+
+[1A[2K[CONSOLE LOG] [CAL] end
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario ready readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387753 setViewState: calendario -> ready on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387753 setViewState: calendario -> ready applied, testId=view-calendario-ready
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387753 runRoutingNow: loadPage(calendario) completed
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63911 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387775 loadCalendario: after render table
+
+[1A[2K[CONSOLE LOG] [CAL] after render
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387775 loadCalendario: end
+
+[1A[2K[CONSOLE LOG] [CAL] end
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario ready readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387775 setViewState: calendario -> ready on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387775 setViewState: calendario -> ready applied, testId=view-calendario-ready
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario loaded readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387807 setViewState: calendario -> loaded on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387807 setViewState: calendario -> loaded applied, testId=view-calendario-loaded
+
+[1A[2K[CONSOLE LOG] [CAL] start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387807 loadCalendario: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387807 ensureRepoDataLoaded: start
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387807 ensureRepoDataLoaded: done
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387807 loadCalendario: max_months_back=12 (E2E=true, original=24)
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387807 loadCalendario: before fetch pendings
+
+[1A[2K[WebServer] [PENDING] ms_total=19, ms_read=4, ms_calc=0, ms_missing=10, counts=docs=9, expired=9, expiring=0, missing=21
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63911 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=12 HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387830 loadCalendario: after fetch pendings
+
+[1A[2K[CONSOLE LOG] [CAL] after fetch pending {expired: 9, expiringSoon: 0, missing: 21}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63911 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387841 loadCalendario: after render table
+
+[1A[2K[CONSOLE LOG] [CAL] after render
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387841 loadCalendario: end
+
+[1A[2K[CONSOLE LOG] [CAL] end
+
+[1A[2K[CONSOLE LOG] [SETVIEWSTATE] calendario ready readyState= complete body exists= true
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387841 setViewState: calendario -> ready on view-state-root
+
+[1A[2K[CONSOLE LOG] [VIEWDBG] 1768344387841 setViewState: calendario -> ready applied, testId=view-calendario-ready
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63911 - "GET /api/config/platforms HTTP/1.1" 200 OK
+
+[1A[2K  4 passed (41.5s)

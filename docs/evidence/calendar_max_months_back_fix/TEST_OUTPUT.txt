@@ -1,0 +1,474 @@
+
+Running 4 tests using 1 worker
+
+
+
+[1A[2K(node:51388) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:51388) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[1/4] tests\e2e_calendar_filters.spec.js:27:5 ÔÇ║ Calendario - Filtros ÔÇ║ TEST 1: Scope select funciona
+[1A[2Ktests\e2e_calendar_filters.spec.js:27:5 ÔÇ║ Calendario - Filtros ÔÇ║ TEST 1: Scope select funciona
+[CAL] raw pending periods count 23
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 23 max= 24
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 23 max= 24
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 0 max= 24
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 23 max= 24
+
+[1A[2K[2/4] tests\e2e_calendar_filters.spec.js:96:5 ÔÇ║ Calendario - Filtros ÔÇ║ TEST 2: M├íx. meses atr├ís filtra de verdad
+[1A[2Ktests\e2e_calendar_filters.spec.js:96:5 ÔÇ║ Calendario - Filtros ÔÇ║ TEST 2: M├íx. meses atr├ís filtra de verdad
+[CAL] raw pending periods count 23
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 23 max= 24
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 23 max= 24
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 23 max= 24
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 false
+
+[1A[2K[CAL] sample 2025-08 5 false
+
+[1A[2K[CAL] sample 2025-07 6 false
+
+[1A[2K[CAL] sample 2025-06 7 false
+
+[1A[2K[CAL] sample 2025-05 8 false
+
+[1A[2K[CAL] sample 2025-04 9 false
+
+[1A[2K[CAL] sample 2025-03 10 false
+
+[1A[2K[CAL] filtered pending periods count 3 max= 3
+
+[1A[2K[3/4] tests\e2e_calendar_filters.spec.js:170:5 ÔÇ║ Calendario - Filtros ÔÇ║ TEST 4: M├íx. meses atr├ís NO muestra per├¡odos antiguos (bug fix)
+[1A[2Ktests\e2e_calendar_filters.spec.js:170:5 ÔÇ║ Calendario - Filtros ÔÇ║ TEST 4: M├íx. meses atr├ís NO muestra per├¡odos antiguos (bug fix)
+[CAL] raw pending periods count 23
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 23 max= 24
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 23 max= 24
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 23 max= 24
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 false
+
+[1A[2K[CAL] sample 2025-08 5 false
+
+[1A[2K[CAL] sample 2025-07 6 false
+
+[1A[2K[CAL] sample 2025-06 7 false
+
+[1A[2K[CAL] sample 2025-05 8 false
+
+[1A[2K[CAL] sample 2025-04 9 false
+
+[1A[2K[CAL] sample 2025-03 10 false
+
+[1A[2K[CAL] filtered pending periods count 3 max= 3
+
+[1A[2K[TEST] Per├¡odos mostrados con maxMonthsBack=3: [
+  { period: [32m'2026-01'[39m, monthsDiff: [33m0[39m },
+  { period: [32m'2025-12'[39m, monthsDiff: [33m1[39m },
+  { period: [32m'2025-10'[39m, monthsDiff: [33m3[39m }
+]
+
+[1A[2K[4/4] tests\e2e_calendar_filters.spec.js:249:5 ÔÇ║ Calendario - Filtros ÔÇ║ TEST 3: Clear filtros resetea correctamente
+[1A[2Ktests\e2e_calendar_filters.spec.js:249:5 ÔÇ║ Calendario - Filtros ÔÇ║ TEST 3: Clear filtros resetea correctamente
+[CAL] raw pending periods count 23
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 23 max= 24
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 0 max= 24
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 0 max= 24
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 0 max= 24
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 0 max= 24
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 0 max= 12
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 0 max= 12
+
+[1A[2K[CAL] sample 2026-01 0 true
+
+[1A[2K[CAL] sample 2025-12 1 true
+
+[1A[2K[CAL] sample 2025-10 3 true
+
+[1A[2K[CAL] sample 2025-09 4 true
+
+[1A[2K[CAL] sample 2025-08 5 true
+
+[1A[2K[CAL] sample 2025-07 6 true
+
+[1A[2K[CAL] sample 2025-06 7 true
+
+[1A[2K[CAL] sample 2025-05 8 true
+
+[1A[2K[CAL] sample 2025-04 9 true
+
+[1A[2K[CAL] sample 2025-03 10 true
+
+[1A[2K[CAL] filtered pending periods count 23 max= 24
+
+[1A[2K  4 passed (17.4s)

@@ -5,6 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CometLocal - Dashboard</title>
     <style>
+        /* Guardrail: Banner de error para file:// */
+        #file-protocol-warning {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #dc2626;
+            color: white;
+            padding: 12px 16px;
+            text-align: center;
+            font-weight: bold;
+            z-index: 10000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        
         body {
             margin: 0;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -226,6 +241,193 @@
             font-weight: 600;
             color: #e5e7eb;
         }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .modal-content {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 1200px;
+            width: 100%;
+            margin: auto;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 16px;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #60a5fa;
+        }
+
+        .modal-close {
+            background: #6b7280;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .modal-close:hover {
+            background: #4b5563;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .searchable-select {
+            position: relative;
+        }
+
+        .searchable-select input {
+            width: 100%;
+            padding: 8px 12px;
+            background: #334155;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            color: #e5e7eb;
+            font-size: 14px;
+        }
+
+        .searchable-select-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #1e293b;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .searchable-select-dropdown.active {
+            display: block;
+        }
+
+        .searchable-select-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            color: #e5e7eb;
+        }
+
+        .searchable-select-option:hover {
+            background: #334155;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .radio-group input[type="radio"] {
+            width: auto;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 24px;
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }
+
+        .results-table th {
+            background: #334155;
+            color: #60a5fa;
+            font-weight: 600;
+        }
+
+        .results-table td {
+            color: #e5e7eb;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background: #065f46;
+            color: #d1fae5;
+        }
+
+        .badge-warning {
+            background: #92400e;
+            color: #fed7aa;
+        }
+
+        .badge-error {
+            background: #991b1b;
+            color: #fecaca;
+        }
+
+        .badge-info {
+            background: #1e40af;
+            color: #dbeafe;
+        }
+
+        .detail-expanded {
+            background: #111827;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #94a3b8;
+        }
     </style>
 </head>
 <body>
@@ -243,6 +445,15 @@
                 <div class="link-grid" id="quick-links">
                     <!-- Links will be populated by JavaScript -->
                 </div>
+            </div>
+
+            <!-- CAE Pending Review -->
+            <div class="card">
+                <h3>📋 Revisar Pendientes CAE</h3>
+                <p>Revisión avanzada de pendientes con filtros configurables (READ-ONLY)</p>
+                <button class="btn btn-primary" onclick="openPendingReviewModal()" style="width: 100%; margin-top: 12px;">
+                    📋 Revisar Pendientes CAE
+                </button>
             </div>
 
             <!-- LLM Configuration -->
@@ -326,8 +537,164 @@
         </div>
     </div>
 
+    <!-- Modal: Revisar Pendientes CAE -->
+    <div id="pending-review-modal" class="modal" data-testid="cae-review-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📋 Revisar Pendientes CAE (Avanzado)</h2>
+                <button class="modal-close" onclick="closePendingReviewModal()">Cerrar</button>
+            </div>
+
+            <div id="pending-review-alert" data-testid="cae-review-error"></div>
+
+            <!-- Filtros -->
+            <div class="filter-grid">
+                <div class="form-group">
+                    <label>Empresa propia (quién entrega)</label>
+                    <div class="searchable-select">
+                        <input type="text" id="filter-company" placeholder="Buscar empresa..." oninput="filterSelect('company')" onclick="toggleDropdown('company')">
+                        <div id="filter-company-dropdown" class="searchable-select-dropdown"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Cliente / Empresa a coordinar</label>
+                    <div class="searchable-select">
+                        <input type="text" id="filter-coord" placeholder="Buscar cliente..." oninput="filterSelect('coord')" onclick="toggleDropdown('coord')">
+                        <div id="filter-coord-dropdown" class="searchable-select-dropdown"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Plataforma CAE *</label>
+                    <div class="searchable-select">
+                        <input type="text" id="filter-platform" placeholder="Buscar plataforma..." oninput="filterSelect('platform')" onclick="toggleDropdown('platform')">
+                        <div id="filter-platform-dropdown" class="searchable-select-dropdown"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Ámbito del documento</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="scope" value="worker" onchange="updateWorkerField()" data-testid="cae-review-scope-worker"> Trabajador</label>
+                        <label><input type="radio" name="scope" value="company" onchange="updateWorkerField()" data-testid="cae-review-scope-company"> Empresa</label>
+                        <label><input type="radio" name="scope" value="both" onchange="updateWorkerField()" checked data-testid="cae-review-scope-both"> Ambos</label>
+                    </div>
+                </div>
+
+                <div class="form-group" id="worker-field-group">
+                    <label>Trabajador</label>
+                    <div class="searchable-select">
+                        <input type="text" id="filter-worker" placeholder="Buscar trabajador..." oninput="filterSelect('worker')" onclick="toggleDropdown('worker')">
+                        <div id="filter-worker-dropdown" class="searchable-select-dropdown"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Tipo de documento (filtro UI)</label>
+                    <div class="searchable-select">
+                        <input type="text" id="filter-type" placeholder="Buscar tipo..." oninput="filterSelect('type')" onclick="toggleDropdown('type')" onchange="applyTypeFilterIfLoaded()">
+                        <div id="filter-type-dropdown" class="searchable-select-dropdown"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <button class="btn btn-primary" onclick="executePendingReview()" id="execute-btn" data-testid="cae-review-run-btn">
+                    🔍 Revisar ahora (READ-ONLY)
+                </button>
+                <button class="btn btn-success" onclick="executePlanWithApproval()" id="execute-plan-btn" data-testid="cae-execute-plan-btn" style="margin-left: 8px; display: none;">
+                    ⚡ Ejecutar plan (subir documentos)
+                </button>
+                <button class="btn btn-warning" onclick="executePlanRealHeadful()" id="execute-real-headful-btn" data-testid="cae-exec-real-headful-btn" style="margin-left: 8px; display: none;">
+                    🔴 Ejecutar REAL (headful) — 1 documento
+                </button>
+                <button class="btn btn-info" onclick="startHeadfulRun()" id="start-headful-run-btn" data-testid="cae-start-headful-run" style="margin-left: 8px; display: none;">
+                    🟢 Abrir sesión REAL supervisada (headful)
+                </button>
+                <button class="btn btn-warning" onclick="executeHeadfulAction()" id="exec-headful-action-btn" data-testid="cae-exec-headful-action" style="margin-left: 8px; display: none;">
+                    ⚡ Ejecutar subida REAL (1 doc)
+                </button>
+                <button class="btn btn-danger" onclick="closeHeadfulRun()" id="close-headful-run-btn" data-testid="cae-close-headful-run" style="margin-left: 8px; display: none;">
+                    🔴 Cerrar sesión supervisada
+                </button>
+                <div id="headful-run-status" style="margin-top: 8px; padding: 12px; background: #1e293b; border-radius: 4px; display: none;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <span id="headful-run-status-text" style="font-weight: bold;"></span>
+                        <span id="headful-run-risk-badge" style="padding: 2px 8px; border-radius: 4px; font-size: 0.85em;"></span>
+                    </div>
+                    <div id="headful-run-timeline" style="max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.85em; background: #0f172a; padding: 8px; border-radius: 4px; margin-top: 8px;"></div>
+                </div>
+            </div>
+
+            <!-- Resultados -->
+            <div id="results-section" style="display: none;">
+                <h3>Resultados</h3>
+                <!-- Status banner (ok/error) -->
+                <div id="cae-results-status" style="margin-bottom: 16px; display: none;"></div>
+                <!-- Run info -->
+                <div id="run-info" style="margin-bottom: 16px; padding: 12px; background: #334155; border-radius: 6px;"></div>
+                <!-- Summary -->
+                <div id="cae-review-summary" data-testid="cae-review-summary" style="margin-bottom: 16px; padding: 12px; background: #1e293b; border-radius: 6px; display: none;"></div>
+                <!-- Error details (expandable) -->
+                <div id="cae-results-error-details" style="margin-bottom: 16px; display: none;"></div>
+                <!-- Run link container -->
+                <div id="cae-results-run-link" style="margin-bottom: 16px;"></div>
+                <!-- Exec result (headful) -->
+                <div id="cae-exec-real-headful-result" data-testid="cae-exec-real-headful-result" style="margin-bottom: 16px; padding: 12px; background: #7c2d12; border-radius: 6px; display: none;"></div>
+                <!-- Table container -->
+                <div id="results-table-container" data-testid="cae-review-items"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const BACKEND_URL = 'http://127.0.0.1:8000';
+
+        // ============================================
+        // Helper functions para acceso seguro a DOM
+        // ============================================
+        function safeGet(id) {
+            const el = document.getElementById(id);
+            return el || null;
+        }
+
+        function safeSetHTML(id, html) {
+            const el = safeGet(id);
+            if (!el) {
+                console.warn(`[safeSetHTML] Elemento con ID '${id}' no encontrado`);
+                return false;
+            }
+            el.innerHTML = html;
+            return true;
+        }
+
+        function safeSetText(id, text) {
+            const el = safeGet(id);
+            if (!el) {
+                console.warn(`[safeSetText] Elemento con ID '${id}' no encontrado`);
+                return false;
+            }
+            el.textContent = text;
+            return true;
+        }
+
+        function safeSetDisplay(id, display) {
+            const el = safeGet(id);
+            if (!el) return false;
+            el.style.display = display;
+            return true;
+        }
+
+        // Helper para escapar HTML (prevenir XSS)
+        window.escapeHtml = function(text) {
+            const s = String(text ?? "");
+            return s.replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+        };
 
         // Quick links configuration
         const quickLinks = [
@@ -343,8 +710,37 @@
             { name: '❤️ Health Check', url: '/health', description: 'Estado del sistema' }
         ];
 
+        // GUARDRAIL: Bloquear ejecución desde file://
+        function checkFileProtocol() {
+            if (window.location.protocol === 'file:') {
+                // Crear banner de error
+                const banner = document.createElement('div');
+                banner.id = 'file-protocol-warning';
+                banner.innerHTML = '❌ NO ejecutes desde file://. Abre <a href="http://127.0.0.1:8000/home" style="color: #fbbf24; text-decoration: underline;">http://127.0.0.1:8000/home</a>';
+                document.body.insertBefore(banner, document.body.firstChild);
+                
+                // Deshabilitar botón de revisión
+                const reviewBtn = document.querySelector('[data-testid="cae-review-run-btn"]');
+                if (reviewBtn) {
+                    reviewBtn.disabled = true;
+                    reviewBtn.style.opacity = '0.5';
+                    reviewBtn.style.cursor = 'not-allowed';
+                }
+                
+                // Loggear error
+                console.error('[GUARDRAIL] NO ejecutes desde file://. Abre http://127.0.0.1:8000/home');
+                
+                return true; // Indicar que está bloqueado
+            }
+            return false; // No está bloqueado
+        }
+        
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
+            // Verificar file:// PRIMERO, antes de cualquier otra inicialización
+            if (checkFileProtocol()) {
+                return; // Detener inicialización si está bloqueado
+            }
             loadQuickLinks();
             loadLLMConfig();
             checkLLMStatus();
@@ -497,6 +893,1732 @@
                 setTimeout(() => {
                     container.innerHTML = '';
                 }, 5000);
+            }
+        }
+
+        // ===== PENDING REVIEW MODAL =====
+        let pendingReviewData = {
+            org: null,
+            people: null,
+            platforms: null,
+            types: null,
+            selectedCompany: null,
+            selectedCoord: null,
+            selectedPlatform: null,
+            selectedWorker: null,
+            selectedType: null,
+            scope: 'both',
+            currentPlan: null,
+            currentRunId: null,
+            confirmToken: null,
+            planId: null
+        };
+
+        // Load saved filters from localStorage
+        function loadSavedFilters() {
+            const saved = localStorage.getItem('pendingReviewFilters');
+            if (saved) {
+                try {
+                    const filters = JSON.parse(saved);
+                    // Restore values after data is loaded (will be called after loadPendingReviewData)
+                    setTimeout(() => {
+                        if (filters.company) {
+                            const companyOpt = JSON.parse(document.getElementById('filter-company').dataset.options || '[]').find(o => o.value === filters.company);
+                            if (companyOpt) {
+                                document.getElementById('filter-company').value = companyOpt.label;
+                                pendingReviewData.selectedCompany = filters.company;
+                            }
+                        }
+                        if (filters.coord) {
+                            const coordOpt = JSON.parse(document.getElementById('filter-coord').dataset.options || '[]').find(o => o.value === filters.coord);
+                            if (coordOpt) {
+                                document.getElementById('filter-coord').value = coordOpt.label;
+                                pendingReviewData.selectedCoord = filters.coord;
+                            }
+                        }
+                        if (filters.platform) {
+                            const platformOpt = JSON.parse(document.getElementById('filter-platform').dataset.options || '[]').find(o => o.value === filters.platform);
+                            if (platformOpt) {
+                                document.getElementById('filter-platform').value = platformOpt.label;
+                                pendingReviewData.selectedPlatform = filters.platform;
+                            }
+                        }
+                        if (filters.worker) {
+                            const workerOpt = JSON.parse(document.getElementById('filter-worker').dataset.options || '[]').find(o => o.value === filters.worker);
+                            if (workerOpt) {
+                                document.getElementById('filter-worker').value = workerOpt.label;
+                                pendingReviewData.selectedWorker = filters.worker;
+                            }
+                        }
+                        if (filters.type) {
+                            const typeOpt = JSON.parse(document.getElementById('filter-type').dataset.options || '[]').find(o => o.value === filters.type);
+                            if (typeOpt) {
+                                document.getElementById('filter-type').value = typeOpt.label;
+                                pendingReviewData.selectedType = filters.type;
+                            }
+                        }
+                        if (filters.scope) {
+                            const radio = document.querySelector(`input[name="scope"][value="${filters.scope}"]`);
+                            if (radio) {
+                                radio.checked = true;
+                                updateWorkerField();
+                            }
+                        }
+                    }, 100);
+                } catch (e) {
+                    console.error('Error loading saved filters:', e);
+                }
+            }
+        }
+
+        // Save filters to localStorage
+        function saveFilters() {
+            const filters = {
+                company: pendingReviewData.selectedCompany || '',
+                coord: pendingReviewData.selectedCoord || '',
+                platform: pendingReviewData.selectedPlatform || '',
+                worker: pendingReviewData.selectedWorker || '',
+                type: pendingReviewData.selectedType || '',
+                scope: pendingReviewData.scope || 'both'
+            };
+            localStorage.setItem('pendingReviewFilters', JSON.stringify(filters));
+        }
+
+        async function openPendingReviewModal() {
+            const modal = safeGet('pending-review-modal');
+            if (modal) modal.classList.add('active');
+            safeSetDisplay('results-section', 'none');
+            safeSetHTML('pending-review-alert', '');
+            
+            // Limpiar contenedores de resultados
+            safeSetHTML('cae-results-status', '');
+            safeSetHTML('run-info', '');
+            safeSetHTML('cae-review-summary', '');
+            safeSetHTML('cae-results-error-details', '');
+            safeSetHTML('cae-results-run-link', '');
+            safeSetHTML('results-table-container', '');
+            safeSetDisplay('cae-results-error-details', 'none');
+            
+            // Clear previous plan
+            pendingReviewData.currentPlan = null;
+            pendingReviewData.currentRunId = null;
+
+            // Load data first
+            await loadPendingReviewData();
+
+            // Then load saved filters
+            loadSavedFilters();
+        }
+
+        function closePendingReviewModal() {
+            const modal = safeGet('pending-review-modal');
+            if (modal) modal.classList.remove('active');
+            // Detener polling headful si está activo
+            stopHeadfulRunStatusPolling();
+            saveFilters();
+        }
+
+        async function loadPendingReviewData() {
+            try {
+                // Load org
+                const orgRes = await fetch(`${BACKEND_URL}/api/config/org`);
+                pendingReviewData.org = await orgRes.json();
+
+                // Load people
+                const peopleRes = await fetch(`${BACKEND_URL}/api/config/people`);
+                pendingReviewData.people = await peopleRes.json();
+
+                // Load platforms
+                const platformsRes = await fetch(`${BACKEND_URL}/api/config/platforms`);
+                pendingReviewData.platforms = await platformsRes.json();
+
+                // Load types
+                const typesRes = await fetch(`${BACKEND_URL}/api/repository/types`);
+                pendingReviewData.types = await typesRes.json();
+
+                // Populate dropdowns
+                populateSelect('company', [{ value: '', label: 'Todas' }, { value: pendingReviewData.org.tax_id, label: `${pendingReviewData.org.legal_name} (${pendingReviewData.org.tax_id})` }]);
+                populateSelect('worker', [{ value: '', label: 'Todos' }, ...pendingReviewData.people.people.map(p => ({ value: p.worker_id, label: `${p.full_name} (${p.worker_id})` }))]);
+                populateSelect('type', [{ value: '', label: 'Todos' }, ...pendingReviewData.types.filter(t => t.active).map(t => ({ value: t.type_id, label: t.name }))]);
+
+                // Populate platforms and coords
+                const platformOptions = [{ value: '', label: 'Todas' }];
+                const coordOptions = [{ value: '', label: 'Todas' }];
+                
+                pendingReviewData.platforms.platforms.forEach(platform => {
+                    platformOptions.push({ value: platform.key, label: platform.key });
+                    platform.coordinations.forEach(coord => {
+                        coordOptions.push({ value: coord.label, label: `${coord.label} (${platform.key})` });
+                    });
+                });
+
+                populateSelect('platform', platformOptions);
+                populateSelect('coord', coordOptions);
+
+            } catch (error) {
+                showAlert('pending-review-alert', 'Error al cargar datos: ' + error.message, 'error');
+                console.error('Error loading data:', error);
+            }
+        }
+
+        function populateSelect(type, options) {
+            const input = document.getElementById(`filter-${type}`);
+            const dropdown = document.getElementById(`filter-${type}-dropdown`);
+            
+            // Store options
+            input.dataset.options = JSON.stringify(options);
+            
+            // Render dropdown
+            renderDropdown(type, options);
+        }
+
+        function renderDropdown(type, options) {
+            const dropdown = document.getElementById(`filter-${type}-dropdown`);
+            dropdown.innerHTML = '';
+            
+            options.forEach(opt => {
+                const div = document.createElement('div');
+                div.className = 'searchable-select-option';
+                div.textContent = opt.label;
+                div.onclick = () => selectOption(type, opt.value, opt.label);
+                dropdown.appendChild(div);
+            });
+        }
+
+        function filterSelect(type) {
+            const input = document.getElementById(`filter-${type}`);
+            const search = input.value.toLowerCase();
+            const options = JSON.parse(input.dataset.options || '[]');
+            
+            const filtered = options.filter(opt => 
+                opt.label.toLowerCase().includes(search)
+            );
+            
+            renderDropdown(type, filtered);
+            toggleDropdown(type);
+        }
+
+        function toggleDropdown(type) {
+            const dropdown = document.getElementById(`filter-${type}-dropdown`);
+            dropdown.classList.toggle('active');
+        }
+
+        function selectOption(type, value, label) {
+            const input = document.getElementById(`filter-${type}`);
+            input.value = label;
+            
+            // Map type names to data properties
+            const propMap = {
+                'company': 'selectedCompany',
+                'coord': 'selectedCoord',
+                'platform': 'selectedPlatform',
+                'worker': 'selectedWorker',
+                'type': 'selectedType'
+            };
+            
+            if (propMap[type]) {
+                pendingReviewData[propMap[type]] = value;
+            }
+            
+            const dropdown = document.getElementById(`filter-${type}-dropdown`);
+            dropdown.classList.remove('active');
+            
+            saveFilters();
+            
+            // If type filter changed and we have a plan loaded, re-apply filter
+            if (type === 'type' && pendingReviewData.currentPlan) {
+                applyTypeFilterAndRender();
+            }
+        }
+
+        // ============================================
+        // Funciones de render robusto
+        // ============================================
+        // Helper GLOBAL para extraer run_id de múltiples lugares (ÚNICA función, reutilizable)
+        // IMPORTANTE: Esta es la ÚNICA función extractRunId. No duplicar.
+        // 
+        // Casos soportados (por orden de prioridad):
+        // - response.run_id (canonical)
+        // - response.plan_id (alias usado por build_submission_plan_readonly)
+        // - response.runId (camelCase variant)
+        // - response.data?.run_id / response.data?.plan_id
+        // - response.artifacts?.run_id / response.artifacts?.plan_id / response.artifacts?.runId
+        // - response.meta?.run_id / response.meta?.plan_id (NUEVO)
+        // - response.result?.run_id / response.result?.plan_id
+        // - response.summary?.run_id / response.summary?.plan_id (NUEVO)
+        function extractRunId(result) {
+            if (!result) return null;
+            
+            // Orden de prioridad (más específico primero):
+            return (
+                result.run_id ||                    // Canonical
+                result.plan_id ||                 // Alias usado por build_submission_plan_readonly
+                result.runId ||                   // CamelCase variant
+                result.data?.run_id ||            // Nested data.run_id
+                result.data?.plan_id ||           // Nested data.plan_id
+                result.meta?.run_id ||            // Nested meta.run_id (NUEVO)
+                result.meta?.plan_id ||           // Nested meta.plan_id (NUEVO)
+                result.artifacts?.run_id ||        // Nested artifacts.run_id
+                result.artifacts?.plan_id ||      // Nested artifacts.plan_id
+                result.artifacts?.runId ||        // Nested artifacts.runId (camelCase)
+                result.result?.run_id ||          // Nested result.run_id
+                result.result?.plan_id ||         // Nested result.plan_id
+                result.summary?.run_id ||         // Nested summary.run_id (NUEVO)
+                result.summary?.plan_id ||        // Nested summary.plan_id (NUEVO)
+                null
+            );
+        }
+        
+        // Helper para identificar TODOS los posibles identificadores en la respuesta (para debugging)
+        function findAllIdentifiers(result) {
+            if (!result) return {};
+            
+            const identifiers = {};
+            
+            // Top-level
+            if (result.run_id) identifiers.run_id = result.run_id;
+            if (result.plan_id) identifiers.plan_id = result.plan_id;
+            if (result.runId) identifiers.runId = result.runId;
+            
+            // Nested data
+            if (result.data?.run_id) identifiers['data.run_id'] = result.data.run_id;
+            if (result.data?.plan_id) identifiers['data.plan_id'] = result.data.plan_id;
+            
+            // Nested meta
+            if (result.meta?.run_id) identifiers['meta.run_id'] = result.meta.run_id;
+            if (result.meta?.plan_id) identifiers['meta.plan_id'] = result.meta.plan_id;
+            
+            // Nested artifacts
+            if (result.artifacts?.run_id) identifiers['artifacts.run_id'] = result.artifacts.run_id;
+            if (result.artifacts?.plan_id) identifiers['artifacts.plan_id'] = result.artifacts.plan_id;
+            if (result.artifacts?.runId) identifiers['artifacts.runId'] = result.artifacts.runId;
+            
+            // Nested result
+            if (result.result?.run_id) identifiers['result.run_id'] = result.result.run_id;
+            if (result.result?.plan_id) identifiers['result.plan_id'] = result.result.plan_id;
+            
+            // Nested summary
+            if (result.summary?.run_id) identifiers['summary.run_id'] = result.summary.run_id;
+            if (result.summary?.plan_id) identifiers['summary.plan_id'] = result.summary.plan_id;
+            
+            return identifiers;
+        }
+        
+        function renderErrorResponse(result) {
+            const errorCode = result.error_code || "error";
+            const errorMsg = result.message || errorCode;
+            const errorDetails = result.details || (typeof result.details === 'object' ? JSON.stringify(result.details, null, 2) : null);
+            
+            // Leer run_id usando helper robusto
+            const runId = extractRunId(result);
+            
+            // PROHIBIDO generar "run_id_missing" por ausencia de run_id
+            // SOLO mostrar "run_id_missing" si error_code es específicamente "run_id_missing"
+            if (errorCode !== "run_id_missing") {
+                // Si el error_code NO es "run_id_missing", NUNCA mostrar banner "run_id_missing"
+                // Incluso si el mensaje menciona "run_id_missing", no es un error de ese tipo
+                if (errorMsg.includes("run_id_missing") || !runId) {
+                    console.warn('[CAE] Warning: Error message mentions run_id_missing or missing run_id but error_code is not run_id_missing', result);
+                }
+            }
+            
+            // Banner de error en cae-results-status
+            let statusHtml = `<div class="alert alert-error">`;
+            statusHtml += `<strong>❌ Error: ${errorCode}</strong><br>`;
+            statusHtml += `<div style="margin-top: 8px;">${window.escapeHtml(errorMsg)}</div>`;
+            statusHtml += `</div>`;
+            safeSetHTML('cae-results-status', statusHtml);
+            safeSetDisplay('cae-results-status', 'block');
+            
+            // Limpiar/ocultar elementos que no aplican en error
+            safeSetHTML('run-info', '');
+            safeSetHTML('cae-review-summary', '');
+            safeSetHTML('results-table-container', '');
+            safeSetDisplay('cae-review-summary', 'none');
+            
+            // Mostrar details si existen
+            // HOTFIX C2.13.4: Mostrar details si existen (si es object, mostrar JSON.stringify)
+            if (errorDetails) {
+                let detailsHtml = `<details style="margin-top: 8px; padding: 8px; background: #1e293b; border-radius: 4px;">`;
+                detailsHtml += `<summary style="cursor: pointer; color: #60a5fa;">Ver detalles técnicos</summary>`;
+                // HOTFIX C2.13.4: Si details es object, mostrar JSON.stringify(details, null, 2) en un <pre>
+                const detailsText = typeof errorDetails === 'object' 
+                    ? JSON.stringify(errorDetails, null, 2) 
+                    : errorDetails;
+                detailsHtml += `<pre style="margin-top: 8px; font-size: 0.85em; white-space: pre-wrap; color: #cbd5e1;">${window.escapeHtml(detailsText)}</pre>`;
+                detailsHtml += `</details>`;
+                safeSetHTML('cae-results-error-details', detailsHtml);
+                safeSetDisplay('cae-results-error-details', 'block');
+            } else {
+                safeSetHTML('cae-results-error-details', '');
+                safeSetDisplay('cae-results-error-details', 'none');
+            }
+            
+            // Mostrar link a run si hay run_id (desde top-level o artifacts)
+            if (runId) {
+                let linkHtml = `<div style="margin-top: 8px;">`;
+                linkHtml += `<a href="/runs/${runId}" target="_blank" style="color: #60a5fa; text-decoration: underline;">Ver run completo y evidencias →</a>`;
+                linkHtml += `</div>`;
+                safeSetHTML('cae-results-run-link', linkHtml);
+            } else {
+                safeSetHTML('cae-results-run-link', '');
+            }
+            
+            // Mostrar sección de resultados (aunque sea error)
+            safeSetDisplay('results-section', 'block');
+            
+            // Alert también
+            showAlert('pending-review-alert', `❌ ${errorCode}: ${errorMsg}`, 'error');
+        }
+
+        function renderOkResponse(result) {
+            renderOkResponseWithWarning(result, null);
+        }
+        
+        function renderOkResponseWithWarning(result, warningMessage) {
+            // Limpiar errores previos
+            safeSetHTML('cae-results-status', '');
+            safeSetHTML('cae-results-error-details', '');
+            safeSetHTML('cae-results-run-link', '');
+            safeSetDisplay('cae-results-status', 'none');
+            safeSetDisplay('cae-results-error-details', 'none');
+            
+            // Extraer run_id usando helper robusto
+            const runId = extractRunId(result);
+            
+            // Asegurar que result.run_id está presente
+            if (!result.run_id && runId) {
+                result.run_id = runId;
+            }
+            
+            // Construir runs_url si no existe
+            const runsUrl = result.runs_url || (runId ? `/runs/${runId}` : '#');
+            
+            // Show run info (o mensaje si no hay run_id)
+            if (runId || result.run_id) {
+                safeSetHTML('run-info', `
+                    <strong>Run ID:</strong> <code>${runId || result.run_id || 'N/A'}</code><br>
+                    <a href="${runsUrl}" target="_blank" style="color: #60a5fa;">Ver run completo →</a>
+                `);
+            } else {
+                safeSetHTML('run-info', `
+                    <strong>Run ID:</strong> <code style="color: #fbbf24;">No disponible</code><br>
+                    <span style="color: #94a3b8; font-size: 0.9em;">Modo READ-ONLY: resultados disponibles sin run_id</span>
+                `);
+            }
+            
+            // TAREA 3: Mostrar warning discreto si se proporciona
+            if (warningMessage) {
+                safeSetHTML('cae-results-status', `
+                    <div class="alert alert-warning" style="margin-bottom: 12px; padding: 8px 12px; background: #1e293b; border-left: 3px solid #fbbf24; border-radius: 4px;">
+                        <span style="color: #fbbf24;">${warningMessage}</span>
+                    </div>
+                `);
+                safeSetDisplay('cae-results-status', 'block');
+            }
+
+            // Show summary si está disponible
+            if (result.summary) {
+                safeSetHTML('cae-review-summary', `
+                    <strong>Resumen:</strong><br>
+                    Total pendientes: ${result.summary.pending_count || 0}<br>
+                    Con match: ${result.summary.matched_count || 0}<br>
+                    Sin match: ${result.summary.unmatched_count || 0}
+                `);
+                safeSetDisplay('cae-review-summary', 'block');
+            }
+            
+            // HOTFIX C2.13.6: scope no está definido en este contexto, usar pendingReviewData.scope
+            const currentScope = pendingReviewData.scope || 'both';
+            const workerGroup = safeGet('filter-worker-group');
+            if (workerGroup) {
+                if (currentScope === 'company') {
+                    workerGroup.style.display = 'none';
+                    const workerInput = document.getElementById('filter-worker');
+                    if (workerInput) {
+                        workerInput.value = '';
+                        pendingReviewData.selectedWorker = null;
+                        // Reset dropdown options to "Todos"
+                        if (workerInput.dataset.options) {
+                            try {
+                                const options = JSON.parse(workerInput.dataset.options);
+                                const todosOption = options.find(o => o.value === '');
+                                if (todosOption) {
+                                    workerInput.value = todosOption.label;
+                                }
+                            } catch (e) {
+                                console.warn('[CAE] Error parsing worker options:', e);
+                            }
+                        }
+                    }
+                } else {
+                    workerGroup.style.display = 'block';
+                }
+            }
+            
+            saveFilters();
+        }
+
+        async function executePendingReview() {
+            const btn = document.getElementById('execute-btn');
+            const originalText = btn.textContent;
+            btn.textContent = '⏳ Ejecutando...';
+            btn.disabled = true;
+            
+            // Generar reqId ANTES del fetch (correlation ID)
+            const reqId = `cae_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+            window.__lastCaeReqId = reqId;
+            
+            // Render sequence guard: evitar renders antiguos por doble click / polling
+            window.__caeRenderSeq = (window.__caeRenderSeq || 0) + 1;
+            const mySeq = window.__caeRenderSeq;
+
+            try {
+                // Validate platform
+                const platform = pendingReviewData.selectedPlatform || '';
+                if (!platform || platform === '') {
+                    showAlert('pending-review-alert', '❌ Error: Debes seleccionar una plataforma CAE', 'error');
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+
+                if (platform !== 'egestiona') {
+                    showAlert('pending-review-alert', '❌ Error: Solo eGestiona está soportado actualmente', 'error');
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+
+                // Build query params according to scope
+                const params = new URLSearchParams();
+                
+                const coord = pendingReviewData.selectedCoord || '';
+                if (coord && coord !== '') {
+                    params.append('coord', coord);
+                }
+
+                // company_key is required by backend
+                // If not selected, use org tax_id as default
+                let company = pendingReviewData.selectedCompany || '';
+                if (!company || company === '') {
+                    // Use org tax_id as default
+                    if (pendingReviewData.org && pendingReviewData.org.tax_id) {
+                        company = pendingReviewData.org.tax_id;
+                    } else {
+                        showAlert('pending-review-alert', '❌ Error: No se pudo determinar company_key. Verifica la configuración de organización.', 'error');
+                        btn.textContent = originalText;
+                        btn.disabled = false;
+                        return;
+                    }
+                }
+                params.append('company_key', company);
+
+                // Normalize payload/query params by scope
+                const scope = pendingReviewData.scope || 'both';
+                let onlyTarget = false;
+
+                if (scope === 'company') {
+                    // NO incluir person_key
+                    // only_target=false
+                    onlyTarget = false;
+                    // Explicitly clear worker state
+                    pendingReviewData.selectedWorker = null;
+                } else if (scope === 'worker') {
+                    // Incluir person_key SOLO si trabajador != "Todos"
+                    const worker = pendingReviewData.selectedWorker || '';
+                    if (worker && worker !== '') {
+                        params.append('person_key', worker);
+                        // only_target=true solo si (empresa concreta) AND (trabajador concreto)
+                        const companyExplicit = pendingReviewData.selectedCompany && pendingReviewData.selectedCompany !== '';
+                        onlyTarget = companyExplicit && (worker !== '');
+                    } else {
+                        onlyTarget = false;
+                    }
+                } else { // scope === 'both'
+                    // Incluir person_key solo si trabajador concreto
+                    const worker = pendingReviewData.selectedWorker || '';
+                    if (worker && worker !== '') {
+                        params.append('person_key', worker);
+                        // only_target=true solo si (empresa concreta) AND (trabajador concreto)
+                        const companyExplicit = pendingReviewData.selectedCompany && pendingReviewData.selectedCompany !== '';
+                        onlyTarget = companyExplicit && (worker !== '');
+                    } else {
+                        onlyTarget = false;
+                    }
+                }
+
+                params.append('limit', '50');
+                params.append('only_target', onlyTarget.toString());
+                
+                // Execute (reqId ya fue generado al principio de la función)
+                const url = `${BACKEND_URL}/runs/egestiona/build_submission_plan_readonly?${params.toString()}`;
+                let response;
+                try {
+                    response = await fetch(url, { 
+                        method: 'POST',
+                        headers: {
+                            'X-CLIENT-REQ-ID': reqId
+                        }
+                    });
+                } catch (fetchError) {
+                    // Network error (CORS, connection refused, etc.)
+                    console.error('Network error executing review:', fetchError);
+                    const errorMsg = fetchError.message || 'Error de conexión';
+                    showAlert('pending-review-alert', `❌ Error de red: ${errorMsg}. Verifica que el backend esté corriendo en ${BACKEND_URL}`, 'error');
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+                
+                // ============================================
+                // INSTRUMENTACIÓN COMPLETA (TAREA A) - Capturar respuesta EXACTA
+                // ============================================
+                const httpStatus = response.status;
+                const httpStatusText = response.statusText;
+                const responseHeaders = {};
+                response.headers.forEach((value, key) => {
+                    responseHeaders[key] = value;
+                });
+                
+                // Clonar response para leer body raw ANTES de parsear JSON
+                const responseClone = response.clone();
+                let bodyRaw = null;
+                try {
+                    bodyRaw = await responseClone.text();
+                } catch (textError) {
+                    bodyRaw = `[Error reading body: ${textError.message}]`;
+                }
+                
+                // Logging completo ANTES de parsear
+                const instrumentationLog = {
+                    timestamp: new Date().toISOString(),
+                    reqId: reqId,
+                    url: url,
+                    method: 'POST',
+                    httpStatus: httpStatus,
+                    httpStatusText: httpStatusText,
+                    headers: responseHeaders,
+                    bodyRaw: bodyRaw,
+                    bodyRawLength: bodyRaw ? bodyRaw.length : 0,
+                    bodyRawPreview: bodyRaw ? bodyRaw.substring(0, 300) : null,
+                };
+                
+                console.log('[CAE][INSTRUMENTATION] Response captured:', instrumentationLog);
+                
+                // Guardar en window para acceso desde consola
+                window.__lastCaeResponse = instrumentationLog;
+                
+                // Intentar guardar en archivo (si hay infraestructura, sino solo console)
+                try {
+                    // Guardar en localStorage como fallback (para debugging)
+                    localStorage.setItem(`cae_response_${reqId}`, JSON.stringify(instrumentationLog));
+                } catch (storageError) {
+                    console.warn('[CAE] No se pudo guardar en localStorage:', storageError);
+                }
+                
+                if (!response.ok) {
+                    // Try to read error as JSON
+                    let errorDetail = `HTTP ${httpStatus}: `;
+                    let errorJson = null;
+                    
+                    try {
+                        errorJson = JSON.parse(bodyRaw);
+                    } catch (jsonError) {
+                        // Not JSON, use raw text
+                        errorDetail += bodyRaw || 'Error desconocido';
+                    }
+                    
+                    if (errorJson) {
+                        // Handle validation errors (422) - can be array or string
+                        if (errorJson.detail) {
+                            if (Array.isArray(errorJson.detail)) {
+                                // FastAPI validation errors: [{"loc": [...], "msg": "...", "type": "..."}]
+                                const firstError = errorJson.detail[0];
+                                const loc = firstError.loc ? firstError.loc.join('.') : 'unknown';
+                                const msg = firstError.msg || 'Validation error';
+                                errorDetail += `Validation: ${loc}: ${msg}`;
+                            } else if (typeof errorJson.detail === 'string') {
+                                errorDetail += errorJson.detail;
+                            } else {
+                                errorDetail += JSON.stringify(errorJson.detail);
+                            }
+                        } else if (errorJson.message) {
+                            errorDetail += errorJson.message;
+                        } else {
+                            errorDetail += JSON.stringify(errorJson);
+                        }
+                    }
+                    
+                    console.error('[CAE][ERROR] Backend error:', {
+                        ...instrumentationLog,
+                        errorJson: errorJson,
+                        errorDetail: errorDetail
+                    });
+                    
+                    showAlert('pending-review-alert', `❌ ${errorDetail}`, 'error');
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+
+                // Parsear JSON
+                let result;
+                try {
+                    result = JSON.parse(bodyRaw);
+                } catch (jsonError) {
+                    console.error('[CAE][ERROR] Error parsing response JSON:', {
+                        ...instrumentationLog,
+                        parseError: jsonError.message
+                    });
+                    showAlert('pending-review-alert', '❌ Error: La respuesta del servidor no es JSON válido', 'error');
+                    safeSetHTML('cae-review-error', `<div class="alert alert-error">
+                        Error: La respuesta del servidor no es JSON válido<br>
+                        <details style="margin-top: 8px;">
+                            <summary>Ver respuesta raw</summary>
+                            <pre style="font-size: 0.85em; white-space: pre-wrap;">${window.escapeHtml(bodyRaw?.substring(0, 500) || 'N/A')}</pre>
+                        </details>
+                    </div>`);
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+                
+                // Instrumentación POST-PARSE: loggear JSON parseado y extracción de run_id
+                const extractedRunId = extractRunId(result);
+                const allIdentifiers = findAllIdentifiers(result);
+                
+                // TAREA 1: Logging temporal completo para inspeccionar respuesta REAL
+                console.log('[CAE][INSPECTION] ============================================');
+                console.log('[CAE][INSPECTION] RESPUESTA COMPLETA DEL ENDPOINT:');
+                console.log('[CAE][INSPECTION]', JSON.stringify(result, null, 2));
+                console.log('[CAE][INSPECTION] ============================================');
+                console.log('[CAE][INSPECTION] TODOS LOS IDENTIFICADORES ENCONTRADOS:');
+                console.log('[CAE][INSPECTION]', allIdentifiers);
+                console.log('[CAE][INSPECTION] IDENTIFICADOR EXTRAÍDO:', extractedRunId);
+                console.log('[CAE][INSPECTION] TIENE PLAN/ITEMS:', {
+                    hasPlan: Array.isArray(result.plan) && result.plan.length > 0,
+                    planLength: Array.isArray(result.plan) ? result.plan.length : 0,
+                    hasItems: Array.isArray(result.items) && result.items.length > 0,
+                    itemsLength: Array.isArray(result.items) ? result.items.length : 0,
+                });
+                console.log('[CAE][INSPECTION] ============================================');
+                
+                const instrumentationPostParse = {
+                    ...instrumentationLog,
+                    parsedJson: result,
+                    extractedRunId: extractedRunId,
+                    allIdentifiers: allIdentifiers,
+                    hasRunId: !!result.run_id,
+                    hasPlanId: !!result.plan_id,
+                    hasRunIdCamelCase: !!result.runId,
+                    hasArtifactsRunId: !!result.artifacts?.run_id,
+                    hasArtifactsPlanId: !!result.artifacts?.plan_id,
+                    hasDataRunId: !!result.data?.run_id,
+                    hasDataPlanId: !!result.data?.plan_id,
+                    hasMetaRunId: !!result.meta?.run_id,
+                    hasMetaPlanId: !!result.meta?.plan_id,
+                    hasResultRunId: !!result.result?.run_id,
+                    hasResultPlanId: !!result.result?.plan_id,
+                    hasSummaryRunId: !!result.summary?.run_id,
+                    hasSummaryPlanId: !!result.summary?.plan_id,
+                    hasPlan: Array.isArray(result.plan) && result.plan.length > 0,
+                    planLength: Array.isArray(result.plan) ? result.plan.length : 0,
+                    hasItems: Array.isArray(result.items) && result.items.length > 0,
+                    itemsLength: Array.isArray(result.items) ? result.items.length : 0,
+                    allKeys: Object.keys(result || {}),
+                };
+                
+                console.log('[CAE][NET] Response parsed and analyzed:', instrumentationPostParse);
+                
+                // Guardar también post-parse
+                window.__lastCaeResponseParsed = instrumentationPostParse;
+                try {
+                    localStorage.setItem(`cae_response_parsed_${reqId}`, JSON.stringify(instrumentationPostParse));
+                } catch (storageError) {
+                    console.warn('[CAE] No se pudo guardar parsed response en localStorage:', storageError);
+                }
+                
+                // Render sequence guard: verificar que no es un render antiguo
+                if (mySeq !== window.__caeRenderSeq) {
+                    console.warn('[CAE] Ignorando render antiguo. Seq actual:', window.__caeRenderSeq, 'Mi seq:', mySeq);
+                    return;
+                }
+                
+                // Verificar si hay error en el response estructurado
+                if (result.status === "error") {
+                    // IMPORTANTE: Solo mostrar "run_id_missing" si error_code es explícitamente "run_id_missing"
+                    // NO inventar run_id_missing basado en ausencia de campo
+                    renderErrorResponse(result);
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+                
+                // Leer run_id usando helper robusto GLOBAL
+                const runId = extractedRunId; // Ya extraído arriba
+                
+                // TAREA 3: CAMBIO CLAVE DE UX - Si existe plan/items, renderizar aunque no haya run_id
+                const hasPlan = Array.isArray(result.plan) && result.plan.length > 0;
+                const hasItems = Array.isArray(result.items) && result.items.length > 0;
+                const hasPlanOrItems = hasPlan || hasItems;
+                
+                // PROHIBIDO generar "run_id_missing" por ausencia de run_id
+                // SOLO mostrar "run_id_missing" si result.error_code === "run_id_missing"
+                
+                // HOTFIX C2.13.4: En READ-ONLY, run_id NO es obligatorio. Aceptar status=ok sin run_id.
+                // HOTFIX C2.13.6: Parsing robusto - si response trae status:"ok" pero items falta, usar array vacío
+                const items = result.items ?? result.plan ?? [];
+                const itemsArray = Array.isArray(items) ? items : [];
+                
+                // Si status es "ok", renderizar resultados (incluso si run_id es null y items está vacío)
+                if (result.status === "ok") {
+                    // Asegurar que result.run_id esté presente (aunque sea null) para compatibilidad
+                    if (!result.run_id) {
+                        result.run_id = runId || null;
+                    }
+                    
+                    // HOTFIX C2.13.4: Si no hay run_id, mostrar warning discreto (no error)
+                    const warningMsg = !runId ? '⚠️ Modo READ-ONLY: resultados disponibles sin run_id' : null;
+                    
+                    // Renderizar resultados (con o sin warning)
+                    renderOkResponseWithWarning(result, warningMsg);
+                    
+                    // Guardar confirm_token si está disponible
+                    if (result.confirm_token) {
+                        pendingReviewData.confirmToken = result.confirm_token;
+                        pendingReviewData.planId = result.plan_id || result.run_id || null;
+                    }
+                    
+                    // HOTFIX C2.13.4: Renderizar items aunque estén vacíos
+                    // HOTFIX C2.13.8: Guard para items_count>0 pero sin items array
+                    const itemsCount = result.summary?.pending_count || result.items?.length || result.plan?.length || itemsArray.length || 0;
+                    
+                    if (itemsArray.length > 0) {
+                        pendingReviewData.currentPlan = itemsArray;
+                        pendingReviewData.currentRunId = result.run_id;
+                        
+                        // Mostrar botón de ejecución si hay items elegibles
+                        const matchedCount = itemsArray.filter(item => item.decision && item.decision.action === 'AUTO_SUBMIT_OK').length;
+                        const executeBtn = safeGet('execute-plan-btn');
+                        const executeRealHeadfulBtn = safeGet('execute-real-headful-btn');
+                        const startHeadfulRunBtn = safeGet('start-headful-run-btn');
+                        
+                        if (matchedCount > 0 && result.confirm_token) {
+                            if (executeBtn) executeBtn.style.display = 'inline-block';
+                            // Mostrar botón REAL solo si hay exactamente 1 item elegible
+                            if (matchedCount === 1 && result.artifacts && result.artifacts.storage_state_path) {
+                                if (executeRealHeadfulBtn) executeRealHeadfulBtn.style.display = 'inline-block';
+                                if (startHeadfulRunBtn) startHeadfulRunBtn.style.display = 'inline-block';
+                            } else {
+                                if (executeRealHeadfulBtn) executeRealHeadfulBtn.style.display = 'none';
+                                if (startHeadfulRunBtn) startHeadfulRunBtn.style.display = 'none';
+                            }
+                        } else {
+                            if (executeBtn) executeBtn.style.display = 'none';
+                            if (executeRealHeadfulBtn) executeRealHeadfulBtn.style.display = 'none';
+                            if (startHeadfulRunBtn) startHeadfulRunBtn.style.display = 'none';
+                        }
+                        
+                        // HOTFIX C2.13.8: Llamar a renderPlanItems con opts para validación
+                        renderPlanItems(itemsArray, 'items', {
+                            itemsCount: itemsCount,
+                            responsePayload: result
+                        });
+                    } else {
+                        // HOTFIX C2.13.4: Si items vacíos, mostrar aviso informativo (no error)
+                        const diagnostics = result.diagnostics || {};
+                        const diagnosticsReason = diagnostics.reason || null;
+                        const diagnosticsNote = diagnostics.note || null;
+                        
+                        let emptyMessage = '📋 0 pendientes encontrados';
+                        if (diagnosticsReason || diagnosticsNote) {
+                            emptyMessage += '<br><br><strong>Información adicional:</strong><br>';
+                            if (diagnosticsReason) {
+                                emptyMessage += `<span style="color: #94a3b8;">Razón: ${window.escapeHtml(diagnosticsReason)}</span><br>`;
+                            }
+                            if (diagnosticsNote) {
+                                emptyMessage += `<span style="color: #94a3b8;">Nota: ${window.escapeHtml(diagnosticsNote)}</span><br>`;
+                            }
+                        }
+                        
+                        safeSetHTML('results-table-container', `
+                            <div class="alert alert-info" style="padding: 16px; background: #1e293b; border-left: 3px solid #60a5fa; border-radius: 4px;">
+                                ${emptyMessage}
+                            </div>
+                        `);
+                        safeSetDisplay('results-table-container', 'block');
+                    }
+                    
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    safeSetDisplay('results-section', 'block');
+                    showAlert('pending-review-alert', '✅ Revisión completada correctamente', 'success');
+                    return;
+                }
+
+            } catch (error) {
+                // Catch any unexpected errors
+                console.error('Unexpected error executing review:', error);
+                const errorMsg = error.message || String(error);
+                showAlert('pending-review-alert', `❌ Error inesperado: ${errorMsg}`, 'error');
+            } finally {
+                // Re-habilitar botón al finalizar (ok o error)
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function loadResults(runId) {
+            try {
+                // Load submission_plan.json
+                const url = `${BACKEND_URL}/runs/${runId}/file/evidence/submission_plan.json`;
+                let response;
+                try {
+                    response = await fetch(url);
+                } catch (fetchError) {
+                    console.error('Network error loading results:', fetchError);
+                    // Show run info even if plan load fails
+                    showAlert('pending-review-alert', `Error de red al cargar plan: ${fetchError.message}. El run se creó correctamente.`, 'error');
+                    return;
+                }
+
+                if (!response.ok) {
+                    let errorDetail = `HTTP ${response.status}: `;
+                    try {
+                        const errorJson = await response.json();
+                        errorDetail += errorJson.detail || errorJson.message || JSON.stringify(errorJson);
+                    } catch (jsonError) {
+                        try {
+                            errorDetail += await response.text() || 'No se pudo leer el error';
+                        } catch (textError) {
+                            errorDetail += 'Error desconocido';
+                        }
+                    }
+                    console.error('Error loading submission_plan.json:', {
+                        status: response.status,
+                        url: url,
+                        detail: errorDetail
+                    });
+                    // Show run info even if plan load fails
+                    showAlert('pending-review-alert', `No se pudo cargar submission_plan.json (${errorDetail}). El run se creó correctamente.`, 'error');
+                    return;
+                }
+
+                let planData;
+                try {
+                    planData = await response.json();
+                } catch (jsonError) {
+                    console.error('Error parsing submission_plan.json:', jsonError);
+                    showAlert('pending-review-alert', 'Error: El plan de envío no es JSON válido', 'error');
+                    return;
+                }
+
+                const plan = planData.plan || [];
+                
+                // Store plan in state for filtering
+                pendingReviewData.currentPlan = plan;
+                pendingReviewData.currentRunId = runId;
+                pendingReviewData.confirmToken = null; // Se obtendrá del response del build
+
+                // Update summary
+                const matchedCount = plan.filter(item => item.decision && item.decision.decision === 'AUTO_SUBMIT_OK').length;
+                const noMatchCount = plan.filter(item => !item.matched_doc || !item.matched_doc.doc_id).length;
+                safeSetHTML('cae-review-summary', `
+                    <strong>Resumen:</strong><br>
+                    Total pendientes: ${plan.length}<br>
+                    Con match: ${matchedCount}<br>
+                    Sin match: ${noMatchCount}
+                `);
+                safeSetDisplay('cae-review-summary', 'block');
+
+                // Mostrar botón de ejecución si hay items elegibles
+                const executeBtn = safeGet('execute-plan-btn');
+                const executeRealHeadfulBtn = safeGet('execute-real-headful-btn');
+                
+                if (matchedCount > 0) {
+                    if (executeBtn) executeBtn.style.display = 'inline-block';
+                    // Mostrar botón REAL solo si hay exactamente 1 item elegible
+                    // (storage_state se verifica en el backend)
+                    if (matchedCount === 1) {
+                        if (executeRealHeadfulBtn) executeRealHeadfulBtn.style.display = 'inline-block';
+                    } else {
+                        if (executeRealHeadfulBtn) executeRealHeadfulBtn.style.display = 'none';
+                    }
+                } else {
+                    if (executeBtn) executeBtn.style.display = 'none';
+                    if (executeRealHeadfulBtn) executeRealHeadfulBtn.style.display = 'none';
+                }
+
+                // Apply filter and render
+                applyTypeFilterAndRender();
+
+            } catch (error) {
+                console.error('Unexpected error loading results:', error);
+                showAlert('pending-review-alert', `Error inesperado al cargar resultados: ${error.message || String(error)}`, 'error');
+            }
+        }
+
+        function applyTypeFilterAndRender() {
+            const plan = pendingReviewData.currentPlan || [];
+            
+            // Filter by type if selected
+            let filteredPlan = plan;
+            const selectedType = pendingReviewData.selectedType || '';
+            
+            if (selectedType && selectedType !== '') {
+                filteredPlan = plan.filter(item => {
+                    const matchedDoc = item.matched_doc;
+                    // If NO_MATCH, hide it when filtering by specific type
+                    if (!matchedDoc || !matchedDoc.type_id) {
+                        return false; // Hide NO_MATCH when filtering by specific type
+                    }
+                    return matchedDoc.type_id === selectedType;
+                });
+            }
+
+            // Render table (even if empty)
+            renderResultsTable(filteredPlan);
+        }
+
+        // HOTFIX C2.13.8: Función para renderizar items del plan (soporta READ-ONLY)
+        function renderPlanItems(plan, containerId, opts) {
+            // Normalizar parámetros
+            opts = opts || {};
+            containerId = containerId || 'items';
+            
+            // Guard: Si items_count>0 pero no hay items array -> mostrar warning
+            if (opts.itemsCount && opts.itemsCount > 0 && (!plan || !Array.isArray(plan) || plan.length === 0)) {
+                const warningHtml = `
+                    <div class="alert alert-warning" style="padding: 16px; background: #1e293b; border-left: 3px solid #fbbf24; border-radius: 4px;">
+                        <strong>⚠️ Payload inválido:</strong> El backend reportó items_count=${opts.itemsCount} pero no se encontró array de items válido.
+                        <br><br>
+                        <details>
+                            <summary>Ver detalles técnicos</summary>
+                            <pre style="margin-top: 8px; padding: 8px; background: #0f172a; border-radius: 4px; overflow-x: auto; font-size: 12px;">${window.escapeHtml(JSON.stringify(opts.responsePayload || {}, null, 2))}</pre>
+                        </details>
+                    </div>
+                `;
+                safeSetHTML('results-table-container', warningHtml);
+                safeSetDisplay('results-table-container', 'block');
+                return;
+            }
+            
+            // Usar renderResultsTable para renderizar
+            renderResultsTable(plan);
+        }
+
+        function renderResultsTable(plan) {
+            if (plan.length === 0) {
+                safeSetHTML('results-table-container', '<div class="empty-state">0 pendientes encontrados</div>');
+                return;
+            }
+
+            let html = '<div style="overflow-x: auto;"><table class="results-table"><thead><tr>';
+            html += '<th>Pendiente</th><th>Empresa</th><th>Trabajador</th><th>Documento</th><th>Vigencia</th><th>Decisión</th><th>Razones</th><th>Acciones</th>';
+            html += '</tr></thead><tbody>';
+
+            plan.forEach((item, idx) => {
+                const pending = item.pending_ref || {};
+                const matchedDoc = item.matched_doc || {};
+                const decision = item.decision || {};
+                const proposedFields = item.proposed_fields || {};
+                const matchedRule = item.matched_rule || null;
+
+                // No mostrar "-" si hay datos reales
+                const pendienteText = `${pending.tipo_doc || ''} ${pending.elemento || ''}`.trim() || '';
+                const empresa = pending.empresa || '';
+                const trabajador = pending.elemento || '';
+                
+                // Document info
+                let docInfo = '';
+                if (matchedDoc && matchedDoc.doc_id) {
+                    const docName = matchedDoc.file_name || matchedDoc.doc_id;
+                    docInfo = `<code title="${matchedDoc.doc_id}">${docName}</code>`;
+                }
+                
+                const vigenciaInicio = proposedFields.fecha_inicio_vigencia || '';
+                const vigenciaFin = proposedFields.fecha_fin_vigencia || '';
+                const vigencia = vigenciaInicio && vigenciaFin 
+                    ? `${vigenciaInicio} / ${vigenciaFin}`
+                    : vigenciaInicio || vigenciaFin || '';
+                const decisionAction = decision.action || 'UNKNOWN';
+                
+                // Badge class
+                let badgeClass = 'badge-info';
+                if (decisionAction === 'AUTO_SUBMIT_OK') badgeClass = 'badge-success';
+                else if (decisionAction === 'REVIEW_REQUIRED') badgeClass = 'badge-warning';
+                else if (decisionAction === 'NO_MATCH' || decisionAction.startsWith('SKIP_')) badgeClass = 'badge-error';
+
+                // Reasons summary (first reason + count)
+                // Mejorar mensajes cuando falta texto en pending_ref
+                const reasons = decision.reasons || [];
+                let reasonsSummary = '';
+                if (reasons.length > 0) {
+                    // Si el primer reason menciona texto vacío, mejorarlo
+                    let firstReason = reasons[0];
+                    if (firstReason.includes('text: ""') || firstReason.includes('text: ""')) {
+                        firstReason = 'Pending item missing text fields (tipo_doc/elemento). Check grid extraction.';
+                    }
+                    reasonsSummary = firstReason + (reasons.length > 1 ? ` (+${reasons.length - 1})` : '');
+                }
+
+                html += `<tr id="row-${idx}">`;
+                html += `<td>${pendienteText}</td>`;
+                html += `<td>${empresa}</td>`;
+                html += `<td>${trabajador}</td>`;
+                html += `<td>${docInfo}</td>`;
+                html += `<td>${vigencia}</td>`;
+                html += `<td><span class="badge ${badgeClass}">${decisionAction}</span></td>`;
+                html += `<td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${reasons.join('; ')}">${reasonsSummary}</td>`;
+                html += `<td><button class="btn btn-secondary" onclick="toggleDetail(${idx})">Ver detalle</button></td>`;
+                html += `</tr>`;
+                
+                // Detail row (collapsed by default)
+                html += `<tr id="detail-${idx}" style="display: none;"><td colspan="8">`;
+                html += `<div class="detail-expanded">`;
+                
+                // Reasons completas
+                if (reasons.length > 0) {
+                    html += `<strong>Razones completas:</strong><br>`;
+                    reasons.forEach(r => html += `• ${r}<br>`);
+                    html += `<br>`;
+                }
+                
+                // Blocking issues
+                const blockingIssues = decision.blocking_issues || [];
+                if (blockingIssues.length > 0) {
+                    html += `<strong>Problemas bloqueantes:</strong><br>`;
+                    blockingIssues.forEach(issue => html += `• ${issue}<br>`);
+                    html += `<br>`;
+                }
+                
+                // Matched doc completo
+                if (matchedDoc && matchedDoc.doc_id) {
+                    html += `<strong>Documento propuesto:</strong><br>`;
+                    html += `<code>Doc ID: ${matchedDoc.doc_id}</code><br>`;
+                    html += `<code>Type ID: ${matchedDoc.type_id || '-'}</code><br>`;
+                    html += `<code>Status: ${matchedDoc.status || '-'}</code><br>`;
+                    if (matchedDoc.validity) {
+                        html += `<code>Validity: ${matchedDoc.validity.valid_from || '-'} / ${matchedDoc.validity.valid_to || '-'}</code><br>`;
+                        html += `<code>Confidence: ${matchedDoc.validity.confidence || '-'}</code><br>`;
+                    }
+                    html += `<a href="/repository?doc_id=${matchedDoc.doc_id}" target="_blank" style="color: #60a5fa; margin-top: 8px; display: inline-block;">Ver en repositorio →</a><br><br>`;
+                }
+                
+                // Matched rule
+                if (matchedRule) {
+                    html += `<strong>Regla aplicada:</strong><br>`;
+                    html += `<code>Rule ID: ${matchedRule.rule_id || '-'}</code><br>`;
+                    html += `<code>Platform: ${matchedRule.platform_key || '-'}</code><br>`;
+                    html += `<code>Coord: ${matchedRule.coord_label || '-'}</code><br><br>`;
+                }
+                
+                // Decision completo
+                html += `<strong>Decisión completa:</strong><br>`;
+                html += `<pre style="background: #111827; padding: 8px; border-radius: 4px; overflow-x: auto; font-size: 12px;">${JSON.stringify(decision, null, 2)}</pre><br>`;
+                
+                // Link to run
+                if (pendingReviewData.currentRunId) {
+                    html += `<a href="/runs/${pendingReviewData.currentRunId}" target="_blank" style="color: #60a5fa;">Ver run completo →</a>`;
+                }
+                
+                html += `</div></td></tr>`;
+            });
+
+            html += '</tbody></table></div>';
+            safeSetHTML('results-table-container', html);
+        }
+
+        function toggleDetail(idx) {
+            const detailRow = document.getElementById(`detail-${idx}`);
+            const button = document.querySelector(`#row-${idx} button`);
+            if (detailRow.style.display === 'none') {
+                detailRow.style.display = 'table-row';
+                if (button) button.textContent = 'Ocultar detalle';
+            } else {
+                detailRow.style.display = 'none';
+                if (button) button.textContent = 'Ver detalle';
+            }
+        }
+
+        function applyTypeFilterIfLoaded() {
+            // Apply filter if plan is already loaded
+            if (pendingReviewData.currentPlan) {
+                applyTypeFilterAndRender();
+            }
+        }
+
+        // Close modal on outside click
+        document.addEventListener('click', (e) => {
+            const modal = document.getElementById('pending-review-modal');
+            if (e.target === modal) {
+                closePendingReviewModal();
+            }
+        });
+        async function executePlanWithApproval() {
+            const btn = safeGet('execute-plan-btn');
+            if (!btn) return;
+            
+            const originalText = btn.textContent;
+            btn.textContent = '⏳ Ejecutando...';
+            btn.disabled = true;
+
+            try {
+                if (!pendingReviewData.confirmToken || !pendingReviewData.planId) {
+                    showAlert('pending-review-alert', '❌ Error: No hay plan válido o confirm_token. Genera un plan primero.', 'error');
+                    return;
+                }
+
+                // Obtener type_ids del plan para la allowlist
+                const plan = pendingReviewData.currentPlan || [];
+                const typeIds = [];
+                for (const item of plan) {
+                    const typeId = item.matched_doc?.type_id;
+                    if (typeId && !typeIds.includes(typeId)) {
+                        typeIds.push(typeId);
+                    }
+                }
+
+                if (typeIds.length === 0) {
+                    showAlert('pending-review-alert', '❌ Error: No hay type_ids en el plan para crear allowlist', 'error');
+                    return;
+                }
+
+                // Solicitar confirmación
+                const maxUploads = parseInt(prompt('¿Cuántos documentos máximo quieres subir? (default: 2)', '2') || '2');
+                const minConfidence = parseFloat(prompt('Confianza mínima requerida (0.0-1.0, default: 0.80)', '0.80') || '0.80');
+
+                // Ejecutar plan
+                const response = await fetch(`${BACKEND_URL}/runs/egestiona/execute_submission_plan`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        plan_id: pendingReviewData.planId,
+                        confirm_token: pendingReviewData.confirmToken,
+                        allowlist_type_ids: typeIds.slice(0, 10), // Máximo 10 tipos
+                        max_uploads: maxUploads,
+                        min_confidence: minConfidence,
+                        use_fake_uploader: true, // Siempre fake en este sprint
+                    }),
+                });
+
+                if (!response.ok) {
+                    let errorDetail = `HTTP ${response.status}: `;
+                    try {
+                        const errorJson = await response.json();
+                        errorDetail += errorJson.message || errorJson.error_code || JSON.stringify(errorJson);
+                    } catch (jsonError) {
+                        errorDetail += await response.text() || 'Error desconocido';
+                    }
+                    showAlert('pending-review-alert', `❌ ${errorDetail}`, 'error');
+                    return;
+                }
+
+                const result = await response.json();
+                
+                if (result.status === 'error') {
+                    showAlert('pending-review-alert', `❌ ${result.message || result.error_code}`, 'error');
+                    return;
+                }
+
+                // Mostrar resultados de ejecución
+                const summary = result.summary || {};
+                showAlert('pending-review-alert', 
+                    `✅ Ejecución completada: ${summary.uploaded || 0} subidos, ${summary.skipped || 0} omitidos, ${summary.failed || 0} fallidos`, 
+                    'success'
+                );
+
+                // Actualizar summary con resultados de ejecución
+                safeSetHTML('cae-review-summary', `
+                    <strong>Resumen de ejecución:</strong><br>
+                    Total: ${summary.total || 0}<br>
+                    Elegibles: ${summary.eligible || 0}<br>
+                    Subidos: ${summary.uploaded || 0}<br>
+                    Omitidos: ${summary.skipped || 0}<br>
+                    Fallidos: ${summary.failed || 0}<br>
+                    <small>Modo: ${result.use_fake_uploader ? 'FAKE (simulado)' : 'REAL'}</small>
+                `);
+                safeSetDisplay('cae-review-summary', 'block');
+
+            } catch (error) {
+                console.error('Error ejecutando plan:', error);
+                showAlert('pending-review-alert', `❌ Error inesperado: ${error.message || String(error)}`, 'error');
+            } finally {
+                if (btn) {
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }
+            }
+        }
+
+        async function executePlanRealHeadful() {
+            const btn = safeGet('execute-real-headful-btn');
+            if (!btn) return;
+            
+            const originalText = btn.textContent;
+            btn.textContent = '⏳ Ejecutando REAL...';
+            btn.disabled = true;
+
+            safeSetDisplay('cae-exec-real-headful-result', 'block');
+            safeSetHTML('cae-exec-real-headful-result', '<div class="alert alert-info">⏳ Ejecutando subida REAL (headful)...</div>');
+
+            try {
+                if (!pendingReviewData.confirmToken || !pendingReviewData.planId) {
+                    showAlert('pending-review-alert', '❌ Error: No hay plan válido o confirm_token. Genera un plan primero.', 'error');
+                    safeSetHTML('cae-exec-real-headful-result', '<div class="alert alert-error">❌ Error: No hay plan válido</div>');
+                    return;
+                }
+
+                // Obtener type_ids del plan para la allowlist
+                const plan = pendingReviewData.currentPlan || [];
+                const typeIds = [];
+                for (const item of plan) {
+                    const typeId = item.matched_doc?.type_id;
+                    if (typeId && !typeIds.includes(typeId)) {
+                        typeIds.push(typeId);
+                    }
+                }
+
+                // Filtrar items elegibles (AUTO_SUBMIT_OK)
+                const eligibleItems = plan.filter(item => 
+                    item.decision && 
+                    item.decision.action === 'AUTO_SUBMIT_OK' &&
+                    typeIds.includes(item.matched_doc?.type_id)
+                );
+
+                if (eligibleItems.length !== 1) {
+                    showAlert('pending-review-alert', `❌ Error: Debe haber exactamente 1 item elegible, encontrados: ${eligibleItems.length}`, 'error');
+                    safeSetHTML('cae-exec-real-headful-result', `<div class="alert alert-error">❌ Error: Debe haber exactamente 1 item elegible, encontrados: ${eligibleItems.length}</div>`);
+                    return;
+                }
+
+                const typeId = eligibleItems[0].matched_doc.type_id;
+
+                // Ejecutar plan REAL headful
+                const response = await fetch(`${BACKEND_URL}/runs/egestiona/execute_plan_headful`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-USE-REAL-UPLOADER': '1',
+                    },
+                    body: JSON.stringify({
+                        plan_id: pendingReviewData.planId,
+                        confirm_token: pendingReviewData.confirmToken,
+                        allowlist_type_ids: [typeId],
+                        max_uploads: 1,
+                        min_confidence: 0.80,
+                        use_fake_uploader: false,
+                    }),
+                });
+
+                if (!response.ok) {
+                    let errorDetail = `HTTP ${response.status}: `;
+                    try {
+                        const errorJson = await response.json();
+                        errorDetail += errorJson.message || errorJson.error_code || JSON.stringify(errorJson);
+                        safeSetHTML('cae-exec-real-headful-result', `<div class="alert alert-error">❌ ${errorJson.error_code || 'Error'}: ${errorJson.message || errorDetail}</div>`);
+                    } catch (jsonError) {
+                        errorDetail += await response.text() || 'Error desconocido';
+                        safeSetHTML('cae-exec-real-headful-result', `<div class="alert alert-error">❌ ${errorDetail}</div>`);
+                    }
+                    showAlert('pending-review-alert', `❌ ${errorDetail}`, 'error');
+                    return;
+                }
+
+                const result = await response.json();
+                
+                if (result.status === 'error') {
+                    showAlert('pending-review-alert', `❌ ${result.message || result.error_code}`, 'error');
+                    safeSetHTML('cae-exec-real-headful-result', `<div class="alert alert-error">❌ ${result.error_code || 'Error'}: ${result.message || 'Error desconocido'}</div>`);
+                    return;
+                }
+
+                // Mostrar resultados de ejecución
+                const summary = result.summary || {};
+                showAlert('pending-review-alert', 
+                    `✅ Ejecución REAL completada: ${summary.uploaded || 0} subidos, ${summary.skipped || 0} omitidos, ${summary.failed || 0} fallidos`, 
+                    'success'
+                );
+
+                // Actualizar summary con resultados de ejecución
+                safeSetHTML('cae-review-summary', `
+                    <strong>Resumen de ejecución REAL (headful):</strong><br>
+                    Total: ${summary.total || 0}<br>
+                    Elegibles: ${summary.eligible || 0}<br>
+                    Subidos: ${summary.uploaded || 0}<br>
+                    Omitidos: ${summary.skipped || 0}<br>
+                    Fallidos: ${summary.failed || 0}<br>
+                    <small>Modo: REAL (headful)</small>
+                `);
+                safeSetDisplay('cae-review-summary', 'block');
+
+                safeSetHTML('cae-exec-real-headful-result', `
+                    <div class="alert alert-success">
+                        ✅ Ejecución REAL completada<br>
+                        Subidos: ${summary.uploaded || 0}<br>
+                        ${result.items && result.items[0] && result.items[0].portal_reference ? 
+                            `Portal Reference: ${result.items[0].portal_reference}` : ''}
+                    </div>
+                `);
+
+            } catch (error) {
+                console.error('Error ejecutando plan REAL:', error);
+                showAlert('pending-review-alert', `❌ Error inesperado: ${error.message || String(error)}`, 'error');
+                safeSetHTML('cae-exec-real-headful-result', `<div class="alert alert-error">❌ Error inesperado: ${error.message || String(error)}</div>`);
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // Variables globales para run headful persistente
+        let headfulRunId = null;
+        let headfulRunActive = false;
+        let headfulRunStatusPollingInterval = null;
+
+        function startHeadfulRunStatusPolling() {
+            // Detener polling anterior si existe
+            stopHeadfulRunStatusPolling();
+            
+            // Polling cada 2 segundos
+            headfulRunStatusPollingInterval = setInterval(async () => {
+                if (!headfulRunId || !headfulRunActive) {
+                    stopHeadfulRunStatusPolling();
+                    return;
+                }
+                
+                try {
+                    await updateHeadfulRunStatus();
+                } catch (error) {
+                    console.error('Error actualizando estado headful run:', error);
+                }
+            }, 2000);
+            
+            // Actualizar inmediatamente
+            updateHeadfulRunStatus();
+        }
+
+        function stopHeadfulRunStatusPolling() {
+            if (headfulRunStatusPollingInterval) {
+                clearInterval(headfulRunStatusPollingInterval);
+                headfulRunStatusPollingInterval = null;
+            }
+        }
+
+        async function updateHeadfulRunStatus() {
+            if (!headfulRunId) return;
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/runs/egestiona/headful_run_status?run_id=${encodeURIComponent(headfulRunId)}`);
+                
+                if (!response.ok) {
+                    // Si el run ya no existe, detener polling
+                    if (response.status === 404 || response.status === 400) {
+                        headfulRunActive = false;
+                        stopHeadfulRunStatusPolling();
+                        safeSetDisplay('headful-run-status', 'none');
+                    }
+                    return;
+                }
+
+                const status = await response.json();
+                
+                if (status.status === 'error') {
+                    headfulRunActive = false;
+                    stopHeadfulRunStatusPolling();
+                    safeSetDisplay('headful-run-status', 'none');
+                    return;
+                }
+
+                // Actualizar badge de riesgo (usar safeSet*)
+                const riskBadge = safeGet('headful-run-risk-badge');
+                if (riskBadge) {
+                    const riskLevel = status.risk_level || 'low';
+                    riskBadge.textContent = `Riesgo: ${riskLevel.toUpperCase()}`;
+                    
+                    if (riskLevel === 'high') {
+                        riskBadge.style.background = '#dc2626';
+                        riskBadge.style.color = '#fff';
+                    } else if (riskLevel === 'medium') {
+                        riskBadge.style.background = '#f59e0b';
+                        riskBadge.style.color = '#fff';
+                    } else {
+                        riskBadge.style.background = '#10b981';
+                        riskBadge.style.color = '#fff';
+                    }
+                }
+
+                // Actualizar timeline (usar safeSetHTML)
+                if (status.events && status.events.length > 0) {
+                    const timelineHtml = status.events.map(event => {
+                        const timeStr = event.timestamp_iso || new Date(event.timestamp * 1000).toISOString();
+                        const typeColor = {
+                            'INFO': '#60a5fa',
+                            'WARNING': '#fbbf24',
+                            'ACTION': '#a78bfa',
+                            'ERROR': '#f87171',
+                            'SUCCESS': '#34d399',
+                        }[event.type] || '#9ca3af';
+                        
+                        return `<div style="margin-bottom: 4px; padding: 4px; border-left: 3px solid ${typeColor}; padding-left: 8px;">
+                            <span style="color: #9ca3af;">[${timeStr}]</span>
+                            <span style="color: ${typeColor}; font-weight: bold;">[${event.type}]</span>
+                            <span style="color: #e5e7eb;">${window.escapeHtml(event.message)}</span>
+                        </div>`;
+                    }).join('');
+                    if (safeSetHTML('headful-run-timeline', timelineHtml)) {
+                        // Scroll al final si el elemento existe
+                        const timelineDiv = safeGet('headful-run-timeline');
+                        if (timelineDiv) {
+                            timelineDiv.scrollTop = timelineDiv.scrollHeight;
+                        }
+                    }
+                } else {
+                    safeSetHTML('headful-run-timeline', '<div style="color: #6b7280;">No hay eventos aún</div>');
+                }
+
+            } catch (error) {
+                console.error('Error obteniendo estado headful run:', error);
+            }
+        }
+
+        async function startHeadfulRun() {
+            const btn = document.getElementById('start-headful-run-btn');
+            const originalText = btn.textContent;
+            btn.textContent = '⏳ Iniciando...';
+            btn.disabled = true;
+
+            try {
+                if (!pendingReviewData.confirmToken || !pendingReviewData.planId) {
+                    showAlert('pending-review-alert', '❌ Error: No hay plan válido o confirm_token. Genera un plan primero.', 'error');
+                    return;
+                }
+
+                const response = await fetch(`${BACKEND_URL}/runs/egestiona/start_headful_run`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-USE-REAL-UPLOADER': '1',
+                    },
+                    body: JSON.stringify({
+                        plan_id: pendingReviewData.planId,
+                        confirm_token: pendingReviewData.confirmToken,
+                    }),
+                });
+
+                if (!response.ok) {
+                    let errorDetail = `HTTP ${response.status}: `;
+                    try {
+                        const errorJson = await response.json();
+                        errorDetail += errorJson.message || errorJson.error_code || JSON.stringify(errorJson);
+                        showAlert('pending-review-alert', `❌ ${errorDetail}`, 'error');
+                    } catch (jsonError) {
+                        errorDetail += await response.text() || 'Error desconocido';
+                        showAlert('pending-review-alert', `❌ ${errorDetail}`, 'error');
+                    }
+                    return;
+                }
+
+                const result = await response.json();
+                
+                if (result.status === 'error') {
+                    showAlert('pending-review-alert', `❌ ${result.message || result.error_code}`, 'error');
+                    return;
+                }
+
+                headfulRunId = result.run_id;
+                headfulRunActive = true;
+
+                safeSetText('headful-run-status-text', `✅ Navegador real abierto (Run ID: ${headfulRunId})`);
+                safeSetDisplay('headful-run-status', 'block');
+                const statusDivEl = safeGet('headful-run-status');
+                if (statusDivEl) {
+                    statusDivEl.style.background = '#065f46';
+                }
+
+                const execBtn = safeGet('exec-headful-action-btn');
+                const closeBtn = safeGet('close-headful-run-btn');
+                if (execBtn) execBtn.style.display = 'inline-block';
+                if (closeBtn) closeBtn.style.display = 'inline-block';
+                if (btn) btn.style.display = 'none';
+
+                showAlert('pending-review-alert', '✅ Sesión headful iniciada. Navegador visible.', 'success');
+
+                // Iniciar polling del estado
+                startHeadfulRunStatusPolling();
+
+            } catch (error) {
+                console.error('Error iniciando run headful:', error);
+                showAlert('pending-review-alert', `❌ Error inesperado: ${error.message || String(error)}`, 'error');
+            } finally {
+                if (btn) {
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }
+            }
+        }
+
+        async function executeHeadfulAction() {
+            const btn = safeGet('exec-headful-action-btn');
+            if (!btn) return;
+            
+            const originalText = btn.textContent;
+            btn.textContent = '⏳ Ejecutando...';
+            btn.disabled = true;
+
+            try {
+                if (!headfulRunId || !headfulRunActive) {
+                    showAlert('pending-review-alert', '❌ Error: No hay run headful activo. Inicia primero la sesión.', 'error');
+                    return;
+                }
+
+                if (!pendingReviewData.confirmToken) {
+                    showAlert('pending-review-alert', '❌ Error: No hay confirm_token válido.', 'error');
+                    return;
+                }
+
+                // Obtener type_ids del plan
+                const plan = pendingReviewData.currentPlan || [];
+                const eligibleItems = plan.filter(item => 
+                    item.decision && 
+                    item.decision.action === 'AUTO_SUBMIT_OK'
+                );
+
+                if (eligibleItems.length === 0) {
+                    showAlert('pending-review-alert', '❌ Error: No hay items elegibles para subir.', 'error');
+                    return;
+                }
+
+                const typeId = eligibleItems[0].matched_doc.type_id;
+
+                const response = await fetch(`${BACKEND_URL}/runs/egestiona/execute_action_headful`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-USE-REAL-UPLOADER': '1',
+                    },
+                    body: JSON.stringify({
+                        run_id: headfulRunId,
+                        confirm_token: pendingReviewData.confirmToken,
+                        allowlist_type_ids: [typeId],
+                        max_uploads: 1,
+                        min_confidence: 0.80,
+                    }),
+                });
+
+                if (!response.ok) {
+                    let errorDetail = `HTTP ${response.status}: `;
+                    try {
+                        const errorJson = await response.json();
+                        errorDetail += errorJson.message || errorJson.error_code || JSON.stringify(errorJson);
+                        showAlert('pending-review-alert', `❌ ${errorDetail}`, 'error');
+                    } catch (jsonError) {
+                        errorDetail += await response.text() || 'Error desconocido';
+                        showAlert('pending-review-alert', `❌ ${errorDetail}`, 'error');
+                    }
+                    return;
+                }
+
+                const result = await response.json();
+                
+                if (result.status === 'error') {
+                    showAlert('pending-review-alert', `❌ ${result.message || result.error_code}`, 'error');
+                    return;
+                }
+
+                const summary = result.summary || {};
+                showAlert('pending-review-alert', 
+                    `✅ Acción ejecutada: ${summary.uploaded || 0} subidos, ${summary.skipped || 0} omitidos, ${summary.failed || 0} fallidos`, 
+                    'success'
+                );
+
+                // Actualizar estado inmediatamente
+                if (headfulRunActive) {
+                    await updateHeadfulRunStatus();
+                }
+
+            } catch (error) {
+                console.error('Error ejecutando acción headful:', error);
+                showAlert('pending-review-alert', `❌ Error inesperado: ${error.message || String(error)}`, 'error');
+            } finally {
+                if (btn) {
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }
+            }
+        }
+
+        async function closeHeadfulRun() {
+            const btn = safeGet('close-headful-run-btn');
+            if (!btn) return;
+            
+            const originalText = btn.textContent;
+            btn.textContent = '⏳ Cerrando...';
+            btn.disabled = true;
+
+            try {
+                if (!headfulRunId) {
+                    showAlert('pending-review-alert', '❌ Error: No hay run headful activo.', 'error');
+                    return;
+                }
+
+                const response = await fetch(`${BACKEND_URL}/runs/egestiona/close_headful_run`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        run_id: headfulRunId,
+                    }),
+                });
+
+                if (!response.ok) {
+                    let errorDetail = `HTTP ${response.status}: `;
+                    try {
+                        const errorJson = await response.json();
+                        errorDetail += errorJson.message || errorJson.error_code || JSON.stringify(errorJson);
+                        showAlert('pending-review-alert', `❌ ${errorDetail}`, 'error');
+                    } catch (jsonError) {
+                        errorDetail += await response.text() || 'Error desconocido';
+                        showAlert('pending-review-alert', `❌ ${errorDetail}`, 'error');
+                    }
+                    return;
+                }
+
+                const result = await response.json();
+                
+                if (result.status === 'error') {
+                    showAlert('pending-review-alert', `❌ ${result.message || result.error_code}`, 'error');
+                    return;
+                }
+
+                headfulRunId = null;
+                headfulRunActive = false;
+
+                safeSetDisplay('headful-run-status', 'none');
+                const execBtn = safeGet('exec-headful-action-btn');
+                const closeBtn = safeGet('close-headful-run-btn');
+                const startBtn = safeGet('start-headful-run-btn');
+                if (execBtn) execBtn.style.display = 'none';
+                if (closeBtn) closeBtn.style.display = 'none';
+                if (startBtn) startBtn.style.display = 'inline-block';
+
+                // Detener polling
+                stopHeadfulRunStatusPolling();
+
+                showAlert('pending-review-alert', '✅ Sesión headful cerrada. Navegador cerrado.', 'success');
+
+            } catch (error) {
+                console.error('Error cerrando run headful:', error);
+                showAlert('pending-review-alert', `❌ Error inesperado: ${error.message || String(error)}`, 'error');
+            } finally {
+                if (btn) {
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }
             }
         }
     </script>

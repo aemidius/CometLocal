@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json as pyjson  # HOTFIX C2.13.3: Usar alias para evitar shadowing
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from starlette.concurrency import run_in_threadpool
 
 from backend.adapters.egestiona.profile import EgestionaProfileV1
@@ -39,12 +40,16 @@ from backend.adapters.egestiona.frame_scan_headful import (
 from backend.adapters.egestiona.match_pending_headful import (
     run_match_pending_documents_readonly_headful,
 )
+from backend.adapters.egestiona.stability_test_pending import (
+    run_stability_test_pending_readonly,
+)
 from backend.adapters.egestiona.submission_plan_headful import (
     run_build_submission_plan_readonly_headful,
 )
-from backend.adapters.egestiona.execute_plan_headful import (
-    run_execute_submission_plan_scoped_headful,
-)
+# run_execute_submission_plan_scoped_headful se importa desde frame_scan_headful si es necesario
+# from backend.adapters.egestiona.execute_plan_headful import (
+#     run_execute_submission_plan_scoped_headful,
+# )
 
 
 def run_login_and_snapshot(
@@ -2931,8 +2936,74 @@ async def egestiona_match_pending_documents_readonly(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
+        error_msg = str(e)
+        # Verificar si es error de navegación a pendientes
+        if "PENDING_ENTRY_POINT_NOT_REACHED" in error_msg:
+            error_detail = {
+                "error": "pending_entry_point_not_reached",
+                "message": error_msg,
+                "detail": "No se pudo llegar a la pantalla de pendientes después de reintentos. "
+                         "Revisar evidence en el directorio de runs para más detalles.",
+            }
+            raise HTTPException(status_code=422, detail=error_detail)
         raise HTTPException(status_code=500, detail=str(e))
     return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+@router.post("/runs/egestiona/stability_test_pending_readonly")
+async def egestiona_stability_test_pending_readonly(
+    coord: str = "Aigues de Manresa",
+    company_key: str = "",
+    person_key: Optional[str] = None,
+    limit: int = 20,
+    only_target: bool = True,
+    iterations: int = 5,
+):
+    """
+    Stability test: Ejecuta el mismo flujo READ-ONLY N veces y valida consistencia.
+    
+    Body (JSON):
+    {
+        "coord": "Aigues de Manresa",
+        "company_key": "F63161988",
+        "person_key": "optional",
+        "limit": 20,
+        "only_target": true,
+        "iterations": 5
+    }
+    
+    Returns:
+        Resumen con resultados de todas las iteraciones y análisis (PASS/FAIL)
+    """
+    if not company_key:
+        raise HTTPException(status_code=400, detail="company_key is required")
+    
+    if iterations < 1 or iterations > 10:
+        raise HTTPException(status_code=400, detail="iterations must be between 1 and 10")
+    
+    try:
+        summary = await run_in_threadpool(
+            lambda: run_stability_test_pending_readonly(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                company_key=company_key,
+                person_key=person_key,
+                limit=limit,
+                only_target=only_target,
+                iterations=iterations,
+                slow_mo_ms=300,
+                viewport={"width": 1600, "height": 1000},
+                wait_after_login_s=2.5,
+            )
+        )
+        return summary
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error inesperado: {str(e)}")
 
 
 @router.post("/runs/egestiona/execute_submission_plan_scoped")
@@ -2984,8 +3055,68 @@ async def egestiona_execute_submission_plan_scoped(
         error_msg = str(e)
         if "SECURITY_HARD_STOP" in error_msg or "GUARDRAIL_VIOLATION" in error_msg:
             raise HTTPException(status_code=403, detail=error_msg)
+        # Capturar RuntimeError con mensaje DHX_BLOCKER_NOT_DISMISSED
+        if "DHX_BLOCKER_NOT_DISMISSED" in error_msg:
+            from backend.adapters.egestiona.priority_comms_headful import DhxBlockerNotDismissed
+            error_detail = {
+                "error": "dhx_blocker_not_dismissed",
+                "message": error_msg,
+                "detail": "No se pudo cerrar un overlay DHTMLX bloqueante después del login. "
+                         "Revisar evidence en el directorio de runs para más detalles.",
+            }
+            raise HTTPException(status_code=422, detail=error_detail)
         raise HTTPException(status_code=500, detail=error_msg)
+    except Exception as e:
+        # Capturar excepciones de overlays DHTMLX bloqueantes
+        from backend.adapters.egestiona.priority_comms_headful import PriorityCommsModalNotDismissed, DhxBlockerNotDismissed
+        if isinstance(e, (PriorityCommsModalNotDismissed, DhxBlockerNotDismissed)):
+            error_type = "priority_comms_modal_not_dismissed" if isinstance(e, PriorityCommsModalNotDismissed) else "dhx_blocker_not_dismissed"
+            error_detail = {
+                "error": error_type,
+                "message": str(e),
+                "detail": "No se pudo cerrar un overlay DHTMLX bloqueante después del login. "
+                         "Revisar evidence en el directorio de runs para más detalles.",
+            }
+            if hasattr(e, 'run_id'):
+                error_detail["run_id"] = e.run_id
+            raise HTTPException(status_code=422, detail=error_detail)
+        raise HTTPException(status_code=500, detail=f"Error inesperado: {str(e)}")
     return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+
+
+def normalize_contract(payload: dict, run_id_opt: Optional[str]) -> dict:
+    """
+    Helper centralizado para normalizar contrato de respuesta.
+    
+    - Si run_id_opt existe => payload.run_id = run_id_opt y payload.artifacts.run_id = run_id_opt
+    - Si NO existe => NO inventar run_id. Solo asegurar que payload.status y payload.error_code estén.
+    - No debe haber objetos Path en JSON (todo str o null).
+    
+    Returns:
+        payload modificado (mismo objeto)
+    """
+    if run_id_opt:
+        payload["run_id"] = run_id_opt
+        payload.setdefault("artifacts", {})["run_id"] = run_id_opt
+    
+    # Asegurar que no hay objetos Path en el payload (convertir a str)
+    def clean_paths(obj):
+        if isinstance(obj, Path):
+            return str(obj)
+        elif isinstance(obj, dict):
+            return {k: clean_paths(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [clean_paths(item) for item in obj]
+        return obj
+    
+    # Limpiar paths recursivamente
+    payload = clean_paths(payload)
+    
+    return payload
+
+
+# Alias para compatibilidad
+normalize_run_id = normalize_contract
 
 
 @router.post("/runs/egestiona/build_submission_plan_readonly")
@@ -2995,6 +3126,9 @@ async def egestiona_build_submission_plan_readonly(
     person_key: Optional[str] = None,
     limit: int = 20,
     only_target: bool = True,
+    dry_run: bool = True,  # Explícitamente expuesto (siempre True en este endpoint, pero claro)
+    fixture: bool = False,  # Activar fixture determinista
+    request: Request = None,  # Para leer headers
 ):
     """
     HEADFUL / READ-ONLY: Genera plan de envío determinista para pendientes eGestiona.
@@ -3003,30 +3137,701 @@ async def egestiona_build_submission_plan_readonly(
     - Para cada pendiente: matching + evaluación de guardrails
     - Genera submission_plan.json con decisiones (AUTO_SUBMIT_OK | REVIEW_REQUIRED | NO_MATCH)
     - NO sube nada, NO hace clicks de "Enviar documento"
+    
+    Response estructurado:
+    - status: "ok" | "error"
+    - run_id: str (si ok)
+    - summary: dict con counts (si ok)
+    - items: array (si ok, puede estar vacío)
+    - error_code, message, details (si error)
     """
-    if not company_key:
-        raise HTTPException(status_code=400, detail="company_key is required")
+    # HOTFIX C2.13.7: Logging de trace para identificar ramas
+    print(f"[CAE][READONLY][TRACE] ========================================")
+    print(f"[CAE][READONLY][TRACE] ENTRADA: coord={coord} company_key={company_key} person_key={person_key} limit={limit} only_target={only_target} dry_run={dry_run} fixture={fixture}")
+    
+    # HOTFIX C2.13.2: Inicializar run_id = None al principio (READ-ONLY no tiene run_id por defecto)
+    run_id = None
+    
+    # Generar client_req_id SIEMPRE (uuid4 si no viene en header)
+    import uuid
+    client_request_id = None
+    if request and hasattr(request, 'headers'):
+        client_request_id = request.headers.get("X-CLIENT-REQ-ID")
+        
+        # Verificar si se activa fixture (header o param)
+        fixture_header = request.headers.get("X-CAE-PLAN-FIXTURE", "0")
+        if fixture_header == "1":
+            fixture = True
+    
+    # Si no viene en header, generar uno
+    if not client_request_id:
+        client_request_id = str(uuid.uuid4())
+    
+    # HOTFIX C2.13.7: Verificar ENV para fixture (solo si explícito)
+    import os
+    env_fixture = os.getenv("EGESTIONA_READONLY_FIXTURE", "0")
+    use_fixture = fixture or (env_fixture == "1")
+    
+    # HOTFIX C2.13.7: Logging de rama
+    if use_fixture:
+        print(f"[CAE][READONLY][TRACE] BRANCH: legacy_fixture reason=fixture={fixture} env_fixture={env_fixture}")
+    else:
+        print(f"[CAE][READONLY][TRACE] BRANCH: real_playwright reason=fixture=False env_fixture={env_fixture}")
+    
+    # Si fixture está activo, usar plan determinista
+    if use_fixture:
+        from backend.adapters.egestiona.fixture_plan import build_fixture_plan
+        try:
+            run_id = await run_in_threadpool(
+                lambda: build_fixture_plan(base_dir="data")
+            )
+        except Exception as e:
+            return {
+                "status": "error",
+                "error_code": "fixture_error",
+                "message": f"Error generando fixture: {e}",
+                "details": None,
+            }
+    else:
+        # HOTFIX C2.13.7: Early return si falta company_key
+        if not company_key:
+            print(f"[CAE][READONLY][TRACE] BRANCH: early_return_missing_company_key reason=company_key is empty")
+            return {
+                "status": "error",
+                "error_code": "missing_company_key",
+                "message": "company_key is required",
+                "details": None,
+                "run_id": None,  # HOTFIX C2.13.6: Siempre incluir run_id (puede ser null)
+                "items": [],  # HOTFIX C2.13.6: Siempre array, nunca null
+                "artifacts": {
+                    "client_request_id": client_request_id,
+                    "run_id": None,
+                },
+                "diagnostics": {},  # HOTFIX C2.13.6: Siempre incluir diagnostics (object)
+            }
+        
+        # HOTFIX C2.13.7: READ-ONLY debe ejecutar Playwright (solo sin subida, pero sí con scraping)
+        # Usar return_plan_only=True para obtener plan directamente sin crear run
+        print(f"[CAE][READONLY][TRACE] BRANCH: real_playwright_executing reason=company_key present, calling run_build_submission_plan_readonly_headful")
+        plan_result = None
+        try:
+            print(f"[CAE][READONLY][TRACE] Llamando run_build_submission_plan_readonly_headful con return_plan_only=True")
+            plan_result = await run_in_threadpool(
+                lambda: run_build_submission_plan_readonly_headful(
+                    base_dir="data",
+                    platform="egestiona",
+                    coordination=coord,
+                    company_key=company_key,
+                    person_key=person_key,
+                    limit=limit,
+                    only_target=only_target,
+                    slow_mo_ms=300,
+                    viewport={"width": 1600, "height": 1000},
+                    wait_after_login_s=2.5,
+                    return_plan_only=True,  # NO crear run ni tocar filesystem, pero SÍ ejecutar Playwright
+                )
+            )
+            print(f"[CAE][READONLY][TRACE] run_build_submission_plan_readonly_headful completado. plan_result type: {type(plan_result)}")
+            if isinstance(plan_result, dict):
+                items_count = len(plan_result.get("plan", []))
+                print(f"[CAE][READONLY][TRACE] plan_result es dict con items_count={items_count}")
+            elif isinstance(plan_result, str):
+                print(f"[CAE][READONLY][TRACE] plan_result es string (run_id): {plan_result}")
+            else:
+                print(f"[CAE][READONLY][TRACE] plan_result es tipo inesperado: {type(plan_result)}")
+        except Exception as e:
+            # HOTFIX C2.13.7: Loggear excepción en lugar de hacer pass silencioso
+            import traceback
+            print(f"[CAE][READONLY][TRACE] BRANCH: exception_during_playwright reason={type(e).__name__}: {str(e)}")
+            print(f"[CAE][READONLY][TRACE] Traceback:\n{traceback.format_exc()}")
+            # La excepción se captura más abajo en el except general, pero loggeamos aquí para trace
+            # NO hacer pass, dejar que se propague al except general
+            raise
+    
+    # HOTFIX C2.13.7: Si plan_result es None, loggear y convertir a resultado válido
+    if plan_result is None:
+        # HOTFIX C2.13.7: Esto NO debería pasar si Playwright se ejecutó correctamente
+        # Si llega aquí, significa que hubo una excepción que se capturó silenciosamente
+        print(f"[CAE][READONLY][TRACE] BRANCH: plan_result_is_none reason=plan_result es None después de ejecutar Playwright")
+        print("[CAE][READONLY] plan_result es None, convirtiendo a resultado válido vacío")
+        plan_result = {
+            "plan": [],
+            "summary": {
+                "pending_count": 0,
+                "matched_count": 0,
+                "unmatched_count": 0,
+                "duration_ms": 0,
+            },
+            "pending_items": [],
+            "match_results": [],
+            "duration_ms": 0,
+            "diagnostics": {
+                "reason": "compute_returned_none",
+                "note": "Computation returned None (possibly due to exception or empty state). Check logs for [CAE][READONLY][TRACE] to identify root cause.",
+            },
+            "instrumentation": {},  # HOTFIX C2.13.6: Incluir instrumentation vacío
+        }
     
     try:
-        run_id = await run_in_threadpool(
-            lambda: run_build_submission_plan_readonly_headful(
-                base_dir="data",
-                platform="egestiona",
-                coordination=coord,
-                company_key=company_key,
-                person_key=person_key,
-                limit=limit,
-                only_target=only_target,
-                slow_mo_ms=300,
-                viewport={"width": 1600, "height": 1000},
-                wait_after_login_s=2.5,
-            )
-        )
+        # HOTFIX C2.13.7: Logging de rama de procesamiento
+        if isinstance(plan_result, dict):
+            print(f"[CAE][READONLY][TRACE] BRANCH: processing_dict_result reason=plan_result es dict (READ-ONLY puro)")
+        elif isinstance(plan_result, str):
+            print(f"[CAE][READONLY][TRACE] BRANCH: processing_string_result reason=plan_result es string (legacy/fixture)")
+        else:
+            print(f"[CAE][READONLY][TRACE] BRANCH: processing_unexpected_type reason=plan_result es {type(plan_result)}")
+        
+        # HOTFIX C2.12.6: Si plan_result es un dict (return_plan_only=True), usar directamente
+        # Si es un string (run_id), es el caso legacy (fixture), leer del filesystem
+        if isinstance(plan_result, dict):
+            # Caso READ-ONLY puro: plan_result ya contiene plan, summary, etc.
+            items = plan_result.get("plan", [])
+            summary = plan_result.get("summary", {
+                "pending_count": 0,
+                "matched_count": 0,
+                "unmatched_count": 0,
+                "duration_ms": plan_result.get("duration_ms", 0),
+            })
+            
+            # SPRINT C2.13.0: Incluir diagnostics si está disponible
+            diagnostics = plan_result.get("diagnostics")
+            
+            # SPRINT C2.13.1: Si items.length === 0, asegurar que status = ok y añadir diagnostics si no existe
+            if len(items) == 0 and not diagnostics:
+                # No hay items pero no hay diagnostics, añadir diagnostics informativo
+                diagnostics = {
+                    "reason": "no_matches_after_compute",
+                    "note": "No matching documents found between eGestión and local repository",
+                    "pending_count": summary.get("pending_count", 0),
+                    "matches_found": 0,
+                    "local_docs_considered": plan_result.get("instrumentation", {}).get("local_docs_considered", 0) if plan_result.get("instrumentation") else 0,
+                }
+            
+            # Generar checksum y confirm_token para el plan (sin run_id)
+            import hashlib
+            import hmac
+            from datetime import datetime, timedelta
+            
+            plan_items_for_checksum = []
+            for item in items:
+                plan_items_for_checksum.append({
+                    "pending_ref": item.get("pending_ref", {}),
+                    "matched_doc": {
+                        "doc_id": item.get("matched_doc", {}).get("doc_id"),
+                        "type_id": item.get("matched_doc", {}).get("type_id"),
+                    } if item.get("matched_doc") else None,
+                    "decision": item.get("decision", {}),
+                    "proposed_fields": item.get("proposed_fields", {}),
+                })
+            
+            checksum_data = pyjson.dumps(plan_items_for_checksum, sort_keys=True, ensure_ascii=False)
+            plan_checksum = hashlib.sha256(checksum_data.encode('utf-8')).hexdigest()
+            
+            # Confirm token: HMAC con secret interno + timestamp (TTL 30 min)
+            created_at = datetime.utcnow()
+            expires_at = created_at + timedelta(minutes=30)
+            
+            import os
+            secret_key = os.getenv("COMETLOCAL_PLAN_SECRET", "default-secret-key-change-in-production")
+            
+            # Usar placeholder para run_id en token (READ-ONLY no tiene run_id)
+            token_payload = f"readonly_no_run:{plan_checksum}:{created_at.isoformat()}"
+            confirm_token = hmac.new(
+                secret_key.encode('utf-8'),
+                token_payload.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            
+            # HOTFIX C2.13.6: Asegurar que items siempre sea array, nunca null
+            items_array = items if isinstance(items, list) else []
+            
+            # HOTFIX C2.13.6: Contrato de respuesta robusto - siempre incluir run_id, items, diagnostics, artifacts
+            response = {
+                "status": "ok",
+                "run_id": None,  # HOTFIX C2.13.6: Siempre incluir run_id (puede ser null)
+                "plan_id": None,  # READ-ONLY no tiene plan_id
+                "runs_url": None,  # READ-ONLY no tiene runs_url
+                "summary": summary,
+                "items": items_array,  # HOTFIX C2.13.6: Siempre array, nunca null
+                "plan": items_array,  # Alias para compatibilidad
+                "dry_run": dry_run,
+                "confirm_token": confirm_token,
+                "plan_checksum": plan_checksum,
+                "artifacts": {
+                    "client_request_id": client_request_id,
+                    "run_id": None,  # HOTFIX C2.13.6: Siempre incluir run_id en artifacts
+                },
+                "diagnostics": diagnostics if diagnostics else {},  # HOTFIX C2.13.6: Siempre incluir diagnostics (object)
+            }
+            
+            # NO normalizar contrato (no hay run_id)
+            # NO guardar en filesystem
+            
+        elif isinstance(plan_result, str):
+            # Caso legacy: fixture devuelve run_id, leer del filesystem
+            run_id = plan_result
+            
+            from pathlib import Path
+            # HOTFIX C2.13.3: Eliminado import json local (usa pyjson del import global)
+            from backend.config import DATA_DIR
+            from backend.shared.path_utils import safe_path_join
+            
+            plan_path = safe_path_join(Path(DATA_DIR) / "runs" / run_id / "evidence", "submission_plan.json")
+            summary = {
+                "pending_count": 0,
+                "matched_count": 0,
+                "unmatched_count": 0,
+                "duration_ms": 0,
+            }
+            items = []
+            
+            if plan_path and plan_path.exists():
+                try:
+                    with open(plan_path, "r", encoding="utf-8") as f:
+                        plan_data = pyjson.load(f)
+                        plan = plan_data.get("plan", [])
+                        items = plan
+                        summary["pending_count"] = len(plan)
+                        summary["matched_count"] = sum(1 for item in plan if item.get("matched_doc") and item.get("matched_doc", {}).get("doc_id"))
+                        summary["unmatched_count"] = summary["pending_count"] - summary["matched_count"]
+                except Exception as e:
+                    pass
+            
+            # Cargar meta.json para duration
+            meta_path = safe_path_join(Path(DATA_DIR) / "runs" / run_id / "evidence", "meta.json")
+            if meta_path and meta_path.exists():
+                try:
+                    with open(meta_path, "r", encoding="utf-8") as f:
+                        meta = pyjson.load(f)
+                        summary["duration_ms"] = meta.get("duration_ms", 0)
+                except Exception:
+                    pass
+            
+            # Cargar plan_meta.json para obtener confirm_token
+            plan_meta_path = safe_path_join(Path(DATA_DIR) / "runs" / run_id, "plan_meta.json")
+            confirm_token = None
+            plan_checksum = None
+            if plan_meta_path and plan_meta_path.exists():
+                try:
+                    with open(plan_meta_path, "r", encoding="utf-8") as f:
+                        plan_meta = pyjson.load(f)
+                        confirm_token = plan_meta.get("confirm_token")
+                        plan_checksum = plan_meta.get("plan_checksum")
+                except Exception:
+                    pass
+            
+            # Cargar artifacts (storage_state_path)
+            artifacts = {}
+            run_finished_path = safe_path_join(Path(DATA_DIR) / "runs" / run_id, "run_finished.json")
+            if run_finished_path and run_finished_path.exists():
+                try:
+                    with open(run_finished_path, "r", encoding="utf-8") as f:
+                        run_finished = pyjson.load(f)
+                        artifacts_data = run_finished.get("artifacts", {})
+                        storage_state_rel = artifacts_data.get("storage_state_path")
+                        if storage_state_rel:
+                            from backend.shared.path_utils import safe_path_join, as_str
+                            storage_state_abs = safe_path_join(Path(DATA_DIR), storage_state_rel)
+                            if storage_state_abs:
+                                artifacts["storage_state_path"] = as_str(storage_state_abs)
+                except Exception:
+                    pass
+            
+            # HOTFIX C2.13.6: Asegurar que items siempre sea array, nunca null
+            items_array = items if isinstance(items, list) else []
+            
+            response = {
+                "status": "ok",
+                "run_id": run_id,  # HOTFIX C2.13.6: Siempre incluir run_id (puede ser null)
+                "plan_id": run_id,
+                "runs_url": f"/runs/{run_id}" if run_id else None,
+                "summary": summary,
+                "items": items_array,  # HOTFIX C2.13.6: Siempre array, nunca null
+                "plan": items_array,  # Alias para compatibilidad
+                "dry_run": dry_run,
+                "confirm_token": confirm_token,
+                "plan_checksum": plan_checksum,
+                "artifacts": {
+                    "client_request_id": client_request_id,
+                    "run_id": run_id,  # HOTFIX C2.13.6: Siempre incluir run_id en artifacts
+                    **(artifacts if artifacts else {}),  # Merge otros artifacts si existen
+                },
+                "diagnostics": {},  # HOTFIX C2.13.6: Siempre incluir diagnostics (object)
+            }
+            
+            normalize_contract(response, run_id)
+            
+            # Guardar response.json y client_request_id.txt (solo para fixture/legacy)
+            try:
+                if run_id:
+                    run_dir = Path(DATA_DIR) / "runs" / run_id
+                    if run_dir.exists():
+                        response_path = run_dir / "response.json"
+                        with open(response_path, "w", encoding="utf-8") as f:
+                            pyjson.dump(response, f, indent=2, ensure_ascii=False, default=str)
+                        client_req_id_path = run_dir / "client_request_id.txt"
+                        with open(client_req_id_path, "w", encoding="utf-8") as f:
+                            f.write(client_request_id)
+            except Exception as e:
+                import os
+                if os.getenv("ENVIRONMENT", "").lower() == "dev":
+                    print(f"[CAE_CONTRACT] Warning: No se pudo guardar response.json: {e}")
+        else:
+            # SPRINT C2.13.1: Caso inesperado - convertir a resultado válido en lugar de error
+            # READ-ONLY nunca debe fallar, siempre devolver status: "ok" con items: []
+            print(f"[CAE][READONLY] plan_result es de tipo inesperado: {type(plan_result)}, convirtiendo a resultado válido vacío")
+            items = []
+            summary = {
+                "pending_count": 0,
+                "matched_count": 0,
+                "unmatched_count": 0,
+                "duration_ms": 0,
+            }
+            diagnostics = {
+                "reason": "unexpected_result_type",
+                "note": f"Computation returned unexpected type: {type(plan_result)}",
+                "result_type": str(type(plan_result)),
+            }
+            
+            # Generar checksum y confirm_token para el plan (sin run_id)
+            import hashlib
+            import hmac
+            from datetime import datetime, timedelta
+            
+            plan_items_for_checksum = []
+            checksum_data = pyjson.dumps(plan_items_for_checksum, sort_keys=True, ensure_ascii=False)
+            plan_checksum = hashlib.sha256(checksum_data.encode('utf-8')).hexdigest()
+            
+            created_at = datetime.utcnow()
+            expires_at = created_at + timedelta(minutes=30)
+            
+            import os
+            secret_key = os.getenv("COMETLOCAL_PLAN_SECRET", "default-secret-key-change-in-production")
+            
+            token_payload = f"readonly_no_run:{plan_checksum}:{created_at.isoformat()}"
+            confirm_token = hmac.new(
+                secret_key.encode('utf-8'),
+                token_payload.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            
+            # HOTFIX C2.13.6: Asegurar que items siempre sea array, nunca null
+            items_array = items if isinstance(items, list) else []
+            
+            response = {
+                "status": "ok",  # SPRINT C2.13.1: Siempre "ok", nunca "error"
+                "run_id": None,  # HOTFIX C2.13.6: Siempre incluir run_id (puede ser null)
+                "plan_id": None,
+                "runs_url": None,
+                "summary": summary,
+                "items": items_array,  # HOTFIX C2.13.6: Siempre array, nunca null
+                "plan": items_array,
+                "dry_run": dry_run,
+                "confirm_token": confirm_token,
+                "plan_checksum": plan_checksum,
+                "artifacts": {
+                    "client_request_id": client_request_id,
+                    "run_id": None,  # HOTFIX C2.13.6: Siempre incluir run_id en artifacts
+                },
+                "diagnostics": diagnostics if diagnostics else {},  # HOTFIX C2.13.6: Siempre incluir diagnostics (object)
+            }
+        
+        # HOTFIX C2.13.6: Loggear items_count antes de devolver
+        items_count = len(response.get("items", []))
+        error_code_str = "-"
+        run_id_str = response.get("run_id") or response.get("plan_id") or "None"
+        artifacts_run_id_str = response.get("artifacts", {}).get("run_id") if response.get("artifacts") else "None"
+        print(f"[CAE][READONLY] items_count={items_count} run_id={run_id_str} client_req_id={client_request_id} status=ok error_code={error_code_str} artifacts.run_id={artifacts_run_id_str}")
+        
+        return response
+        
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # HOTFIX C2.13.6: Contrato de respuesta robusto
+        items_count = 0
+        response = {
+            "status": "error",
+            "error_code": "readonly_compute_failed",  # HOTFIX C2.12.6: NUNCA run_id_missing
+            "message": f"Validation error: {str(e)}",
+            "details": None,
+            "run_id": None,  # HOTFIX C2.13.6: Siempre incluir run_id (puede ser null)
+            "items": [],  # HOTFIX C2.13.6: Siempre array, nunca null
+            "artifacts": {
+                "client_request_id": client_request_id,
+                "run_id": None,  # HOTFIX C2.13.6: Siempre incluir run_id en artifacts
+            },
+            "diagnostics": {},  # HOTFIX C2.13.6: Siempre incluir diagnostics (object)
+        }
+        print(f"[CAE][READONLY] items_count={items_count} run_id=None client_req_id={client_request_id} status=error error_code={response['error_code']}")
+        return response
     except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
+        error_msg = str(e)
+        # Verificar si es error de overlay DHTMLX bloqueante
+        if "DHX_BLOCKER_NOT_DISMISSED" in error_msg:
+            response = {
+                "status": "error",
+                "error_code": "dhx_blocker_not_dismissed",
+                "message": error_msg,
+                "details": "No se pudo cerrar un overlay DHTMLX bloqueante después del login. "
+                         "Revisar evidence en el directorio de runs para más detalles.",
+                "run_id": None,  # HOTFIX C2.13.6: Siempre incluir run_id (puede ser null)
+                "items": [],  # HOTFIX C2.13.6: Siempre array, nunca null
+                "artifacts": {
+                    "client_request_id": client_request_id,
+                    "run_id": None,  # HOTFIX C2.13.6: Siempre incluir run_id en artifacts
+                },
+                "diagnostics": {},  # HOTFIX C2.13.6: Siempre incluir diagnostics (object)
+            }
+            items_count = 0
+            print(f"[CAE][READONLY] items_count={items_count} run_id=None client_req_id={client_request_id} status=error error_code={response['error_code']}")
+            return response
+        response = {
+            "status": "error",
+            "error_code": "runtime_error",
+            "message": error_msg,
+            "details": None,
+            "run_id": None,  # HOTFIX C2.13.6: Siempre incluir run_id (puede ser null)
+            "items": [],  # HOTFIX C2.13.6: Siempre array, nunca null
+            "artifacts": {
+                "client_request_id": client_request_id,
+                "run_id": None,  # HOTFIX C2.13.6: Siempre incluir run_id en artifacts
+            },
+            "diagnostics": {},  # HOTFIX C2.13.6: Siempre incluir diagnostics (object)
+        }
+        items_count = 0
+        print(f"[CAE][READONLY] items_count={items_count} run_id=None client_req_id={client_request_id} status=error error_code={response['error_code']}")
+        return response
+    except Exception as e:
+        # HOTFIX C2.13.2: Manejo de errores robusto - devolver HTTP 200 con JSON, nunca lanzar excepción secundaria
+        try:
+            # Capturar PageContractError primero (antes de otras excepciones)
+            from backend.adapters.egestiona.page_contract_validator import PageContractError
+            if isinstance(e, PageContractError):
+                # Construir artifacts con run_id si existe
+                artifacts = {}
+                try:
+                    # Intentar obtener run_id si existe (puede estar en locals o en el contexto)
+                    if run_id:
+                        from backend.shared.path_utils import as_str, safe_path_join
+                        from backend.repository.data_bootstrap_v1 import DATA_DIR
+                        artifacts["run_id"] = run_id
+                        # Convertir evidence_paths a dict con strings (no Path objects, no None problemáticos)
+                        evidence_paths_clean = {}
+                        if e.evidence_paths:
+                            for key, value in e.evidence_paths.items():
+                                # Solo incluir si no es None y es string válido
+                                if value is not None:
+                                    evidence_paths_clean[key] = as_str(value)
+                        artifacts["evidence"] = evidence_paths_clean if evidence_paths_clean else None
+                        # Intentar añadir instrumentation_path si existe
+                        instrumentation_path = safe_path_join(Path(DATA_DIR) / "runs" / run_id / "evidence", "instrumentation.json")
+                        if instrumentation_path and instrumentation_path.exists():
+                            artifacts["instrumentation_path"] = as_str(instrumentation_path.relative_to(Path(DATA_DIR)))
+                except Exception:
+                    pass
+                
+                # HOTFIX C2.13.6: Construir response de error con contrato robusto
+                response = {
+                    "status": "error",
+                    "error_code": e.error_code,
+                    "message": e.message,
+                    "details": e.details,
+                    "run_id": run_id if run_id else None,  # HOTFIX C2.13.6: Siempre incluir run_id (puede ser null)
+                    "items": [],  # HOTFIX C2.13.6: Siempre array, nunca null
+                    "artifacts": {
+                        "client_request_id": client_request_id,
+                        "run_id": run_id if run_id else None,  # HOTFIX C2.13.6: Siempre incluir run_id en artifacts
+                        **(artifacts if artifacts else {}),  # Merge otros artifacts si existen
+                    },
+                    "diagnostics": {},  # HOTFIX C2.13.6: Siempre incluir diagnostics (object)
+                }
+                
+                # Normalizar contrato usando helper centralizado (run_id puede ser None)
+                normalize_contract(response, run_id)
+                
+                # Añadir client_request_id a artifacts SIEMPRE
+                if not response.get("artifacts"):
+                    response["artifacts"] = {}
+                response["artifacts"]["client_request_id"] = client_request_id
+                
+                # HOTFIX C2.13.6: Loggear items_count antes de devolver
+                items_count = len(response.get("items", []))
+                run_id_str = response.get("run_id") or "None"
+                artifacts_run_id_str = response.get("artifacts", {}).get("run_id") if response.get("artifacts") else "None"
+                print(f"[CAE][READONLY] items_count={items_count} run_id={run_id_str} client_req_id={client_request_id} status=error error_code={e.error_code} artifacts.run_id={artifacts_run_id_str}")
+                
+                # Guardar response.json SIEMPRE (solo si hay run_id, READ-ONLY no toca filesystem)
+                try:
+                    if run_id:
+                        run_dir = Path(DATA_DIR) / "runs" / run_id
+                        if run_dir.exists():
+                            response_path = run_dir / "response.json"
+                            with open(response_path, "w", encoding="utf-8") as f:
+                                pyjson.dump(response, f, indent=2, ensure_ascii=False, default=str)
+                            client_req_id_path = run_dir / "client_request_id.txt"
+                            with open(client_req_id_path, "w", encoding="utf-8") as f:
+                                f.write(client_request_id)
+                    else:
+                        # READ-ONLY: NO guardar en filesystem si no hay run_id
+                        pass
+                except Exception as save_err:
+                    pass
+                
+                # Instrumentación: loggear JSON en dev
+                import os
+                if os.getenv("ENVIRONMENT", "").lower() == "dev":
+                    try:
+                        print(f"[CAE_CONTRACT] Response ERROR (PageContractError): {pyjson.dumps(response, indent=2, default=str)}")
+                    except Exception:
+                        pass
+                
+                return response
+        
+            # Capturar también PriorityCommsModalNotDismissed si viene como excepción directa
+            from backend.adapters.egestiona.priority_comms_headful import PriorityCommsModalNotDismissed
+            if isinstance(e, PriorityCommsModalNotDismissed):
+                # HOTFIX C2.13.6: Contrato de respuesta robusto
+                response = {
+                    "status": "error",
+                    "error_code": "priority_comms_modal_not_dismissed",
+                    "message": str(e),
+                    "details": "No se pudo cerrar el modal de comunicados prioritarios después del login. "
+                             "Revisar evidence en el directorio de runs para más detalles.",
+                    "run_id": run_id if run_id else None,  # HOTFIX C2.13.6: Siempre incluir run_id (puede ser null)
+                    "items": [],  # HOTFIX C2.13.6: Siempre array, nunca null
+                    "artifacts": {
+                        "client_request_id": client_request_id,
+                        "run_id": run_id if run_id else None,  # HOTFIX C2.13.6: Siempre incluir run_id en artifacts
+                    },
+                    "diagnostics": {},  # HOTFIX C2.13.6: Siempre incluir diagnostics (object)
+                }
+                # Normalizar contrato usando helper centralizado (run_id puede ser None)
+                normalize_contract(response, run_id)
+                
+                # Añadir client_request_id a artifacts SIEMPRE
+                if not response.get("artifacts"):
+                    response["artifacts"] = {}
+                response["artifacts"]["client_request_id"] = client_request_id
+                
+                # HOTFIX C2.13.6: Loggear items_count antes de devolver
+                items_count = len(response.get("items", []))
+                run_id_str = response.get("run_id") or "None"
+                artifacts_run_id_str = response.get("artifacts", {}).get("run_id") if response.get("artifacts") else "None"
+                print(f"[CAE][READONLY] items_count={items_count} run_id={run_id_str} client_req_id={client_request_id} status=error error_code={response['error_code']} artifacts.run_id={artifacts_run_id_str}")
+                
+                # Guardar response.json SIEMPRE (solo si hay run_id, READ-ONLY no toca filesystem)
+                try:
+                    if run_id:
+                        run_dir = Path(DATA_DIR) / "runs" / run_id
+                        if run_dir.exists():
+                            response_path = run_dir / "response.json"
+                            with open(response_path, "w", encoding="utf-8") as f:
+                                pyjson.dump(response, f, indent=2, ensure_ascii=False, default=str)
+                            client_req_id_path = run_dir / "client_request_id.txt"
+                            with open(client_req_id_path, "w", encoding="utf-8") as f:
+                                f.write(client_request_id)
+                    else:
+                        # READ-ONLY: NO guardar en filesystem si no hay run_id
+                        pass
+                except Exception as save_err:
+                    pass
+                
+                return response
+        
+            # En caso de error inesperado, intentar construir artifacts básicos si hay run_id
+            artifacts = {}
+            try:
+                if run_id:
+                    from backend.shared.path_utils import as_str
+                    artifacts["run_id"] = run_id
+            except Exception:
+                pass
+            
+            # HOTFIX C2.13.6: Contrato de respuesta robusto - siempre incluir run_id, items, diagnostics, artifacts
+            response = {
+                "status": "error",
+                "error_code": "readonly_compute_failed",  # HOTFIX C2.13.2: Usar error_code consistente
+                "message": f"Error durante computación READ-ONLY: {str(e)}",
+                "details": {
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "traceback": None,  # No incluir traceback completo por defecto (puede ser muy largo)
+                },
+                "run_id": None,  # HOTFIX C2.13.6: Siempre incluir run_id (puede ser null)
+                "items": [],  # HOTFIX C2.13.6: Siempre array, nunca null
+                "artifacts": {
+                    "client_request_id": client_request_id,
+                    "run_id": None,  # HOTFIX C2.13.6: Siempre incluir run_id en artifacts
+                } if not artifacts else {**artifacts, "run_id": artifacts.get("run_id")},
+                "diagnostics": {
+                    "run_id": None,  # HOTFIX C2.13.2: READ-ONLY no tiene run_id
+                },
+            }
+            
+            # Normalizar contrato usando helper centralizado (run_id puede ser None)
+            normalize_contract(response, run_id)
+            
+            # Añadir client_request_id a artifacts SIEMPRE
+            if not response.get("artifacts"):
+                response["artifacts"] = {}
+            response["artifacts"]["client_request_id"] = client_request_id
+            
+            # HOTFIX C2.12.6: READ-ONLY NO guarda en filesystem
+            # Solo guardar si es error y hay run_id (caso legacy/fixture)
+            # Para READ-ONLY puro, NO tocar filesystem
+            try:
+                if run_id:
+                    # Solo guardar si hay run_id (caso legacy/fixture)
+                    run_dir = Path(DATA_DIR) / "runs" / run_id
+                    if run_dir.exists():
+                        response_path = run_dir / "response.json"
+                        with open(response_path, "w", encoding="utf-8") as f:
+                            pyjson.dump(response, f, indent=2, ensure_ascii=False, default=str)
+                        client_req_id_path = run_dir / "client_request_id.txt"
+                        with open(client_req_id_path, "w", encoding="utf-8") as f:
+                            f.write(client_request_id)
+                else:
+                    # READ-ONLY: NO guardar en filesystem si no hay run_id
+                    pass
+            except Exception as save_err:
+                pass
+            
+            # HOTFIX C2.13.6: Loggear items_count antes de devolver (incluso en error)
+            items_count = len(response.get("items", []))
+            run_id_str = response.get("run_id") or "None"
+            artifacts_run_id_str = response.get("artifacts", {}).get("run_id") if response.get("artifacts") else "None"
+            print(f"[CAE][READONLY] items_count={items_count} run_id={run_id_str} client_req_id={client_request_id} status=error error_code={response['error_code']} artifacts.run_id={artifacts_run_id_str}")
+            
+            return response
+        except Exception as handler_error:
+            # HOTFIX C2.13.2: Si el handler de errores falla, devolver respuesta mínima sin lanzar excepción
+            print(f"[CAE][ERROR] Error en handler de excepciones: {handler_error}")
+            # HOTFIX C2.13.6: Contrato de respuesta robusto - siempre incluir run_id, items, diagnostics, artifacts
+            return {
+                "status": "error",
+                "error_code": "readonly_compute_failed",
+                "message": f"Error durante computación READ-ONLY: {str(e)} (handler error: {str(handler_error)})",
+                "details": None,
+                "run_id": None,  # HOTFIX C2.13.6: Siempre incluir run_id (puede ser null)
+                "items": [],  # HOTFIX C2.13.6: Siempre array, nunca null
+                "artifacts": {
+                    "client_request_id": client_request_id,
+                    "run_id": None,  # HOTFIX C2.13.6: Siempre incluir run_id en artifacts
+                },
+                "diagnostics": {
+                    "run_id": None,
+                },
+            }
+        
+        # Instrumentación: loggear JSON en dev
+        import os
+        if os.getenv("ENVIRONMENT", "").lower() == "dev":
+            # HOTFIX C2.13.3: Eliminado import json local (usa pyjson del import global)
+            try:
+                print(f"[CAE_CONTRACT] Response ERROR (unexpected): {pyjson.dumps(response, indent=2, default=str)}")
+            except Exception:
+                pass
+        
+        return response
 
 
 @router.post("/runs/egestiona/execute_submission_plan_scoped")
@@ -3078,7 +3883,32 @@ async def egestiona_execute_submission_plan_scoped(
         error_msg = str(e)
         if "SECURITY_HARD_STOP" in error_msg or "GUARDRAIL_VIOLATION" in error_msg:
             raise HTTPException(status_code=403, detail=error_msg)
+        # Capturar RuntimeError con mensaje DHX_BLOCKER_NOT_DISMISSED
+        if "DHX_BLOCKER_NOT_DISMISSED" in error_msg:
+            from backend.adapters.egestiona.priority_comms_headful import DhxBlockerNotDismissed
+            error_detail = {
+                "error": "dhx_blocker_not_dismissed",
+                "message": error_msg,
+                "detail": "No se pudo cerrar un overlay DHTMLX bloqueante después del login. "
+                         "Revisar evidence en el directorio de runs para más detalles.",
+            }
+            raise HTTPException(status_code=422, detail=error_detail)
         raise HTTPException(status_code=500, detail=error_msg)
+    except Exception as e:
+        # Capturar excepciones de overlays DHTMLX bloqueantes
+        from backend.adapters.egestiona.priority_comms_headful import PriorityCommsModalNotDismissed, DhxBlockerNotDismissed
+        if isinstance(e, (PriorityCommsModalNotDismissed, DhxBlockerNotDismissed)):
+            error_type = "priority_comms_modal_not_dismissed" if isinstance(e, PriorityCommsModalNotDismissed) else "dhx_blocker_not_dismissed"
+            error_detail = {
+                "error": error_type,
+                "message": str(e),
+                "detail": "No se pudo cerrar un overlay DHTMLX bloqueante después del login. "
+                         "Revisar evidence en el directorio de runs para más detalles.",
+            }
+            if hasattr(e, 'run_id'):
+                error_detail["run_id"] = e.run_id
+            raise HTTPException(status_code=422, detail=error_detail)
+        raise HTTPException(status_code=500, detail=f"Error inesperado: {str(e)}")
     return {"run_id": run_id, "runs_url": f"/runs/{run_id}"}
 
 

@@ -1,0 +1,85 @@
+{
+  "test_type": "stability_test_pending_readonly",
+  "coordination": "Aigues de Manresa",
+  "company_key": "F63161988",
+  "person_key": null,
+  "iterations": 5,
+  "results": [
+    {
+      "iteration": 1,
+      "run_id": "r_5f5e2dc17bb94c45bce881d95b3d62ec",
+      "count_pendings": 17,
+      "page_url": "unknown",
+      "frame_url": "unknown",
+      "screen_signature": "unknown",
+      "duration_ms": 15619,
+      "success": true
+    },
+    {
+      "iteration": 2,
+      "run_id": "r_994a0308db4245ffb03446c98998fc52",
+      "count_pendings": 17,
+      "page_url": "unknown",
+      "frame_url": "unknown",
+      "screen_signature": "unknown",
+      "duration_ms": 15292,
+      "success": true
+    },
+    {
+      "iteration": 3,
+      "run_id": "r_765d825330864d6d917fa97edd72d52f",
+      "count_pendings": 17,
+      "page_url": "unknown",
+      "frame_url": "unknown",
+      "screen_signature": "unknown",
+      "duration_ms": 14877,
+      "success": true
+    },
+    {
+      "iteration": 4,
+      "run_id": "r_1008c0ee309c441eb2577aa9d4f4675d",
+      "count_pendings": 17,
+      "page_url": "unknown",
+      "frame_url": "unknown",
+      "screen_signature": "unknown",
+      "duration_ms": 14662,
+      "success": true
+    },
+    {
+      "iteration": 5,
+      "run_id": "r_119bdd84a6004a51ab0b88318d301d04",
+      "count_pendings": 17,
+      "page_url": "unknown",
+      "frame_url": "unknown",
+      "screen_signature": "unknown",
+      "duration_ms": 15954,
+      "success": true
+    }
+  ],
+  "analysis": {
+    "unique_counts": [
+      17
+    ],
+    "unique_signatures": [],
+    "all_counts": [
+      17,
+      17,
+      17,
+      17,
+      17
+    ],
+    "all_signatures": [
+      "unknown",
+      "unknown",
+      "unknown",
+      "unknown",
+      "unknown"
+    ],
+    "min_count": 17,
+    "max_count": 17,
+    "avg_count": 17.0
+  },
+  "passed": true,
+  "failure_reasons": [],
+  "timestamp": "2025-12-30T09:42:27Z"
+}

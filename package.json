@@ -1,0 +1,16 @@
+{
+  "name": "cometlocal",
+  "version": "1.0.0",
+  "description": "CometLocal E2E Tests",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:upload": "playwright test tests/e2e_upload_type_select.spec.js",
+    "test:e2e:subjects": "playwright test tests/e2e_upload_subjects.spec.js",
+    "test:e2e:aeat": "playwright test tests/e2e_upload_aeat.spec.js",
+    "test:e2e:core": "playwright test --workers=1 --retries=0 tests/e2e_config_smoke.spec.js tests/e2e_search_smoke.spec.js tests/e2e_calendar_pending_smoke.spec.js tests/e2e_upload_preview.spec.js tests/e2e_edit_document.spec.js tests/cae_plan_e2e.spec.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0"
+  }
+}
+

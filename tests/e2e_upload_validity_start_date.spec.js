@@ -1,26 +1,27 @@
 const { test, expect } = require('@playwright/test');
 const path = require('path');
 const fs = require('fs');
+const { seedReset, seedBasicRepository, gotoHash, waitForTestId } = require('./helpers/e2eSeed');
 
 test.describe('Upload Validity Start Date - Fix', () => {
     const evidenceDir = path.join(__dirname, '..', 'docs', 'evidence', 'upload_validity_start_date_fix');
-    const BACKEND_URL = 'http://localhost:8000';
+    const BACKEND_URL = 'http://127.0.0.1:8000';
+    let seedData;
     
     // Asegurar que el directorio de evidencia existe
-    test.beforeAll(() => {
+    test.beforeAll(async ({ request }) => {
         if (!fs.existsSync(evidenceDir)) {
             fs.mkdirSync(evidenceDir, { recursive: true });
         }
+        // Reset y seed básico usando request (no page)
+        await seedReset({ request });
+        seedData = await seedBasicRepository({ request });
     });
     
     test('Validity start date se envía correctamente cuando validity_start_mode=manual', async ({ page }) => {
-        // 1) Ir a Subir documentos
-        await page.goto(`${BACKEND_URL}/repository#subir`);
-        await page.waitForLoadState('networkidle');
-        
-        // Esperar a que la sección de upload se cargue
-        const dropzone = page.locator('[data-testid="upload-dropzone"]');
-        await expect(dropzone).toBeVisible({ timeout: 15000 });
+        // 1) Ir a Subir documentos usando helper
+        await gotoHash(page, 'subir');
+        await waitForTestId(page, 'upload-dropzone');
         
         // Screenshot inicial
         await page.screenshot({ path: path.join(evidenceDir, '01_initial_state.png'), fullPage: true });
@@ -30,7 +31,7 @@ test.describe('Upload Validity Start Date - Fix', () => {
         const pdfContent = Buffer.from('%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\ntrailer\n<<\n/Root 1 0 R\n>>\n%%EOF');
         fs.writeFileSync(pdfPath, pdfContent);
         
-        const fileInput = page.locator('[data-testid="upload-file-input"]');
+        const fileInput = page.locator('[data-testid="upload-input"]');
         await expect(fileInput).toBeAttached({ timeout: 10000 });
         await fileInput.setInputFiles(pdfPath);
         
@@ -53,7 +54,8 @@ test.describe('Upload Validity Start Date - Fix', () => {
             const firstTypeId = await typeOptions.first().getAttribute('value');
             if (firstTypeId) {
                 await typeSelect.selectOption(firstTypeId);
-                await page.waitForTimeout(1000); // Esperar a que se actualice el formulario
+                // SPRINT B2: Esperar a que se actualice el formulario usando selector específico
+                await page.waitForSelector('[data-testid="validity-start-input"], .repo-upload-company-select', { timeout: 5000 }).catch(() => {});
             }
         }
         
@@ -71,7 +73,8 @@ test.describe('Upload Validity Start Date - Fix', () => {
             // Usar una fecha futura (ej: 30/07/2025)
             const testDate = '2025-07-30'; // Formato ISO para input type="date"
             await validityStartInput.fill(testDate);
-            await page.waitForTimeout(500);
+            // SPRINT B2: Esperar cambio de input usando expect
+            await expect(validityStartInput).toHaveValue(testDate, { timeout: 2000 });
             
             // Verificar que el valor se estableció
             const inputValue = await validityStartInput.inputValue();
@@ -102,8 +105,11 @@ test.describe('Upload Validity Start Date - Fix', () => {
             // Si hay error, debería aparecer un alert o mensaje
             // Si hay éxito, debería aparecer un mensaje de confirmación
             
-            // Esperar un momento para que se procese
-            await page.waitForTimeout(2000);
+            // SPRINT B2: Esperar a que el card desaparezca o aparezca mensaje de éxito/error
+            await Promise.race([
+                expect(page.locator('[data-testid^="upload-card-"]').first()).not.toBeVisible({ timeout: 5000 }).catch(() => {}),
+                expect(page.locator('text=/éxito|error|guardado/i')).toBeVisible({ timeout: 5000 }).catch(() => {})
+            ]);
             
             // Verificar que NO aparece error de "validity_start_date es obligatorio"
             const pageContent = await page.content();

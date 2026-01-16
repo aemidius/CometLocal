@@ -1,0 +1,49 @@
+{
+  "snapshot_id": "CAESNAP-20260106-185842-16148e9c",
+  "created_at": "2026-01-06T18:58:42.632389",
+  "scope": {
+    "platform_key": "egestiona",
+    "company_key": "TEDELAB"
+  },
+  "platform": {
+    "label": "FAKE",
+    "client_code": "FAKE_CLIENT"
+  },
+  "pending_items": [
+    {
+      "platform_item_id": "FAKE_ITEM_0",
+      "type_id": "E2E_MONTHLY_0a9c1680",
+      "platform_type_label": "Tipo Test 1",
+      "type_alias_candidates": [
+        "E2E_MONTHLY_0a9c1680"
+      ],
+      "company_key": "TEDELAB",
+      "person_key": "EMILIO",
+      "period_key": "2026-01",
+      "raw_label": "Pendiente Test 1",
+      "raw_metadata": {
+        "index": 0,
+        "fake": true
+      },
+      "status": "PENDING"
+    },
+    {
+      "platform_item_id": "FAKE_ITEM_1",
+      "type_id": "E2E_MONTHLY_0ba509ee",
+      "platform_type_label": "Tipo Test 2",
+      "type_alias_candidates": [
+        "E2E_MONTHLY_0ba509ee"
+      ],
+      "company_key": "TEDELAB",
+      "person_key": "EMILIO",
+      "period_key": "2025-12",
+      "raw_label": "Pendiente Test 2",
+      "raw_metadata": {
+        "index": 1,
+        "fake": true
+      },
+      "status": "PENDING"
+    }
+  ],
+  "evidence_path": "docs/evidence/cae_snapshots/CAESNAP-20260106-185842-16148e9c.json"
+}

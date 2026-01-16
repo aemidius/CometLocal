@@ -1,0 +1,86 @@
+{
+  "test_type": "stability_test_pending_readonly",
+  "coordination": "Aigues de Manresa",
+  "company_key": "F63161988",
+  "person_key": null,
+  "iterations": 5,
+  "results": [
+    {
+      "iteration": 1,
+      "run_id": null,
+      "count_pendings": 0,
+      "page_url": "error",
+      "frame_url": "error",
+      "screen_signature": "error",
+      "duration_ms": 39130,
+      "success": false,
+      "error": "PENDING_ENTRY_POINT_NOT_REACHED: No se pudo navegar al área de pendientes después de reintentos"
+    },
+    {
+      "iteration": 2,
+      "run_id": null,
+      "count_pendings": 0,
+      "page_url": "error",
+      "frame_url": "error",
+      "screen_signature": "error",
+      "duration_ms": 38082,
+      "success": false,
+      "error": "PENDING_ENTRY_POINT_NOT_REACHED: No se pudo navegar al área de pendientes después de reintentos"
+    },
+    {
+      "iteration": 3,
+      "run_id": null,
+      "count_pendings": 0,
+      "page_url": "error",
+      "frame_url": "error",
+      "screen_signature": "error",
+      "duration_ms": 38520,
+      "success": false,
+      "error": "PENDING_ENTRY_POINT_NOT_REACHED: No se pudo navegar al área de pendientes después de reintentos"
+    },
+    {
+      "iteration": 4,
+      "run_id": null,
+      "count_pendings": 0,
+      "page_url": "error",
+      "frame_url": "error",
+      "screen_signature": "error",
+      "duration_ms": 38768,
+      "success": false,
+      "error": "PENDING_ENTRY_POINT_NOT_REACHED: No se pudo navegar al área de pendientes después de reintentos"
+    },
+    {
+      "iteration": 5,
+      "run_id": null,
+      "count_pendings": 0,
+      "page_url": "error",
+      "frame_url": "error",
+      "screen_signature": "error",
+      "duration_ms": 38002,
+      "success": false,
+      "error": "PENDING_ENTRY_POINT_NOT_REACHED: No se pudo navegar al área de pendientes después de reintentos"
+    }
+  ],
+  "analysis": {
+    "unique_counts": [
+      0
+    ],
+    "unique_signatures": [],
+    "all_counts": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "all_signatures": [],
+    "min_count": 0,
+    "max_count": 0,
+    "avg_count": 0.0
+  },
+  "passed": true,
+  "failure_reasons": [
+    "Todas las iteraciones devolvieron 0 (validar manualmente si hay pendientes reales)"
+  ],
+  "timestamp": "2025-12-30T09:36:48Z"
+}

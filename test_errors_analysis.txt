@@ -1,0 +1,102 @@
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52301 - "GET /frontend/repository_v3.html HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:52301 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:65251 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    > 12 |         await page.waitForSelector('#page-content', { timeout: 10000 });
+    test-results\e2e_calendar_filters_and_p-17ab6-ian-estado-visual-y-filtran\test-failed-1.png
+    Error: expect(locator).toBeVisible() failed
+    Timeout: 10000ms
+    Error: element(s) not found
+      - Expect "toBeVisible" with timeout 10000ms
+    > 48 |         await expect(missingTab).toBeVisible({ timeout: 10000 });
+      50 |         await page.waitForTimeout(1000);
+    test-results\cae_selection_e2e-CAE-Sele-35e60-mentos-y-generar-plan-READY\test-failed-1.png
+[1A[2K[WebServer] INFO:     127.0.0.1:55928 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+    TimeoutError: page.waitForSelector: Timeout 20000ms exceeded.
+    > 18 |         await page.waitForSelector('#pending-documents-container', { timeout: 20000 });
+      21 |         await page.waitForSelector('[data-testid="calendar-scope-select"]', { timeout: 10000 });
+    test-results\e2e_calendar_filters-Calen-b4f43-EST-1-Scope-select-funciona\test-failed-1.png
+    TimeoutError: page.waitForSelector: Timeout 30000ms exceeded.
+    > 72 |         await page.waitForSelector('#coord-snapshot-result', { state: 'visible', timeout: 30000 });
+    test-results\cae_coordination_e2e-CAE-C-d481a-KE-y-verificar-flujo-b├ísico\test-failed-1.png
+[1A[2K[WebServer] INFO:     127.0.0.1:64873 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:61669 - "GET /repository_v3.html HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:57855 - "GET /repository_v3.html HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:65458 - "GET /frontend/repository_v3.html HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:59400 - "GET /frontend/repository_v3.html HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:65458 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:49634 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:57855 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:59400 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:65060 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:57299 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+    Test timeout of 30000ms exceeded while running "beforeEach" hook.
+    Test timeout of 30000ms exceeded while running "beforeEach" hook.
+      15 |     await page.waitForSelector('button:has-text("Editar")', { timeout: 20000 });
+    Error: page.goto: Test timeout of 30000ms exceeded.
+      15 |     await page.waitForSelector('button:has-text("Editar")', { timeout: 20000 });
+    Test timeout of 30000ms exceeded.
+    Error: page.waitForTimeout: Test timeout of 30000ms exceeded.
+    > 25 |         await page.waitForTimeout(2000);
+    Test timeout of 30000ms exceeded while running "beforeEach" hook.
+    Error: page.waitForLoadState: Test timeout of 30000ms exceeded.
+    Test timeout of 30000ms exceeded while running "beforeEach" hook.
+    Error: page.waitForSelector: Test timeout of 30000ms exceeded.
+    > 13 |         await page.waitForSelector('#page-content', { timeout: 10000 });
+    test-results\e2e_calendar_periodicity-C-74b24-xiste-input-max-months-back\test-failed-1.png
+    Test timeout of 30000ms exceeded while running "beforeEach" hook.
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    > 12 |         await page.waitForSelector('#page-content', { timeout: 10000 });
+    test-results\e2e_calendar_filters_and_p-29ecd-mero-de-filas-en-Pendientes\test-failed-1.png
+    Error: expect(locator).toBeVisible() failed
+    Timeout: 10000ms
+    Error: element(s) not found
+      - Expect "toBeVisible" with timeout 10000ms
+    > 50 |         await expect(missingTab).toBeVisible({ timeout: 10000 });
+      52 |         await page.waitForTimeout(1000);
+    test-results\cae_job_queue_e2e-CAE-Job--81259-icar-progreso-hasta-SUCCESS\test-failed-1.png
+    Error: expect(locator).toBeVisible() failed
+    Timeout: 10000ms
+    Error: element(s) not found
+      - Expect "toBeVisible" with timeout 10000ms
+    > 48 |         await expect(missingTab).toBeVisible({ timeout: 10000 });
+      50 |         await page.waitForTimeout(1000);
+    test-results\cae_job_control_e2e-CAE-Jo-4dc7a-r-job-mientras-est├í-RUNNING\test-failed-1.png
+    Test timeout of 30000ms exceeded while running "beforeEach" hook.
+    Error: page.waitForLoadState: Test timeout of 30000ms exceeded.
+    test-results\e2e_fix_pdf_viewing-Fix-PD-f696e--PDF-funciona-correctamente\test-failed-1.png
+[1A[2K[WebServer] INFO:     127.0.0.1:52253 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:53385 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:58724 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:61729 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:56242 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:55652 - "GET /frontend/repository_v3.html HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:56137 - "GET /repository_v3.html HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:61587 - "GET /repository_v3.html HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:59129 - "GET /frontend/repository_v3.html HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:61587 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:56137 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:55652 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:59129 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:49837 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:60017 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:60248 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+[1A[2K[WebServer] INFO:     127.0.0.1:52285 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+    TimeoutError: page.waitForSelector: Timeout 20000ms exceeded.
+    > 18 |         await page.waitForSelector('#pending-documents-container', { timeout: 20000 });
+      21 |         await page.waitForSelector('[data-testid="calendar-scope-select"]', { timeout: 10000 });
+    test-results\e2e_calendar_filters-Calen-76dd8-eses-atr├ís-filtra-de-verdad\test-failed-1.png
+[1A[2K[WebServer] INFO:     127.0.0.1:51294 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+    Error: locator.click: Element is not visible
+      121 |         await page.waitForTimeout(2000);
+    test-results\e2e_fix_date_and_nmonths-F-1c391-ebe-persistir-correctamente\test-failed-1.png
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    > 13 |         await page.waitForSelector('#page-content', { timeout: 10000 });
+    test-results\e2e_calendar_periodicity-C-34d9e-lista-mensual-en-Pendientes\test-failed-1.png
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    > 12 |         await page.waitForSelector('#page-content', { timeout: 10000 });
+    test-results\e2e_calendar_filters_and_p-64137-s-NO-genera-filas-mensuales\test-failed-1.png
+    Error: expect(locator).toBeAttached() failed
+    Timeout: 10000ms
+

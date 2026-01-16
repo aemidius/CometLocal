@@ -1,0 +1,9 @@
+{
+  "listenerInstalled": true,
+  "changeCaptured": true,
+  "selectDebug": true,
+  "overlayText": "\n                                debug: type_id=TEST_RC_CERTIFICATE | dom_value=TEST_RC_CERTIFICATE | issue_date=2025-11-28 | requires_issue_date=true | scopeFilter=company | errors=[]\n                                \n                                listener_installed=true | last_change=2:30:15 PM | last_select_value=TEST_RC_CERTIFICATE\n                            ",
+  "selectValueBefore": "",
+  "selectValueAfter": "TEST_RC_CERTIFICATE",
+  "timestamp": "2026-01-08T13:30:15.895Z"
+}

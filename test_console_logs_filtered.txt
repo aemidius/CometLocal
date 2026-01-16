@@ -1,0 +1,9 @@
+
+[PW] about to change hash to #calendario
+[PW] Executing page.evaluate BEFORE hash change...
+[PW] ERROR in page.evaluate BEFORE: page.evaluate: Target page, context or browser has been closed
+[PW] Changing hash now...
+[PW] ERROR changing hash: page.evaluate: Target page, context or browser has been closed
+[PW] Executing page.evaluate AFTER hash change...
+[PW] ERROR in page.evaluate AFTER: page.evaluate: Target page, context or browser has been closed
+

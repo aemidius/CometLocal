@@ -1,0 +1,158 @@
+
+[1A[2K[WebServer] INFO:     Started server process [22364]
+[1A[2K[WebServer] INFO:     Waiting for application startup.
+
+[1A[2K[WebServer] Using data dir: D:\Proyectos_Cursor\CometLocal\data
+
+[1A[2K[WebServer] [job_queue] Cargados 18 jobs desde disco
+
+[1A[2K[WebServer] [job_queue] Worker iniciado
+[WebServer] Config paths: org=D:\Proyectos_Cursor\CometLocal\data\refs\org.json people=D:\Proyectos_Cursor\CometLocal\data\refs\people.json platforms=D:\Proyectos_Cursor\CometLocal\data\refs\platforms.json secrets=D:\Proyectos_Cursor\CometLocal\data\refs\secrets.json documents=D:\Proyectos_Cursor\CometLocal\data\refs\documents.json
+
+[1A[2K[WebServer] Using existing LLM config: D:\Proyectos_Cursor\CometLocal\backend\..\data\refs\llm_config.json
+
+
+[1A[2K[WebServer] INFO:     Application startup complete.
+[1A[2K[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63688 - "GET /api/health HTTP/1.1" 200 OK
+
+
+Running 1 test using 1 worker
+
+
+[1A[2K(node:64708) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:64708) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[1/1] tests\e2e_edit_document_fields.spec.js:20:5 ÔÇ║ Editar Documento - Campos Editables ÔÇ║ Test 1: Modal muestra campos editables correctos
+[1A[2K[WebServer] INFO:     127.0.0.1:63691 - "POST /api/test/seed/reset HTTP/1.1" 200 OK
+
+[1A[2Ktests\e2e_edit_document_fields.spec.js:20:5 ÔÇ║ Editar Documento - Campos Editables ÔÇ║ Test 1: Modal muestra campos editables correctos
+[SEED] reset status: 200
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63691 - "POST /api/test/seed/basic_repository HTTP/1.1" 200 OK
+
+[1A[2K[SEED] basic_repository status: 200 {
+  company_key: [32m'E2E_COMPANY_fb420d20'[39m,
+  person_key: [32m'E2E_PERSON_fb420d20'[39m,
+  type_ids: [ [32m'E2E_TYPE_fb420d20_0'[39m, [32m'E2E_TYPE_fb420d20_1'[39m ],
+  doc_ids: [
+    [32m'E2E_DOC_fb420d20_0_0'[39m,
+    [32m'E2E_DOC_fb420d20_0_1'[39m,
+    [32m'E2E_DOC_fb420d20_1_0'[39m
+  ],
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  message: [32m'Created basic repository: 2 types, 3 docs, 2 missing periods'[39m
+}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65136 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169268 bootstrap: start
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169268 bootstrap: app-ready set
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169268 initHashRouting: registering hashchange listener
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169269 bootstrap: calling runRoutingNow for initial hash
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169269 runRoutingNow: hash=, route=null
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169269 runRoutingNow: normalizing hash from  to #inicio
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169269 bootstrap: completed
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169303 hashchange event fired
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169303 runRoutingNow: hash=#inicio, route=inicio
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169303 updateNavActive: updated nav for route=inicio
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169304 runRoutingNow: calling loadPage(inicio)
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169304 loadPage: start page=inicio
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169304 loadPage: content.innerHTML set to loading
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169304 setViewState: inicio -> loaded on element DIV
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169304 setViewState: inicio -> loaded applied, testId=view-inicio-loaded
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65136 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[gotoHash] app-ready found, now changing hash to #buscar
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169327 hashchange event fired
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169327 runRoutingNow: hash=#buscar, route=buscar
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169327 updateNavActive: updated nav for route=buscar
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169328 runRoutingNow: calling loadPage(buscar)
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169328 loadPage: start page=buscar
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169328 loadPage: content.innerHTML set to loading
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169328 setViewState: buscar -> loaded on element DIV
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169328 setViewState: buscar -> loaded applied, testId=view-buscar-loaded
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169328 loadBuscar: start
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169328 ensureRepoDataLoaded: start
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169328 Loading types...
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894169328 Loading people...
+
+[1A[2K[gotoHash] View buscar marked as loaded
+
+[1A[2K[WebServer] INFO:     127.0.0.1:57346 - "GET /api/repository/docs HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:51446 - "GET /api/repository/rules HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:51023 - "GET /api/config/platforms HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65136 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:60120 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:57346 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52304 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894171404 setViewState: inicio -> ready on element DIV
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894171404 setViewState: inicio -> ready applied, testId=view-inicio-ready
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894171404 runRoutingNow: loadPage(inicio) completed
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894171418 Types loaded:
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894171419 People loaded:
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894171419 ensureRepoDataLoaded: done
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52304 - "GET /api/repository/types?active=true HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52304 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52304 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52304 - "GET /api/repository/docs HTTP/1.1" 200 OK
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894173553 setViewState: buscar -> ready on element DIV
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894173553 setViewState: buscar -> ready applied, testId=view-buscar-ready
+
+[1A[2K[CONSOLE] [VIEWDBG] 1767894173553 runRoutingNow: loadPage(buscar) completed
+
+[1A[2K[gotoHash] View buscar marked as ready
+
+[1A[2Kedit buttons count [33m409[39m
+
+[1A[2K  1 passed (16.6s)

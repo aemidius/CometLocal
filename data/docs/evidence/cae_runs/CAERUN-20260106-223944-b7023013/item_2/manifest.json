@@ -1,0 +1,18 @@
+{
+  "run_id": "CAERUN-20260106-223944-b7023013_item2",
+  "plan_id": "CAEPLAN-20260106-223941-0d599f70",
+  "item": {
+    "kind": "MISSING_PERIOD",
+    "type_id": "T9977_AUTONOMOS",
+    "scope": "worker",
+    "company_key": "F63161988",
+    "person_key": "erm",
+    "period_key": "2025-10"
+  },
+  "started_at": "2026-01-06T22:39:44.447083",
+  "finished_at": "2026-01-06T22:39:44.447083",
+  "mode": "FAKE",
+  "dry_run": true,
+  "error": "Forzado fallo FAKE después de 1 item(s) (CAE_FAKE_FAIL_AFTER_ITEM=1)",
+  "forced_failure": true
+}

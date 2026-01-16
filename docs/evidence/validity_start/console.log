@@ -1,0 +1,26 @@
+
+> cometlocal@1.0.0 test:e2e
+> playwright test tests/e2e_validity_start.spec.js --reporter=list --timeout=90000
+
+[WebServer] INFO:     Started server process [8300]
+[WebServer] INFO:     Waiting for application startup.
+[WebServer] INFO:     Application startup complete.
+[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+
+Running 2 tests using 1 worker
+
+(node:55000) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:55000) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Aut├│nomos - issue_date capturada: 
+Test Aut├│nomos completado - validity_start_mode=issue_date funciona correctamente
+  ok 1 tests\e2e_validity_start.spec.js:15:5 ÔÇ║ Validity Start Date - Pruebas Reales ÔÇ║ A) AUT├ôNOMOS (validity_start_mode=issue_date) (7.4s)
+AEAT - Tipo seleccionado por ID directo: T5612_NO_DEUDA_HACIENDA
+AEAT - Inputs de fecha encontrados: [33m1[39m
+AEAT - issue_date capturada: 2025-10-16
+Errores despu├®s de rellenar validity_start_date: [33m1[39m
+Test AEAT completado - validity_start_mode=manual funciona correctamente
+  ok 2 tests\e2e_validity_start.spec.js:134:5 ÔÇ║ Validity Start Date - Pruebas Reales ÔÇ║ B) AEAT (validity_start_mode=manual) (10.6s)
+
+  2 passed (26.4s)

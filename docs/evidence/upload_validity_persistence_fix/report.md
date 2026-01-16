@@ -1,7 +1,7 @@
 # Reporte de Pruebas E2E - Fix Persistencia Validity Start Date
 
 ## Fecha
-2026-01-04T12:05:40.929Z
+2026-01-08T21:11:42.030Z
 
 ## Objetivo
 Verificar que el valor de "Fecha de inicio de vigencia" persiste después de un fallo de validación al intentar guardar.

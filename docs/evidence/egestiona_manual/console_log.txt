@@ -1,0 +1,3 @@
+[2026-01-15T22:51:42.880Z] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o
+[2026-01-15T22:51:42.897Z] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found)
+[2026-01-15T22:52:21.759Z] [LOG] [CAE][NET] {seq: 1, reqId: cae_1768517509797_ecaeb831468ca, result: Object}

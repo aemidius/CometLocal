@@ -1,0 +1,64 @@
+
+> cometlocal@1.0.0 test:e2e:upload
+> playwright test tests/e2e_upload_type_select.spec.js
+
+[WebServer] INFO:     Started server process [46552]
+[WebServer] INFO:     Waiting for application startup.
+[WebServer] INFO:     Application startup complete.
+[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+
+Running 1 test using 1 worker
+
+(node:3380) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:3380) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[Browser Console log] [repo-upload] listener installed {time: 1767192457657}
+[Browser Console log] [repo-upload] initUploadWizard end
+[Browser Console error] Failed to load resource: the server responded with a status of 404 (Not Found)
+[Browser Console warning] [repo-upload] Validation failed for file: 11 SS ERM 28-nov-25.pdf type_id:  type: string
+[Browser Console log] [repo-upload] types sample [Object, Object]
+[Browser Console log] [repo-upload] change captured {targetTag: INPUT, hasClass: false, fileIdAttr: null, time: 1767192459816}
+[Browser Console log] [repo-upload] change captured {targetTag: SELECT, hasClass: true, fileIdAttr: 1767192459815.2974, time: 1767192460958}
+[Browser Console log] [repo-upload] select debug {fileId: 1767192459815.2974, value: AUTONOMOS, selectedIndex: 2, optionValue: AUTONOMOS, optionText: Recibo Aut├│nomos}
+[Browser Console warning] [repo-upload] File not found: 1767192459815.2974
+Overlay text: 
+                                debug: type_id=NULL | dom_value=NULL | issue_date=NULL | requires_issue_date=false | errors=[Selecciona un tipo de documento]
+                                
+                                listener_installed=true | last_change=NULL | last_select_value=NULL
+                            
+  x  1 tests\e2e_upload_type_select.spec.js:6:5 ÔÇ║ Upload Type Select E2E ÔÇ║ should select document type and update overlay (5.2s)
+
+
+  1) tests\e2e_upload_type_select.spec.js:6:5 ÔÇ║ Upload Type Select E2E ÔÇ║ should select document type and update overlay 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mnot[2m.[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    Expected substring: not [32m"type_id=NULL"[39m
+    Received string:        [31m"[39m
+    [31m                                debug: [7mtype_id=NULL[27m | dom_value=NULL | issue_date=NULL | requires_issue_date=false | errors=[Selecciona un tipo de documento][39m
+    [31m                                [39m
+    [31m                                listener_installed=true | last_change=NULL | last_select_value=NULL[39m
+    [31m                            "[39m
+
+      117 |
+      118 |         // 11. Aserciones
+    > 119 |         expect(overlayText).not.toContain('type_id=NULL');
+          |                                 ^
+      120 |         expect(overlayText).not.toContain('dom_value=NULL');
+      121 |
+      122 |         // Verificar que el error desapareci├│
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_upload_type_select.spec.js:119:33
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_type_select-Upl-34540-ent-type-and-update-overlay\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_type_select-Upl-34540-ent-type-and-update-overlay\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_upload_type_select-Upl-34540-ent-type-and-update-overlay\error-context.md
+
+  1 failed
+    tests\e2e_upload_type_select.spec.js:6:5 ÔÇ║ Upload Type Select E2E ÔÇ║ should select document type and update overlay 

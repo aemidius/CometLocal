@@ -1,0 +1,17 @@
+{
+  "request": {
+    "plan_id": "r_0db52d38021c4f4e865e7622c5a06a52",
+    "confirm_token": "e190baa321c7fbcb6d1e6bdec3a84ddb4d48cdafd8b10a269c491dfb0975b7a1",
+    "allowlist_type_ids": [
+      "T_FIX_OK"
+    ],
+    "max_uploads": 1,
+    "min_confidence": 0.8
+  },
+  "response": {
+    "status": "error",
+    "error_code": "real_uploader_not_requested",
+    "message": "Header X-USE-REAL-UPLOADER=1 es obligatorio para este endpoint",
+    "details": null
+  }
+}

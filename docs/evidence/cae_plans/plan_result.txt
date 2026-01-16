@@ -1,0 +1,26 @@
+Plan generado:
+
+                    Plan generado: CAEPLAN-20260114-164818-951df43a
+                    
+                        BLOCKED
+                    
+                    
+                        Resumen:
+                        
+                            Items pendientes: 0
+                            Candidatos de documentos: 0
+                            Total items: 0
+                        
+                    
+                    
+                        
+                            Razones:
+                            
+                                No hay sujetos que coincidan con el scope para E2E_TYPE_a5121292_0No hay sujetos que coincidan con el scope para T104_AUTONOMOS_RECEIPT
+                            
+                        
+                    
+                    
+                
+
+Timestamp: 2026-01-14T15:48:18.941Z

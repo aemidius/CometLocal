@@ -1,0 +1,15 @@
+{
+  "run_id": "CAERUN-20260106-223814-433ff812_item1",
+  "plan_id": "CAEPLAN-20260106-223812-7513e02b",
+  "item": {
+    "kind": "MISSING_PERIOD",
+    "type_id": "T9977_AUTONOMOS",
+    "scope": "worker",
+    "company_key": "F63161988",
+    "person_key": "erm",
+    "period_key": "2026-01"
+  },
+  "started_at": "2026-01-06T22:38:14.469085",
+  "mode": "FAKE",
+  "dry_run": true
+}

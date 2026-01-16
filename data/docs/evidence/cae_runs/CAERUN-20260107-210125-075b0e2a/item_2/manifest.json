@@ -1,0 +1,18 @@
+{
+  "run_id": "CAERUN-20260107-210125-075b0e2a_item2",
+  "plan_id": "CAEPLAN-20260107-210123-166eb161",
+  "item": {
+    "kind": "MISSING_PERIOD",
+    "type_id": "E2E_MONTHLY_77364059",
+    "scope": "worker",
+    "company_key": "TEDELAB",
+    "person_key": "EMILIO",
+    "period_key": "2025-11"
+  },
+  "started_at": "2026-01-07T21:01:25.591153",
+  "finished_at": "2026-01-07T21:01:25.591153",
+  "mode": "FAKE",
+  "dry_run": true,
+  "error": "Forzado fallo FAKE después de 1 item(s) (CAE_FAKE_FAIL_AFTER_ITEM=1)",
+  "forced_failure": true
+}

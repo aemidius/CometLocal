@@ -1,0 +1,99 @@
+=== EJECUTANDO STABILITY TEST ===
+Coord: Aigues de Manresa
+Company: F63161988
+Iterations: 5
+
+[STABILITY_TEST] Iniciando stability test: 5 iteraciones
+[STABILITY_TEST] Coord: Aigues de Manresa, Company: F63161988, Person: None
+
+[STABILITY_TEST] === Iteraci¾n 1/5 ===
+[DHX_BLOCKER] Iniciando pipeline de cierre de overlays DHTMLX...
+[DHX_BLOCKER] Ventana 'Avisos, comunicados y noticias sin leer' detectada, cerrando...
+[DHX_BLOCKER] Screenshot antes: D:\Proyectos_Cursor\CometLocal\data\runs\r_5f5e2dc17bb94c45bce881d95b3d62ec\evidence\dhx_news_notices_before.png
+[DHX_BLOCKER] Click en bot¾n X (selector: .dhtmlx_window_active .dhtmlx_button_close_default)
+[DHX_BLOCKER] Ventana cerrada exitosamente. Screenshot: D:\Proyectos_Cursor\CometLocal\data\runs\r_5f5e2dc17bb94c45bce881d95b3d62ec\evidence\dhx_news_notices_closed.png
+[DHX_BLOCKER] Pipeline de cierre de overlays DHTMLX completado
+[NAVIGATION] Intento 1/3 de navegaci¾n a pendientes...
+[NAVIGATION] Tile clickeado (selector: a.listado_link[href="javascript:Gestion(3);"])
+[NAVIGATION] Grid de pendientes encontrado y cargado
+[MATCH_PENDING] Navegaci¾n robusta completada, grid encontrado
+[MATCH_PENDING] Validando que el grid estß completamente cargado...
+[STABILITY_TEST] Iteraci¾n 1: 17 pendientes, signature: unknown...
+
+[STABILITY_TEST] === Iteraci¾n 2/5 ===
+[DHX_BLOCKER] Iniciando pipeline de cierre de overlays DHTMLX...
+[DHX_BLOCKER] Ventana 'Avisos, comunicados y noticias sin leer' detectada, cerrando...
+[DHX_BLOCKER] Screenshot antes: D:\Proyectos_Cursor\CometLocal\data\runs\r_994a0308db4245ffb03446c98998fc52\evidence\dhx_news_notices_before.png
+[DHX_BLOCKER] Click en bot¾n X (selector: .dhtmlx_window_active .dhtmlx_button_close_default)
+[DHX_BLOCKER] Ventana cerrada exitosamente. Screenshot: D:\Proyectos_Cursor\CometLocal\data\runs\r_994a0308db4245ffb03446c98998fc52\evidence\dhx_news_notices_closed.png
+[DHX_BLOCKER] Pipeline de cierre de overlays DHTMLX completado
+[NAVIGATION] Intento 1/3 de navegaci¾n a pendientes...
+[NAVIGATION] Tile clickeado (selector: a.listado_link[href="javascript:Gestion(3);"])
+[NAVIGATION] Grid de pendientes encontrado y cargado
+[MATCH_PENDING] Navegaci¾n robusta completada, grid encontrado
+[MATCH_PENDING] Validando que el grid estß completamente cargado...
+[STABILITY_TEST] Iteraci¾n 2: 17 pendientes, signature: unknown...
+
+[STABILITY_TEST] === Iteraci¾n 3/5 ===
+[DHX_BLOCKER] Iniciando pipeline de cierre de overlays DHTMLX...
+[DHX_BLOCKER] Ventana 'Avisos, comunicados y noticias sin leer' detectada, cerrando...
+[DHX_BLOCKER] Screenshot antes: D:\Proyectos_Cursor\CometLocal\data\runs\r_765d825330864d6d917fa97edd72d52f\evidence\dhx_news_notices_before.png
+[DHX_BLOCKER] Click en bot¾n X (selector: .dhtmlx_window_active .dhtmlx_button_close_default)
+[DHX_BLOCKER] Ventana cerrada exitosamente. Screenshot: D:\Proyectos_Cursor\CometLocal\data\runs\r_765d825330864d6d917fa97edd72d52f\evidence\dhx_news_notices_closed.png
+[DHX_BLOCKER] Pipeline de cierre de overlays DHTMLX completado
+[NAVIGATION] Intento 1/3 de navegaci¾n a pendientes...
+[NAVIGATION] Tile clickeado (selector: a.listado_link[href="javascript:Gestion(3);"])
+[NAVIGATION] Grid de pendientes encontrado y cargado
+[MATCH_PENDING] Navegaci¾n robusta completada, grid encontrado
+[MATCH_PENDING] Validando que el grid estß completamente cargado...
+[STABILITY_TEST] Iteraci¾n 3: 17 pendientes, signature: unknown...
+
+[STABILITY_TEST] === Iteraci¾n 4/5 ===
+[DHX_BLOCKER] Iniciando pipeline de cierre de overlays DHTMLX...
+[DHX_BLOCKER] Ventana 'Avisos, comunicados y noticias sin leer' detectada, cerrando...
+[DHX_BLOCKER] Screenshot antes: D:\Proyectos_Cursor\CometLocal\data\runs\r_1008c0ee309c441eb2577aa9d4f4675d\evidence\dhx_news_notices_before.png
+[DHX_BLOCKER] Click en bot¾n X (selector: .dhtmlx_window_active .dhtmlx_button_close_default)
+[DHX_BLOCKER] Ventana cerrada exitosamente. Screenshot: D:\Proyectos_Cursor\CometLocal\data\runs\r_1008c0ee309c441eb2577aa9d4f4675d\evidence\dhx_news_notices_closed.png
+[DHX_BLOCKER] Pipeline de cierre de overlays DHTMLX completado
+[NAVIGATION] Intento 1/3 de navegaci¾n a pendientes...
+[NAVIGATION] Tile clickeado (selector: a.listado_link[href="javascript:Gestion(3);"])
+[NAVIGATION] Grid de pendientes encontrado y cargado
+[MATCH_PENDING] Navegaci¾n robusta completada, grid encontrado
+[MATCH_PENDING] Validando que el grid estß completamente cargado...
+[STABILITY_TEST] Iteraci¾n 4: 17 pendientes, signature: unknown...
+
+[STABILITY_TEST] === Iteraci¾n 5/5 ===
+[DHX_BLOCKER] Iniciando pipeline de cierre de overlays DHTMLX...
+[DHX_BLOCKER] Ventana 'Avisos, comunicados y noticias sin leer' detectada, cerrando...
+[DHX_BLOCKER] Screenshot antes: D:\Proyectos_Cursor\CometLocal\data\runs\r_119bdd84a6004a51ab0b88318d301d04\evidence\dhx_news_notices_before.png
+[DHX_BLOCKER] Click en bot¾n X (selector: .dhtmlx_window_active .dhtmlx_button_close_default)
+[DHX_BLOCKER] Ventana cerrada exitosamente. Screenshot: D:\Proyectos_Cursor\CometLocal\data\runs\r_119bdd84a6004a51ab0b88318d301d04\evidence\dhx_news_notices_closed.png
+[DHX_BLOCKER] Pipeline de cierre de overlays DHTMLX completado
+[NAVIGATION] Intento 1/3 de navegaci¾n a pendientes...
+[NAVIGATION] Tile clickeado (selector: a.listado_link[href="javascript:Gestion(3);"])
+[NAVIGATION] Grid de pendientes encontrado y cargado
+[MATCH_PENDING] Navegaci¾n robusta completada, grid encontrado
+[MATCH_PENDING] Validando que el grid estß completamente cargado...
+[STABILITY_TEST] Iteraci¾n 5: 17 pendientes, signature: unknown...
+
+[STABILITY_TEST] === RESUMEN ===
+[STABILITY_TEST] Conteos ·nicos: {17}
+[STABILITY_TEST] Signatures ·nicos: 0
+[STABILITY_TEST] Resultado: PASS
+
+=== RESUMEN FINAL ===
+PASS: True
+Iteraciones: 5
+Conteos: [17, 17, 17, 17, 17]
+Min: 17, Max: 17, Avg: 17.00
+
+Resultado completo guardado en: stability_test_result.json
+
+=== TABLA DE RESULTADOS ===
+Iter | Run ID | Count | URL | Frame URL | Signature
+--------------------------------------------------------------------------------
+   1 | r_5f5e2dc17b... |    17 | unknown                        | unknown                        | unknown
+   2 | r_994a0308db... |    17 | unknown                        | unknown                        | unknown
+   3 | r_765d825330... |    17 | unknown                        | unknown                        | unknown
+   4 | r_1008c0ee30... |    17 | unknown                        | unknown                        | unknown
+   5 | r_119bdd84a6... |    17 | unknown                        | unknown                        | unknown

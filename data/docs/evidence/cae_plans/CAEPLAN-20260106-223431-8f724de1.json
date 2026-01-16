@@ -1,0 +1,39 @@
+{
+  "plan_id": "CAEPLAN-20260106-223431-8f724de1",
+  "created_at": "2026-01-06T22:34:31.991841",
+  "scope": {
+    "platform_key": "egestiona",
+    "type_ids": [],
+    "company_key": "F63161988",
+    "person_key": "erm",
+    "period_keys": null,
+    "mode": "PREPARE_WRITE"
+  },
+  "decision": "READY",
+  "reasons": [],
+  "items": [
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "T9977_AUTONOMOS",
+      "scope": "worker",
+      "company_key": "F63161988",
+      "person_key": "erm",
+      "period_key": "2026-01",
+      "suggested_doc_id": "5e1a9372-c0fb-4e70-a393-11452ef87be9",
+      "resolved_dates": {
+        "issued_at": "2025-12-31",
+        "valid_from": "2025-12-01",
+        "valid_to": "2025-12-31"
+      },
+      "status": "PLANNED",
+      "reason": "Item listo para envío"
+    }
+  ],
+  "summary": {
+    "total_items": 1,
+    "items_planned": 1,
+    "items_needs_confirmation": 0,
+    "items_blocked": 0
+  },
+  "executor_hint": "egestiona_upload_v1"
+}

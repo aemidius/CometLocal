@@ -1,0 +1,18 @@
+[2026-01-07T19:54:41.069Z] [log] [repo-upload] listener installed {time: 1767815681030}
+[2026-01-07T19:54:41.213Z] [error] Failed to load resource: the server responded with a status of 404 (Not Found)
+[2026-01-07T19:54:44.191Z] [log] [repo-upload] change captured {targetTag: INPUT, hasClass: false, fileIdAttr: null, time: 1767815684190}
+[2026-01-07T19:54:44.720Z] [log] [repo-upload] renderTypeDrawer - type validity_policy: {mode: monthly, n_months: Object, hasNMonths: 12}
+[2026-01-07T19:54:46.937Z] [log] [repo-upload] change captured {targetTag: SELECT, hasClass: false, fileIdAttr: null, time: 1767815686937}
+[2026-01-07T19:54:48.410Z] [log] [repo-upload] saveType - sending: {periodMode: n_months, nMonths: 12, validityPolicy: {
+  "mode": "monthly",
+  "basis": "name_date",
+  "…alid_to": "period_end",
+    "grace_days": 0
+  }
+}}
+[2026-01-07T19:55:01.699Z] [log] [repo-upload] saveType - response status: 200
+[2026-01-07T19:55:01.702Z] [log] [repo-upload] saveType - saved type: {type_id: T9977_AUTONOMOS, validity_policy: Object}
+[2026-01-07T19:55:01.768Z] [log] Tipo creado con ID: T9977_AUTONOMOS
+[2026-01-07T19:55:01.848Z] [log] [repo-upload] listener installed {time: 1767815701846}
+[2026-01-07T19:55:04.922Z] [log] [repo-upload] change captured {targetTag: INPUT, hasClass: false, fileIdAttr: null, time: 1767815704922}
+[2026-01-07T19:55:05.449Z] [log] [repo-upload] renderTypeDrawer - type validity_policy: {mode: monthly, n_months: Object, hasNMonths: 12}

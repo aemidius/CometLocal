@@ -1,0 +1,28 @@
+{
+  "plan_id": "CAEPLAN-20260114-152052-63df71c8",
+  "created_at": "2026-01-14T15:20:52.335131",
+  "scope": {
+    "platform_key": "egestiona",
+    "type_ids": [
+      "E2E_TYPE_0d701fb8_0",
+      "T104_AUTONOMOS_RECEIPT"
+    ],
+    "company_key": null,
+    "person_key": null,
+    "period_keys": null,
+    "mode": "READ_ONLY"
+  },
+  "decision": "BLOCKED",
+  "reasons": [
+    "No hay sujetos que coincidan con el scope para E2E_TYPE_0d701fb8_0",
+    "No hay sujetos que coincidan con el scope para T104_AUTONOMOS_RECEIPT"
+  ],
+  "items": [],
+  "summary": {
+    "pending_items": 0,
+    "docs_candidates": 0,
+    "total_items": 0,
+    "types_processed": 2
+  },
+  "executor_hint": "egestiona_upload_v1"
+}

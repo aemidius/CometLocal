@@ -26,6 +26,17 @@
       },
       "coordinations": [
         {
+          "label": "Aigues de Manresa",
+          "client_code": "aiguesdemanresa",
+          "username": "F63161988",
+          "password_ref": "secret:aiguesdemanresa",
+          "url_override": null,
+          "post_login_check": {
+            "kind": "css",
+            "value": "text=Desconectar"
+          }
+        },
+        {
           "label": "Kern",
           "client_code": "GRUPO_INDUKERN",
           "username": "F63161988",

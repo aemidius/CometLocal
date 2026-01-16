@@ -1,0 +1,138 @@
+{
+  "status": "ok",
+  "plan_id": "r_8ade0d89d3dc4c63ada359d8b4d82b86",
+  "executed": true,
+  "summary": {
+    "total": 3,
+    "eligible": 1,
+    "uploaded": 1,
+    "skipped": 2,
+    "failed": 0
+  },
+  "items": [
+    {
+      "item": {
+        "pending_ref": {
+          "tipo_doc": "Seguro de Responsabilidad Civil",
+          "elemento": "Trabajador",
+          "empresa": "FIXTURE_COMPANY",
+          "row_index": 0
+        },
+        "expected_doc_type_text": "Seguro de Responsabilidad Civil Trabajador",
+        "matched_doc": {
+          "doc_id": "DOC_FIX_OK",
+          "type_id": "T_FIX_OK",
+          "file_name": "fixture_ok.pdf",
+          "status": "valid",
+          "validity": {
+            "valid_from": "2026-01-15",
+            "valid_to": "2027-01-15",
+            "confidence": 0.95,
+            "has_override": false
+          }
+        },
+        "proposed_fields": {
+          "fecha_inicio_vigencia": "2026-01-15",
+          "fecha_fin_vigencia": "2027-01-15"
+        },
+        "decision": {
+          "action": "AUTO_SUBMIT_OK",
+          "confidence": 0.95,
+          "reasons": [
+            "Fixture item OK"
+          ],
+          "blocking_issues": []
+        },
+        "pending_fingerprint": "FIXTURE_OK_r_8ade0d89d3dc4c63ada359d8b4d82b86",
+        "rule_form": null
+      },
+      "outcome": "uploaded",
+      "upload_id": "fake_upload_1_1768500659",
+      "duration_ms": 205,
+      "reason": "Simulated upload (fake connector)",
+      "portal_reference": "PORTAL_REF_fake_upload_1_1768500659"
+    },
+    {
+      "item": {
+        "pending_ref": {
+          "tipo_doc": "Seguro de Vida",
+          "elemento": "Trabajador",
+          "empresa": "FIXTURE_COMPANY",
+          "row_index": 1
+        },
+        "expected_doc_type_text": "Seguro de Vida Trabajador",
+        "matched_doc": {
+          "doc_id": "DOC_FIX_LOW",
+          "type_id": "T_FIX_LOW",
+          "file_name": "fixture_low.pdf",
+          "status": "valid",
+          "validity": {
+            "valid_from": "2026-01-15",
+            "valid_to": "2027-01-15",
+            "confidence": 0.4,
+            "has_override": false
+          }
+        },
+        "proposed_fields": {
+          "fecha_inicio_vigencia": "2026-01-15",
+          "fecha_fin_vigencia": "2027-01-15"
+        },
+        "decision": {
+          "action": "AUTO_SUBMIT_OK",
+          "confidence": 0.4,
+          "reasons": [
+            "Fixture item LOW confidence"
+          ],
+          "blocking_issues": []
+        },
+        "pending_fingerprint": "FIXTURE_LOW_r_8ade0d89d3dc4c63ada359d8b4d82b86",
+        "rule_form": null
+      },
+      "outcome": "skipped",
+      "reason": "not_in_allowlist"
+    },
+    {
+      "item": {
+        "pending_ref": {
+          "tipo_doc": "Certificado Médico",
+          "elemento": "Trabajador",
+          "empresa": "FIXTURE_COMPANY",
+          "row_index": 2
+        },
+        "expected_doc_type_text": "Certificado Médico Trabajador",
+        "matched_doc": {
+          "doc_id": "DOC_FIX_BLOCKED",
+          "type_id": "T_FIX_BLOCKED",
+          "file_name": "fixture_blocked.pdf",
+          "status": "valid",
+          "validity": {
+            "valid_from": "2026-01-15",
+            "valid_to": "2027-01-15",
+            "confidence": 0.9,
+            "has_override": false
+          }
+        },
+        "proposed_fields": {
+          "fecha_inicio_vigencia": "2026-01-15",
+          "fecha_fin_vigencia": "2027-01-15"
+        },
+        "decision": {
+          "action": "REVIEW_REQUIRED",
+          "confidence": 0.9,
+          "reasons": [
+            "Fixture item requires review"
+          ],
+          "blocking_issues": [
+            "Review required"
+          ]
+        },
+        "pending_fingerprint": "FIXTURE_BLOCKED_r_8ade0d89d3dc4c63ada359d8b4d82b86",
+        "rule_form": null
+      },
+      "outcome": "skipped",
+      "reason": "not_in_allowlist"
+    }
+  ],
+  "use_fake_uploader": true,
+  "uploader_type": "fake"
+}

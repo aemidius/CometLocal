@@ -1,0 +1,2187 @@
+
+[1A[2K[WebServer] INFO:     Started server process [68288]
+[1A[2K[WebServer] INFO:     Waiting for application startup.
+
+[1A[2K[WebServer] Using data dir: D:\Proyectos_Cursor\CometLocal\data
+
+[1A[2K[WebServer] [job_queue] Cargados 18 jobs desde disco
+
+[1A[2K[WebServer] [job_queue] Worker iniciado
+[WebServer] Config paths: org=D:\Proyectos_Cursor\CometLocal\data\refs\org.json people=D:\Proyectos_Cursor\CometLocal\data\refs\people.json platforms=D:\Proyectos_Cursor\CometLocal\data\refs\platforms.json secrets=D:\Proyectos_Cursor\CometLocal\data\refs\secrets.json documents=D:\Proyectos_Cursor\CometLocal\data\refs\documents.json
+
+[1A[2K[WebServer] Using existing LLM config: D:\Proyectos_Cursor\CometLocal\backend\..\data\refs\llm_config.json
+
+[1A[2K[WebServer] INFO:     Application startup complete.
+
+[1A[2K[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53347 - "GET /api/health HTTP/1.1" 200 OK
+
+
+Running 67 tests using 12 workers
+
+
+[1A[2K(node:61268) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:56260) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+[1A[2K(node:58012) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:55952) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:66260) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:42012) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:60288) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+
+[1A[2K(node:28248) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:47348) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:58716) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+[1A[2K(node:57252) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:54428) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+[1A[2K(node:58012) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:61268) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+[1A[2K(node:56260) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:42012) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K(node:55952) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:60288) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+[1A[2K(node:28248) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:66260) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+[1A[2K(node:47348) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K(node:58716) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:57252) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[1/67] tests\cae_plan_e2e.spec.js:51:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 1: Abre modal de CAE plan desde tab Pendientes
+[1A[2K[2/67] tests\cae_job_control_e2e.spec.js:41:5 ÔÇ║ CAE Job Control E2E - Gesti├│n de jobs ÔÇ║ Test A: Cancelar job mientras est├í RUNNING
+[1A[2K[3/67] tests\cae_coordination_e2e.spec.js:45:5 ÔÇ║ CAE Coordination E2E - Snapshot y selecci├│n ÔÇ║ Test 1: Crear snapshot FAKE y verificar flujo b├ísico
+[1A[2K[4/67] tests\cae_job_queue_e2e.spec.js:43:5 ÔÇ║ CAE Job Queue E2E - Cola de ejecuciones con progreso ÔÇ║ Test 1: Encolar ejecuci├│n y verificar progreso hasta SUCCESS
+[1A[2K(node:54428) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[5/67] tests\e2e_calendar_filters.spec.js:29:5 ÔÇ║ Calendario - Filtros ÔÇ║ TEST 1: Scope select funciona
+[1A[2K[6/67] tests\e2e_calendar_periodicity.spec.js:22:5 ÔÇ║ Calendario - Periodicidad y Per├¡odos Faltantes ÔÇ║ Smoke: calendario carga y existe input max months back
+[1A[2K[7/67] tests\cae_selection_e2e.spec.js:41:5 ÔÇ║ CAE Selection E2E - Selecci├│n m├║ltiple y asignaci├│n de PDFs ÔÇ║ Test 1: Seleccionar 2 pendientes, asignar documentos y generar plan READY
+[1A[2K[8/67] tests\e2e_calendar_filters_and_periods.spec.js:21:5 ÔÇ║ Calendario - Filtros y Per├¡odos ÔÇ║ Test 1: Pills "Aplica a" cambian estado visual y filtran
+[1A[2K[9/67] tests\e2e_edit_document.spec.js:18:3 ÔÇ║ Buscar documentos - Editar documento ÔÇ║ editar documento y guardar OK (200), modal cierra y persiste
+[1A[2K[10/67] tests\e2e_calendar_pending_smoke.spec.js:18:5 ÔÇ║ Calendar Pending Documents - Smoke Tests ÔÇ║ Test 1: Buscar documentos muestra estados reales (no "Desconocido")
+[1A[2K[WebServer] INFO:     127.0.0.1:53349 - "GET /api/health HTTP/1.1" 200 OK
+
+[1A[2K[11/67] tests\e2e_edit_document_fields.spec.js:18:5 ÔÇ║ Editar Documento - Campos Editables ÔÇ║ Test 1: Modal muestra campos editables correctos
+[1A[2Ktests\cae_plan_e2e.spec.js:51:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 1: Abre modal de CAE plan desde tab Pendientes
+[E2E] Server health OK - patch: v1.2.0, build_id: e055cee
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53350 - "GET /api/health HTTP/1.1" 200 OK
+
+[1A[2Ktests\cae_job_control_e2e.spec.js:41:5 ÔÇ║ CAE Job Control E2E - Gesti├│n de jobs ÔÇ║ Test A: Cancelar job mientras est├í RUNNING
+[E2E] Server health: { status: [32m'ok'[39m, build_id: [32m'e055cee'[39m, cae_plan_patch: [32m'v1.2.0'[39m }
+
+[1A[2K[12/67] tests\e2e_fix_date_and_nmonths.spec.js:6:5 ÔÇ║ Fix Date Parse and N Months Save ÔÇ║ BUG 2: Fecha debe extraerse de AEAT-16-oct-2025.pdf
+[1A[2K[WebServer] INFO:     127.0.0.1:53351 - "GET /api/health HTTP/1.1" 200 OK
+
+[1A[2Ktests\cae_coordination_e2e.spec.js:45:5 ÔÇ║ CAE Coordination E2E - Snapshot y selecci├│n ÔÇ║ Test 1: Crear snapshot FAKE y verificar flujo b├ísico
+[E2E] Server health: { status: [32m'ok'[39m, build_id: [32m'e055cee'[39m, cae_plan_patch: [32m'v1.2.0'[39m }
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53352 - "GET /api/health HTTP/1.1" 200 OK
+
+[1A[2Ktests\cae_job_queue_e2e.spec.js:43:5 ÔÇ║ CAE Job Queue E2E - Cola de ejecuciones con progreso ÔÇ║ Test 1: Encolar ejecuci├│n y verificar progreso hasta SUCCESS
+[E2E] Server health: { status: [32m'ok'[39m, build_id: [32m'e055cee'[39m, cae_plan_patch: [32m'v1.2.0'[39m }
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53353 - "GET /api/health HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53350 - "POST /api/test/seed/cae_selection_v1 HTTP/1.1" 200 OK
+
+[1A[2Ktests\cae_job_control_e2e.spec.js:41:5 ÔÇ║ CAE Job Control E2E - Gesti├│n de jobs ÔÇ║ Test A: Cancelar job mientras est├í RUNNING
+[E2E] Seed data created: {
+  type_id: [32m'E2E_MONTHLY_e820a91f'[39m,
+  company_key: [32m'TEDELAB'[39m,
+  person_key: [32m'EMILIO'[39m,
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  doc_ids: [ [32m'E2E_DOC_e820a91f_0'[39m, [32m'E2E_DOC_e820a91f_1'[39m ],
+  message: [32m'Created type E2E_MONTHLY_e820a91f with 2 documents for periods 2025-09 and 2025-08. Missing periods (for selection): 2025-12 and 2025-11. Documents have different period_key to ensure calendar shows missing periods.'[39m
+}
+
+[1A[2Ktests\cae_selection_e2e.spec.js:41:5 ÔÇ║ CAE Selection E2E - Selecci├│n m├║ltiple y asignaci├│n de PDFs ÔÇ║ Test 1: Seleccionar 2 pendientes, asignar documentos y generar plan READY
+[E2E] Server health: { status: [32m'ok'[39m, build_id: [32m'e055cee'[39m, cae_plan_patch: [32m'v1.2.0'[39m }
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53351 - "POST /api/test/seed/cae_selection_v1 HTTP/1.1" 200 OK
+
+[1A[2Ktests\cae_coordination_e2e.spec.js:45:5 ÔÇ║ CAE Coordination E2E - Snapshot y selecci├│n ÔÇ║ Test 1: Crear snapshot FAKE y verificar flujo b├ísico
+[E2E] Seed data created: {
+  type_id: [32m'E2E_MONTHLY_74e79852'[39m,
+  company_key: [32m'TEDELAB'[39m,
+  person_key: [32m'EMILIO'[39m,
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  doc_ids: [ [32m'E2E_DOC_74e79852_0'[39m, [32m'E2E_DOC_74e79852_1'[39m ],
+  message: [32m'Created type E2E_MONTHLY_74e79852 with 2 documents for periods 2025-09 and 2025-08. Missing periods (for selection): 2025-12 and 2025-11. Documents have different period_key to ensure calendar shows missing periods.'[39m
+}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53352 - "POST /api/test/seed/cae_selection_v1 HTTP/1.1" 200 OK
+
+[1A[2Ktests\cae_job_queue_e2e.spec.js:43:5 ÔÇ║ CAE Job Queue E2E - Cola de ejecuciones con progreso ÔÇ║ Test 1: Encolar ejecuci├│n y verificar progreso hasta SUCCESS
+[E2E] Seed data created: {
+  type_id: [32m'E2E_MONTHLY_8024cc16'[39m,
+  company_key: [32m'TEDELAB'[39m,
+  person_key: [32m'EMILIO'[39m,
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  doc_ids: [ [32m'E2E_DOC_8024cc16_0'[39m, [32m'E2E_DOC_8024cc16_1'[39m ],
+  message: [32m'Created type E2E_MONTHLY_8024cc16 with 2 documents for periods 2025-09 and 2025-08. Missing periods (for selection): 2025-12 and 2025-11. Documents have different period_key to ensure calendar shows missing periods.'[39m
+}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53353 - "POST /api/test/seed/cae_selection_v1 HTTP/1.1" 200 OK
+
+[1A[2Ktests\cae_selection_e2e.spec.js:41:5 ÔÇ║ CAE Selection E2E - Selecci├│n m├║ltiple y asignaci├│n de PDFs ÔÇ║ Test 1: Seleccionar 2 pendientes, asignar documentos y generar plan READY
+[E2E] Seed data created: {
+  type_id: [32m'E2E_MONTHLY_48def203'[39m,
+  company_key: [32m'TEDELAB'[39m,
+  person_key: [32m'EMILIO'[39m,
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  doc_ids: [ [32m'E2E_DOC_48def203_0'[39m, [32m'E2E_DOC_48def203_1'[39m ],
+  message: [32m'Created type E2E_MONTHLY_48def203 with 2 documents for periods 2025-09 and 2025-08. Missing periods (for selection): 2025-12 and 2025-11. Documents have different period_key to ensure calendar shows missing periods.'[39m
+}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61710 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61710 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50804 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K  1) tests\e2e_edit_document_fields.spec.js:18:5 ÔÇ║ Editar Documento - Campos Editables ÔÇ║ Test 1: Modal muestra campos editables correctos 
+
+    Error: "context" and "page" fixtures are not supported in "beforeAll" since they are created on a per-test basis.
+    If you would like to reuse a single page between tests, create context manually with browser.newContext(). See https://aka.ms/playwright/reuse-page for details.
+    If you would like to configure your page before each test, do that in beforeEach hook instead.
+
+
+[1A[2K[13/67] tests\e2e_edit_document_fields.spec.js:62:5 ÔÇ║ Editar Documento - Campos Editables ÔÇ║ Test 2: Modal muestra Estado de validez (readonly)
+[1A[2K[14/67] tests\e2e_edit_document_fields.spec.js:100:5 ÔÇ║ Editar Documento - Campos Editables ÔÇ║ Test 3: Modal muestra campos condicionales (fechas, per├¡odo)
+[1A[2K[15/67] tests\e2e_edit_document_fields.spec.js:153:5 ÔÇ║ Editar Documento - Campos Editables ÔÇ║ Test 4: Guardar cambios actualiza documento
+[1A[2K  2) tests\e2e_calendar_periodicity.spec.js:22:5 ÔÇ║ Calendario - Periodicidad y Per├¡odos Faltantes ÔÇ║ Smoke: calendario carga y existe input max months back 
+
+    Error: "context" and "page" fixtures are not supported in "beforeAll" since they are created on a per-test basis.
+    If you would like to reuse a single page between tests, create context manually with browser.newContext(). See https://aka.ms/playwright/reuse-page for details.
+    If you would like to configure your page before each test, do that in beforeEach hook instead.
+
+
+[1A[2K[16/67] tests\e2e_calendar_periodicity.spec.js:32:5 ÔÇ║ Calendario - Periodicidad y Per├¡odos Faltantes ÔÇ║ Periodicidad: tipo "Cada N meses" (N>1) NO produce lista mensual en Pendientes
+[1A[2K[17/67] tests\e2e_calendar_periodicity.spec.js:100:5 ÔÇ║ Calendario - Periodicidad y Per├¡odos Faltantes ÔÇ║ Max months back: al cambiar el valor, se actualiza el endpoint
+[1A[2K[18/67] tests\e2e_calendar_periodicity.spec.js:131:5 ÔÇ║ Calendario - Periodicidad y Per├¡odos Faltantes ÔÇ║ Limpiar filtros resetea max months back a 24
+
+[1A[2K(node:61936) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:52200) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K  3) tests\cae_plan_e2e.spec.js:51:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 1: Abre modal de CAE plan desde tab Pendientes 
+
+    Error: "context" and "page" fixtures are not supported in "beforeAll" since they are created on a per-test basis.
+    If you would like to reuse a single page between tests, create context manually with browser.newContext(). See https://aka.ms/playwright/reuse-page for details.
+    If you would like to configure your page before each test, do that in beforeEach hook instead.
+
+
+[1A[2K[19/67] tests\cae_plan_e2e.spec.js:96:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 2: Genera plan con scope m├¡nimo
+[1A[2K[20/67] tests\cae_plan_e2e.spec.js:203:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 3: Verifica que decision y reasons son visibles
+[1A[2K[21/67] tests\cae_plan_e2e.spec.js:260:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 4: Cierra modal correctamente
+
+[1A[2K(node:61936) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K  4) tests\e2e_calendar_filters_and_periods.spec.js:21:5 ÔÇ║ Calendario - Filtros y Per├¡odos ÔÇ║ Test 1: Pills "Aplica a" cambian estado visual y filtran 
+
+    Error: "context" and "page" fixtures are not supported in "beforeAll" since they are created on a per-test basis.
+    If you would like to reuse a single page between tests, create context manually with browser.newContext(). See https://aka.ms/playwright/reuse-page for details.
+    If you would like to configure your page before each test, do that in beforeEach hook instead.
+
+
+[1A[2K[22/67] tests\e2e_calendar_filters_and_periods.spec.js:84:5 ÔÇ║ Calendario - Filtros y Per├¡odos ÔÇ║ Test 2: "M├íx. meses atr├ís" reduce el n├║mero de filas en Pendientes
+[1A[2K[23/67] tests\e2e_calendar_filters_and_periods.spec.js:129:5 ÔÇ║ Calendario - Filtros y Per├¡odos ÔÇ║ Test 3: Tipo con frecuencia >1 (ej RC cada 12/24 meses) NO genera filas mensuales
+[1A[2K[24/67] tests\e2e_calendar_filters_and_periods.spec.js:213:5 ÔÇ║ Calendario - Filtros y Per├¡odos ÔÇ║ Test 4: Limpiar filtros restaura valores por defecto
+[1A[2K  5) tests\e2e_calendar_pending_smoke.spec.js:18:5 ÔÇ║ Calendar Pending Documents - Smoke Tests ÔÇ║ Test 1: Buscar documentos muestra estados reales (no "Desconocido") 
+
+    Error: "context" and "page" fixtures are not supported in "beforeAll" since they are created on a per-test basis.
+    If you would like to reuse a single page between tests, create context manually with browser.newContext(). See https://aka.ms/playwright/reuse-page for details.
+    If you would like to configure your page before each test, do that in beforeEach hook instead.
+
+
+[1A[2K[25/67] tests\e2e_calendar_pending_smoke.spec.js:45:5 ÔÇ║ Calendar Pending Documents - Smoke Tests ÔÇ║ Test 2: Calendario muestra tabs y renderiza correctamente
+[1A[2K[26/67] tests\e2e_calendar_pending_smoke.spec.js:66:5 ÔÇ║ Calendar Pending Documents - Smoke Tests ÔÇ║ Test 3: Click en tab "Pendientes" renderiza lista
+[1A[2K[27/67] tests\e2e_calendar_pending_smoke.spec.js:87:5 ÔÇ║ Calendar Pending Documents - Smoke Tests ÔÇ║ Test 4: Navegaci├│n a Upload desde bot├│n de acci├│n
+
+
+[1A[2K(node:52200) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K[28/67] tests\e2e_fix_pdf_viewing.spec.js:63:5 ÔÇ║ Fix PDF Viewing and Document Actions ÔÇ║ Ver PDF funciona correctamente
+[1A[2K[29/67] tests\e2e_repository_settings.spec.js:12:5 ÔÇ║ Repository Settings Configuration ÔÇ║ A) API: GET settings devuelve repository_root_dir no vac├¡o
+
+[1A[2K(node:57948) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K  6) tests\e2e_calendar_filters.spec.js:29:5 ÔÇ║ Calendario - Filtros ÔÇ║ TEST 1: Scope select funciona 
+
+    Error: "context" and "page" fixtures are not supported in "beforeAll" since they are created on a per-test basis.
+    If you would like to reuse a single page between tests, create context manually with browser.newContext(). See https://aka.ms/playwright/reuse-page for details.
+    If you would like to configure your page before each test, do that in beforeEach hook instead.
+
+
+[1A[2K[30/67] tests\e2e_calendar_filters.spec.js:98:5 ÔÇ║ Calendario - Filtros ÔÇ║ TEST 2: M├íx. meses atr├ís filtra de verdad
+[1A[2K[31/67] tests\e2e_calendar_filters.spec.js:172:5 ÔÇ║ Calendario - Filtros ÔÇ║ TEST 4: M├íx. meses atr├ís NO muestra per├¡odos antiguos (bug fix)
+[1A[2K[32/67] tests\e2e_calendar_filters.spec.js:251:5 ÔÇ║ Calendario - Filtros ÔÇ║ TEST 3: Clear filtros resetea correctamente
+
+[1A[2K(node:9108) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:50316) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+[1A[2K(node:20504) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:57948) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[33/67] tests\e2e_resubmit_pdf.spec.js:8:3 ÔÇ║ Subir documentos - Resubir PDF ÔÇ║ resubir desde Buscar documentos y guardar OK (200)
+[1A[2K(node:9108) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:50316) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[34/67] tests\e2e_search_docs_actions.spec.js:18:5 ÔÇ║ Buscar Documentos - Acciones ÔÇ║ Ver PDF de un documento
+[1A[2K[35/67] tests\e2e_upload_aeat.spec.js:6:5 ÔÇ║ Upload AEAT E2E - Bugs Fix ÔÇ║ BUG 1+2+3: Empresa ├║nica auto-seleccionada, fecha parseada, a├▒o oculto
+
+[1A[2K(node:20504) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[36/67] tests\e2e_upload_clear_all.spec.js:16:5 ÔÇ║ Upload Clear All - Fix Bug Dropzone Muerto ÔÇ║ Clear All + Upload debe funcionar correctamente
+[1A[2K  7) tests\e2e_fix_pdf_viewing.spec.js:63:5 ÔÇ║ Fix PDF Viewing and Document Actions ÔÇ║ Ver PDF funciona correctamente 
+
+    Error: "context" and "page" fixtures are not supported in "beforeAll" since they are created on a per-test basis.
+    If you would like to reuse a single page between tests, create context manually with browser.newContext(). See https://aka.ms/playwright/reuse-page for details.
+    If you would like to configure your page before each test, do that in beforeEach hook instead.
+
+
+[1A[2K[37/67] tests\e2e_fix_pdf_viewing.spec.js:91:5 ÔÇ║ Fix PDF Viewing and Document Actions ÔÇ║ Editar documento funciona
+[1A[2K[38/67] tests\e2e_fix_pdf_viewing.spec.js:135:5 ÔÇ║ Fix PDF Viewing and Document Actions ÔÇ║ Eliminar documento despu├®s de cambiar estado
+
+[1A[2K(node:66852) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:66852) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[39/67] tests\e2e_upload_preview.spec.js:16:5 ÔÇ║ Upload Preview - Previsualizar Documentos ÔÇ║ Preview de archivo local antes de guardar
+[1A[2K  8) tests\e2e_search_docs_actions.spec.js:18:5 ÔÇ║ Buscar Documentos - Acciones ÔÇ║ Ver PDF de un documento 
+
+    Error: "context" and "page" fixtures are not supported in "beforeAll" since they are created on a per-test basis.
+    If you would like to reuse a single page between tests, create context manually with browser.newContext(). See https://aka.ms/playwright/reuse-page for details.
+    If you would like to configure your page before each test, do that in beforeEach hook instead.
+
+
+[1A[2K[40/67] tests\e2e_search_docs_actions.spec.js:41:5 ÔÇ║ Buscar Documentos - Acciones ÔÇ║ Resubir documento
+[1A[2K[41/67] tests\e2e_search_docs_actions.spec.js:60:5 ÔÇ║ Buscar Documentos - Acciones ÔÇ║ Editar documento (incluyendo documentos antiguos)
+[1A[2K[42/67] tests\e2e_search_docs_actions.spec.js:86:5 ÔÇ║ Buscar Documentos - Acciones ÔÇ║ Eliminar documento (incluyendo documentos antiguos)
+[1A[2K[43/67] tests\e2e_search_docs_actions.spec.js:131:5 ÔÇ║ Buscar Documentos - Acciones ÔÇ║ Verificar que documentos antiguos (sin doc_id) se manejan correctamente
+
+[1A[2K(node:28416) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+[1A[2K(node:28416) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K[44/67] tests\e2e_upload_scope_filter.spec.js:71:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ A) Prefiltro Empresa - Solo muestra tipos company
+[1A[2K  9) tests\cae_job_control_e2e.spec.js:41:5 ÔÇ║ CAE Job Control E2E - Gesti├│n de jobs ÔÇ║ Test A: Cancelar job mientras est├í RUNNING 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#pending-tab-missing')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for locator('#pending-tab-missing')[22m
+
+
+      46 |         // Click on "Pendientes" tab
+      47 |         const missingTab = page.locator('#pending-tab-missing');
+    > 48 |         await expect(missingTab).toBeVisible({ timeout: 10000 });
+         |                                  ^
+      49 |         await missingTab.click();
+      50 |         await page.waitForTimeout(1000);
+      51 |         
+        at D:\Proyectos_Cursor\CometLocal\tests\cae_job_control_e2e.spec.js:48:34
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_job_control_e2e-CAE-Jo-4dc7a-r-job-mientras-est├í-RUNNING\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_job_control_e2e-CAE-Jo-4dc7a-r-job-mientras-est├í-RUNNING\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\cae_job_control_e2e-CAE-Jo-4dc7a-r-job-mientras-est├í-RUNNING\error-context.md
+
+
+
+[1A[2K(node:59212) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:59212) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[45/67] tests\cae_job_control_e2e.spec.js:193:5 ÔÇ║ CAE Job Control E2E - Gesti├│n de jobs ÔÇ║ Test B: Reintentar job fallido
+[1A[2K[WebServer] INFO:     127.0.0.1:50804 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=24 HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61710 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:58024 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63531 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50802 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64187 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52082 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50981 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53010 - "GET /api/health HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:60162 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59468 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59611 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64386 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2Ktests\cae_job_control_e2e.spec.js:193:5 ÔÇ║ CAE Job Control E2E - Gesti├│n de jobs ÔÇ║ Test B: Reintentar job fallido
+[E2E] Server health: { status: [32m'ok'[39m, build_id: [32m'e055cee'[39m, cae_plan_patch: [32m'v1.2.0'[39m }
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53010 - "POST /api/test/seed/cae_selection_v1 HTTP/1.1" 200 OK
+
+[1A[2K[E2E] Seed data created: {
+  type_id: [32m'E2E_MONTHLY_cd39f3eb'[39m,
+  company_key: [32m'TEDELAB'[39m,
+  person_key: [32m'EMILIO'[39m,
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  doc_ids: [ [32m'E2E_DOC_cd39f3eb_0'[39m, [32m'E2E_DOC_cd39f3eb_1'[39m ],
+  message: [32m'Created type E2E_MONTHLY_cd39f3eb with 2 documents for periods 2025-09 and 2025-08. Missing periods (for selection): 2025-12 and 2025-11. Documents have different period_key to ensure calendar shows missing periods.'[39m
+}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50981 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50802 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2Ktests\e2e_fix_date_and_nmonths.spec.js:6:5 ÔÇ║ Fix Date Parse and N Months Save ÔÇ║ BUG 2: Fecha debe extraerse de AEAT-16-oct-2025.pdf
+[Browser Console log] [repo-upload] listener installed {time: 1767819882757}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59468 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2Ktests\e2e_upload_aeat.spec.js:6:5 ÔÇ║ Upload AEAT E2E - Bugs Fix ÔÇ║ BUG 1+2+3: Empresa ├║nica auto-seleccionada, fecha parseada, a├▒o oculto
+[Browser Console log] [repo-upload] listener installed {time: 1767819882781}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59605 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63531 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52082 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59611 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64386 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:60162 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59317 - "GET /api/repository/docs HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64782 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:54717 - "GET /api/repository/rules HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59739 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:58874 - "GET /api/config/platforms HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64782 - "GET /api/repository/types?active=true HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62314 - "GET /api/config/platforms HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:57995 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2Ktests\e2e_upload_clear_all.spec.js:16:5 ÔÇ║ Upload Clear All - Fix Bug Dropzone Muerto ÔÇ║ Clear All + Upload debe funcionar correctamente
+[test] Report saved to D:\Proyectos_Cursor\CometLocal\docs\evidence\upload_clear_all_fix\report.md
+
+[1A[2Ktests\e2e_upload_preview.spec.js:16:5 ÔÇ║ Upload Preview - Previsualizar Documentos ÔÇ║ Preview de archivo local antes de guardar
+[test] Report saved to D:\Proyectos_Cursor\CometLocal\docs\evidence\upload_preview\report.md
+
+[1A[2K  10) tests\e2e_upload_clear_all.spec.js:16:5 ÔÇ║ Upload Clear All - Fix Bug Dropzone Muerto ÔÇ║ Clear All + Upload debe funcionar correctamente 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="page-ready"][data-page="subir"]') to be visible[22m
+
+
+      18 |         await page.goto(`${BACKEND_URL}/repository#subir`);
+      19 |         // Esperar se├▒al DOM cuando la p├ígina est├í lista
+    > 20 |         await page.waitForSelector('[data-testid="page-ready"][data-page="subir"]', { timeout: 10000 });
+         |                    ^
+      21 |         // Esperar se├▒al DOM cuando upload est├í listo
+      22 |         await page.waitForSelector('[data-testid="upload-ready"]', { timeout: 10000 });
+      23 |         
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_upload_clear_all.spec.js:20:20
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_clear_all-Uploa-44a16-ebe-funcionar-correctamente\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_clear_all-Uploa-44a16-ebe-funcionar-correctamente\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_upload_clear_all-Uploa-44a16-ebe-funcionar-correctamente\error-context.md
+
+
+[1A[2K  11) tests\e2e_repository_settings.spec.js:12:5 ÔÇ║ Repository Settings Configuration ÔÇ║ A) API: GET settings devuelve repository_root_dir no vac├¡o 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="page-ready"]') to be visible[22m
+
+
+       7 |         await page.goto('http://127.0.0.1:8000/repository');
+       8 |         // Esperar se├▒al DOM cuando la p├ígina est├í lista
+    >  9 |         await page.waitForSelector('[data-testid="page-ready"]', { timeout: 10000 });
+         |                    ^
+      10 |     });
+      11 |
+      12 |     test('A) API: GET settings devuelve repository_root_dir no vac├¡o', async ({ request }) => {
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_repository_settings.spec.js:9:20
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_repository_settings-Re-70daf-epository-root-dir-no-vac├¡o\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_repository_settings-Re-70daf-epository-root-dir-no-vac├¡o\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_repository_settings-Re-70daf-epository-root-dir-no-vac├¡o\error-context.md
+
+
+[1A[2K  12) tests\e2e_upload_preview.spec.js:16:5 ÔÇ║ Upload Preview - Previsualizar Documentos ÔÇ║ Preview de archivo local antes de guardar 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="page-ready"][data-page="subir"]') to be visible[22m
+
+
+      18 |         await page.goto(`${BACKEND_URL}/repository#subir`);
+      19 |         // Esperar se├▒al DOM cuando la p├ígina est├í lista
+    > 20 |         await page.waitForSelector('[data-testid="page-ready"][data-page="subir"]', { timeout: 10000 });
+         |                    ^
+      21 |         // Esperar se├▒al DOM cuando upload est├í listo
+      22 |         await page.waitForSelector('[data-testid="upload-ready"]', { timeout: 10000 });
+      23 |         
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_upload_preview.spec.js:20:20
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_preview-Upload--c0064-hivo-local-antes-de-guardar\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_preview-Upload--c0064-hivo-local-antes-de-guardar\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_upload_preview-Upload--c0064-hivo-local-antes-de-guardar\error-context.md
+
+
+[1A[2K(node:46004) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:52460) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:53600) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:46004) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:52460) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[46/67] tests\e2e_upload_clear_all.spec.js:109:5 ÔÇ║ Upload Clear All - Fix Bug Dropzone Muerto ÔÇ║ Navigate away and back - anti-flakiness
+
+[1A[2K(node:53600) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[47/67] tests\e2e_repository_settings.spec.js:24:5 ÔÇ║ Repository Settings Configuration ÔÇ║ A) API: PUT settings con ruta temporal crea directorio
+[1A[2K  13) tests\cae_job_queue_e2e.spec.js:43:5 ÔÇ║ CAE Job Queue E2E - Cola de ejecuciones con progreso ÔÇ║ Test 1: Encolar ejecuci├│n y verificar progreso hasta SUCCESS 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#pending-tab-missing')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for locator('#pending-tab-missing')[22m
+
+
+      48 |         // Click on "Pendientes" tab
+      49 |         const missingTab = page.locator('#pending-tab-missing');
+    > 50 |         await expect(missingTab).toBeVisible({ timeout: 10000 });
+         |                                  ^
+      51 |         await missingTab.click();
+      52 |         await page.waitForTimeout(1000);
+      53 |         
+        at D:\Proyectos_Cursor\CometLocal\tests\cae_job_queue_e2e.spec.js:50:34
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_job_queue_e2e-CAE-Job--81259-icar-progreso-hasta-SUCCESS\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_job_queue_e2e-CAE-Job--81259-icar-progreso-hasta-SUCCESS\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\cae_job_queue_e2e-CAE-Job--81259-icar-progreso-hasta-SUCCESS\error-context.md
+
+
+[1A[2K[48/67] tests\e2e_upload_preview.spec.js:108:5 ÔÇ║ Upload Preview - Previsualizar Documentos ÔÇ║ Preview cierra con Esc
+[1A[2K  14) tests\e2e_edit_document.spec.js:18:3 ÔÇ║ Buscar documentos - Editar documento ÔÇ║ editar documento y guardar OK (200), modal cierra y persiste 
+
+    [31mTest timeout of 30000ms exceeded while running "beforeEach" hook.[39m
+
+      11 |
+      12 | test.describe('Buscar documentos - Editar documento', () => {
+    > 13 |   test.beforeEach(async ({ page }) => {
+         |        ^
+      14 |     await page.goto('http://127.0.0.1:8000/repository#buscar', { waitUntil: 'networkidle' });
+      15 |     await page.waitForSelector('button:has-text("Editar")', { timeout: 20000 });
+      16 |   });
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_edit_document.spec.js:13:8
+
+    Error: page.goto: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - navigating to "http://127.0.0.1:8000/repository#buscar", waiting until "networkidle"[22m
+
+
+      12 | test.describe('Buscar documentos - Editar documento', () => {
+      13 |   test.beforeEach(async ({ page }) => {
+    > 14 |     await page.goto('http://127.0.0.1:8000/repository#buscar', { waitUntil: 'networkidle' });
+         |                ^
+      15 |     await page.waitForSelector('button:has-text("Editar")', { timeout: 20000 });
+      16 |   });
+      17 |
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_edit_document.spec.js:14:16
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_edit_document-Buscar-d-837fb-200-modal-cierra-y-persiste\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_edit_document-Buscar-d-837fb-200-modal-cierra-y-persiste\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_edit_document-Buscar-d-837fb-200-modal-cierra-y-persiste\error-context.md
+
+
+[1A[2K  15) tests\cae_selection_e2e.spec.js:41:5 ÔÇ║ CAE Selection E2E - Selecci├│n m├║ltiple y asignaci├│n de PDFs ÔÇ║ Test 1: Seleccionar 2 pendientes, asignar documentos y generar plan READY 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#pending-tab-missing')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for locator('#pending-tab-missing')[22m
+
+
+      46 |         // Click on "Pendientes" tab
+      47 |         const missingTab = page.locator('#pending-tab-missing');
+    > 48 |         await expect(missingTab).toBeVisible({ timeout: 10000 });
+         |                                  ^
+      49 |         await missingTab.click();
+      50 |         await page.waitForTimeout(1000);
+      51 |         
+        at D:\Proyectos_Cursor\CometLocal\tests\cae_selection_e2e.spec.js:48:34
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_selection_e2e-CAE-Sele-35e60-mentos-y-generar-plan-READY\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_selection_e2e-CAE-Sele-35e60-mentos-y-generar-plan-READY\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\cae_selection_e2e-CAE-Sele-35e60-mentos-y-generar-plan-READY\error-context.md
+
+
+
+[1A[2K(node:44784) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:11080) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+[1A[2K(node:67132) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:44784) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:11080) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[49/67] tests\e2e_upload_subjects.spec.js:6:5 ÔÇ║ Upload Subjects E2E ÔÇ║ should show company and worker selects, hide period field when date from name
+[1A[2K(node:67132) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[50/67] tests\e2e_upload_type_select.spec.js:6:5 ÔÇ║ Upload Type Select E2E ÔÇ║ should select document type and update overlay
+[1A[2K[51/67] tests\e2e_edit_document.spec.js:52:3 ÔÇ║ Buscar documentos - Editar documento ÔÇ║ cambiar ÔÇ£Estado de tramitaci├│nÔÇØ (Borrador <-> Revisado) y guardar
+[1A[2K  16) tests\e2e_fix_date_and_nmonths.spec.js:6:5 ÔÇ║ Fix Date Parse and N Months Save ÔÇ║ BUG 2: Fecha debe extraerse de AEAT-16-oct-2025.pdf 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.setInputFiles: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input[type="file"]').first()[22m
+
+
+      32 |
+      33 |         const fileInput = page.locator('input[type="file"]').first();
+    > 34 |         await fileInput.setInputFiles(pdfPath);
+         |         ^
+      35 |         
+      36 |         // Esperar a que aparezca la card del archivo
+      37 |         await page.waitForSelector('.file-card:has(select.repo-upload-type-select)', { timeout: 10000 });
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_fix_date_and_nmonths.spec.js:34:9
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_fix_date_and_nmonths-F-2fb37-rse-de-AEAT-16-oct-2025-pdf\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_fix_date_and_nmonths-F-2fb37-rse-de-AEAT-16-oct-2025-pdf\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_fix_date_and_nmonths-F-2fb37-rse-de-AEAT-16-oct-2025-pdf\error-context.md
+
+
+[1A[2K(node:67660) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59739 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=24 HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59920 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:58075 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64782 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:58874 - "POST /api/cae/coordination/snapshot HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59422 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55115 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55762 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:57712 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59740 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59857 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55675 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50598 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:58433 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:58995 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:54226 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52459 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53385 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2Ktests\e2e_upload_aeat.spec.js:6:5 ÔÇ║ Upload AEAT E2E - Bugs Fix ÔÇ║ BUG 1+2+3: Empresa ├║nica auto-seleccionada, fecha parseada, a├▒o oculto
+[Browser Console error] Failed to load resource: the server responded with a status of 404 (Not Found)
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63999 - "GET /api/repository/types?active=true HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64487 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53385 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55791 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63999 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53385 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[Browser Console log] [repo-upload] Subjects loaded: {companies: Array(1), workers_by_company: Object}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63999 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[Browser Console log] [repo-upload] initUploadWizard end
+
+[1A[2Ktests\cae_coordination_e2e.spec.js:45:5 ÔÇ║ CAE Coordination E2E - Snapshot y selecci├│n ÔÇ║ Test 1: Crear snapshot FAKE y verificar flujo b├ísico
+[E2E] Snapshot ID: CAESNAP-20260107-210459-
+
+[1A[2Ktests\e2e_upload_aeat.spec.js:6:5 ÔÇ║ Upload AEAT E2E - Bugs Fix ÔÇ║ BUG 1+2+3: Empresa ├║nica auto-seleccionada, fecha parseada, a├▒o oculto
+[Browser Console log] [repo-upload] parseDateFromFilename pattern1 match: {filename: AEAT-16-oct-2025.pdf, match1: Array(4)}
+
+[1A[2K[Browser Console log] [repo-upload] filtered types sample [Object, Object]
+
+[1A[2K[Browser Console log] [repo-upload] change captured {targetTag: INPUT, hasClass: false, fileIdAttr: null, time: 1767819899653}
+
+[1A[2Ktests\cae_coordination_e2e.spec.js:45:5 ÔÇ║ CAE Coordination E2E - Snapshot y selecci├│n ÔÇ║ Test 1: Crear snapshot FAKE y verificar flujo b├ísico
+[E2E] Found [33m2[39m pending items
+
+[1A[2K(node:67660) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[52/67] tests\e2e_fix_date_and_nmonths.spec.js:80:5 ÔÇ║ Fix Date Parse and N Months Save ÔÇ║ BUG 4: Guardar "Cada N meses" debe persistir correctamente
+[1A[2K[WebServer] INFO:     127.0.0.1:63999 - "GET /api/repository/docs HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:58874 - "GET /api/cae/coordination/snapshot/CAESNAP-20260107-210459-b96209c0/doc_candidates?pending_index=0&allow_period_fallback=true&include_best=true HTTP/1.1" 200 OK
+
+[1A[2Ktests\e2e_upload_aeat.spec.js:6:5 ÔÇ║ Upload AEAT E2E - Bugs Fix ÔÇ║ BUG 1+2+3: Empresa ├║nica auto-seleccionada, fecha parseada, a├▒o oculto
+File state before type selection: { company_key: [32m'F63161988'[39m, errors: [] }
+
+[1A[2KSubjects state: {
+  companies: [
+    {
+      id: [32m'F63161988'[39m,
+      name: [32m'Tedelab Ingenier├¡a SCCL'[39m,
+      tax_id: [32m'F63161988'[39m
+    }
+  ],
+  companiesCount: [33m1[39m
+}
+
+[1A[2K[Browser Console log] [repo-upload] change captured {targetTag: SELECT, hasClass: true, fileIdAttr: 1767819899649.3108, time: 1767819900894}
+
+[1A[2K[Browser Console log] [repo-upload] file found {fileId: 1767819899649.3108, fileName: AEAT-16-oct-2025.pdf, searchId: 1767819899649.3108}
+
+[1A[2K[Browser Console log] [repo-upload] select debug {fileId: 1767819899649.3108, value: T5612_NO_DEUDA_HACIENDA, selectedIndex: 1, optionValue: T5612_NO_DEUDA_HACIENDA, optionText: No deuda Hacienda}
+
+[1A[2K[Browser Console log] [repo-upload] updateUploadFileType: {filename: AEAT-16-oct-2025.pdf, fileId: 1767819899649.3108, rawValue: T5612_NO_DEUDA_HACIENDA, normalizedTypeId: T5612_NO_DEUDA_HACIENDA, before: T5612_NO_DEUDA_HACIENDA}
+
+[1A[2K[Browser Console log] [repo-upload] filtered types sample [Object, Object]
+
+[1A[2K[WebServer] INFO:     127.0.0.1:58075 - "GET /api/cae/coordination/snapshot/CAESNAP-20260107-210459-b96209c0/doc_candidates?pending_index=1&allow_period_fallback=true&include_best=true HTTP/1.1" 200 OK
+
+[1A[2Ktests\cae_coordination_e2e.spec.js:45:5 ÔÇ║ CAE Coordination E2E - Snapshot y selecci├│n ÔÇ║ Test 1: Crear snapshot FAKE y verificar flujo b├ísico
+[E2E] Modal opened successfully, dropdowns loaded
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55791 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64487 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55719 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:49807 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:58932 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62830 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[53/67] tests\e2e_upload_validity_persistence.spec.js:16:5 ÔÇ║ Upload Validity Start Date Persistence - Fix ÔÇ║ Validity start date persiste tras fallo de validaci├│n
+[1A[2Ktests\e2e_upload_aeat.spec.js:6:5 ÔÇ║ Upload AEAT E2E - Bugs Fix ÔÇ║ BUG 1+2+3: Empresa ├║nica auto-seleccionada, fecha parseada, a├▒o oculto
+File state after type selection: {
+  issue_date: [32m'2025-10-16'[39m,
+  requires_issue_date: [33mtrue[39m,
+  company_key: [32m'F63161988'[39m,
+  errors: []
+}
+
+[1A[2KÔ£à BUG 2: Fecha parseada correctamente: 2025-10-16
+
+[1A[2KÔ£à BUG 1: Empresa auto-seleccionada y sin error
+
+[1A[2KType info: { hasNMonths: [33m12[39m, basis: [32m'name_date'[39m, mode: [32m'monthly'[39m }
+
+[1A[2KTest summary: {
+  bug1_empresaAutoSelected: [33mtrue[39m,
+  bug1_noErrorEmpresa: [33mtrue[39m,
+  bug2_fechaParseada: [33mtrue[39m,
+  bug3_campoAnioOculto: [33mtrue[39m,
+  timestamp: [32m'2026-01-07T21:05:02.128Z'[39m
+}
+
+[1A[2K[54/67] tests\e2e_upload_aeat.spec.js:195:5 ÔÇ║ Upload AEAT E2E - Bugs Fix ÔÇ║ BUG 4: Guardar cat├ílogo "Cada N meses" sin error enum
+[1A[2K  17) tests\e2e_resubmit_pdf.spec.js:8:3 ÔÇ║ Subir documentos - Resubir PDF ÔÇ║ resubir desde Buscar documentos y guardar OK (200) 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForResponse: Test timeout of 30000ms exceeded.
+
+      16 |
+      17 |     // Capturar respuesta PUT /pdf
+    > 18 |     const putPromise = page.waitForResponse((res) => {
+         |                             ^
+      19 |       return res.url().includes('/api/repository/docs/') && res.url().endsWith('/pdf') && res.request().method() === 'PUT';
+      20 |     });
+      21 |
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_resubmit_pdf.spec.js:18:29
+
+    Error: locator.setInputFiles: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="upload-file-input"]')[22m
+
+
+      22 |     // Subir archivo
+      23 |     const fileInput = page.locator('[data-testid="upload-file-input"]');
+    > 24 |     await fileInput.setInputFiles(pdfPath);
+         |     ^
+      25 |
+      26 |     await page.waitForSelector('#upload-files-list', { timeout: 20000 });
+      27 |     await page.waitForSelector('text=AEAT-16-oct-2025.pdf', { timeout: 20000 });
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_resubmit_pdf.spec.js:24:5
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_resubmit_pdf-Subir-doc-89b6c-ocumentos-y-guardar-OK-200-\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_resubmit_pdf-Subir-doc-89b6c-ocumentos-y-guardar-OK-200-\error-context.md
+
+
+[1A[2K(node:31020) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:31020) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[55/67] tests\e2e_upload_validity_start_date.spec.js:16:5 ÔÇ║ Upload Validity Start Date - Fix ÔÇ║ Validity start date se env├¡a correctamente cuando validity_start_mode=manual
+[1A[2Ktests\e2e_upload_scope_filter.spec.js:71:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ A) Prefiltro Empresa - Solo muestra tipos company
+[test] Report saved to D:\Proyectos_Cursor\CometLocal\docs\evidence\upload_scope_filter\report.md
+
+[1A[2K  18) tests\e2e_upload_scope_filter.spec.js:71:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ A) Prefiltro Empresa - Solo muestra tipos company 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="page-ready"][data-page="subir"]') to be visible[22m
+
+
+      72 |         await page.goto(`${BACKEND_URL}/repository#subir`);
+      73 |         // Esperar se├▒al DOM cuando la p├ígina est├í lista
+    > 74 |         await page.waitForSelector('[data-testid="page-ready"][data-page="subir"]', { timeout: 10000 });
+         |                    ^
+      75 |         // Esperar se├▒al DOM cuando upload est├í listo
+      76 |         await page.waitForSelector('[data-testid="upload-ready"]', { timeout: 10000 });
+      77 |         
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_upload_scope_filter.spec.js:74:20
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_scope_filter-Pr-d2e43--Solo-muestra-tipos-company\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_scope_filter-Pr-d2e43--Solo-muestra-tipos-company\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_upload_scope_filter-Pr-d2e43--Solo-muestra-tipos-company\error-context.md
+
+
+
+[1A[2K(node:43600) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:43600) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[56/67] tests\e2e_upload_scope_filter.spec.js:140:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ B) Prefiltro Trabajador - Solo muestra tipos worker
+[1A[2K  19) tests\cae_job_control_e2e.spec.js:193:5 ÔÇ║ CAE Job Control E2E - Gesti├│n de jobs ÔÇ║ Test B: Reintentar job fallido 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#pending-tab-missing')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for locator('#pending-tab-missing')[22m
+
+
+      200 |         // Click on "Pendientes" tab
+      201 |         const missingTab = page.locator('#pending-tab-missing');
+    > 202 |         await expect(missingTab).toBeVisible({ timeout: 10000 });
+          |                                  ^
+      203 |         await missingTab.click();
+      204 |         await page.waitForTimeout(1000);
+      205 |         
+        at D:\Proyectos_Cursor\CometLocal\tests\cae_job_control_e2e.spec.js:202:34
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_job_control_e2e-CAE-Jo-0ed18-st-B-Reintentar-job-fallido\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_job_control_e2e-CAE-Jo-0ed18-st-B-Reintentar-job-fallido\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\cae_job_control_e2e-CAE-Jo-0ed18-st-B-Reintentar-job-fallido\error-context.md
+
+
+[1A[2K(node:67716) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:67716) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[57/67] tests\cae_job_control_e2e.spec.js:576:5 ÔÇ║ CAE Job Control E2E - Gesti├│n de jobs ÔÇ║ Test C: Descargar informe de job completado
+[1A[2K[WebServer] INFO:     127.0.0.1:55719 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=24 HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:58932 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63999 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59826 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:60694 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:54046 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52789 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:60890 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62522 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65276 - "GET /api/health HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56091 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:54985 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50296 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:49948 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2Ktests\cae_job_control_e2e.spec.js:576:5 ÔÇ║ CAE Job Control E2E - Gesti├│n de jobs ÔÇ║ Test C: Descargar informe de job completado
+[E2E] Server health: { status: [32m'ok'[39m, build_id: [32m'e055cee'[39m, cae_plan_patch: [32m'v1.2.0'[39m }
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65276 - "POST /api/test/seed/cae_selection_v1 HTTP/1.1" 200 OK
+
+[1A[2K[E2E] Seed data created: {
+  type_id: [32m'E2E_MONTHLY_5adf0b3f'[39m,
+  company_key: [32m'TEDELAB'[39m,
+  person_key: [32m'EMILIO'[39m,
+  period_keys: [ [32m'2025-12'[39m, [32m'2025-11'[39m ],
+  doc_ids: [ [32m'E2E_DOC_5adf0b3f_0'[39m, [32m'E2E_DOC_5adf0b3f_1'[39m ],
+  message: [32m'Created type E2E_MONTHLY_5adf0b3f with 2 documents for periods 2025-09 and 2025-08. Missing periods (for selection): 2025-12 and 2025-11. Documents have different period_key to ensure calendar shows missing periods.'[39m
+}
+
+[1A[2Ktests\e2e_upload_type_select.spec.js:6:5 ÔÇ║ Upload Type Select E2E ÔÇ║ should select document type and update overlay
+[Browser Console log] [repo-upload] listener installed {time: 1767819917549}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52789 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:54046 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:60890 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:60694 - "GET /api/repository/types?include_inactive=true&page=1&page_size=20&sort=name HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62522 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56091 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:49948 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:50296 - "GET /api/repository/types?include_inactive=true&page=1&page_size=20&sort=name HTTP/1.1" 200 OK
+
+[1A[2Ktests\e2e_upload_subjects.spec.js:6:5 ÔÇ║ Upload Subjects E2E ÔÇ║ should show company and worker selects, hide period field when date from name
+[Browser Console log] [repo-upload] listener installed {time: 1767819917905}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:49528 - "GET /api/repository/docs HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59826 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61563 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56950 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52489 - "GET /api/repository/rules HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62568 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61563 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56500 - "GET /api/config/platforms HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56950 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:58514 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56096 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62568 - "GET /api/repository/types?active=true HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61563 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65319 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:49420 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56950 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59364 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:58059 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62568 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65319 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:57114 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:49436 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:49420 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:60238 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2Ktests\e2e_upload_type_select.spec.js:6:5 ÔÇ║ Upload Type Select E2E ÔÇ║ should select document type and update overlay
+[Browser Console error] Failed to load resource: the server responded with a status of 404 (Not Found)
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53420 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62568 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:57114 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:54977 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[Browser Console log] [repo-upload] Subjects loaded: {companies: Array(1), workers_by_company: Object}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55797 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[Browser Console log] [repo-upload] initUploadWizard end
+
+[1A[2K[WebServer] INFO:     127.0.0.1:60238 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63518 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2Ktests\e2e_upload_subjects.spec.js:6:5 ÔÇ║ Upload Subjects E2E ÔÇ║ should show company and worker selects, hide period field when date from name
+[Browser Console error] Failed to load resource: the server responded with a status of 404 (Not Found)
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53420 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2Ktests\e2e_upload_type_select.spec.js:6:5 ÔÇ║ Upload Type Select E2E ÔÇ║ should select document type and update overlay
+[Browser Console log] [repo-upload] parseDateFromFilename pattern1 match: {filename: 11 SS ERM 28-nov-25.pdf, match1: Array(4)}
+
+[1A[2K[Browser Console log] [repo-upload] filtered types sample [Object, Object, Object, Object, Object]
+
+[1A[2K[Browser Console log] [repo-upload] change captured {targetTag: INPUT, hasClass: false, fileIdAttr: null, time: 1767819919769}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62568 - "GET /api/repository/docs HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55797 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53420 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:60694 - "GET /api/repository/types?include_inactive=true&page=1&page_size=20&sort=name&query=deuda HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:49436 - "GET /api/repository/types?include_inactive=true&page=1&page_size=20&sort=name&query=deuda HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55797 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65010 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2Ktests\e2e_upload_subjects.spec.js:6:5 ÔÇ║ Upload Subjects E2E ÔÇ║ should show company and worker selects, hide period field when date from name
+[Browser Console log] [repo-upload] Subjects loaded: {companies: Array(1), workers_by_company: Object}
+
+[1A[2K[Browser Console log] [repo-upload] initUploadWizard end
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65010 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65285 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65010 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65010 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65010 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62888 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62888 - "POST /api/repository/types HTTP/1.1" 400 Bad Request
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62888 - "POST /api/repository/types HTTP/1.1" 400 Bad Request
+
+[1A[2K[Browser Console log] [repo-upload] parseDateFromFilename pattern1 match: {filename: 11 SS ERM 28-nov-25.pdf, match1: Array(4)}
+
+[1A[2K[Browser Console log] [repo-upload] filtered types sample [Object, Object, Object, Object, Object]
+
+[1A[2K[Browser Console log] [repo-upload] change captured {targetTag: INPUT, hasClass: false, fileIdAttr: null, time: 1767819920796}
+
+[1A[2Ktests\e2e_fix_date_and_nmonths.spec.js:80:5 ÔÇ║ Fix Date Parse and N Months Save ÔÇ║ BUG 4: Guardar "Cada N meses" debe persistir correctamente
+[Browser Console log] [repo-upload] renderTypeDrawer - type validity_policy: {mode: monthly, n_months: Object, hasNMonths: 12}
+
+[1A[2Ktests\e2e_upload_scope_filter.spec.js:140:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ B) Prefiltro Trabajador - Solo muestra tipos worker
+[test] Options with worker filter: [
+  [32m'Aut├│nomos'[39m,
+  [32m'E2E Test Monthly Type 02f51d04'[39m,
+  [32m'E2E Test Monthly Type 04ed15fa'[39m,
+  [32m'E2E Test Monthly Type 0525a434'[39m,
+  [32m'E2E Test Monthly Type 0877f10e'[39m,
+  [32m'E2E Test Monthly Type 09a371d5'[39m,
+  [32m'E2E Test Monthly Type 09c50d11'[39m,
+  [32m'E2E Test Monthly Type 0a6434e0'[39m,
+  [32m'E2E Test Monthly Type 0b84879b'[39m,
+  [32m'E2E Test Monthly Type 0bd46a66'[39m,
+  [32m'E2E Test Monthly Type 1049f367'[39m,
+  [32m'E2E Test Monthly Type 1277845e'[39m,
+  [32m'E2E Test Monthly Type 13897e12'[39m,
+  [32m'E2E Test Monthly Type 14386878'[39m,
+  [32m'E2E Test Monthly Type 149c2025'[39m,
+  [32m'E2E Test Monthly Type 1c601a7b'[39m,
+  [32m'E2E Test Monthly Type 1c9e92c1'[39m,
+  [32m'E2E Test Monthly Type 1cfb00cc'[39m,
+  [32m'E2E Test Monthly Type 1fb6f8fb'[39m,
+  [32m'E2E Test Monthly Type 21f0d67b'[39m,
+  [32m'E2E Test Monthly Type 2b151c80'[39m,
+  [32m'E2E Test Monthly Type 2bb90fd9'[39m,
+  [32m'E2E Test Monthly Type 2c0f0aec'[39m,
+  [32m'E2E Test Monthly Type 2e17b3d3'[39m,
+  [32m'E2E Test Monthly Type 2ed47bf4'[39m,
+  [32m'E2E Test Monthly Type 2fe46dfb'[39m,
+  [32m'E2E Test Monthly Type 313c5804'[39m,
+  [32m'E2E Test Monthly Type 35a968b9'[39m,
+  [32m'E2E Test Monthly Type 36b2bb8b'[39m,
+  [32m'E2E Test Monthly Type 3912708f'[39m,
+  [32m'E2E Test Monthly Type 3b37052f'[39m,
+  [32m'E2E Test Monthly Type 3cef3c91'[39m,
+  [32m'E2E Test Monthly Type 42281cdb'[39m,
+  [32m'E2E Test Monthly Type 432998e4'[39m,
+  [32m'E2E Test Monthly Type 47ed2226'[39m,
+  [32m'E2E Test Monthly Type 48def203'[39m,
+  [32m'E2E Test Monthly Type 4a811fa6'[39m,
+  [32m'E2E Test Monthly Type 4b3ebfec'[39m,
+  [32m'E2E Test Monthly Type 4b4ac569'[39m,
+  [32m'E2E Test Monthly Type 4d9fba27'[39m,
+  [32m'E2E Test Monthly Type 4ec86eee'[39m,
+  [32m'E2E Test Monthly Type 53e8ad78'[39m,
+  [32m'E2E Test Monthly Type 55066dcd'[39m,
+  [32m'E2E Test Monthly Type 556dd068'[39m,
+  [32m'E2E Test Monthly Type 560e6826'[39m,
+  [32m'E2E Test Monthly Type 59b12a0a'[39m,
+  [32m'E2E Test Monthly Type 5a724237'[39m,
+  [32m'E2E Test Monthly Type 5a7ea02e'[39m,
+  [32m'E2E Test Monthly Type 5adf0b3f'[39m,
+  [32m'E2E Test Monthly Type 5df23284'[39m,
+  [32m'E2E Test Monthly Type 5e5ebe3c'[39m,
+  [32m'E2E Test Monthly Type 5f5e9bdc'[39m,
+  [32m'E2E Test Monthly Type 6046ad9f'[39m,
+  [32m'E2E Test Monthly Type 608b996c'[39m,
+  [32m'E2E Test Monthly Type 620e53b4'[39m,
+  [32m'E2E Test Monthly Type 6266b20d'[39m,
+  [32m'E2E Test Monthly Type 647934d5'[39m,
+  [32m'E2E Test Monthly Type 64e6f40e'[39m,
+  [32m'E2E Test Monthly Type 6bf08691'[39m,
+  [32m'E2E Test Monthly Type 6e444683'[39m,
+  [32m'E2E Test Monthly Type 6f747f9a'[39m,
+  [32m'E2E Test Monthly Type 7150e9e3'[39m,
+  [32m'E2E Test Monthly Type 72b893bc'[39m,
+  [32m'E2E Test Monthly Type 72fafe66'[39m,
+  [32m'E2E Test Monthly Type 74e79852'[39m,
+  [32m'E2E Test Monthly Type 77364059'[39m,
+  [32m'E2E Test Monthly Type 7a273e88'[39m,
+  [32m'E2E Test Monthly Type 7db0ccac'[39m,
+  [32m'E2E Test Monthly Type 7de38684'[39m,
+  [32m'E2E Test Monthly Type 8024cc16'[39m,
+  [32m'E2E Test Monthly Type 8064478a'[39m,
+  [32m'E2E Test Monthly Type 8268942f'[39m,
+  [32m'E2E Test Monthly Type 8b9cbe06'[39m,
+  [32m'E2E Test Monthly Type 8cd0650d'[39m,
+  [32m'E2E Test Monthly Type 8db7429a'[39m,
+  [32m'E2E Test Monthly Type 8e195d64'[39m,
+  [32m'E2E Test Monthly Type 905f2eb3'[39m,
+  [32m'E2E Test Monthly Type 924355ee'[39m,
+  [32m'E2E Test Monthly Type 93c4ee3b'[39m,
+  [32m'E2E Test Monthly Type 942ee649'[39m,
+  [32m'E2E Test Monthly Type 9570ef68'[39m,
+  [32m'E2E Test Monthly Type 9cfcfe77'[39m,
+  [32m'E2E Test Monthly Type 9d223c06'[39m,
+  [32m'E2E Test Monthly Type a2175392'[39m,
+  [32m'E2E Test Monthly Type a21ba3f5'[39m,
+  [32m'E2E Test Monthly Type a5573727'[39m,
+  [32m'E2E Test Monthly Type a7b6cefd'[39m,
+  [32m'E2E Test Monthly Type aed1160f'[39m,
+  [32m'E2E Test Monthly Type b0717ce2'[39m,
+  [32m'E2E Test Monthly Type b621abce'[39m,
+  [32m'E2E Test Monthly Type b7fb2ec8'[39m,
+  [32m'E2E Test Monthly Type b95d898c'[39m,
+  [32m'E2E Test Monthly Type b9839160'[39m,
+  [32m'E2E Test Monthly Type b9ea5265'[39m,
+  [32m'E2E Test Monthly Type c6b61cbd'[39m,
+  [32m'E2E Test Monthly Type c9e4a7c1'[39m,
+  [32m'E2E Test Monthly Type ca868780'[39m,
+  [32m'E2E Test Monthly Type cbaa9037'[39m,
+  [32m'E2E Test Monthly Type cce404d3'[39m,
+  [32m'E2E Test Monthly Type cd39f3eb'[39m,
+  ... 32 more items
+]
+
+[1A[2K[58/67] tests\e2e_upload_scope_filter.spec.js:206:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ C) Cambio de prefiltro limpia tipo incompatible
+[1A[2K[WebServer] INFO:     127.0.0.1:64407 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64407 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53860 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53860 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53860 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62888 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62888 - "POST /api/repository/types HTTP/1.1" 400 Bad Request
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62888 - "POST /api/repository/types HTTP/1.1" 400 Bad Request
+
+[1A[2Ktests\e2e_fix_date_and_nmonths.spec.js:80:5 ÔÇ║ Fix Date Parse and N Months Save ÔÇ║ BUG 4: Guardar "Cada N meses" debe persistir correctamente
+Initial period mode: n_months
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56090 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56090 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53211 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:54828 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[59/67] tests\e2e_upload_scope_filter.spec.js:290:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ D) Autodetecci├│n bloquea prefiltro
+[1A[2K[Browser Console log] [repo-upload] saveType - sending: {periodMode: n_months, nMonths: 12, validityPolicy: {
+  "mode": "monthly",
+  "basis": "name_date",
+  "ÔÇªalid_to": "period_end",
+    "grace_days": 0
+  }
+}}
+
+[1A[2Ktests\e2e_upload_aeat.spec.js:195:5 ÔÇ║ Upload AEAT E2E - Bugs Fix ÔÇ║ BUG 4: Guardar cat├ílogo "Cada N meses" sin error enum
+Ô£à BUG 4: Guardar "Cada N meses" funciona sin error enum
+
+[1A[2K[60/67] tests\e2e_validity_start.spec.js:15:5 ÔÇ║ Validity Start Date - Pruebas Reales ÔÇ║ A) AUT├ôNOMOS (validity_start_mode=issue_date)
+[1A[2K  20) tests\e2e_repository_settings.spec.js:24:5 ÔÇ║ Repository Settings Configuration ÔÇ║ A) API: PUT settings con ruta temporal crea directorio 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="page-ready"]') to be visible[22m
+
+
+       7 |         await page.goto('http://127.0.0.1:8000/repository');
+       8 |         // Esperar se├▒al DOM cuando la p├ígina est├í lista
+    >  9 |         await page.waitForSelector('[data-testid="page-ready"]', { timeout: 10000 });
+         |                    ^
+      10 |     });
+      11 |
+      12 |     test('A) API: GET settings devuelve repository_root_dir no vac├¡o', async ({ request }) => {
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_repository_settings.spec.js:9:20
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_repository_settings-Re-248e0-ta-temporal-crea-directorio\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_repository_settings-Re-248e0-ta-temporal-crea-directorio\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_repository_settings-Re-248e0-ta-temporal-crea-directorio\error-context.md
+
+
+
+[1A[2K(node:44740) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:44740) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[61/67] tests\e2e_repository_settings.spec.js:67:5 ÔÇ║ Repository Settings Configuration ÔÇ║ B) UI: Cambiar ruta desde Configuraci├│n
+[1A[2Ktests\e2e_upload_validity_persistence.spec.js:16:5 ÔÇ║ Upload Validity Start Date Persistence - Fix ÔÇ║ Validity start date persiste tras fallo de validaci├│n
+[test] Report saved to D:\Proyectos_Cursor\CometLocal\docs\evidence\upload_validity_persistence_fix\report.md
+
+[1A[2Ktests\e2e_upload_clear_all.spec.js:109:5 ÔÇ║ Upload Clear All - Fix Bug Dropzone Muerto ÔÇ║ Navigate away and back - anti-flakiness
+[test] Report saved to D:\Proyectos_Cursor\CometLocal\docs\evidence\upload_clear_all_fix\report.md
+
+[1A[2K  21) tests\e2e_upload_validity_persistence.spec.js:16:5 ÔÇ║ Upload Validity Start Date Persistence - Fix ÔÇ║ Validity start date persiste tras fallo de validaci├│n 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('[data-testid="upload-dropzone"]')
+    Expected: visible
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 15000ms[22m
+    [2m  - waiting for locator('[data-testid="upload-dropzone"]')[22m
+
+
+      21 |         // Esperar a que la secci├│n de upload se cargue
+      22 |         const dropzone = page.locator('[data-testid="upload-dropzone"]');
+    > 23 |         await expect(dropzone).toBeVisible({ timeout: 15000 });
+         |                                ^
+      24 |         
+      25 |         // Screenshot inicial
+      26 |         await page.screenshot({ path: path.join(evidenceDir, '01_initial_state.png'), fullPage: true });
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_upload_validity_persistence.spec.js:23:32
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_validity_persis-a9a35-te-tras-fallo-de-validaci├│n\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_validity_persis-a9a35-te-tras-fallo-de-validaci├│n\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_upload_validity_persis-a9a35-te-tras-fallo-de-validaci├│n\error-context.md
+
+
+[1A[2Ktests\e2e_upload_preview.spec.js:108:5 ÔÇ║ Upload Preview - Previsualizar Documentos ÔÇ║ Preview cierra con Esc
+[test] Report saved to D:\Proyectos_Cursor\CometLocal\docs\evidence\upload_preview\report.md
+
+[1A[2Ktests\e2e_upload_type_select.spec.js:6:5 ÔÇ║ Upload Type Select E2E ÔÇ║ should select document type and update overlay
+Failed to select by label, trying by index...
+
+[1A[2K  22) tests\e2e_upload_clear_all.spec.js:109:5 ÔÇ║ Upload Clear All - Fix Bug Dropzone Muerto ÔÇ║ Navigate away and back - anti-flakiness 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('[data-testid="upload-dropzone"]')
+    Expected: visible
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 15000ms[22m
+    [2m  - waiting for locator('[data-testid="upload-dropzone"]')[22m
+
+
+      113 |         
+      114 |         const dropzone = page.locator('[data-testid="upload-dropzone"]');
+    > 115 |         await expect(dropzone).toBeVisible({ timeout: 15000 });
+          |                                ^
+      116 |         
+      117 |         const pdfPath1 = path.join(__dirname, '..', 'data', 'test_nav_1.pdf');
+      118 |         const pdfContent = Buffer.from('%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\ntrailer\n<<\n/Root 1 0 R\n>>\n%%EOF');
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_upload_clear_all.spec.js:115:32
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_clear_all-Uploa-a206d-y-and-back---anti-flakiness\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_clear_all-Uploa-a206d-y-and-back---anti-flakiness\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_upload_clear_all-Uploa-a206d-y-and-back---anti-flakiness\error-context.md
+
+
+
+[1A[2K(node:49176) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K  23) tests\e2e_upload_preview.spec.js:108:5 ÔÇ║ Upload Preview - Previsualizar Documentos ÔÇ║ Preview cierra con Esc 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('[data-testid="upload-dropzone"]')
+    Expected: visible
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 15000ms[22m
+    [2m  - waiting for locator('[data-testid="upload-dropzone"]')[22m
+
+
+      111 |         
+      112 |         const dropzone = page.locator('[data-testid="upload-dropzone"]');
+    > 113 |         await expect(dropzone).toBeVisible({ timeout: 15000 });
+          |                                ^
+      114 |         
+      115 |         // Subir PDF
+      116 |         const pdfPath = path.join(__dirname, '..', 'data', 'test_preview_esc.pdf');
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_upload_preview.spec.js:113:32
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_preview-Upload--232c9-ntos-Preview-cierra-con-Esc\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_preview-Upload--232c9-ntos-Preview-cierra-con-Esc\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_upload_preview-Upload--232c9-ntos-Preview-cierra-con-Esc\error-context.md
+
+
+[1A[2K  24) tests\e2e_upload_type_select.spec.js:6:5 ÔÇ║ Upload Type Select E2E ÔÇ║ should select document type and update overlay 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.all: Target page, context or browser has been closed
+
+      75 |             // Si falla por label, intentar por value
+      76 |             console.log('Failed to select by label, trying by index...');
+    > 77 |             const options = await select.locator('option').all();
+         |                                                            ^
+      78 |             for (let i = 0; i < options.length; i++) {
+      79 |                 const text = await options[i].textContent();
+      80 |                 if (text && text.trim() === 'Recibo Aut├│nomos') {
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_upload_type_select.spec.js:77:60
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_type_select-Upl-34540-ent-type-and-update-overlay\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_type_select-Upl-34540-ent-type-and-update-overlay\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_upload_type_select-Upl-34540-ent-type-and-update-overlay\error-context.md
+
+
+[1A[2K  25) tests\e2e_edit_document.spec.js:52:3 ÔÇ║ Buscar documentos - Editar documento ÔÇ║ cambiar ÔÇ£Estado de tramitaci├│nÔÇØ (Borrador <-> Revisado) y guardar 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForResponse: Test timeout of 30000ms exceeded.
+
+      51 |
+      52 |   test('cambiar ÔÇ£Estado de tramitaci├│nÔÇØ (Borrador <-> Revisado) y guardar', async ({ page }) => {
+    > 53 |     const putPromise = page.waitForResponse((res) => {
+         |                             ^
+      54 |       return res.url().includes('/api/repository/docs/') && res.request().method() === 'PUT';
+      55 |     });
+      56 |
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_edit_document.spec.js:53:29
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_edit_document-Buscar-d-acfd4-rrador---Revisado-y-guardar\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_edit_document-Buscar-d-acfd4-rrador---Revisado-y-guardar\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_edit_document-Buscar-d-acfd4-rrador---Revisado-y-guardar\error-context.md
+
+
+
+[1A[2K(node:49176) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K  26) tests\e2e_upload_subjects.spec.js:6:5 ÔÇ║ Upload Subjects E2E ÔÇ║ should show company and worker selects, hide period field when date from name 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.selectOption: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('select.repo-upload-type-select').first()[22m
+    [2m    - locator resolved to <select required="" data-testid="type-autocomplete" data-upload-file-id="1767819920792.2612" class="form-input repo-upload-type-select" id="upload-file-type-select-1767819920792.2612">ÔÇª</select>[22m
+    [2m  - attempting select option action[22m
+    [2m    2 ├ù waiting for element to be visible and enabled[22m
+    [2m      - did not find some options[22m
+    [2m    - retrying select option action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 ├ù waiting for element to be visible and enabled[22m
+    [2m      - did not find some options[22m
+    [2m    - retrying select option action[22m
+    [2m      - waiting 100ms[22m
+    [2m    24 ├ù waiting for element to be visible and enabled[22m
+    [2m       - did not find some options[22m
+    [2m     - retrying select option action[22m
+    [2m       - waiting 500ms[22m
+
+
+      43 |         // 4. Seleccionar tipo "Recibo Aut├│nomos"
+      44 |         const select = page.locator('select.repo-upload-type-select').first();
+    > 45 |         await select.selectOption({ label: 'Recibo Aut├│nomos' });
+         |                      ^
+      46 |         await page.waitForTimeout(1000);
+      47 |
+      48 |         // 5. Captura despu├®s de seleccionar tipo
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_upload_subjects.spec.js:45:22
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_subjects-Upload-0aade-d-field-when-date-from-name\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_subjects-Upload-0aade-d-field-when-date-from-name\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_upload_subjects-Upload-0aade-d-field-when-date-from-name\error-context.md
+
+
+[1A[2K[62/67] tests\e2e_upload_clear_all.spec.js:170:5 ÔÇ║ Upload Clear All - Fix Bug Dropzone Muerto ÔÇ║ Drag & Drop debe seguir funcionando despu├®s de Clear All
+[1A[2Ktests\e2e_upload_validity_start_date.spec.js:16:5 ÔÇ║ Upload Validity Start Date - Fix ÔÇ║ Validity start date se env├¡a correctamente cuando validity_start_mode=manual
+[test] Report saved to D:\Proyectos_Cursor\CometLocal\docs\evidence\upload_validity_start_date_fix\report.md
+
+
+[1A[2K(node:63256) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+[1A[2K(node:63256) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K  27) tests\cae_job_control_e2e.spec.js:576:5 ÔÇ║ CAE Job Control E2E - Gesti├│n de jobs ÔÇ║ Test C: Descargar informe de job completado 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#pending-tab-missing')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for locator('#pending-tab-missing')[22m
+
+
+      581 |         // Click on "Pendientes" tab
+      582 |         const missingTab = page.locator('#pending-tab-missing');
+    > 583 |         await expect(missingTab).toBeVisible({ timeout: 10000 });
+          |                                  ^
+      584 |         await missingTab.click();
+      585 |         await page.waitForTimeout(1000);
+      586 |         
+        at D:\Proyectos_Cursor\CometLocal\tests\cae_job_control_e2e.spec.js:583:34
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_job_control_e2e-CAE-Jo-d43a5-r-informe-de-job-completado\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\cae_job_control_e2e-CAE-Jo-d43a5-r-informe-de-job-completado\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\cae_job_control_e2e-CAE-Jo-d43a5-r-informe-de-job-completado\error-context.md
+
+
+[1A[2K[63/67] tests\e2e_edit_document.spec.js:72:3 ÔÇ║ Buscar documentos - Editar documento ÔÇ║ cambiar ÔÇ£Fecha inicio de vigenciaÔÇØ y guardar; computed_validity coherente
+[1A[2K  28) tests\e2e_upload_validity_start_date.spec.js:16:5 ÔÇ║ Upload Validity Start Date - Fix ÔÇ║ Validity start date se env├¡a correctamente cuando validity_start_mode=manual 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('[data-testid="upload-dropzone"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 15000ms[22m
+    [2m  - waiting for locator('[data-testid="upload-dropzone"]')[22m
+
+
+      21 |         // Esperar a que la secci├│n de upload se cargue
+      22 |         const dropzone = page.locator('[data-testid="upload-dropzone"]');
+    > 23 |         await expect(dropzone).toBeVisible({ timeout: 15000 });
+         |                                ^
+      24 |         
+      25 |         // Screenshot inicial
+      26 |         await page.screenshot({ path: path.join(evidenceDir, '01_initial_state.png'), fullPage: true });
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_upload_validity_start_date.spec.js:23:32
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_validity_start_-0e1ad--validity-start-mode-manual\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_validity_start_-0e1ad--validity-start-mode-manual\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_upload_validity_start_-0e1ad--validity-start-mode-manual\error-context.md
+
+
+[1A[2K[WebServer] INFO:     127.0.0.1:54828 - "GET /api/repository/docs/pending?months_ahead=3&max_months_back=24 HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:49436 - "PUT /api/repository/types/T5612_NO_DEUDA_HACIENDA HTTP/1.1" 200 OK
+
+[1A[2Ktests\e2e_fix_date_and_nmonths.spec.js:80:5 ÔÇ║ Fix Date Parse and N Months Save ÔÇ║ BUG 4: Guardar "Cada N meses" debe persistir correctamente
+[Browser Console log] [repo-upload] saveType - response status: 200
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64073 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63769 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53976 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[Browser Console log] [repo-upload] saveType - saved type: {type_id: T5612_NO_DEUDA_HACIENDA, validity_policy: Object}
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59494 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:49436 - "GET /api/repository/types?include_inactive=true&page=1&page_size=20&sort=name&query=deuda HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53976 - "GET /api/repository/types?include_inactive=true&page=1&page_size=20&sort=name HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59494 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64073 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:63769 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:58410 - "GET /api/repository/docs HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52252 - "GET /api/repository/rules HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64439 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52797 - "GET /api/config/platforms HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55057 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61726 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64439 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55057 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64439 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55057 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53620 - "POST /api/repository/types HTTP/1.1" 400 Bad Request
+
+[1A[2K  29) tests\e2e_fix_date_and_nmonths.spec.js:80:5 ÔÇ║ Fix Date Parse and N Months Save ÔÇ║ BUG 4: Guardar "Cada N meses" debe persistir correctamente 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForTimeout: Test timeout of 30000ms exceeded.
+
+      158 |         // 11. Recargar la p├ígina y verificar que persiste
+      159 |         await page.reload();
+    > 160 |         await page.waitForTimeout(2000);
+          |                    ^
+      161 |         
+      162 |         // Buscar de nuevo
+      163 |         if (await searchInput.count() > 0) {
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_fix_date_and_nmonths.spec.js:160:20
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_fix_date_and_nmonths-F-1c391-ebe-persistir-correctamente\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_fix_date_and_nmonths-F-1c391-ebe-persistir-correctamente\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_fix_date_and_nmonths-F-1c391-ebe-persistir-correctamente\error-context.md
+
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65059 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65059 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65507 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65507 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65059 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:65059 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55610 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55610 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:54233 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:54233 - "GET /api/repository/types?active=true HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55610 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55610 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55610 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55610 - "GET /api/repository/docs HTTP/1.1" 200 OK
+
+[1A[2Ktests\e2e_validity_start.spec.js:15:5 ÔÇ║ Validity Start Date - Pruebas Reales ÔÇ║ A) AUT├ôNOMOS (validity_start_mode=issue_date)
+Aut├│nomos - issue_date capturada: 
+
+[1A[2KTest Aut├│nomos completado - validity_start_mode=issue_date funciona correctamente
+
+[1A[2K[64/67] tests\e2e_validity_start.spec.js:134:5 ÔÇ║ Validity Start Date - Pruebas Reales ÔÇ║ B) AEAT (validity_start_mode=manual)
+[1A[2K[WebServer] INFO:     127.0.0.1:63530 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:54536 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:54536 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64156 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64156 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:64156 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K  30) tests\e2e_repository_settings.spec.js:67:5 ÔÇ║ Repository Settings Configuration ÔÇ║ B) UI: Cambiar ruta desde Configuraci├│n 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="page-ready"]') to be visible[22m
+
+
+       7 |         await page.goto('http://127.0.0.1:8000/repository');
+       8 |         // Esperar se├▒al DOM cuando la p├ígina est├í lista
+    >  9 |         await page.waitForSelector('[data-testid="page-ready"]', { timeout: 10000 });
+         |                    ^
+      10 |     });
+      11 |
+      12 |     test('A) API: GET settings devuelve repository_root_dir no vac├¡o', async ({ request }) => {
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_repository_settings.spec.js:9:20
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_repository_settings-Re-c465f-ar-ruta-desde-Configuraci├│n\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_repository_settings-Re-c465f-ar-ruta-desde-Configuraci├│n\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_repository_settings-Re-c465f-ar-ruta-desde-Configuraci├│n\error-context.md
+
+
+
+[1A[2K(node:63852) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:63852) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[65/67] tests\e2e_repository_settings.spec.js:111:5 ÔÇ║ Repository Settings Configuration ÔÇ║ C) Upload usando ruta cambiada
+[1A[2Ktests\e2e_validity_start.spec.js:134:5 ÔÇ║ Validity Start Date - Pruebas Reales ÔÇ║ B) AEAT (validity_start_mode=manual)
+AEAT - Tipo seleccionado por ID directo: T5612_NO_DEUDA_HACIENDA
+
+[1A[2Ktests\e2e_upload_scope_filter.spec.js:290:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ D) Autodetecci├│n bloquea prefiltro
+[test] Report saved to D:\Proyectos_Cursor\CometLocal\docs\evidence\upload_scope_filter\report.md
+
+[1A[2K  31) tests\e2e_upload_scope_filter.spec.js:290:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ D) Autodetecci├│n bloquea prefiltro 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForSelector: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="detected-badge"]') to be visible[22m
+
+
+      333 |         
+      334 |         // Esperar a que aparezca el file card y el badge "Detectado"
+    > 335 |         await page.waitForSelector('[data-testid="detected-badge"]', { timeout: 10000 });
+          |                    ^
+      336 |         
+      337 |         // Screenshot despu├®s de subir (debe mostrar tipo detectado)
+      338 |         await page.screenshot({ path: path.join(evidenceDir, '08_after_autodetect_upload.png'), fullPage: true });
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_upload_scope_filter.spec.js:335:20
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_scope_filter-Pr-f6b7c-detecci├│n-bloquea-prefiltro\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_scope_filter-Pr-f6b7c-detecci├│n-bloquea-prefiltro\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_upload_scope_filter-Pr-f6b7c-detecci├│n-bloquea-prefiltro\error-context.md
+
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56382 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56382 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+
+[1A[2K(node:50540) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2Ktests\e2e_validity_start.spec.js:134:5 ÔÇ║ Validity Start Date - Pruebas Reales ÔÇ║ B) AEAT (validity_start_mode=manual)
+AEAT - Inputs de fecha encontrados: [33m1[39m
+
+[1A[2KAEAT - issue_date capturada: 2025-10-16
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62245 - "GET /api/repository/docs HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:61684 - "GET /api/repository/rules HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:55435 - "GET /api/config/platforms HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:56382 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+
+[1A[2K(node:50540) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[66/67] tests\e2e_upload_scope_filter.spec.js:477:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ E) Mes/A├▒o oculto cuando no aplica (period_kind NONE)
+[1A[2KErrores despu├®s de rellenar validity_start_date: [33m0[39m
+
+[1A[2KTest AEAT completado - validity_start_mode=manual funciona correctamente
+
+[1A[2Ktests\e2e_upload_clear_all.spec.js:170:5 ÔÇ║ Upload Clear All - Fix Bug Dropzone Muerto ÔÇ║ Drag & Drop debe seguir funcionando despu├®s de Clear All
+[test] Report saved to D:\Proyectos_Cursor\CometLocal\docs\evidence\upload_clear_all_fix\report.md
+
+[1A[2K  32) tests\e2e_upload_clear_all.spec.js:170:5 ÔÇ║ Upload Clear All - Fix Bug Dropzone Muerto ÔÇ║ Drag & Drop debe seguir funcionando despu├®s de Clear All 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('[data-testid="upload-dropzone"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 15000ms[22m
+    [2m  - waiting for locator('[data-testid="upload-dropzone"]')[22m
+
+
+      173 |         
+      174 |         const dropzone = page.locator('[data-testid="upload-dropzone"]');
+    > 175 |         await expect(dropzone).toBeVisible({ timeout: 15000 });
+          |                                ^
+      176 |         
+      177 |         // Subir un PDF
+      178 |         const pdfPath = path.join(__dirname, '..', 'data', 'test_drag_drop.pdf');
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_upload_clear_all.spec.js:175:32
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_clear_all-Uploa-abde3-onando-despu├®s-de-Clear-All\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_clear_all-Uploa-abde3-onando-despu├®s-de-Clear-All\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_upload_clear_all-Uploa-abde3-onando-despu├®s-de-Clear-All\error-context.md
+
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59039 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59039 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52855 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52855 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59039 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:59039 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:53653 - "POST /api/repository/types HTTP/1.1" 400 Bad Request
+
+[1A[2K  33) tests\e2e_repository_settings.spec.js:111:5 ÔÇ║ Repository Settings Configuration ÔÇ║ C) Upload usando ruta cambiada 
+
+    TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="page-ready"]') to be visible[22m
+
+
+       7 |         await page.goto('http://127.0.0.1:8000/repository');
+       8 |         // Esperar se├▒al DOM cuando la p├ígina est├í lista
+    >  9 |         await page.waitForSelector('[data-testid="page-ready"]', { timeout: 10000 });
+         |                    ^
+      10 |     });
+      11 |
+      12 |     test('A) API: GET settings devuelve repository_root_dir no vac├¡o', async ({ request }) => {
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_repository_settings.spec.js:9:20
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_repository_settings-Re-ec480-Upload-usando-ruta-cambiada\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_repository_settings-Re-ec480-Upload-usando-ruta-cambiada\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_repository_settings-Re-ec480-Upload-usando-ruta-cambiada\error-context.md
+
+
+[1A[2K  34) tests\e2e_edit_document.spec.js:72:3 ÔÇ║ Buscar documentos - Editar documento ÔÇ║ cambiar ÔÇ£Fecha inicio de vigenciaÔÇØ y guardar; computed_validity coherente 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForResponse: Test timeout of 30000ms exceeded.
+
+      71 |
+      72 |   test('cambiar ÔÇ£Fecha inicio de vigenciaÔÇØ y guardar; computed_validity coherente', async ({ page }) => {
+    > 73 |     const putPromise = page.waitForResponse((res) => {
+         |                             ^
+      74 |       return res.url().includes('/api/repository/docs/') && res.request().method() === 'PUT';
+      75 |     });
+      76 |
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_edit_document.spec.js:73:29
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_edit_document-Buscar-d-67416-computed-validity-coherente\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_edit_document-Buscar-d-67416-computed-validity-coherente\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_edit_document-Buscar-d-67416-computed-validity-coherente\error-context.md
+
+
+[1A[2Ktests\e2e_upload_scope_filter.spec.js:477:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ E) Mes/A├▒o oculto cuando no aplica (period_kind NONE)
+[test] Report saved to D:\Proyectos_Cursor\CometLocal\docs\evidence\upload_scope_filter\report.md
+
+[1A[2K  35) tests\e2e_upload_scope_filter.spec.js:477:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ E) Mes/A├▒o oculto cuando no aplica (period_kind NONE) 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.selectOption: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="type-autocomplete"]').first()[22m
+    [2m    - locator resolved to <select required="" data-testid="type-autocomplete" data-upload-file-id="1767819961493.4614" class="form-input repo-upload-type-select" id="upload-file-type-select-1767819961493.4614">ÔÇª</select>[22m
+    [2m  - attempting select option action[22m
+    [2m    2 ├ù waiting for element to be visible and enabled[22m
+    [2m      - did not find some options[22m
+    [2m    - retrying select option action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 ├ù waiting for element to be visible and enabled[22m
+    [2m      - did not find some options[22m
+    [2m    - retrying select option action[22m
+    [2m      - waiting 100ms[22m
+    [2m    55 ├ù waiting for element to be visible and enabled[22m
+    [2m       - did not find some options[22m
+    [2m     - retrying select option action[22m
+    [2m       - waiting 500ms[22m
+
+
+      520 |         const typeSelect = page.locator('[data-testid="type-autocomplete"]').first();
+      521 |         await expect(typeSelect).toBeVisible();
+    > 522 |         await typeSelect.selectOption({ value: 'TEST_RC_CERTIFICATE' });
+          |                          ^
+      523 |         
+      524 |         // Esperar a que se actualice el UI
+      525 |         await page.waitForTimeout(500);
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_upload_scope_filter.spec.js:522:26
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_scope_filter-Pr-15af3-no-aplica-period-kind-NONE-\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_scope_filter-Pr-15af3-no-aplica-period-kind-NONE-\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_upload_scope_filter-Pr-15af3-no-aplica-period-kind-NONE-\error-context.md
+
+
+[1A[2K(node:32372) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:32372) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[67/67] tests\e2e_upload_scope_filter.spec.js:535:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ F) Parse fecha desde nombre (formato espa├▒ol)
+[1A[2K[WebServer] INFO:     127.0.0.1:51826 - "GET /repository HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:51826 - "GET /api/repository/types HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:52897 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:51826 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+[1A[2K[WebServer] INFO:     127.0.0.1:51826 - "GET /api/config/people HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:51826 - "GET /api/repository/subjects HTTP/1.1" 200 OK
+
+[1A[2K[WebServer] INFO:     127.0.0.1:62918 - "POST /api/repository/types HTTP/1.1" 400 Bad Request
+
+[1A[2Ktests\e2e_upload_scope_filter.spec.js:535:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ F) Parse fecha desde nombre (formato espa├▒ol)
+[test] Report saved to D:\Proyectos_Cursor\CometLocal\docs\evidence\upload_scope_filter\report.md
+
+[1A[2K  36) tests\e2e_upload_scope_filter.spec.js:535:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ F) Parse fecha desde nombre (formato espa├▒ol) 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.selectOption: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="type-autocomplete"]').first()[22m
+    [2m    - locator resolved to <select required="" data-testid="type-autocomplete" data-upload-file-id="1767819997129.9365" class="form-input repo-upload-type-select" id="upload-file-type-select-1767819997129.9365">ÔÇª</select>[22m
+    [2m  - attempting select option action[22m
+    [2m    2 ├ù waiting for element to be visible and enabled[22m
+    [2m      - did not find some options[22m
+    [2m    - retrying select option action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 ├ù waiting for element to be visible and enabled[22m
+    [2m      - did not find some options[22m
+    [2m    - retrying select option action[22m
+    [2m      - waiting 100ms[22m
+    [2m    55 ├ù waiting for element to be visible and enabled[22m
+    [2m       - did not find some options[22m
+    [2m     - retrying select option action[22m
+    [2m       - waiting 500ms[22m
+
+
+      577 |         const typeSelect = page.locator('[data-testid="type-autocomplete"]').first();
+      578 |         await expect(typeSelect).toBeVisible();
+    > 579 |         await typeSelect.selectOption({ value: 'TEST_DATE_REQUIRED' });
+          |                          ^
+      580 |         
+      581 |         // Esperar a que se procese la fecha
+      582 |         await page.waitForTimeout(1000);
+        at D:\Proyectos_Cursor\CometLocal\tests\e2e_upload_scope_filter.spec.js:579:26
+
+    attachment #1: screenshot (image/png) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_scope_filter-Pr-29667-sde-nombre-formato-espa├▒ol-\test-failed-1.png
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    attachment #2: video (video/webm) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    test-results\e2e_upload_scope_filter-Pr-29667-sde-nombre-formato-espa├▒ol-\video.webm
+    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+    Error Context: test-results\e2e_upload_scope_filter-Pr-29667-sde-nombre-formato-espa├▒ol-\error-context.md
+
+
+[1A[2K  36 failed
+    tests\cae_job_control_e2e.spec.js:41:5 ÔÇ║ CAE Job Control E2E - Gesti├│n de jobs ÔÇ║ Test A: Cancelar job mientras est├í RUNNING 
+    tests\cae_job_control_e2e.spec.js:193:5 ÔÇ║ CAE Job Control E2E - Gesti├│n de jobs ÔÇ║ Test B: Reintentar job fallido 
+    tests\cae_job_control_e2e.spec.js:576:5 ÔÇ║ CAE Job Control E2E - Gesti├│n de jobs ÔÇ║ Test C: Descargar informe de job completado 
+    tests\cae_job_queue_e2e.spec.js:43:5 ÔÇ║ CAE Job Queue E2E - Cola de ejecuciones con progreso ÔÇ║ Test 1: Encolar ejecuci├│n y verificar progreso hasta SUCCESS 
+    tests\cae_plan_e2e.spec.js:51:5 ÔÇ║ CAE Plan E2E - Preparar env├¡o CAE (filtrado) ÔÇ║ Test 1: Abre modal de CAE plan desde tab Pendientes 
+    tests\cae_selection_e2e.spec.js:41:5 ÔÇ║ CAE Selection E2E - Selecci├│n m├║ltiple y asignaci├│n de PDFs ÔÇ║ Test 1: Seleccionar 2 pendientes, asignar documentos y generar plan READY 
+    tests\e2e_calendar_filters_and_periods.spec.js:21:5 ÔÇ║ Calendario - Filtros y Per├¡odos ÔÇ║ Test 1: Pills "Aplica a" cambian estado visual y filtran 
+    tests\e2e_calendar_filters.spec.js:29:5 ÔÇ║ Calendario - Filtros ÔÇ║ TEST 1: Scope select funciona ÔöÇ
+    tests\e2e_calendar_pending_smoke.spec.js:18:5 ÔÇ║ Calendar Pending Documents - Smoke Tests ÔÇ║ Test 1: Buscar documentos muestra estados reales (no "Desconocido") 
+    tests\e2e_calendar_periodicity.spec.js:22:5 ÔÇ║ Calendario - Periodicidad y Per├¡odos Faltantes ÔÇ║ Smoke: calendario carga y existe input max months back 
+    tests\e2e_edit_document_fields.spec.js:18:5 ÔÇ║ Editar Documento - Campos Editables ÔÇ║ Test 1: Modal muestra campos editables correctos 
+    tests\e2e_edit_document.spec.js:18:3 ÔÇ║ Buscar documentos - Editar documento ÔÇ║ editar documento y guardar OK (200), modal cierra y persiste 
+    tests\e2e_edit_document.spec.js:52:3 ÔÇ║ Buscar documentos - Editar documento ÔÇ║ cambiar ÔÇ£Estado de tramitaci├│nÔÇØ (Borrador <-> Revisado) y guardar 
+    tests\e2e_edit_document.spec.js:72:3 ÔÇ║ Buscar documentos - Editar documento ÔÇ║ cambiar ÔÇ£Fecha inicio de vigenciaÔÇØ y guardar; computed_validity coherente 
+    tests\e2e_fix_date_and_nmonths.spec.js:6:5 ÔÇ║ Fix Date Parse and N Months Save ÔÇ║ BUG 2: Fecha debe extraerse de AEAT-16-oct-2025.pdf 
+    tests\e2e_fix_date_and_nmonths.spec.js:80:5 ÔÇ║ Fix Date Parse and N Months Save ÔÇ║ BUG 4: Guardar "Cada N meses" debe persistir correctamente 
+    tests\e2e_fix_pdf_viewing.spec.js:63:5 ÔÇ║ Fix PDF Viewing and Document Actions ÔÇ║ Ver PDF funciona correctamente 
+    tests\e2e_repository_settings.spec.js:12:5 ÔÇ║ Repository Settings Configuration ÔÇ║ A) API: GET settings devuelve repository_root_dir no vac├¡o 
+    tests\e2e_repository_settings.spec.js:24:5 ÔÇ║ Repository Settings Configuration ÔÇ║ A) API: PUT settings con ruta temporal crea directorio 
+    tests\e2e_repository_settings.spec.js:67:5 ÔÇ║ Repository Settings Configuration ÔÇ║ B) UI: Cambiar ruta desde Configuraci├│n 
+    tests\e2e_repository_settings.spec.js:111:5 ÔÇ║ Repository Settings Configuration ÔÇ║ C) Upload usando ruta cambiada 
+    tests\e2e_resubmit_pdf.spec.js:8:3 ÔÇ║ Subir documentos - Resubir PDF ÔÇ║ resubir desde Buscar documentos y guardar OK (200) 
+    tests\e2e_search_docs_actions.spec.js:18:5 ÔÇ║ Buscar Documentos - Acciones ÔÇ║ Ver PDF de un documento 
+    tests\e2e_upload_clear_all.spec.js:16:5 ÔÇ║ Upload Clear All - Fix Bug Dropzone Muerto ÔÇ║ Clear All + Upload debe funcionar correctamente 
+    tests\e2e_upload_clear_all.spec.js:109:5 ÔÇ║ Upload Clear All - Fix Bug Dropzone Muerto ÔÇ║ Navigate away and back - anti-flakiness 
+    tests\e2e_upload_clear_all.spec.js:170:5 ÔÇ║ Upload Clear All - Fix Bug Dropzone Muerto ÔÇ║ Drag & Drop debe seguir funcionando despu├®s de Clear All 
+    tests\e2e_upload_preview.spec.js:16:5 ÔÇ║ Upload Preview - Previsualizar Documentos ÔÇ║ Preview de archivo local antes de guardar 
+    tests\e2e_upload_preview.spec.js:108:5 ÔÇ║ Upload Preview - Previsualizar Documentos ÔÇ║ Preview cierra con Esc 
+    tests\e2e_upload_scope_filter.spec.js:71:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ A) Prefiltro Empresa - Solo muestra tipos company 
+    tests\e2e_upload_scope_filter.spec.js:290:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ D) Autodetecci├│n bloquea prefiltro 
+    tests\e2e_upload_scope_filter.spec.js:477:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ E) Mes/A├▒o oculto cuando no aplica (period_kind NONE) 
+    tests\e2e_upload_scope_filter.spec.js:535:5 ÔÇ║ Prefiltro por Scope - Pruebas Reales ÔÇ║ F) Parse fecha desde nombre (formato espa├▒ol) 
+    tests\e2e_upload_subjects.spec.js:6:5 ÔÇ║ Upload Subjects E2E ÔÇ║ should show company and worker selects, hide period field when date from name 
+    tests\e2e_upload_type_select.spec.js:6:5 ÔÇ║ Upload Type Select E2E ÔÇ║ should select document type and update overlay 
+    tests\e2e_upload_validity_persistence.spec.js:16:5 ÔÇ║ Upload Validity Start Date Persistence - Fix ÔÇ║ Validity start date persiste tras fallo de validaci├│n 
+    tests\e2e_upload_validity_start_date.spec.js:16:5 ÔÇ║ Upload Validity Start Date - Fix ÔÇ║ Validity start date se env├¡a correctamente cuando validity_start_mode=manual 
+  24 did not run
+  7 passed (2.9m)

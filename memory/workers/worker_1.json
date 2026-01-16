@@ -1,11 +1,19 @@
 {
   "worker_id": "worker_1",
   "full_name": "Juan Pérez",
-  "company_name": "Empresa Test",
+  "company_name": "EmpresaTest",
   "successful_docs": {
-    "dni": 2
+    "dni": 2,
+    "reconocimiento_medico": 9
   },
   "failed_docs": {},
-  "last_seen": "2025-12-05T14:50:52.409022",
-  "notes": null
+  "last_seen": "2026-01-14T23:15:49.833217",
+  "notes": null,
+  "last_outcome_score": null,
+  "best_outcome_score": null,
+  "worst_outcome_score": null,
+  "outcome_run_count": 0,
+  "last_outcome_issues": null,
+  "last_outcome_timestamp": null,
+  "outcome_history": null
 }

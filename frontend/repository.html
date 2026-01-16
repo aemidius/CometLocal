@@ -259,6 +259,8 @@
         <div class="nav-tabs">
             <button class="nav-tab active" data-tab="types">Tipos de Documento</button>
             <button class="nav-tab" data-tab="docs">Documentos</button>
+            <button class="nav-tab" data-tab="rules">Reglas de Envío</button>
+            <button class="nav-tab" data-tab="history">Historial</button>
         </div>
 
         <!-- Tab: Tipos -->
@@ -287,6 +289,114 @@
                     <div class="empty-state">Cargando documentos...</div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Tab: Reglas de Envío -->
+    <div id="tab-rules" class="tab-content">
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2>Reglas de Envío</h2>
+                <button class="btn btn-primary" onclick="openCreateRuleModal()">Crear Regla</button>
+            </div>
+            <div id="rules-alert"></div>
+            <div id="rules-table-container"></div>
+        </div>
+    </div>
+
+    <!-- Modal: Crear/Editar Regla -->
+    <div id="rule-modal" class="modal">
+        <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h3 id="rule-modal-title">Crear Regla de Envío</h3>
+                <button class="close-btn" onclick="closeRuleModal()">&times;</button>
+            </div>
+            <form id="rule-form">
+                <input type="hidden" id="rule-edit-id">
+                <div class="form-group">
+                    <label for="rule-id">ID de la Regla *</label>
+                    <input type="text" id="rule-id" required pattern="[A-Z0-9_]+" placeholder="RULE_EGESTIONA_KERN_T104">
+                    <small style="color: #9ca3af;">Solo mayúsculas, números y guiones bajos</small>
+                </div>
+                <div class="form-group">
+                    <label for="rule-platform-key">Plataforma *</label>
+                    <select id="rule-platform-key" required>
+                        <option value="">Seleccionar...</option>
+                        <option value="egestiona">eGestiona</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="rule-coord-label">Coordinación (opcional)</label>
+                    <input type="text" id="rule-coord-label" placeholder="Kern">
+                    <small style="color: #9ca3af;">Etiqueta de coordinación/tenant (opcional)</small>
+                </div>
+                <div class="form-group">
+                    <label for="rule-document-type-id">Tipo de Documento *</label>
+                    <select id="rule-document-type-id" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="rule-pending-text-contains">Tokens de Texto Pendiente *</label>
+                    <textarea id="rule-pending-text-contains" rows="3" required placeholder="T104.0&#10;recibo bancario&#10;cuota autónomos"></textarea>
+                    <small style="color: #9ca3af;">Una línea por token. Todos deben aparecer en el texto del pendiente.</small>
+                </div>
+                <div class="form-group">
+                    <label for="rule-empresa-contains">Tokens de Empresa (opcional)</label>
+                    <textarea id="rule-empresa-contains" rows="2" placeholder="TEDELAB"></textarea>
+                    <small style="color: #9ca3af;">Una línea por token. Opcional, para filtrar por empresa.</small>
+                </div>
+                <div class="form-group">
+                    <label style="font-weight: bold; margin-bottom: 10px; display: block;">Selectores de Formulario</label>
+                    <div style="padding: 15px; background: #1f2937; border-radius: 6px; border: 1px solid #374151;">
+                        <div class="form-group">
+                            <label for="rule-upload-selector">Selector de Upload</label>
+                            <input type="text" id="rule-upload-selector" value="input[type='file']" placeholder="input[type='file']">
+                        </div>
+                        <div class="form-group">
+                            <label for="rule-date-inicio-selector">Selector Fecha Inicio</label>
+                            <input type="text" id="rule-date-inicio-selector" placeholder="#Fecha_Inicio_Vigencia">
+                        </div>
+                        <div class="form-group">
+                            <label for="rule-date-inicio-format">Formato Fecha Inicio</label>
+                            <input type="text" id="rule-date-inicio-format" value="DD/MM/YYYY" placeholder="DD/MM/YYYY">
+                        </div>
+                        <div class="form-group">
+                            <label for="rule-date-fin-selector">Selector Fecha Fin (opcional)</label>
+                            <input type="text" id="rule-date-fin-selector" placeholder="#Fecha_Fin_Vigencia">
+                        </div>
+                        <div class="form-group">
+                            <label for="rule-date-fin-format">Formato Fecha Fin</label>
+                            <input type="text" id="rule-date-fin-format" value="DD/MM/YYYY" placeholder="DD/MM/YYYY">
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="rule-date-fin-optional"> Fecha Fin es opcional
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label for="rule-submit-selector">Selector Botón Submit (opcional)</label>
+                            <input type="text" id="rule-submit-selector" placeholder="#btnSubmit">
+                        </div>
+                        <div class="form-group">
+                            <label for="rule-submit-by-text">Botón Submit por Texto (opcional)</label>
+                            <input type="text" id="rule-submit-by-text" placeholder="Enviar">
+                        </div>
+                        <div class="form-group">
+                            <label for="rule-confirmation-text">Texto de Confirmación (opcional)</label>
+                            <textarea id="rule-confirmation-text" rows="2" placeholder="Documento enviado&#10;Éxito"></textarea>
+                            <small style="color: #9ca3af;">Una línea por texto. Todos deben aparecer en la confirmación.</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="rule-enabled" checked> Habilitada
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeRuleModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -472,6 +582,44 @@
         </div>
     </div>
 
+    <!-- Tab: Historial -->
+    <div id="tab-history" class="tab-content">
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2>Historial de Envíos</h2>
+                <div style="display: flex; gap: 10px;">
+                    <select id="history-filter-platform" style="padding: 8px; background: #111827; border: 1px solid #374151; border-radius: 6px; color: #e5e7eb;">
+                        <option value="">Todas las plataformas</option>
+                        <option value="egestiona">eGestiona</option>
+                    </select>
+                    <select id="history-filter-action" style="padding: 8px; background: #111827; border: 1px solid #374151; border-radius: 6px; color: #e5e7eb;">
+                        <option value="">Todas las acciones</option>
+                        <option value="planned">Planificado</option>
+                        <option value="submitted">Enviado</option>
+                        <option value="skipped">Omitido</option>
+                        <option value="failed">Fallido</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="loadHistory()">Actualizar</button>
+                </div>
+            </div>
+            <div id="history-alert"></div>
+            <div id="history-table-container">
+                <div class="empty-state">Cargando historial...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Ver Registro -->
+    <div id="history-record-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; overflow-y: auto;">
+        <div style="max-width: 800px; margin: 50px auto; background: #1f2937; border-radius: 8px; padding: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2>Detalle del Registro</h2>
+                <button class="btn btn-secondary" onclick="closeHistoryRecordModal()">Cerrar</button>
+            </div>
+            <pre id="history-record-json" style="background: #111827; padding: 16px; border-radius: 6px; overflow-x: auto; color: #e5e7eb; font-size: 0.9rem;"></pre>
+        </div>
+    </div>
+
     <script>
         const BACKEND_URL = 'http://127.0.0.1:8000';
 
@@ -488,18 +636,61 @@
                     loadTypes();
                 } else if (tabName === 'docs') {
                     loadDocuments();
+                } else if (tabName === 'rules') {
+                    loadRules();
+                } else if (tabName === 'history') {
+                    loadHistory();
                 }
             });
         });
 
         // Load types
         async function loadTypes() {
+            const container = document.getElementById('types-table-container');
+            container.innerHTML = '<div class="empty-state">Cargando tipos...</div>';
+            
             try {
-                const res = await fetch(`${BACKEND_URL}/api/repository/types`);
+                // Timeout de 15 segundos
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000);
+                
+                const res = await fetch(`${BACKEND_URL}/api/repository/types`, {
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!res.ok) {
+                    let errorDetail = `HTTP ${res.status}: `;
+                    try {
+                        const errorJson = await res.json();
+                        errorDetail += errorJson.detail || errorJson.message || JSON.stringify(errorJson);
+                    } catch (jsonError) {
+                        try {
+                            errorDetail += await res.text() || 'No se pudo leer el error';
+                        } catch (textError) {
+                            errorDetail += 'Error desconocido';
+                        }
+                    }
+                    throw new Error(errorDetail);
+                }
+                
                 const types = await res.json();
+                
+                // Verificar que es un array
+                if (!Array.isArray(types)) {
+                    console.error('Expected array but got:', typeof types, types);
+                    throw new Error('El servidor devolvió un formato inesperado (se esperaba un array)');
+                }
+                
                 renderTypesTable(types);
             } catch (error) {
-                showAlert('types-alert', 'Error al cargar tipos: ' + error.message, 'error');
+                console.error('Error loading types:', error);
+                const errorMsg = error.name === 'AbortError' 
+                    ? 'Timeout: El servidor no respondió en 15 segundos. Verifica que el backend esté ejecutándose.'
+                    : `Error al cargar tipos: ${error.message}`;
+                showAlert('types-alert', errorMsg, 'error');
+                container.innerHTML = '<div class="empty-state">Error al cargar tipos. Revisa la consola para más detalles.</div>';
             }
         }
 
@@ -1150,6 +1341,472 @@
             }
         }
 
+        // ========== REGLAS DE ENVÍO ==========
+        let allTypesForRules = [];
+
+        async function loadRules() {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/rules`);
+                const rules = await res.json();
+                renderRulesTable(rules);
+            } catch (error) {
+                showAlert('rules-alert', 'Error al cargar reglas: ' + error.message, 'error');
+            }
+        }
+
+        async function loadTypesForRules() {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/types`);
+                allTypesForRules = await res.json();
+                const select = document.getElementById('rule-document-type-id');
+                select.innerHTML = '<option value="">Seleccionar...</option>';
+                allTypesForRules.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type.type_id;
+                    option.textContent = `${type.type_id} - ${type.name}`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading types for rules:', error);
+            }
+        }
+
+        function renderRulesTable(rules) {
+            const container = document.getElementById('rules-table-container');
+            if (rules.length === 0) {
+                container.innerHTML = '<div class="empty-state">No hay reglas de envío. Crea la primera.</div>';
+                return;
+            }
+
+            let html = '<table><thead><tr><th>ID</th><th>Plataforma</th><th>Coord</th><th>Tipo</th><th>Tokens</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>';
+            rules.forEach(rule => {
+                const tokens = rule.match.pending_text_contains.join(', ');
+                html += `
+                    <tr>
+                        <td><code>${rule.rule_id}</code></td>
+                        <td>${rule.platform_key}</td>
+                        <td>${rule.coord_label || '-'}</td>
+                        <td><code>${rule.document_type_id}</code></td>
+                        <td><small>${tokens || '-'}</small></td>
+                        <td><span class="badge ${rule.enabled ? 'badge-active' : 'badge-inactive'}">${rule.enabled ? 'Habilitada' : 'Deshabilitada'}</span></td>
+                        <td class="actions-cell">
+                            <button class="btn btn-secondary btn-small" onclick="editRule('${rule.rule_id}')">Editar</button>
+                            <button class="btn btn-secondary btn-small" onclick="duplicateRule('${rule.rule_id}')">Duplicar</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteRule('${rule.rule_id}')">Borrar</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function openCreateRuleModal() {
+            loadTypesForRules();
+            document.getElementById('rule-modal-title').textContent = 'Crear Regla de Envío';
+            document.getElementById('rule-form').reset();
+            document.getElementById('rule-edit-id').value = '';
+            document.getElementById('rule-id').disabled = false;
+            document.getElementById('rule-enabled').checked = true;
+            document.getElementById('rule-upload-selector').value = "input[type='file']";
+            document.getElementById('rule-date-inicio-format').value = "DD/MM/YYYY";
+            document.getElementById('rule-date-fin-format').value = "DD/MM/YYYY";
+            document.getElementById('rule-date-fin-optional').checked = false;
+            document.getElementById('rule-modal').classList.add('active');
+        }
+
+        function closeRuleModal() {
+            document.getElementById('rule-modal').classList.remove('active');
+        }
+
+        async function editRule(ruleId) {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/rules/${ruleId}`);
+                const rule = await res.json();
+                
+                await loadTypesForRules();
+                
+                document.getElementById('rule-modal-title').textContent = 'Editar Regla de Envío';
+                document.getElementById('rule-edit-id').value = ruleId;
+                document.getElementById('rule-id').value = rule.rule_id;
+                document.getElementById('rule-id').disabled = true;
+                document.getElementById('rule-platform-key').value = rule.platform_key;
+                document.getElementById('rule-coord-label').value = rule.coord_label || '';
+                document.getElementById('rule-document-type-id').value = rule.document_type_id;
+                document.getElementById('rule-pending-text-contains').value = (rule.match.pending_text_contains || []).join('\n');
+                document.getElementById('rule-empresa-contains').value = (rule.match.empresa_contains || []).join('\n');
+                document.getElementById('rule-enabled').checked = rule.enabled;
+                
+                // Form selectors
+                document.getElementById('rule-upload-selector').value = rule.form.upload_field_selector || "input[type='file']";
+                
+                if (rule.form.date_fields && rule.form.date_fields.inicio) {
+                    document.getElementById('rule-date-inicio-selector').value = rule.form.date_fields.inicio.selector || '';
+                    document.getElementById('rule-date-inicio-format').value = rule.form.date_fields.inicio.format || 'DD/MM/YYYY';
+                }
+                if (rule.form.date_fields && rule.form.date_fields.fin) {
+                    document.getElementById('rule-date-fin-selector').value = rule.form.date_fields.fin.selector || '';
+                    document.getElementById('rule-date-fin-format').value = rule.form.date_fields.fin.format || 'DD/MM/YYYY';
+                    document.getElementById('rule-date-fin-optional').checked = rule.form.date_fields.fin.optional || false;
+                }
+                
+                if (rule.form.submit_button) {
+                    document.getElementById('rule-submit-selector').value = rule.form.submit_button.selector || '';
+                    document.getElementById('rule-submit-by-text').value = rule.form.submit_button.by_text || '';
+                }
+                
+                if (rule.form.confirmation && rule.form.confirmation.text_contains) {
+                    document.getElementById('rule-confirmation-text').value = rule.form.confirmation.text_contains.join('\n');
+                }
+                
+                document.getElementById('rule-modal').classList.add('active');
+            } catch (error) {
+                showAlert('rules-alert', 'Error al cargar regla: ' + error.message, 'error');
+            }
+        }
+
+        document.getElementById('rule-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const isEdit = document.getElementById('rule-edit-id').value !== '';
+            const ruleId = document.getElementById('rule-id').value;
+            
+            // Parsear tokens
+            const pendingTextTokens = document.getElementById('rule-pending-text-contains').value
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+            
+            const empresaTokens = document.getElementById('rule-empresa-contains').value
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+            
+            // Construir date_fields
+            const dateFields = {};
+            const inicioSelector = document.getElementById('rule-date-inicio-selector').value.trim();
+            if (inicioSelector) {
+                dateFields.inicio = {
+                    selector: inicioSelector,
+                    format: document.getElementById('rule-date-inicio-format').value || 'DD/MM/YYYY'
+                };
+            }
+            const finSelector = document.getElementById('rule-date-fin-selector').value.trim();
+            if (finSelector) {
+                dateFields.fin = {
+                    selector: finSelector,
+                    format: document.getElementById('rule-date-fin-format').value || 'DD/MM/YYYY',
+                    optional: document.getElementById('rule-date-fin-optional').checked
+                };
+            }
+            
+            // Construir submit_button
+            const submitSelector = document.getElementById('rule-submit-selector').value.trim();
+            const submitByText = document.getElementById('rule-submit-by-text').value.trim();
+            const submitButton = {};
+            if (submitSelector) submitButton.selector = submitSelector;
+            if (submitByText) submitButton.by_text = submitByText;
+            
+            // Construir confirmation
+            const confirmationText = document.getElementById('rule-confirmation-text').value
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+            
+            const ruleData = {
+                rule_id: ruleId,
+                platform_key: document.getElementById('rule-platform-key').value,
+                coord_label: document.getElementById('rule-coord-label').value || null,
+                enabled: document.getElementById('rule-enabled').checked,
+                match: {
+                    pending_text_contains: pendingTextTokens,
+                    empresa_contains: empresaTokens
+                },
+                document_type_id: document.getElementById('rule-document-type-id').value,
+                form: {
+                    upload_field_selector: document.getElementById('rule-upload-selector').value || "input[type='file']",
+                    date_fields: dateFields,
+                    submit_button: submitButton,
+                    confirmation: {
+                        text_contains: confirmationText
+                    }
+                }
+            };
+            
+            try {
+                const url = isEdit 
+                    ? `${BACKEND_URL}/api/repository/rules/${ruleId}`
+                    : `${BACKEND_URL}/api/repository/rules`;
+                const method = isEdit ? 'PUT' : 'POST';
+                
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(ruleData)
+                });
+                
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Error al guardar');
+                }
+                
+                showAlert('rules-alert', `Regla ${isEdit ? 'actualizada' : 'creada'} correctamente`, 'success');
+                closeRuleModal();
+                loadRules();
+            } catch (error) {
+                showAlert('rules-alert', 'Error: ' + error.message, 'error');
+            }
+        });
+
+        async function duplicateRule(ruleId) {
+            const newId = prompt('Nuevo ID de la regla:');
+            if (!newId) return;
+            
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/rules/${ruleId}/duplicate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_rule_id: newId })
+                });
+                
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Error al duplicar');
+                }
+                
+                showAlert('rules-alert', 'Regla duplicada correctamente', 'success');
+                loadRules();
+            } catch (error) {
+                showAlert('rules-alert', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteRule(ruleId) {
+            if (!confirm(`¿Estás seguro de que quieres borrar la regla "${ruleId}"?`)) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/rules/${ruleId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Error al borrar');
+                }
+                
+                showAlert('rules-alert', 'Regla borrada correctamente', 'success');
+                loadRules();
+            } catch (error) {
+                showAlert('rules-alert', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        // ========== REGLAS DE ENVÍO ==========
+        // NOTA: loadRules(), loadTypesForRules() y renderRulesTable() ya están definidas arriba (línea ~1347)
+        // Esta sección duplicada ha sido eliminada para evitar conflictos de sintaxis
+
+        function openCreateRuleModal() {
+            loadTypesForRules();
+            document.getElementById('rule-modal-title').textContent = 'Crear Regla de Envío';
+            document.getElementById('rule-form').reset();
+            document.getElementById('rule-edit-id').value = '';
+            document.getElementById('rule-id').disabled = false;
+            document.getElementById('rule-enabled').checked = true;
+            document.getElementById('rule-upload-selector').value = "input[type='file']";
+            document.getElementById('rule-date-inicio-format').value = "DD/MM/YYYY";
+            document.getElementById('rule-date-fin-format').value = "DD/MM/YYYY";
+            document.getElementById('rule-date-fin-optional').checked = false;
+            document.getElementById('rule-modal').classList.add('active');
+        }
+
+        function closeRuleModal() {
+            document.getElementById('rule-modal').classList.remove('active');
+        }
+
+        async function editRule(ruleId) {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/rules/${ruleId}`);
+                const rule = await res.json();
+                
+                await loadTypesForRules();
+                
+                document.getElementById('rule-modal-title').textContent = 'Editar Regla de Envío';
+                document.getElementById('rule-edit-id').value = ruleId;
+                document.getElementById('rule-id').value = rule.rule_id;
+                document.getElementById('rule-id').disabled = true;
+                document.getElementById('rule-platform-key').value = rule.platform_key;
+                document.getElementById('rule-coord-label').value = rule.coord_label || '';
+                document.getElementById('rule-document-type-id').value = rule.document_type_id;
+                document.getElementById('rule-pending-text-contains').value = (rule.match.pending_text_contains || []).join('\n');
+                document.getElementById('rule-empresa-contains').value = (rule.match.empresa_contains || []).join('\n');
+                document.getElementById('rule-enabled').checked = rule.enabled;
+                
+                // Form selectors
+                document.getElementById('rule-upload-selector').value = rule.form.upload_field_selector || "input[type='file']";
+                
+                if (rule.form.date_fields && rule.form.date_fields.inicio) {
+                    document.getElementById('rule-date-inicio-selector').value = rule.form.date_fields.inicio.selector || '';
+                    document.getElementById('rule-date-inicio-format').value = rule.form.date_fields.inicio.format || 'DD/MM/YYYY';
+                }
+                if (rule.form.date_fields && rule.form.date_fields.fin) {
+                    document.getElementById('rule-date-fin-selector').value = rule.form.date_fields.fin.selector || '';
+                    document.getElementById('rule-date-fin-format').value = rule.form.date_fields.fin.format || 'DD/MM/YYYY';
+                    document.getElementById('rule-date-fin-optional').checked = rule.form.date_fields.fin.optional || false;
+                }
+                
+                if (rule.form.submit_button) {
+                    document.getElementById('rule-submit-selector').value = rule.form.submit_button.selector || '';
+                    document.getElementById('rule-submit-by-text').value = rule.form.submit_button.by_text || '';
+                }
+                
+                if (rule.form.confirmation && rule.form.confirmation.text_contains) {
+                    document.getElementById('rule-confirmation-text').value = rule.form.confirmation.text_contains.join('\n');
+                }
+                
+                document.getElementById('rule-modal').classList.add('active');
+            } catch (error) {
+                showAlert('rules-alert', 'Error al cargar regla: ' + error.message, 'error');
+            }
+        }
+
+        document.getElementById('rule-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const isEdit = document.getElementById('rule-edit-id').value !== '';
+            const ruleId = document.getElementById('rule-id').value;
+            
+            // Parsear tokens
+            const pendingTextTokens = document.getElementById('rule-pending-text-contains').value
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+            
+            const empresaTokens = document.getElementById('rule-empresa-contains').value
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+            
+            // Construir date_fields
+            const dateFields = {};
+            const inicioSelector = document.getElementById('rule-date-inicio-selector').value.trim();
+            if (inicioSelector) {
+                dateFields.inicio = {
+                    selector: inicioSelector,
+                    format: document.getElementById('rule-date-inicio-format').value || 'DD/MM/YYYY'
+                };
+            }
+            const finSelector = document.getElementById('rule-date-fin-selector').value.trim();
+            if (finSelector) {
+                dateFields.fin = {
+                    selector: finSelector,
+                    format: document.getElementById('rule-date-fin-format').value || 'DD/MM/YYYY',
+                    optional: document.getElementById('rule-date-fin-optional').checked
+                };
+            }
+            
+            // Construir submit_button
+            const submitSelector = document.getElementById('rule-submit-selector').value.trim();
+            const submitByText = document.getElementById('rule-submit-by-text').value.trim();
+            const submitButton = {};
+            if (submitSelector) submitButton.selector = submitSelector;
+            if (submitByText) submitButton.by_text = submitByText;
+            
+            // Construir confirmation
+            const confirmationText = document.getElementById('rule-confirmation-text').value
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+            
+            const ruleData = {
+                rule_id: ruleId,
+                platform_key: document.getElementById('rule-platform-key').value,
+                coord_label: document.getElementById('rule-coord-label').value || null,
+                enabled: document.getElementById('rule-enabled').checked,
+                match: {
+                    pending_text_contains: pendingTextTokens,
+                    empresa_contains: empresaTokens
+                },
+                document_type_id: document.getElementById('rule-document-type-id').value,
+                form: {
+                    upload_field_selector: document.getElementById('rule-upload-selector').value || "input[type='file']",
+                    date_fields: dateFields,
+                    submit_button: submitButton,
+                    confirmation: {
+                        text_contains: confirmationText
+                    }
+                }
+            };
+            
+            try {
+                const url = isEdit 
+                    ? `${BACKEND_URL}/api/repository/rules/${ruleId}`
+                    : `${BACKEND_URL}/api/repository/rules`;
+                const method = isEdit ? 'PUT' : 'POST';
+                
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(ruleData)
+                });
+                
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Error al guardar');
+                }
+                
+                showAlert('rules-alert', `Regla ${isEdit ? 'actualizada' : 'creada'} correctamente`, 'success');
+                closeRuleModal();
+                loadRules();
+            } catch (error) {
+                showAlert('rules-alert', 'Error: ' + error.message, 'error');
+            }
+        });
+
+        async function duplicateRule(ruleId) {
+            const newId = prompt('Nuevo ID de la regla:');
+            if (!newId) return;
+            
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/rules/${ruleId}/duplicate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_rule_id: newId })
+                });
+                
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Error al duplicar');
+                }
+                
+                showAlert('rules-alert', 'Regla duplicada correctamente', 'success');
+                loadRules();
+            } catch (error) {
+                showAlert('rules-alert', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteRule(ruleId) {
+            if (!confirm(`¿Estás seguro de que quieres borrar la regla "${ruleId}"?`)) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/rules/${ruleId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Error al borrar');
+                }
+                
+                showAlert('rules-alert', 'Regla borrada correctamente', 'success');
+                loadRules();
+            } catch (error) {
+                showAlert('rules-alert', 'Error: ' + error.message, 'error');
+            }
+        }
+
         function showAlert(containerId, message, type) {
             const container = document.getElementById(containerId);
             container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
@@ -1158,9 +1815,125 @@
             }, 5000);
         }
 
+        // Load history
+        async function loadHistory() {
+            const container = document.getElementById('history-table-container');
+            if (container) {
+                container.innerHTML = '<div class="empty-state">Cargando historial...</div>';
+            }
+            
+            try {
+                const platform = document.getElementById('history-filter-platform').value;
+                const action = document.getElementById('history-filter-action').value;
+                
+                let url = `${BACKEND_URL}/api/repository/history?limit=100`;
+                if (platform) url += `&platform_key=${platform}`;
+                if (action) url += `&action=${action}`;
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000);
+                
+                const res = await fetch(url, {
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!res.ok) {
+                    let errorDetail = `HTTP ${res.status}: `;
+                    try {
+                        const errorJson = await res.json();
+                        errorDetail += errorJson.detail || errorJson.message || JSON.stringify(errorJson);
+                    } catch (jsonError) {
+                        try {
+                            errorDetail += await res.text() || 'No se pudo leer el error';
+                        } catch (textError) {
+                            errorDetail += 'Error desconocido';
+                        }
+                    }
+                    throw new Error(errorDetail);
+                }
+                
+                const records = await res.json();
+                
+                if (!Array.isArray(records)) {
+                    console.error('Expected array but got:', typeof records, records);
+                    throw new Error('El servidor devolvió un formato inesperado (se esperaba un array)');
+                }
+                
+                renderHistoryTable(records);
+            } catch (error) {
+                console.error('Error loading history:', error);
+                const errorMsg = error.name === 'AbortError' 
+                    ? 'Timeout: El servidor no respondió en 15 segundos.'
+                    : `Error al cargar historial: ${error.message}`;
+                showAlert('history-alert', errorMsg, 'error');
+                if (container) {
+                    container.innerHTML = '<div class="empty-state">Error al cargar historial. Revisa la consola para más detalles.</div>';
+                }
+            }
+        }
+
+        function renderHistoryTable(records) {
+            const container = document.getElementById('history-table-container');
+            if (records.length === 0) {
+                container.innerHTML = '<div class="empty-state">No hay registros en el historial.</div>';
+                return;
+            }
+
+            let html = '<table><thead><tr><th>Fecha</th><th>Plataforma/Coord</th><th>Empresa/Persona</th><th>Doc ID</th><th>Acción</th><th>Decisión</th><th>Run ID</th><th>Acciones</th></tr></thead><tbody>';
+            records.forEach(record => {
+                const fecha = new Date(record.created_at).toLocaleString('es-ES');
+                const platformCoord = `${record.platform_key}${record.coord_label ? '/' + record.coord_label : ''}`;
+                const empresaPersona = `${record.company_key || '-'}${record.person_key ? '/' + record.person_key : ''}`;
+                const actionBadge = {
+                    'planned': 'badge-info',
+                    'submitted': 'badge-success',
+                    'skipped': 'badge-warning',
+                    'failed': 'badge-error'
+                }[record.action] || 'badge-secondary';
+                
+                html += `
+                    <tr>
+                        <td>${fecha}</td>
+                        <td>${platformCoord}</td>
+                        <td>${empresaPersona}</td>
+                        <td><code>${record.doc_id.substring(0, 8)}...</code></td>
+                        <td><span class="badge ${actionBadge}">${record.action}</span></td>
+                        <td><code>${record.decision}</code></td>
+                        <td><a href="/runs/${record.run_id}" target="_blank" style="color: #3b82f6;">${record.run_id.substring(0, 8)}...</a></td>
+                        <td class="actions-cell">
+                            <button class="btn btn-secondary" onclick="viewHistoryRecord('${record.record_id}')">Ver</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        async function viewHistoryRecord(recordId) {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/repository/history/${recordId}`);
+                const record = await res.json();
+                document.getElementById('history-record-json').textContent = JSON.stringify(record, null, 2);
+                document.getElementById('history-record-modal').style.display = 'block';
+            } catch (error) {
+                showAlert('history-alert', 'Error al cargar registro: ' + error.message, 'error');
+            }
+        }
+
+        function closeHistoryRecordModal() {
+            document.getElementById('history-record-modal').style.display = 'none';
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             loadTypes();
+            
+            // Filtros de historial
+            document.getElementById('history-filter-platform').addEventListener('change', loadHistory);
+            document.getElementById('history-filter-action').addEventListener('change', loadHistory);
         });
     </script>
 </body>

@@ -1,0 +1,12 @@
+[
+  {
+    "time": 1767877164639,
+    "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "type": "error"
+  },
+  {
+    "time": 1767877164697,
+    "text": "[gotoHash] runRoutingNow not available",
+    "type": "warning"
+  }
+]

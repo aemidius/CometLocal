@@ -1,0 +1,101 @@
+{
+  "schema_version": "v1",
+  "submissions": [
+    {
+      "record_id": "rec_99fe8375f4c14eea868d01b855115d0f",
+      "platform_key": "egestiona",
+      "coord_label": "Kern",
+      "company_key": "TEST",
+      "person_key": null,
+      "pending_fingerprint": "3b08cc324876594eef334baf9ea0a062438c1a46689e24dd632a93bf82a01f46",
+      "pending_snapshot": {
+        "tipo_doc": "T104_AUTONOMOS_RECEIPT Recibo autónomos",
+        "elemento": "emilio",
+        "empresa": "F63161988",
+        "trabajador": "emilio",
+        "fecha_inicio": "2025-11-01",
+        "fecha_fin": "2025-11-30",
+        "raw_data": {
+          "Tipo Documento": "T104_AUTONOMOS_RECEIPT Recibo autónomos",
+          "Elemento": "emilio",
+          "Empresa": "F63161988"
+        }
+      },
+      "doc_id": "1f3a6c92-2cae-4113-8954-c5fa2f30c5c8",
+      "type_id": "T104_AUTONOMOS_RECEIPT",
+      "file_sha256": null,
+      "action": "skipped",
+      "decision": "AUTO_SUBMIT_OK",
+      "run_id": "r_a273183efc624215812d35f3189f65ea",
+      "evidence_path": "data\\runs\\r_a273183efc624215812d35f3189f65ea\\evidence",
+      "created_at": "2025-12-27T22:48:52.541855Z",
+      "updated_at": "2025-12-27T22:48:52.541855Z",
+      "submitted_at": null,
+      "error_message": "SELF_TEST: No actual execution performed"
+    },
+    {
+      "record_id": "rec_a8dbfe3e1838457780b51d383a238d1e",
+      "platform_key": "egestiona",
+      "coord_label": "Kern",
+      "company_key": "TEST",
+      "person_key": null,
+      "pending_fingerprint": "3b08cc324876594eef334baf9ea0a062438c1a46689e24dd632a93bf82a01f46",
+      "pending_snapshot": {
+        "tipo_doc": "T104_AUTONOMOS_RECEIPT Recibo autónomos",
+        "elemento": "emilio",
+        "empresa": "F63161988",
+        "trabajador": "emilio",
+        "fecha_inicio": "2025-11-01",
+        "fecha_fin": "2025-11-30",
+        "raw_data": {
+          "Tipo Documento": "T104_AUTONOMOS_RECEIPT Recibo autónomos",
+          "Elemento": "emilio",
+          "Empresa": "F63161988"
+        }
+      },
+      "doc_id": "1f3a6c92-2cae-4113-8954-c5fa2f30c5c8",
+      "type_id": "T104_AUTONOMOS_RECEIPT",
+      "file_sha256": null,
+      "action": "skipped",
+      "decision": "AUTO_SUBMIT_OK",
+      "run_id": "r_9b614f214af344abb0df4290bba671c0",
+      "evidence_path": "data\\runs\\r_9b614f214af344abb0df4290bba671c0\\evidence",
+      "created_at": "2025-12-27T22:49:13.186480Z",
+      "updated_at": "2025-12-27T22:49:13.186480Z",
+      "submitted_at": null,
+      "error_message": "SELF_TEST: No actual execution performed"
+    },
+    {
+      "record_id": "rec_537f5485bcd748479357f5fbc97cd6ad",
+      "platform_key": "egestiona",
+      "coord_label": "Kern",
+      "company_key": "TEST",
+      "person_key": null,
+      "pending_fingerprint": "3b08cc324876594eef334baf9ea0a062438c1a46689e24dd632a93bf82a01f46",
+      "pending_snapshot": {
+        "tipo_doc": "T104_AUTONOMOS_RECEIPT Recibo autónomos",
+        "elemento": "emilio",
+        "empresa": "F63161988",
+        "trabajador": "emilio",
+        "fecha_inicio": "2025-11-01",
+        "fecha_fin": "2025-11-30",
+        "raw_data": {
+          "Tipo Documento": "T104_AUTONOMOS_RECEIPT Recibo autónomos",
+          "Elemento": "emilio",
+          "Empresa": "F63161988"
+        }
+      },
+      "doc_id": "1f3a6c92-2cae-4113-8954-c5fa2f30c5c8",
+      "type_id": "T104_AUTONOMOS_RECEIPT",
+      "file_sha256": null,
+      "action": "skipped",
+      "decision": "SKIP_ALREADY_PLANNED",
+      "run_id": "r_2374441b252c4334a0a1882f6f1e3caa",
+      "evidence_path": "data\\runs\\r_2374441b252c4334a0a1882f6f1e3caa\\evidence",
+      "created_at": "2025-12-27T22:50:36.875211Z",
+      "updated_at": "2025-12-27T22:50:36.875211Z",
+      "submitted_at": null,
+      "error_message": "SELF_TEST: No actual execution performed"
+    }
+  ]
+}

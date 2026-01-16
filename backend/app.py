@@ -35,11 +35,22 @@ from backend.config import BATCH_RUNS_DIR
 from backend.executor.config_viewer import create_config_viewer_router
 from backend.repository.data_bootstrap_v1 import ensure_data_layout
 from backend.adapters.egestiona.flows import router as egestiona_router
+from backend.adapters.egestiona.execute_plan_gate import router as egestiona_execute_router
+from backend.adapters.egestiona.execute_plan_headful_gate import router as egestiona_execute_headful_router
+from backend.adapters.egestiona.headful_run_routes import router as egestiona_headful_run_router
 from backend.repository.document_repository_routes import router as document_repository_router
 from backend.repository.config_routes import router as config_routes_router
 from backend.repository.submission_rules_routes import router as submission_rules_router
 from backend.repository.submission_history_routes import router as submission_history_router
+from backend.repository.settings_routes import router as repository_settings_router
+from backend.cae.submission_routes import router as cae_submission_router
+from backend.cae.coordination_routes import router as cae_coordination_router
+from backend.cae.job_queue_routes import router as cae_job_queue_router
+from backend.tests_seed_routes import router as test_seed_router
+from backend.connectors.routes import router as connectors_router
 from backend.config import LLM_CONFIG_FILE, LLM_DEFAULT_CONFIG
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 # Constantes de rutas
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -64,10 +75,31 @@ app.include_router(training_router)
 app.include_router(create_runs_viewer_router(runs_root=BASE_DIR / BATCH_RUNS_DIR))
 app.include_router(create_config_viewer_router(base_dir=DATA_DIR))
 app.include_router(egestiona_router)
+app.include_router(egestiona_execute_router)
+app.include_router(egestiona_execute_headful_router)
+app.include_router(egestiona_headful_run_router)
 app.include_router(document_repository_router)
 app.include_router(config_routes_router)
 app.include_router(submission_rules_router)
 app.include_router(submission_history_router)
+app.include_router(repository_settings_router)
+app.include_router(cae_submission_router)
+app.include_router(cae_coordination_router)
+app.include_router(cae_job_queue_router)
+app.include_router(test_seed_router)
+app.include_router(connectors_router)
+
+
+# Exception handler para errores de validación
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    """Convierte errores de validación en 400 en lugar de 422."""
+    return JSONResponse(
+        status_code=400,
+        content={"detail": str(exc)}
+    )
+
+
 
 browser = BrowserController()
 
@@ -100,6 +132,13 @@ async def startup_event():
     # H7.8: asegurar layout base de data/ (local only)
     data_dir = ensure_data_layout(base_dir=DATA_DIR)
     print(f"Using data dir: {data_dir.resolve()}")
+    
+    # v1.8: Iniciar worker de cola de jobs CAE
+    from backend.cae.job_queue_v1 import start_worker
+    start_worker()
+    
+    # C2.12.1: Registrar conectores (importar para activar registro)
+    import backend.connectors.egestiona  # noqa: F401
     org_p = data_dir / "refs" / "org.json"
     people_p = data_dir / "refs" / "people.json"
     platforms_p = data_dir / "refs" / "platforms.json"
@@ -155,6 +194,10 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    # v1.8: Detener worker de cola de jobs CAE
+    from backend.cae.job_queue_v1 import stop_worker
+    stop_worker()
+    
     # Cerramos el navegador solo si está iniciado (lazy initialization)
     if browser.page is not None:
         await browser.close()
@@ -163,6 +206,44 @@ async def shutdown_event():
 @app.get("/health")
 async def health():
     return {"status": "ok", "detail": "CometLocal backend running con navegador"}
+
+
+@app.get("/api/health")
+async def api_health():
+    # SPRINT B3: Añadir información sobre E2E_SEED_ENABLED
+    e2e_seed_enabled = os.getenv("E2E_SEED_ENABLED", "0") == "1"
+    return {
+        "status": "ok",
+        "cae_plan_patch": "v1.1.1",
+        "e2e_seed_enabled": e2e_seed_enabled,  # SPRINT B3: Información de debug
+    }
+    """
+    Health check endpoint para validar que el servidor está corriendo con el código correcto.
+    Incluye versión del patch para detectar servidores desactualizados.
+    """
+    import subprocess
+    import sys
+    
+    # Obtener git short hash si está disponible (opcional, no crítico)
+    build_id = "unknown"
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            cwd=BASE_DIR,
+        )
+        if result.returncode == 0:
+            build_id = result.stdout.strip()
+    except Exception:
+        pass  # Si git no está disponible, usar "unknown"
+    
+    return {
+        "status": "ok",
+        "build_id": build_id,
+        "cae_plan_patch": "v1.2.0",  # Versión del patch para validar en E2E
+    }
 
 
 # LLM Config endpoints
@@ -213,7 +294,16 @@ async def check_llm_health():
     """Verifica el estado del servidor LLM externo. NUNCA devuelve 500, siempre 200 con status."""
     import time
     import asyncio
-    import aiohttp
+    
+    # Import opcional de aiohttp
+    try:
+        import aiohttp
+    except ImportError:
+        return {
+            "status": "degraded",
+            "reason": "aiohttp_not_installed",
+            "message": "aiohttp no está instalado. No se puede verificar el estado del LLM.",
+        }
 
     base_url = "unknown"
     try:
@@ -301,7 +391,28 @@ async def index_html():
 @app.get("/home", include_in_schema=False)
 async def home_page():
     """Página HOME con dashboard completo."""
-    return FileResponse(FRONTEND_DIR / "home.html", media_type="text/html")
+    from fastapi.responses import Response
+    import time
+    
+    # Leer el contenido del archivo
+    html_path = FRONTEND_DIR / "home.html"
+    with open(html_path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+    
+    # Añadir build stamp al final del body si no existe
+    build_stamp = f"<script>window.__buildStamp = '{int(time.time() * 1000)}';</script>"
+    if "</body>" in html_content:
+        html_content = html_content.replace("</body>", f"{build_stamp}\n</body>")
+    else:
+        html_content += build_stamp
+    
+    # Crear respuesta con headers anti-caché
+    response = Response(content=html_content, media_type="text/html")
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    
+    return response
 
 
 @app.get("/form-sandbox", include_in_schema=False)
@@ -317,7 +428,13 @@ async def repository_ui():
     """
     UI del Repositorio Documental (tipos y documentos).
     """
-    return FileResponse(FRONTEND_DIR / "repository_v3.html", media_type="text/html")
+    from fastapi.responses import Response
+    response = FileResponse(FRONTEND_DIR / "repository_v3.html", media_type="text/html")
+    # Cache busting headers
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 @app.get("/simulation/portal_a/login.html", include_in_schema=False)

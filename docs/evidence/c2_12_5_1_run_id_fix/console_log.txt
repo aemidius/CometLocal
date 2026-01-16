@@ -1,0 +1,19 @@
+[2026-01-16T09:06:43.409Z] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o
+[2026-01-16T09:06:43.424Z] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found)
+[2026-01-16T09:06:52.410Z] [LOG] [CAE][INSTRUMENTATION] Response captured: {timestamp: 2026-01-16T09:06:52.405Z, reqId: cae_1768554412372_2372168d47865, url: http://127.0.0.1:8000/runs/egestiona/build_submiss…63161988&person_key=erm&limit=50&only_target=true, method: POST, httpStatus: 200}
+[2026-01-16T09:06:52.410Z] [LOG] [CAE][INSPECTION] ============================================
+[2026-01-16T09:06:52.410Z] [LOG] [CAE][INSPECTION] RESPUESTA COMPLETA DEL ENDPOINT:
+[2026-01-16T09:06:52.410Z] [LOG] [CAE][INSPECTION] {
+  "status": "error",
+  "error_code": "readonly_compute_failed",
+  "message": "Resultado inesperado de compute: <class 'NoneType'>",
+  "details": null
+}
+[2026-01-16T09:06:52.410Z] [LOG] [CAE][INSPECTION] ============================================
+[2026-01-16T09:06:52.410Z] [LOG] [CAE][INSPECTION] TODOS LOS IDENTIFICADORES ENCONTRADOS:
+[2026-01-16T09:06:52.411Z] [LOG] [CAE][INSPECTION] {}
+[2026-01-16T09:06:52.411Z] [LOG] [CAE][INSPECTION] IDENTIFICADOR EXTRAÍDO: null
+[2026-01-16T09:06:52.411Z] [LOG] [CAE][INSPECTION] TIENE PLAN/ITEMS: {hasPlan: false, planLength: 0, hasItems: false, itemsLength: 0}
+[2026-01-16T09:06:52.411Z] [LOG] [CAE][INSPECTION] ============================================
+[2026-01-16T09:06:52.411Z] [LOG] [CAE][NET] Response parsed and analyzed: {timestamp: 2026-01-16T09:06:52.405Z, reqId: cae_1768554412372_2372168d47865, url: http://127.0.0.1:8000/runs/egestiona/build_submiss…63161988&person_key=erm&limit=50&only_target=true, method: POST, httpStatus: 200}
+[2026-01-16T09:06:52.411Z] [WARNING] [CAE] Warning: Error message mentions run_id_missing or missing run_id but error_code is not run_id_missing {status: error, error_code: readonly_compute_failed, message: Resultado inesperado de compute: <class 'NoneType'>, details: null}

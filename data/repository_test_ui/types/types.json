@@ -1,0 +1,86 @@
+{
+  "schema_version": "v1",
+  "types": [
+    {
+      "type_id": "T104_AUTONOMOS_RECEIPT",
+      "name": "Recibo autónomos",
+      "description": "Recibo de autónomos mensual",
+      "scope": "worker",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "name_date",
+        "monthly": {
+          "month_source": "name_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [
+        "valid_from",
+        "valid_to"
+      ],
+      "platform_aliases": [],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    },
+    {
+      "type_id": "E2E_TYPE_c4738eac_0",
+      "name": "E2E Test Type 1",
+      "description": "Tipo de prueba E2E 1",
+      "scope": "worker",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "issue_date",
+        "monthly": {
+          "month_source": "issue_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [],
+      "platform_aliases": [],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    },
+    {
+      "type_id": "E2E_TYPE_c4738eac_1",
+      "name": "E2E Test Type 2",
+      "description": "Tipo de prueba E2E 2",
+      "scope": "company",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "issue_date",
+        "monthly": {
+          "month_source": "issue_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [],
+      "platform_aliases": [],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    }
+  ]
+}

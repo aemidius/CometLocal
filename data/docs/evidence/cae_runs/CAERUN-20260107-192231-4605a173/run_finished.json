@@ -1,0 +1,24 @@
+{
+  "run_id": "CAERUN-20260107-192231-4605a173",
+  "status": "SUCCESS",
+  "started_at": "2026-01-07T19:22:31.401278",
+  "finished_at": "2026-01-07T19:22:31.474798",
+  "error": null,
+  "stop_reason": null,
+  "summary": {
+    "total_items": 1,
+    "items_processed": 1,
+    "items_success": 1,
+    "items_failed": 0,
+    "items_blocked": 0
+  },
+  "items_results": [
+    {
+      "item_index": 0,
+      "item_type_id": "E2E_MONTHLY_294119e9",
+      "item_period_key": "2026-01",
+      "status": "SUCCESS",
+      "error": null
+    }
+  ]
+}

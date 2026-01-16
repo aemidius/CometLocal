@@ -1,0 +1,195 @@
+{
+  "schema_version": "v1",
+  "types": [
+    {
+      "type_id": "T9977_AUTONOMOS",
+      "name": "Autónomos",
+      "description": "Recibo de Autónomos",
+      "scope": "worker",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "name_date",
+        "monthly": {
+          "month_source": "name_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": {
+          "n": 12,
+          "month_source": "name_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        }
+      },
+      "required_fields": [],
+      "platform_aliases": [
+        "T205.0",
+        "Último Recibo bancario pago cuota autónomos",
+        "pago cuota autónomos",
+        "autónomos",
+        "SS"
+      ],
+      "allow_late_submission": true,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    },
+    {
+      "type_id": "T8447_RC_CERTIFICADO",
+      "name": "RC, certificado",
+      "description": "Certificado de RC",
+      "scope": "company",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "name_date",
+        "monthly": {
+          "month_source": "name_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": {
+          "n": 12,
+          "month_source": "name_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        }
+      },
+      "required_fields": [],
+      "platform_aliases": [
+        "RC",
+        "Responsabilidad civil"
+      ],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "manual"
+    },
+    {
+      "type_id": "T5612_NO_DEUDA_HACIENDA",
+      "name": "No deuda Hacienda",
+      "description": "Certificado no deuda Hacienda",
+      "scope": "company",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "name_date",
+        "monthly": {
+          "month_source": "name_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": {
+          "n": 12,
+          "month_source": "name_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        }
+      },
+      "required_fields": [],
+      "platform_aliases": [
+        "Certificado no deuda Hacienda",
+        "AEAT",
+        "E202.0"
+      ],
+      "allow_late_submission": true,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "manual"
+    },
+    {
+      "type_id": "TEST_MONTHLY",
+      "name": "Test Mensual",
+      "description": "Tipo de prueba mensual",
+      "scope": "worker",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "name_date",
+        "monthly": {
+          "month_source": "name_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [
+        "valid_from",
+        "valid_to"
+      ],
+      "platform_aliases": [],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    },
+    {
+      "type_id": "E2E_TYPE_0ea6ae83_0",
+      "name": "E2E Test Type 1",
+      "description": "Tipo de prueba E2E 1",
+      "scope": "worker",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "issue_date",
+        "monthly": {
+          "month_source": "issue_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [],
+      "platform_aliases": [],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    },
+    {
+      "type_id": "E2E_TYPE_0ea6ae83_1",
+      "name": "E2E Test Type 2",
+      "description": "Tipo de prueba E2E 2",
+      "scope": "company",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "issue_date",
+        "monthly": {
+          "month_source": "issue_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [],
+      "platform_aliases": [],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    }
+  ]
+}

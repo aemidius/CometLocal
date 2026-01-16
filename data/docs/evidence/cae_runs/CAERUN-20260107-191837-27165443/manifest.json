@@ -1,0 +1,25 @@
+{
+  "run_id": "CAERUN-20260107-191837-27165443",
+  "plan_id": "CAEPLAN-20260107-191818-8e9210bc",
+  "started_at": "2026-01-07T19:18:37.346348",
+  "finished_at": "2026-01-07T19:18:37.946953",
+  "status": "SUCCESS",
+  "stop_reason": null,
+  "error": null,
+  "items_results": [
+    {
+      "item_index": 0,
+      "item_type_id": "E2E_MONTHLY_04ed15fa",
+      "item_period_key": "2026-01",
+      "status": "SUCCESS",
+      "error": null
+    }
+  ],
+  "summary": {
+    "total_items": 1,
+    "items_processed": 1,
+    "items_success": 1,
+    "items_failed": 0,
+    "items_blocked": 0
+  }
+}

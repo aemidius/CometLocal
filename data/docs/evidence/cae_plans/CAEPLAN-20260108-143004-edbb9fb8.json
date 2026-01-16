@@ -1,0 +1,43 @@
+{
+  "plan_id": "CAEPLAN-20260108-143004-edbb9fb8",
+  "created_at": "2026-01-08T14:30:04.312744",
+  "scope": {
+    "platform_key": "egestiona",
+    "type_ids": [
+      "TEST_RC_CERTIFICATE",
+      "E2E_MONTHLY_dd68629a",
+      "E2E_TYPE_399645be_0",
+      "E2E_TYPE_69d1a449_0",
+      "E2E_TYPE_1e5047bf_0",
+      "E2E_TYPE_399645be_1",
+      "E2E_TYPE_69d1a449_1",
+      "E2E_TYPE_1e5047bf_1",
+      "T5612_NO_DEUDA_HACIENDA",
+      "T104_AUTONOMOS_RECEIPT",
+      "TEST_DATE_REQUIRED",
+      "TEST_COMPANY_TYPE",
+      "TEST_WORKER_TYPE",
+      "TEST_WORKER_AUTODETECT"
+    ],
+    "company_key": null,
+    "person_key": null,
+    "period_keys": null,
+    "mode": "READ_ONLY"
+  },
+  "decision": "BLOCKED",
+  "reasons": [
+    "No hay sujetos que coincidan con el scope para T5612_NO_DEUDA_HACIENDA",
+    "No hay sujetos que coincidan con el scope para T104_AUTONOMOS_RECEIPT",
+    "No hay sujetos que coincidan con el scope para TEST_COMPANY_TYPE",
+    "No hay sujetos que coincidan con el scope para TEST_WORKER_TYPE",
+    "No hay sujetos que coincidan con el scope para TEST_WORKER_AUTODETECT"
+  ],
+  "items": [],
+  "summary": {
+    "pending_items": 0,
+    "docs_candidates": 0,
+    "total_items": 0,
+    "types_processed": 7
+  },
+  "executor_hint": "egestiona_upload_v1"
+}

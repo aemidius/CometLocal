@@ -1,0 +1,25 @@
+{
+  "companies": [
+    {
+      "id": "F63161988",
+      "name": "Tedelab Ingeniería SCCL",
+      "tax_id": "F63161988"
+    }
+  ],
+  "workers_by_company": {
+    "F63161988": [
+      {
+        "id": "erm",
+        "name": "Emilio Roldán Molina",
+        "tax_id": "37330395S",
+        "role": "Ingeniero"
+      },
+      {
+        "id": "ovo",
+        "name": "Oriol Verdés Ochoa",
+        "tax_id": "38133024J",
+        "role": "Ingeniero"
+      }
+    ]
+  }
+}

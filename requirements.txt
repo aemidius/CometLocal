@@ -4,3 +4,6 @@ pydantic
 playwright
 openai>=1.0.0
 pypdf>=4.0.0  # H7.6+: DocumentInspector v1 (PDF text extraction)
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+requests>=2.31.0  # Para tests E2E que requieren HTTP client

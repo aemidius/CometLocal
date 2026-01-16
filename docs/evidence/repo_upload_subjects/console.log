@@ -1,0 +1,57 @@
+[2026-01-08T13:30:13.793Z] [log] [repo-upload] listener installed {time: 1767879013785}
+[2026-01-08T13:30:13.830Z] [log] [VIEWDBG] 1767879013829 bootstrap: start
+[2026-01-08T13:30:13.830Z] [log] [VIEWDBG] 1767879013829 bootstrap: app-ready set
+[2026-01-08T13:30:13.831Z] [log] [VIEWDBG] 1767879013829 initHashRouting: registering hashchange listener
+[2026-01-08T13:30:13.831Z] [log] [VIEWDBG] 1767879013829 bootstrap: calling runRoutingNow for initial hash
+[2026-01-08T13:30:13.832Z] [log] [VIEWDBG] 1767879013830 runRoutingNow: hash=, route=null
+[2026-01-08T13:30:13.832Z] [log] [VIEWDBG] 1767879013830 runRoutingNow: normalizing hash from  to #inicio
+[2026-01-08T13:30:13.835Z] [log] [VIEWDBG] 1767879013830 bootstrap: completed
+[2026-01-08T13:30:13.841Z] [log] [VIEWDBG] 1767879013834 hashchange event fired
+[2026-01-08T13:30:13.841Z] [log] [VIEWDBG] 1767879013834 runRoutingNow: hash=#inicio, route=inicio
+[2026-01-08T13:30:13.841Z] [log] [VIEWDBG] 1767879013834 updateNavActive: updated nav for route=inicio
+[2026-01-08T13:30:13.841Z] [log] [VIEWDBG] 1767879013834 runRoutingNow: calling loadPage(inicio)
+[2026-01-08T13:30:13.841Z] [log] [VIEWDBG] 1767879013834 loadPage: start page=inicio
+[2026-01-08T13:30:13.842Z] [log] [VIEWDBG] 1767879013835 loadPage: content.innerHTML set to loading
+[2026-01-08T13:30:13.842Z] [log] [SETVIEWSTATE] inicio loaded readyState= complete body exists= true
+[2026-01-08T13:30:13.842Z] [log] [VIEWDBG] 1767879013835 setViewState: inicio -> loaded on element DIV
+[2026-01-08T13:30:13.842Z] [log] [VIEWDBG] 1767879013836 setViewState: inicio -> loaded applied, testId=view-inicio-loaded
+[2026-01-08T13:30:13.878Z] [log] [VIEWDBG] 1767879013871 hashchange event fired
+[2026-01-08T13:30:13.878Z] [log] [VIEWDBG] 1767879013871 runRoutingNow: hash=#subir, route=subir
+[2026-01-08T13:30:13.879Z] [log] [VIEWDBG] 1767879013871 updateNavActive: updated nav for route=subir
+[2026-01-08T13:30:13.879Z] [log] [VIEWDBG] 1767879013871 runRoutingNow: calling loadPage(subir)
+[2026-01-08T13:30:13.883Z] [log] [VIEWDBG] 1767879013871 loadPage: start page=subir
+[2026-01-08T13:30:13.883Z] [log] [VIEWDBG] 1767879013871 loadPage: content.innerHTML set to loading
+[2026-01-08T13:30:13.883Z] [log] [SETVIEWSTATE] subir loaded readyState= complete body exists= true
+[2026-01-08T13:30:13.883Z] [log] [VIEWDBG] 1767879013871 setViewState: subir -> loaded on element DIV
+[2026-01-08T13:30:13.884Z] [log] [VIEWDBG] 1767879013871 setViewState: subir -> loaded applied, testId=view-subir-loaded
+[2026-01-08T13:30:13.884Z] [log] [VIEWDBG] 1767879013871 subir: setViewState loaded called
+[2026-01-08T13:30:13.884Z] [log] [VIEWDBG] 1767879013871 subir: calling loadSubir
+[2026-01-08T13:30:13.884Z] [log] [VIEWDBG] 1767879013871 loadSubir: start
+[2026-01-08T13:30:13.884Z] [log] [VIEWDBG] 1767879013872 ensureRepoDataLoaded: start
+[2026-01-08T13:30:13.884Z] [log] [VIEWDBG] 1767879013872 Loading types...
+[2026-01-08T13:30:13.884Z] [log] [VIEWDBG] 1767879013872 Loading people...
+[2026-01-08T13:30:14.008Z] [log] [SETVIEWSTATE] inicio ready readyState= complete body exists= true
+[2026-01-08T13:30:14.008Z] [log] [VIEWDBG] 1767879014006 setViewState: inicio -> ready on element DIV
+[2026-01-08T13:30:14.008Z] [log] [VIEWDBG] 1767879014006 setViewState: inicio -> ready applied, testId=view-inicio-ready
+[2026-01-08T13:30:14.008Z] [log] [VIEWDBG] 1767879014006 runRoutingNow: loadPage(inicio) completed
+[2026-01-08T13:30:14.018Z] [log] [VIEWDBG] 1767879014016 People loaded:
+[2026-01-08T13:30:14.018Z] [log] [VIEWDBG] 1767879014016 Types loaded:
+[2026-01-08T13:30:14.018Z] [log] [VIEWDBG] 1767879014016 ensureRepoDataLoaded: done
+[2026-01-08T13:30:14.119Z] [log] [repo-upload] Subjects loaded: {companies: Array(1), workers_by_company: Object}
+[2026-01-08T13:30:14.120Z] [log] [repo-upload] initUploadWizard end
+[2026-01-08T13:30:14.120Z] [log] [VIEWDBG] 1767879014120 subir: loadSubir completed, setting ready
+[2026-01-08T13:30:14.121Z] [log] [SETVIEWSTATE] subir ready readyState= complete body exists= true
+[2026-01-08T13:30:14.121Z] [log] [VIEWDBG] 1767879014120 setViewState: subir -> ready on element DIV
+[2026-01-08T13:30:14.121Z] [log] [VIEWDBG] 1767879014120 setViewState: subir -> ready applied, testId=view-subir-ready
+[2026-01-08T13:30:14.122Z] [log] [VIEWDBG] 1767879014120 subir: setViewState ready called
+[2026-01-08T13:30:14.122Z] [log] [VIEWDBG] 1767879014120 runRoutingNow: loadPage(subir) completed
+[2026-01-08T13:30:14.181Z] [log] [repo-upload] parseDateFromFilename pattern1 match: {filename: 11 SS ERM 28-nov-25.pdf, match1: Array(4)}
+[2026-01-08T13:30:14.181Z] [warning] [repo-upload] Validation failed for file: 11 SS ERM 28-nov-25.pdf type_id:  type: string
+[2026-01-08T13:30:14.182Z] [log] [repo-upload] filtered types sample [Object, Object, Object]
+[2026-01-08T13:30:14.183Z] [log] [repo-upload] change captured {targetTag: INPUT, hasClass: false, fileIdAttr: null, time: 1767879014182}
+[2026-01-08T13:30:14.387Z] [log] [repo-upload] change captured {targetTag: SELECT, hasClass: true, fileIdAttr: 1767879014179.6038, time: 1767879014387}
+[2026-01-08T13:30:14.388Z] [log] [repo-upload] file found {fileId: 1767879014179.6038, fileName: 11 SS ERM 28-nov-25.pdf, searchId: 1767879014179.6038}
+[2026-01-08T13:30:14.388Z] [log] [repo-upload] select debug {fileId: 1767879014179.6038, value: TEST_RC_CERTIFICATE, selectedIndex: 1, optionValue: TEST_RC_CERTIFICATE, optionText: Certificado RC}
+[2026-01-08T13:30:14.388Z] [log] [repo-upload] updateUploadFileType: {filename: 11 SS ERM 28-nov-25.pdf, fileId: 1767879014179.6038, rawValue: TEST_RC_CERTIFICATE, normalizedTypeId: TEST_RC_CERTIFICATE, before: }
+[2026-01-08T13:30:14.389Z] [log] [repo-upload] Errores limpiados: [Selecciona un tipo de documento] -> []
+[2026-01-08T13:30:14.389Z] [log] [repo-upload] filtered types sample [Object, Object, Object]

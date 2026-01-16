@@ -1,0 +1,252 @@
+[
+  {
+    "time": 1768159286042,
+    "text": "[SETVIEWSTATE] inicio loaded readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1768159286042,
+    "text": "[VIEWDBG] 1768159286039 setViewState: inicio -> loaded on view-state-root",
+    "type": "log"
+  },
+  {
+    "time": 1768159286042,
+    "text": "[VIEWDBG] 1768159286039 setViewState: inicio -> loaded applied, testId=view-inicio-loaded",
+    "type": "log"
+  },
+  {
+    "time": 1768159286050,
+    "text": "[VIEWDBG] 1768159286048 bootstrap: E2E mode detected: true",
+    "type": "log"
+  },
+  {
+    "time": 1768159286071,
+    "text": "[VIEWDBG] 1768159286061 hashchange event fired",
+    "type": "log"
+  },
+  {
+    "time": 1768159286072,
+    "text": "[VIEWDBG] 1768159286061 runRoutingNow: hash=#calendario, route=calendario",
+    "type": "log"
+  },
+  {
+    "time": 1768159286072,
+    "text": "[VIEWDBG] 1768159286061 updateNavActive: updated nav for route=calendario",
+    "type": "log"
+  },
+  {
+    "time": 1768159286072,
+    "text": "[VIEWDBG] 1768159286061 runRoutingNow: calling loadPage(calendario)",
+    "type": "log"
+  },
+  {
+    "time": 1768159286079,
+    "text": "[VIEWDBG] 1768159286061 loadPage: start page=calendario",
+    "type": "log"
+  },
+  {
+    "time": 1768159286079,
+    "text": "[VIEWDBG] 1768159286061 loadPage: content.innerHTML set to loading",
+    "type": "log"
+  },
+  {
+    "time": 1768159286079,
+    "text": "[VIEWDBG] 1768159286061 calendario: entered case",
+    "type": "log"
+  },
+  {
+    "time": 1768159286079,
+    "text": "[VIEWDBG] 1768159286061 dbg-calendario-route-hit marker inserted",
+    "type": "log"
+  },
+  {
+    "time": 1768159286080,
+    "text": "[SETVIEWSTATE] calendario loaded readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1768159286080,
+    "text": "[VIEWDBG] 1768159286061 setViewState: calendario -> loaded on view-state-root",
+    "type": "log"
+  },
+  {
+    "time": 1768159286080,
+    "text": "[VIEWDBG] 1768159286061 setViewState: calendario -> loaded applied, testId=view-calendario-loaded",
+    "type": "log"
+  },
+  {
+    "time": 1768159286080,
+    "text": "[VIEWDBG] 1768159286061 calendario: set loaded",
+    "type": "log"
+  },
+  {
+    "time": 1768159286080,
+    "text": "[VIEWDBG] 1768159286061 calendario: before loadCalendario",
+    "type": "log"
+  },
+  {
+    "time": 1768159286080,
+    "text": "[CAL] start",
+    "type": "log"
+  },
+  {
+    "time": 1768159286080,
+    "text": "[VIEWDBG] 1768159286062 loadCalendario: start",
+    "type": "log"
+  },
+  {
+    "time": 1768159286080,
+    "text": "[VIEWDBG] 1768159286062 ensureRepoDataLoaded: start",
+    "type": "log"
+  },
+  {
+    "time": 1768159286080,
+    "text": "[VIEWDBG] 1768159286063 Loading types...",
+    "type": "log"
+  },
+  {
+    "time": 1768159286080,
+    "text": "[VIEWDBG] 1768159286063 Loading people...",
+    "type": "log"
+  },
+  {
+    "time": 1768159292711,
+    "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "type": "error"
+  },
+  {
+    "time": 1768159292724,
+    "text": "[SETVIEWSTATE] inicio ready readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1768159292724,
+    "text": "[VIEWDBG] 1768159292723 setViewState: inicio -> ready on view-state-root",
+    "type": "log"
+  },
+  {
+    "time": 1768159292724,
+    "text": "[VIEWDBG] 1768159292723 setViewState: inicio -> ready applied, testId=view-inicio-ready",
+    "type": "log"
+  },
+  {
+    "time": 1768159292724,
+    "text": "[VIEWDBG] 1768159292723 runRoutingNow: loadPage(inicio) completed",
+    "type": "log"
+  },
+  {
+    "time": 1768159292733,
+    "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "type": "error"
+  },
+  {
+    "time": 1768159292734,
+    "text": "[VIEWDBG] 1768159292732 Types loaded:",
+    "type": "log"
+  },
+  {
+    "time": 1768159292735,
+    "text": "[VIEWDBG] 1768159292732 People loaded:",
+    "type": "log"
+  },
+  {
+    "time": 1768159292735,
+    "text": "[VIEWDBG] 1768159292732 ensureRepoDataLoaded: done",
+    "type": "log"
+  },
+  {
+    "time": 1768159292735,
+    "text": "[VIEWDBG] 1768159292732 loadCalendario: max_months_back=12 (E2E=true, original=24)",
+    "type": "log"
+  },
+  {
+    "time": 1768159292735,
+    "text": "[VIEWDBG] 1768159292732 loadCalendario: before fetch pendings",
+    "type": "log"
+  },
+  {
+    "time": 1768159300899,
+    "text": "[VIEWDBG] 1768159300898 loadCalendario: after fetch pendings",
+    "type": "log"
+  },
+  {
+    "time": 1768159300899,
+    "text": "[CAL] after fetch pending {expired: 2040, expiringSoon: 8, missing: 21}",
+    "type": "log"
+  },
+  {
+    "time": 1768159301123,
+    "text": "[VIEWDBG] 1768159301122 loadCalendario: after render table",
+    "type": "log"
+  },
+  {
+    "time": 1768159301123,
+    "text": "[CAL] after render",
+    "type": "log"
+  },
+  {
+    "time": 1768159301123,
+    "text": "[VIEWDBG] 1768159301123 loadCalendario: end",
+    "type": "log"
+  },
+  {
+    "time": 1768159301124,
+    "text": "[CAL] end",
+    "type": "log"
+  },
+  {
+    "time": 1768159301125,
+    "text": "[SETVIEWSTATE] calendario ready readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1768159301125,
+    "text": "[VIEWDBG] 1768159301123 setViewState: calendario -> ready on view-state-root",
+    "type": "log"
+  },
+  {
+    "time": 1768159301125,
+    "text": "[VIEWDBG] 1768159301123 setViewState: calendario -> ready applied, testId=view-calendario-ready",
+    "type": "log"
+  },
+  {
+    "time": 1768159301125,
+    "text": "[VIEWDBG] 1768159301123 calendario: after loadCalendario",
+    "type": "log"
+  },
+  {
+    "time": 1768159301125,
+    "text": "[VIEWDBG] 1768159301123 calendario: before set ready",
+    "type": "log"
+  },
+  {
+    "time": 1768159301125,
+    "text": "[SETVIEWSTATE] calendario ready readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1768159301125,
+    "text": "[VIEWDBG] 1768159301123 setViewState: calendario -> ready on view-state-root",
+    "type": "log"
+  },
+  {
+    "time": 1768159301125,
+    "text": "[VIEWDBG] 1768159301123 setViewState: calendario -> ready applied, testId=view-calendario-ready",
+    "type": "log"
+  },
+  {
+    "time": 1768159301126,
+    "text": "[VIEWDBG] 1768159301123 calendario: after set ready",
+    "type": "log"
+  },
+  {
+    "time": 1768159301126,
+    "text": "[VIEWDBG] 1768159301123 calendario: finally block",
+    "type": "log"
+  },
+  {
+    "time": 1768159301126,
+    "text": "[VIEWDBG] 1768159301123 runRoutingNow: loadPage(calendario) completed",
+    "type": "log"
+  }
+]

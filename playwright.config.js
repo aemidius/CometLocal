@@ -27,7 +27,7 @@ module.exports = {
   testDir: './tests',
   timeout: 30000,
   use: {
-    baseURL: 'http://127.0.0.1:8000',
+    baseURL: 'http://127.0.0.1:8000', // Fijado: siempre usar este baseURL
     headless: false,
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

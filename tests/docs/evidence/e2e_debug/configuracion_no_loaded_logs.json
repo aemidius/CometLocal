@@ -1,0 +1,172 @@
+[
+  {
+    "time": 1767880025938,
+    "text": "[repo-upload] listener installed {time: 1767880025938}",
+    "type": "log"
+  },
+  {
+    "time": 1767880025941,
+    "text": "[VIEWDBG] 1767880025940 bootstrap: start",
+    "type": "log"
+  },
+  {
+    "time": 1767880025941,
+    "text": "[VIEWDBG] 1767880025940 bootstrap: app-ready set",
+    "type": "log"
+  },
+  {
+    "time": 1767880025941,
+    "text": "[VIEWDBG] 1767880025940 initHashRouting: registering hashchange listener",
+    "type": "log"
+  },
+  {
+    "time": 1767880025941,
+    "text": "[VIEWDBG] 1767880025940 bootstrap: calling runRoutingNow for initial hash",
+    "type": "log"
+  },
+  {
+    "time": 1767880025941,
+    "text": "[VIEWDBG] 1767880025940 runRoutingNow: hash=, route=null",
+    "type": "log"
+  },
+  {
+    "time": 1767880025941,
+    "text": "[VIEWDBG] 1767880025940 runRoutingNow: normalizing hash from  to #inicio",
+    "type": "log"
+  },
+  {
+    "time": 1767880025943,
+    "text": "[VIEWDBG] 1767880025940 bootstrap: completed",
+    "type": "log"
+  },
+  {
+    "time": 1767880025947,
+    "text": "[VIEWDBG] 1767880025941 hashchange event fired",
+    "type": "log"
+  },
+  {
+    "time": 1767880025947,
+    "text": "[VIEWDBG] 1767880025941 runRoutingNow: hash=#inicio, route=inicio",
+    "type": "log"
+  },
+  {
+    "time": 1767880025947,
+    "text": "[VIEWDBG] 1767880025941 updateNavActive: updated nav for route=inicio",
+    "type": "log"
+  },
+  {
+    "time": 1767880025947,
+    "text": "[VIEWDBG] 1767880025941 runRoutingNow: calling loadPage(inicio)",
+    "type": "log"
+  },
+  {
+    "time": 1767880025947,
+    "text": "[VIEWDBG] 1767880025941 loadPage: start page=inicio",
+    "type": "log"
+  },
+  {
+    "time": 1767880025947,
+    "text": "[VIEWDBG] 1767880025941 loadPage: content.innerHTML set to loading",
+    "type": "log"
+  },
+  {
+    "time": 1767880025948,
+    "text": "[SETVIEWSTATE] inicio loaded readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1767880025948,
+    "text": "[VIEWDBG] 1767880025941 setViewState: inicio -> loaded on element DIV",
+    "type": "log"
+  },
+  {
+    "time": 1767880025948,
+    "text": "[VIEWDBG] 1767880025941 setViewState: inicio -> loaded applied, testId=view-inicio-loaded",
+    "type": "log"
+  },
+  {
+    "time": 1767880025964,
+    "text": "[VIEWDBG] 1767880025960 hashchange event fired",
+    "type": "log"
+  },
+  {
+    "time": 1767880025967,
+    "text": "[VIEWDBG] 1767880025960 runRoutingNow: hash=#configuracion, route=configuracion",
+    "type": "log"
+  },
+  {
+    "time": 1767880025967,
+    "text": "[VIEWDBG] 1767880025960 updateNavActive: updated nav for route=configuracion",
+    "type": "log"
+  },
+  {
+    "time": 1767880025967,
+    "text": "[VIEWDBG] 1767880025960 runRoutingNow: calling loadPage(configuracion)",
+    "type": "log"
+  },
+  {
+    "time": 1767880025967,
+    "text": "[VIEWDBG] 1767880025960 loadPage: start page=configuracion",
+    "type": "log"
+  },
+  {
+    "time": 1767880025967,
+    "text": "[VIEWDBG] 1767880025960 loadPage: content.innerHTML set to loading",
+    "type": "log"
+  },
+  {
+    "time": 1767880025967,
+    "text": "[SETVIEWSTATE] settings loaded readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1767880025967,
+    "text": "[VIEWDBG] 1767880025960 setViewState: settings -> loaded on element DIV",
+    "type": "log"
+  },
+  {
+    "time": 1767880025967,
+    "text": "[VIEWDBG] 1767880025960 setViewState: settings -> loaded applied, testId=view-settings-loaded",
+    "type": "log"
+  },
+  {
+    "time": 1767880025975,
+    "text": "[SETVIEWSTATE] inicio ready readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1767880025975,
+    "text": "[VIEWDBG] 1767880025974 setViewState: inicio -> ready on element DIV",
+    "type": "log"
+  },
+  {
+    "time": 1767880025975,
+    "text": "[VIEWDBG] 1767880025974 setViewState: inicio -> ready applied, testId=view-inicio-ready",
+    "type": "log"
+  },
+  {
+    "time": 1767880025975,
+    "text": "[VIEWDBG] 1767880025974 runRoutingNow: loadPage(inicio) completed",
+    "type": "log"
+  },
+  {
+    "time": 1767880025977,
+    "text": "[SETVIEWSTATE] settings ready readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1767880025977,
+    "text": "[VIEWDBG] 1767880025976 setViewState: settings -> ready on element DIV",
+    "type": "log"
+  },
+  {
+    "time": 1767880025977,
+    "text": "[VIEWDBG] 1767880025976 setViewState: settings -> ready applied, testId=view-settings-ready",
+    "type": "log"
+  },
+  {
+    "time": 1767880025977,
+    "text": "[VIEWDBG] 1767880025976 runRoutingNow: loadPage(configuracion) completed",
+    "type": "log"
+  }
+]

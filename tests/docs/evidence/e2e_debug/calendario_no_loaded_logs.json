@@ -1,0 +1,17 @@
+[
+  {
+    "time": 1767826093666,
+    "text": "[repo-upload] listener installed {time: 1767826093662}",
+    "type": "log"
+  },
+  {
+    "time": 1767826093698,
+    "text": "[repo] Unhandled promise rejection: ReferenceError: viewDbg is not defined\n    at initHashRouting (http://127.0.0.1:8000/repository:899:13)\n    at HTMLDocument.<anonymous> (http://127.0.0.1:8000/repository:934:17)",
+    "type": "error"
+  },
+  {
+    "time": 1767826093712,
+    "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "type": "error"
+  }
+]

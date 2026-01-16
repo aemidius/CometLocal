@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-01-16T09:06:57.557Z",
+  "httpStatus": 200,
+  "responseStatus": "error",
+  "errorCode": "readonly_compute_failed",
+  "extractedRunId": null,
+  "hasRunIdInResponse": false,
+  "hasPlanIdInResponse": false,
+  "hasArtifactsRunId": false,
+  "hasRunIdMissingErrorInUI": true,
+  "responseKeys": [
+    "status",
+    "error_code",
+    "message",
+    "details"
+  ]
+}

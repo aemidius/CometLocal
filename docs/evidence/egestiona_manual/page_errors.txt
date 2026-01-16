@@ -1,0 +1,5 @@
+[2026-01-15T22:51:47.525Z]
+updateWorkerField is not defined
+ReferenceError: updateWorkerField is not defined
+    at HTMLInputElement.onchange (http://127.0.0.1:8000/home:579:149)
+---

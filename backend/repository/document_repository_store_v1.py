@@ -8,11 +8,13 @@ from uuid import uuid4
 
 from backend.repository.data_bootstrap_v1 import ensure_data_layout
 from backend.repository.config_store_v1 import _atomic_write_json
+from backend.repository.settings_routes import load_settings
 from backend.shared.document_repository_v1 import (
     DocumentTypeV1,
     DocumentInstanceV1,
     SubmissionRuleV1,
     ValidityOverrideV1,
+    DocumentScopeV1,
 )
 
 
@@ -26,8 +28,21 @@ class DocumentRepositoryStoreV1:
     """
 
     def __init__(self, *, base_dir: str | Path = "data"):
-        self.base_dir = ensure_data_layout(base_dir=base_dir)
-        self.repo_dir = (Path(self.base_dir) / "repository").resolve()
+        # Cargar configuración de ruta del repositorio
+        try:
+            settings = load_settings()
+            repository_root = Path(settings.repository_root_dir)
+        except Exception:
+            # Fallback a comportamiento anterior si hay error
+            self.base_dir = ensure_data_layout(base_dir=base_dir)
+            repository_root = (Path(self.base_dir) / "repository").resolve()
+        
+        # Asegurar que el directorio raíz existe
+        repository_root.mkdir(parents=True, exist_ok=True)
+        self.repo_dir = repository_root.resolve()
+        
+        # Mantener base_dir para compatibilidad (usar el mismo que configurado)
+        self.base_dir = self.repo_dir.parent
         self.types_dir = self.repo_dir / "types"
         self.docs_dir = self.repo_dir / "docs"
         self.meta_dir = self.repo_dir / "meta"
@@ -84,10 +99,16 @@ class DocumentRepositoryStoreV1:
             self._write_json(self.overrides_path, {"schema_version": "v1", "overrides": []})
 
     def _read_json(self, path: Path) -> dict:
-        """Lee JSON desde un path."""
+        """Lee JSON desde un path. Si el JSON es inválido, lanza excepción clara."""
         if not path.exists():
             return {}
-        return json.loads(path.read_text(encoding="utf-8"))
+        try:
+            content = path.read_text(encoding="utf-8")
+            return json.loads(content)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"JSON inválido en {path}: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Error al leer {path}: {str(e)}")
 
     def _write_json(self, path: Path, payload: dict) -> None:
         """Escribe JSON de forma atómica."""
@@ -133,8 +154,17 @@ class DocumentRepositoryStoreV1:
         return types_dict.get(type_id)
 
     def create_type(self, doc_type: DocumentTypeV1) -> DocumentTypeV1:
-        """Crea un nuevo tipo."""
+        """Crea un nuevo tipo. Si type_id está vacío o no se proporciona, se genera automáticamente."""
         types_dict = self._read_types()
+        
+        # Si type_id está vacío o no se proporciona, generarlo automáticamente
+        if not doc_type.type_id or doc_type.type_id.strip() == '':
+            generated_id = self._generate_type_id_from_name(doc_type.name)
+            # Crear nuevo objeto con el type_id generado
+            doc_type_dict = doc_type.model_dump()
+            doc_type_dict['type_id'] = generated_id
+            doc_type = DocumentTypeV1(**doc_type_dict)
+        
         if doc_type.type_id in types_dict:
             raise ValueError(f"Type {doc_type.type_id} already exists")
         types_dict[doc_type.type_id] = doc_type
@@ -160,6 +190,70 @@ class DocumentRepositoryStoreV1:
         del types_dict[type_id]
         self._write_types(list(types_dict.values()))
 
+    def _generate_unique_type_id(self, base_type_id: str) -> str:
+        """Genera un type_id único basado en el original: {base}_COPY, {base}_COPY_2, etc."""
+        types_dict = self._read_types()
+        candidate = f"{base_type_id}_COPY"
+        if candidate not in types_dict:
+            return candidate
+        
+        counter = 2
+        while True:
+            candidate = f"{base_type_id}_COPY_{counter}"
+            if candidate not in types_dict:
+                return candidate
+            counter += 1
+            # Protección contra loops infinitos (muy improbable)
+            if counter > 1000:
+                raise ValueError(f"Cannot generate unique type_id for {base_type_id} after 1000 attempts")
+    
+    def _generate_type_id_from_name(self, name: str) -> str:
+        """Genera un type_id único a partir del nombre del tipo.
+        
+        Reglas:
+        - Normalizar: sin tildes, uppercase, underscores, trim
+        - Prefijo: T###_ donde ### es un contador secuencial o basado en timestamp
+        - Garantizar unicidad: si ya existe, añadir sufijo _2, _3, etc.
+        """
+        import re
+        import time
+        
+        # Normalizar nombre: sin tildes, uppercase, espacios -> underscores
+        normalized = name.upper()
+        # Reemplazar tildes
+        replacements = {
+            'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
+            'Ñ': 'N'
+        }
+        for old, new in replacements.items():
+            normalized = normalized.replace(old, new)
+        # Reemplazar espacios y caracteres especiales por underscores
+        normalized = re.sub(r'[^A-Z0-9_]', '_', normalized)
+        # Eliminar underscores múltiples
+        normalized = re.sub(r'_+', '_', normalized)
+        # Eliminar underscores al inicio y final
+        normalized = normalized.strip('_')
+        
+        # Generar prefijo con contador (usar timestamp para evitar colisiones)
+        timestamp = int(time.time()) % 10000  # Últimos 4 dígitos del timestamp
+        base_id = f"T{timestamp:04d}_{normalized}"
+        
+        # Asegurar unicidad
+        types_dict = self._read_types()
+        candidate = base_id
+        if candidate not in types_dict:
+            return candidate
+        
+        # Si existe, añadir sufijo
+        counter = 2
+        while True:
+            candidate = f"{base_id}_{counter}"
+            if candidate not in types_dict:
+                return candidate
+            counter += 1
+            if counter > 1000:
+                raise ValueError(f"Cannot generate unique type_id from name '{name}' after 1000 attempts")
+
     def duplicate_type(self, type_id: str, new_type_id: str, new_name: Optional[str] = None) -> DocumentTypeV1:
         """Duplica un tipo con nuevo ID."""
         original = self.get_type(type_id)
@@ -170,8 +264,13 @@ class DocumentRepositoryStoreV1:
         if new_type_id in types_dict:
             raise ValueError(f"Type {new_type_id} already exists")
         
+        # Deep copy: excluir type_id y name del dump para evitar conflictos
+        original_dict = original.model_dump()
+        original_dict.pop('type_id', None)
+        original_dict.pop('name', None)
+        
         new_type = DocumentTypeV1(
-            **original.model_dump(),
+            **original_dict,
             type_id=new_type_id,
             name=new_name or f"{original.name} (copia)"
         )
@@ -203,7 +302,8 @@ class DocumentRepositoryStoreV1:
         scope: Optional[str] = None,
         status: Optional[str] = None,
         company_key: Optional[str] = None,
-        person_key: Optional[str] = None
+        person_key: Optional[str] = None,
+        period_key: Optional[str] = None,
     ) -> List[DocumentInstanceV1]:
         """Lista todos los documentos (con filtros opcionales)."""
         result: List[DocumentInstanceV1] = []
@@ -214,13 +314,22 @@ class DocumentRepositoryStoreV1:
                 
                 if type_id and doc.type_id != type_id:
                     continue
-                if scope and doc.scope != scope:
-                    continue
+                if scope:
+                    # Convertir string a enum para comparación correcta
+                    try:
+                        scope_enum = DocumentScopeV1(scope)
+                        if doc.scope != scope_enum:
+                            continue
+                    except (ValueError, TypeError):
+                        # Si scope no es un valor válido del enum, no filtrar por scope
+                        pass
                 if status and doc.status != status:
                     continue
                 if company_key and doc.company_key != company_key:
                     continue
                 if person_key and doc.person_key != person_key:
+                    continue
+                if period_key and doc.period_key != period_key:
                     continue
                 
                 result.append(doc)

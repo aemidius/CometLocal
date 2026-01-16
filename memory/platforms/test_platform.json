@@ -4,6 +4,15 @@
   "visual_recovery_usage": 2,
   "upload_error_counts": 0,
   "ocr_usage": 6,
-  "last_seen": "2025-12-05T14:50:52.409022",
-  "notes": null
+  "last_seen": "2026-01-14T23:15:49.833217",
+  "notes": null,
+  "avg_outcome_score": null,
+  "outcome_run_count": 0,
+  "last_outcome_timestamp": null,
+  "common_issues": null,
+  "last_company_code": null,
+  "last_username": null,
+  "last_password": null,
+  "last_worker_id": null,
+  "last_doc_type": null
 }

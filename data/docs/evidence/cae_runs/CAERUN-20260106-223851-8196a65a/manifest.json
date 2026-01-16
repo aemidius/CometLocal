@@ -1,0 +1,25 @@
+{
+  "run_id": "CAERUN-20260106-223851-8196a65a",
+  "plan_id": "CAEPLAN-20260106-223849-9365d74e",
+  "started_at": "2026-01-06T22:38:51.430676",
+  "finished_at": "2026-01-06T22:38:51.542219",
+  "status": "SUCCESS",
+  "stop_reason": null,
+  "error": null,
+  "items_results": [
+    {
+      "item_index": 0,
+      "item_type_id": "T9977_AUTONOMOS",
+      "item_period_key": "2026-01",
+      "status": "SUCCESS",
+      "error": null
+    }
+  ],
+  "summary": {
+    "total_items": 1,
+    "items_processed": 1,
+    "items_success": 1,
+    "items_failed": 0,
+    "items_blocked": 0
+  }
+}

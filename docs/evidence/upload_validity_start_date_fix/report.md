@@ -1,7 +1,7 @@
 # Reporte de Pruebas E2E - Fix Validity Start Date
 
 ## Fecha
-2026-01-04T11:45:04.377Z
+2026-01-08T21:11:43.076Z
 
 ## Objetivo
 Verificar que el campo "Fecha de inicio de vigencia" se envía correctamente al backend cuando `validity_start_mode='manual'`.

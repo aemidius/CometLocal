@@ -1,0 +1,207 @@
+[
+  {
+    "time": 1767879010406,
+    "text": "[repo-upload] listener installed {time: 1767879010398}",
+    "type": "log"
+  },
+  {
+    "time": 1767879010436,
+    "text": "[VIEWDBG] 1767879010435 bootstrap: start",
+    "type": "log"
+  },
+  {
+    "time": 1767879010436,
+    "text": "[VIEWDBG] 1767879010435 bootstrap: app-ready set",
+    "type": "log"
+  },
+  {
+    "time": 1767879010436,
+    "text": "[VIEWDBG] 1767879010435 initHashRouting: registering hashchange listener",
+    "type": "log"
+  },
+  {
+    "time": 1767879010436,
+    "text": "[VIEWDBG] 1767879010435 bootstrap: calling runRoutingNow for initial hash",
+    "type": "log"
+  },
+  {
+    "time": 1767879010437,
+    "text": "[VIEWDBG] 1767879010435 runRoutingNow: hash=, route=null",
+    "type": "log"
+  },
+  {
+    "time": 1767879010437,
+    "text": "[VIEWDBG] 1767879010435 runRoutingNow: normalizing hash from  to #inicio",
+    "type": "log"
+  },
+  {
+    "time": 1767879010440,
+    "text": "[VIEWDBG] 1767879010436 bootstrap: completed",
+    "type": "log"
+  },
+  {
+    "time": 1767879010445,
+    "text": "[VIEWDBG] 1767879010438 hashchange event fired",
+    "type": "log"
+  },
+  {
+    "time": 1767879010445,
+    "text": "[VIEWDBG] 1767879010438 runRoutingNow: hash=#inicio, route=inicio",
+    "type": "log"
+  },
+  {
+    "time": 1767879010445,
+    "text": "[VIEWDBG] 1767879010438 updateNavActive: updated nav for route=inicio",
+    "type": "log"
+  },
+  {
+    "time": 1767879010445,
+    "text": "[VIEWDBG] 1767879010438 runRoutingNow: calling loadPage(inicio)",
+    "type": "log"
+  },
+  {
+    "time": 1767879010445,
+    "text": "[VIEWDBG] 1767879010438 loadPage: start page=inicio",
+    "type": "log"
+  },
+  {
+    "time": 1767879010445,
+    "text": "[VIEWDBG] 1767879010439 loadPage: content.innerHTML set to loading",
+    "type": "log"
+  },
+  {
+    "time": 1767879010445,
+    "text": "[SETVIEWSTATE] inicio loaded readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1767879010445,
+    "text": "[VIEWDBG] 1767879010439 setViewState: inicio -> loaded on element DIV",
+    "type": "log"
+  },
+  {
+    "time": 1767879010445,
+    "text": "[VIEWDBG] 1767879010439 setViewState: inicio -> loaded applied, testId=view-inicio-loaded",
+    "type": "log"
+  },
+  {
+    "time": 1767879010476,
+    "text": "[VIEWDBG] 1767879010470 hashchange event fired",
+    "type": "log"
+  },
+  {
+    "time": 1767879010476,
+    "text": "[VIEWDBG] 1767879010470 runRoutingNow: hash=#buscar, route=buscar",
+    "type": "log"
+  },
+  {
+    "time": 1767879010476,
+    "text": "[VIEWDBG] 1767879010470 updateNavActive: updated nav for route=buscar",
+    "type": "log"
+  },
+  {
+    "time": 1767879010477,
+    "text": "[VIEWDBG] 1767879010470 runRoutingNow: calling loadPage(buscar)",
+    "type": "log"
+  },
+  {
+    "time": 1767879010477,
+    "text": "[VIEWDBG] 1767879010470 loadPage: start page=buscar",
+    "type": "log"
+  },
+  {
+    "time": 1767879010481,
+    "text": "[VIEWDBG] 1767879010470 loadPage: content.innerHTML set to loading",
+    "type": "log"
+  },
+  {
+    "time": 1767879010481,
+    "text": "[SETVIEWSTATE] buscar loaded readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1767879010481,
+    "text": "[VIEWDBG] 1767879010470 setViewState: buscar -> loaded on element DIV",
+    "type": "log"
+  },
+  {
+    "time": 1767879010481,
+    "text": "[VIEWDBG] 1767879010470 setViewState: buscar -> loaded applied, testId=view-buscar-loaded",
+    "type": "log"
+  },
+  {
+    "time": 1767879010481,
+    "text": "[VIEWDBG] 1767879010471 loadBuscar: start",
+    "type": "log"
+  },
+  {
+    "time": 1767879010481,
+    "text": "[VIEWDBG] 1767879010471 ensureRepoDataLoaded: start",
+    "type": "log"
+  },
+  {
+    "time": 1767879010481,
+    "text": "[VIEWDBG] 1767879010471 Loading types...",
+    "type": "log"
+  },
+  {
+    "time": 1767879010481,
+    "text": "[VIEWDBG] 1767879010471 Loading people...",
+    "type": "log"
+  },
+  {
+    "time": 1767879010489,
+    "text": "[SETVIEWSTATE] inicio ready readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1767879010489,
+    "text": "[VIEWDBG] 1767879010488 setViewState: inicio -> ready on element DIV",
+    "type": "log"
+  },
+  {
+    "time": 1767879010489,
+    "text": "[VIEWDBG] 1767879010488 setViewState: inicio -> ready applied, testId=view-inicio-ready",
+    "type": "log"
+  },
+  {
+    "time": 1767879010489,
+    "text": "[VIEWDBG] 1767879010488 runRoutingNow: loadPage(inicio) completed",
+    "type": "log"
+  },
+  {
+    "time": 1767879010506,
+    "text": "[VIEWDBG] 1767879010506 Types loaded:",
+    "type": "log"
+  },
+  {
+    "time": 1767879010507,
+    "text": "[VIEWDBG] 1767879010506 People loaded:",
+    "type": "log"
+  },
+  {
+    "time": 1767879010507,
+    "text": "[VIEWDBG] 1767879010506 ensureRepoDataLoaded: done",
+    "type": "log"
+  },
+  {
+    "time": 1767879010552,
+    "text": "[SETVIEWSTATE] buscar ready readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1767879010552,
+    "text": "[VIEWDBG] 1767879010551 setViewState: buscar -> ready on element DIV",
+    "type": "log"
+  },
+  {
+    "time": 1767879010553,
+    "text": "[VIEWDBG] 1767879010551 setViewState: buscar -> ready applied, testId=view-buscar-ready",
+    "type": "log"
+  },
+  {
+    "time": 1767879010553,
+    "text": "[VIEWDBG] 1767879010551 runRoutingNow: loadPage(buscar) completed",
+    "type": "log"
+  }
+]

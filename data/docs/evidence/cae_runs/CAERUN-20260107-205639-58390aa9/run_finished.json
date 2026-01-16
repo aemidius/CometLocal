@@ -1,0 +1,31 @@
+{
+  "run_id": "CAERUN-20260107-205639-58390aa9",
+  "status": "PARTIAL_SUCCESS",
+  "started_at": "2026-01-07T20:56:39.728540",
+  "finished_at": "2026-01-07T20:56:39.819053",
+  "error": "Forzado fallo FAKE después de 1 item(s) (CAE_FAKE_FAIL_AFTER_ITEM=1)",
+  "stop_reason": "FAILED",
+  "summary": {
+    "total_items": 2,
+    "items_processed": 2,
+    "items_success": 1,
+    "items_failed": 1,
+    "items_blocked": 0
+  },
+  "items_results": [
+    {
+      "item_index": 0,
+      "item_type_id": "E2E_MONTHLY_eb91c876",
+      "item_period_key": "2025-12",
+      "status": "SUCCESS",
+      "error": null
+    },
+    {
+      "item_index": 1,
+      "item_type_id": "E2E_MONTHLY_eb91c876",
+      "item_period_key": "2025-11",
+      "status": "FAILED",
+      "error": "Forzado fallo FAKE después de 1 item(s) (CAE_FAKE_FAIL_AFTER_ITEM=1)"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "run_id": "CAERUN-20260107-210356-553ef663_item1",
+  "status": "SUCCESS",
+  "started_at": "2026-01-07T21:03:56.344747",
+  "finished_at": "2026-01-07T21:03:56.347747",
+  "summary": {
+    "items_processed": 1,
+    "items_success": 1,
+    "items_failed": 0
+  }
+}

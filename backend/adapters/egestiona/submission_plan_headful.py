@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-import json
+import json as jsonlib
 import time
 import uuid
-from datetime import date, datetime
+import hashlib
+import hmac
+import os
+from datetime import date as dt_date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -17,6 +20,9 @@ from backend.repository.document_matcher_v1 import (
     normalize_text,
 )
 from backend.shared.document_repository_v1 import DocumentStatusV1
+from backend.shared.person_matcher import match_person_in_element
+from backend.shared.text_normalizer import normalize_text, normalize_company_name, text_contains, extract_company_code
+from backend.adapters.egestiona.grid_extract import extract_dhtmlx_grid, canonicalize_row
 from backend.adapters.egestiona.frame_scan_headful import LOGIN_URL_PREVIOUS_SUCCESS, _safe_write_json
 from backend.adapters.egestiona.match_pending_headful import (
     _parse_date_from_cell,
@@ -24,7 +30,7 @@ from backend.adapters.egestiona.match_pending_headful import (
 )
 
 
-def _format_date_for_portal(d: Optional[date]) -> Optional[str]:
+def _format_date_for_portal(d: Optional[dt_date]) -> Optional[str]:
     """Formatea fecha como DD/MM/YYYY para el portal."""
     if not d:
         return None
@@ -33,7 +39,7 @@ def _format_date_for_portal(d: Optional[date]) -> Optional[str]:
 
 def _evaluate_submission_guardrails(
     match_result: Dict[str, Any],
-    today: date,
+    today: dt_date,
     only_target: bool,
     match_count: int,
     doc_type: Optional[Any] = None,
@@ -78,7 +84,7 @@ def _evaluate_submission_guardrails(
             valid_from = datetime.strptime(valid_from_str, "%Y-%m-%d").date()
         except ValueError:
             valid_from = None
-    elif isinstance(valid_from_str, date):
+    elif isinstance(valid_from_str, dt_date):
         valid_from = valid_from_str
     
     if isinstance(valid_to_str, str):
@@ -86,7 +92,7 @@ def _evaluate_submission_guardrails(
             valid_to = datetime.strptime(valid_to_str, "%Y-%m-%d").date()
         except ValueError:
             valid_to = None
-    elif isinstance(valid_to_str, date):
+    elif isinstance(valid_to_str, dt_date):
         valid_to = valid_to_str
     
     # Inicializar como REVIEW_REQUIRED (más seguro por defecto)
@@ -182,7 +188,8 @@ def run_build_submission_plan_readonly_headful(
     slow_mo_ms: int = 300,
     viewport: Optional[Dict[str, int]] = None,
     wait_after_login_s: float = 2.5,
-) -> str:
+    return_plan_only: bool = False,  # Si True, devuelve plan directamente sin crear run
+) -> str | Dict[str, Any]:
     """
     HEADFUL / READ-ONLY:
     1) Login y obtiene listado de pendientes (reutiliza lógica de matching).
@@ -190,18 +197,23 @@ def run_build_submission_plan_readonly_headful(
     3) Evalúa guardrails y genera plan de envío.
     4) Genera evidence: pending_items.json, match_results.json, submission_plan.json, meta.json.
     """
+    # HOTFIX C2.13.7: Logging de trace al inicio de la función
+    print(f"[CAE][READONLY][TRACE] run_build_submission_plan_readonly_headful ENTRADA: platform={platform} coordination={coordination} company_key={company_key} person_key={person_key} limit={limit} only_target={only_target} return_plan_only={return_plan_only}")
+    
     base = ensure_data_layout(base_dir=base_dir)
     store = ConfigStoreV1(base_dir=base)
     secrets = SecretsStoreV1(base_dir=base)
     repo_store = DocumentRepositoryStoreV1(base_dir=base)
-    matcher = DocumentMatcherV1(repo_store)
+    matcher = DocumentMatcherV1(repo_store, base_dir=base)
 
     platforms = store.load_platforms()
     plat = next((p for p in platforms.platforms if p.key == platform), None)
     if not plat:
+        print(f"[CAE][READONLY][TRACE] BRANCH: early_return_platform_not_found reason=platform '{platform}' not found")
         raise ValueError(f"platform not found: {platform}")
     coord = next((c for c in plat.coordinations if c.label == coordination), None)
     if not coord:
+        print(f"[CAE][READONLY][TRACE] BRANCH: early_return_coordination_not_found reason=coordination '{coordination}' not found")
         raise ValueError(f"coordination not found: {coordination}")
 
     client_code = (coord.client_code or "").strip()
@@ -209,55 +221,128 @@ def run_build_submission_plan_readonly_headful(
     password_ref = (coord.password_ref or "").strip()
     password = secrets.get_secret(password_ref) if password_ref else None
     if not client_code or not username or not password:
+        print(f"[CAE][READONLY][TRACE] BRANCH: early_return_missing_credentials reason=client_code={bool(client_code)} username={bool(username)} password={bool(password)}")
         raise ValueError("Missing credentials: client_code/username/password_ref")
+    
+    print(f"[CAE][READONLY][TRACE] Credenciales OK, iniciando Playwright...")
 
-    run_id = f"r_{uuid.uuid4().hex}"
-    run_dir = Path(base) / "runs" / run_id
-    evidence_dir = run_dir / "evidence"
-    evidence_dir.mkdir(parents=True, exist_ok=True)
+    # HOTFIX C2.12.6: Si return_plan_only=True, NO crear run ni tocar filesystem
+    if return_plan_only:
+        # No crear run_id ni directorios
+        run_id = None
+        run_dir = None
+        evidence_dir = None
+    else:
+        run_id = f"r_{uuid.uuid4().hex}"
+        run_dir = Path(base) / "runs" / run_id
+        evidence_dir = run_dir / "evidence"
+        evidence_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Variable para almacenar storage_state_path
+    storage_state_path = None
 
-    # Evidence paths
-    shot_01 = evidence_dir / "01_dashboard_tiles.png"
-    shot_02 = evidence_dir / "02_listado_grid.png"
-    pending_items_path = evidence_dir / "pending_items.json"
-    match_results_path = evidence_dir / "match_results.json"
-    submission_plan_path = evidence_dir / "submission_plan.json"
-    meta_path = evidence_dir / "meta.json"
+    # Evidence paths (solo si NO es return_plan_only)
+    if not return_plan_only:
+        shot_01 = evidence_dir / "01_dashboard_tiles.png"
+        shot_02 = evidence_dir / "02_listado_grid.png"
+        pending_items_path = evidence_dir / "pending_items.json"
+        match_results_path = evidence_dir / "match_results.json"
+        submission_plan_path = evidence_dir / "submission_plan.json"
+        meta_path = evidence_dir / "meta.json"
+    else:
+        shot_01 = None
+        shot_02 = None
+        pending_items_path = None
+        match_results_path = None
+        submission_plan_path = None
+        meta_path = None
 
     started = time.time()
-    today = date.today()
+    today = dt_date.today()
+    
+    # HOTFIX C2.13.9a: Inicializar instrumentation al inicio para evitar UnboundLocalError
+    instrumentation: Dict[str, Any] = {}
 
     # Reutilizar lógica de extracción de pendientes
     # (copiamos el código de match_pending_headful pero añadimos evaluación de guardrails)
     try:
         from playwright.sync_api import sync_playwright
+        print(f"[CAE][READONLY][TRACE] Playwright import OK, lanzando browser...")
     except Exception as e:
+        print(f"[CAE][READONLY][TRACE] BRANCH: playwright_import_failed reason={type(e).__name__}: {str(e)}")
         raise RuntimeError("Playwright sync_api not available") from e
 
     pending_items: List[Dict[str, Any]] = []
     match_results: List[Dict[str, Any]] = []
     submission_plan: List[Dict[str, Any]] = []
 
+    print(f"[CAE][READONLY][TRACE] Iniciando contexto Playwright (headless=False)...")
     with sync_playwright() as p:
+        print(f"[CAE][READONLY][TRACE] Lanzando browser Chromium (headless=False)...")
         browser = p.chromium.launch(headless=False, slow_mo=slow_mo_ms)
         context = browser.new_context(
             viewport=viewport or {"width": 1600, "height": 1000},
         )
         page = context.new_page()
+        print(f"[CAE][READONLY][TRACE] Browser lanzado, navegando a login...")
 
         # 1) Login (reutilizar lógica existente)
+        print(f"[CAE][READONLY][TRACE] Navegando a: {LOGIN_URL_PREVIOUS_SUCCESS}")
         page.goto(LOGIN_URL_PREVIOUS_SUCCESS, wait_until="domcontentloaded", timeout=60000)
+        print(f"[CAE][READONLY][TRACE] Página de login cargada, rellenando credenciales...")
         page.locator('input[name="ClientName"]').fill(client_code, timeout=20000)
         page.locator('input[name="Username"]').fill(username, timeout=20000)
         page.locator('input[name="Password"]').fill(password, timeout=20000)
+        print(f"[CAE][READONLY][TRACE] Credenciales rellenadas, haciendo click en submit...")
         page.locator('button[type="submit"]').click(timeout=20000)
 
+        print(f"[CAE][READONLY][TRACE] Esperando redirección a default_contenido.asp...")
         page.wait_for_url("**/default_contenido.asp", timeout=30000)
         try:
             page.wait_for_load_state("networkidle", timeout=25000)
         except Exception:
             pass
+        print(f"[CAE][READONLY][TRACE] Login completado, esperando {wait_after_login_s}s...")
         time.sleep(wait_after_login_s)
+        print(f"[CAE][READONLY][TRACE] Continuando con navegación a listado de pendientes...")
+
+        # Guardar storage_state tras login exitoso (para reutilizar sesión) - solo si NO es return_plan_only
+        if not return_plan_only:
+            storage_state_path = run_dir / "storage_state.json"
+            try:
+                context.storage_state(path=str(storage_state_path))
+                print(f"[submission_plan] Storage state guardado en: {storage_state_path}")
+            except Exception as e:
+                print(f"[WARNING] No se pudo guardar storage_state: {e}")
+                storage_state_path = None
+        else:
+            storage_state_path = None
+
+        # Cerrar todos los overlays DHTMLX bloqueantes (pipeline completo)
+        # IMPORTANTE: Este helper ya fue probado y funciona. Debe ejecutarse después del login.
+        try:
+            from backend.adapters.egestiona.priority_comms_headful import dismiss_all_dhx_blockers, PriorityCommsModalNotDismissed, DhxBlockerNotDismissed
+            print(f"[submission_plan] Invocando dismiss_all_dhx_blockers (timeout=30s)...")
+            dismiss_all_dhx_blockers(page, evidence_dir if not return_plan_only else None, timeout_seconds=30)
+            print(f"[submission_plan] dismiss_all_dhx_blockers completado exitosamente")
+            # Esperar un poco más para asegurar que el modal se cerró completamente
+            time.sleep(1.0)
+        except (PriorityCommsModalNotDismissed, DhxBlockerNotDismissed) as e:
+            # Re-lanzar como RuntimeError para que el endpoint lo capture
+            print(f"[submission_plan] ERROR: No se pudo cerrar modal DHTMLX: {e}")
+            if not return_plan_only:
+                page.screenshot(path=str(evidence_dir / "dhx_blocker_failed.png"), full_page=True)
+            raise RuntimeError(f"DHX_BLOCKER_NOT_DISMISSED: {e}") from e
+        except Exception as e:
+            # Si falla, guardar evidence pero continuar (no romper el flujo)
+            print(f"[WARNING] Error inesperado al cerrar overlays DHTMLX: {e}")
+            import traceback
+            traceback.print_exc()
+            if not return_plan_only:
+                try:
+                    page.screenshot(path=str(evidence_dir / "dhx_blocker_error.png"), full_page=True)
+                except Exception:
+                    pass
 
         # Esperar frame nm_contenido
         t_deadline = time.time() + 25.0
@@ -268,10 +353,29 @@ def run_build_submission_plan_readonly_headful(
                 break
             time.sleep(0.25)
         if not frame:
-            page.screenshot(path=str(shot_01), full_page=True)
+            if not return_plan_only:
+                page.screenshot(path=str(shot_01), full_page=True)
             raise RuntimeError("FRAME_NOT_FOUND: nm_contenido")
 
-        page.screenshot(path=str(shot_01), full_page=True)
+        if not return_plan_only:
+            page.screenshot(path=str(shot_01), full_page=True)
+
+        # Cerrar overlays DHTMLX también justo antes del primer click importante (por si aparecen tarde)
+        # Esto es una medida de seguridad adicional
+        try:
+            from backend.adapters.egestiona.priority_comms_headful import dismiss_all_dhx_blockers, PriorityCommsModalNotDismissed, DhxBlockerNotDismissed
+            print(f"[submission_plan] Verificación adicional de overlays DHTMLX antes del click...")
+            dismiss_all_dhx_blockers(page, evidence_dir if not return_plan_only else None, timeout_seconds=10)
+            print(f"[submission_plan] Verificación adicional completada")
+        except (PriorityCommsModalNotDismissed, DhxBlockerNotDismissed) as e:
+            # Re-lanzar como RuntimeError para que el endpoint lo capture
+            print(f"[submission_plan] ERROR: Overlay DHTMLX detectado antes del click: {e}")
+            if not return_plan_only:
+                page.screenshot(path=str(evidence_dir / "dhx_blocker_before_click.png"), full_page=True)
+            raise RuntimeError(f"DHX_BLOCKER_NOT_DISMISSED: {e}") from e
+        except Exception as e:
+            print(f"[WARNING] Error inesperado al cerrar overlays DHTMLX antes del click: {e}")
+            # No romper el flujo, solo loguear
 
         # 2) Click tile Enviar Doc. Pendiente
         tile_sel = 'a.listado_link[href="javascript:Gestion(3);"]'
@@ -319,90 +423,430 @@ def run_build_submission_plan_readonly_headful(
                 time.sleep(0.25)
 
         if not (list_frame and _frame_has_grid(list_frame)):
-            page.screenshot(path=str(shot_02), full_page=True)
+            if not return_plan_only:
+                page.screenshot(path=str(shot_02), full_page=True)
             raise RuntimeError("GRID_NOT_FOUND")
 
         list_frame.locator("table.hdr").first.wait_for(state="attached", timeout=15000)
         list_frame.locator("table.obj.row20px").first.wait_for(state="attached", timeout=15000)
 
-        try:
-            list_frame.locator("body").screenshot(path=str(shot_02))
-        except Exception:
-            page.screenshot(path=str(shot_02), full_page=True)
+        if not return_plan_only:
+            try:
+                list_frame.locator("body").screenshot(path=str(shot_02))
+            except Exception:
+                page.screenshot(path=str(shot_02), full_page=True)
 
-        # 4) Extraer grid (reutilizar código existente)
-        extracted = list_frame.evaluate(
-            """() => {
-  function norm(s){ return (s||'').replace(/\\s+/g,' ').trim(); }
-  function headersFromHdrTable(hdr){
-    const cells = Array.from(hdr.querySelectorAll('tr:nth-of-type(2) td'));
-    if(cells.length){
-      return cells.map(td => {
-        const span = td.querySelector('.hdrcell span');
-        return span ? norm(span.innerText) : norm(td.innerText);
-      });
-    }
-    return Array.from(hdr.querySelectorAll('.hdrcell span')).map(s => norm(s.innerText));
-  }
-  function extractRowsFromObjTable(obj, headers){
-    const rows = Array.from(obj.querySelectorAll('tbody tr'));
-    return rows.map(tr => {
-      const cells = Array.from(tr.querySelectorAll('td'));
-      const row = {};
-      headers.forEach((h, i) => {
-        if(cells[i]) row[h] = norm(cells[i].innerText);
-      });
-      return row;
-    });
-  }
-  const hdrTables = Array.from(document.querySelectorAll('table.hdr'));
-  const objTables = Array.from(document.querySelectorAll('table.obj.row20px'));
-  if(!hdrTables.length || !objTables.length) return {headers:[], rows:[]};
-  const bestHdr = hdrTables[0];
-  const headers = headersFromHdrTable(bestHdr);
-  let bestObj = null;
-  let bestRows = [];
-  for(const t of objTables){
-    const rs = extractRowsFromObjTable(t, headers);
-    if(rs.length > bestRows.length){
-      bestObj = t;
-      bestRows = rs;
-    }
-  }
-  return {headers, rows: bestRows};
-}"""
+        # 3.5) Esperar a que el grid esté estable (sin "Loading...") antes de validar
+        from backend.adapters.egestiona.page_contract_validator import (
+            validate_pending_page_contract,
+            PageContractError,
+            wait_for_grid_stable,
         )
+        
+        loading_info = wait_for_grid_stable(list_frame, timeout=25.0)
+        
+        # 3.5) Validar "page contract" antes de extraer
+        try:
+            validate_pending_page_contract(
+                page=page,
+                list_frame=list_frame,
+                evidence_dir=evidence_dir if not return_plan_only else None,
+            )
+        except PageContractError as e:
+            # La excepción ya tiene toda la información estructurada
+            # Solo añadir timestamp y guardar JSON adicional si es necesario
+            if not return_plan_only:
+                error_dump_path = evidence_dir / f"{e.error_code}_error.json"
+                _safe_write_json(error_dump_path, {
+                    "error_code": e.error_code,
+                    "message": e.message,
+                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time())),
+                    "details": e.details,
+                    "evidence_paths": e.evidence_paths,
+                    "loading_info": loading_info,  # Añadir info de loading
+                })
+            # Re-lanzar la excepción para que flows.py la capture
+            raise
+
+        # 3.6) SPRINT C2.13.0: Auto-disparar búsqueda si grid está vacío
+        from backend.adapters.egestiona.grid_search_helper import ensure_results_loaded
+        
+        print(f"[CAE][READONLY][TRACE] Llamando ensure_results_loaded para verificar grid...")
+        search_result = ensure_results_loaded(
+            list_frame=list_frame,
+            evidence_dir=evidence_dir if not return_plan_only else None,
+            timeout_seconds=60.0,
+            max_retries=1,
+            page=page,  # HOTFIX C2.13.9: Pasar page para validar pestaña correcta
+        )
+        
+        # Guardar resultado de búsqueda en instrumentación
+        if not return_plan_only:
+            search_result_path = evidence_dir / "search_result.json"
+            _safe_write_json(search_result_path, search_result)
+        
+        print(f"[submission_plan] Search result: clicked={search_result.get('search_clicked')}, "
+              f"rows_before={search_result.get('rows_before')}, rows_after={search_result.get('rows_after')}")
+
+        # 4) Extraer grid usando extractor robusto
+        extracted = extract_dhtmlx_grid(list_frame)
+        
+        # Guardar debug info si hay warnings (solo si NO es return_plan_only)
+        if extracted.get("warnings") and not return_plan_only:
+            grid_debug_path = evidence_dir / "grid_debug.json"
+            _safe_write_json(grid_debug_path, {
+                "warnings": extracted.get("warnings", []),
+                "headers": extracted.get("headers", []),
+                "mapping_debug": extracted.get("mapping_debug", {}),
+                "raw_rows_preview": extracted.get("raw_rows_preview", []),
+                "debug": extracted.get("debug", {})
+            })
+            print(f"WARNING: Grid extraction issues detected. Debug saved to {grid_debug_path}")
+            for warning in extracted.get("warnings", []):
+                print(f"  - {warning}")
 
         raw_rows = extracted.get("rows") or []
+        
+        # HOTFIX C2.13.9a: Inicializar variables para grid_parse_mismatch
+        counter_text_found = None
+        counter_count_found = None
+        
+        # HOTFIX C2.13.9: TAREA C - Detectar grid real y contar filas reales
+        rows_data_count = len(raw_rows)
+        first_row_text = None
+        if rows_data_count > 0:
+            first_row = raw_rows[0]
+            # Extraer texto de las primeras columnas para sanity check
+            first_row_text = " | ".join([
+                str(first_row.get("tipo_doc", "")),
+                str(first_row.get("elemento", "")),
+                str(first_row.get("empresa", ""))
+            ])[:100]
+        
+        instrumentation["rows_data_count"] = rows_data_count
+        instrumentation["first_row_text"] = first_row_text
+        
+        print(f"[CAE][READONLY][TRACE] Grid extraído: rows_data_count={rows_data_count} first_row_text={first_row_text}")
+        
+        # HOTFIX C2.13.9: Si rows_data_count==0 después de búsqueda, capturar evidencia
+        # HOTFIX C2.13.9a: TAREA C - Validar grid_parse_mismatch si contador muestra >0 pero rows_data_count==0
+        if rows_data_count == 0:
+            if not return_plan_only and evidence_dir:
+                try:
+                    screenshot_path = evidence_dir / "02_zero_rows.png"
+                    list_frame.locator("body").screenshot(path=str(screenshot_path))
+                    print(f"[CAE][READONLY][TRACE] Screenshot de grid vacío guardado: {screenshot_path}")
+                except Exception as e:
+                    print(f"[CAE][READONLY][TRACE] Error al guardar screenshot de grid vacío: {e}")
+            
+            # HOTFIX C2.13.9a: Validar si hay texto "X Registros" con X>0 en la UI
+            try:
+                body_text = list_frame.evaluate("() => document.body.innerText")
+                body_text_lower = body_text.lower() if body_text else ""
+                
+                # Buscar patrón de contador
+                import re
+                counter_patterns = [
+                    r'(\d+)\s+registros?',
+                    r'(\d+)\s+registro\(s\)',
+                    r'registros?:\s*(\d+)',
+                    r'total:\s*(\d+)',
+                ]
+                
+                for pattern in counter_patterns:
+                    match = re.search(pattern, body_text_lower, re.IGNORECASE)
+                    if match:
+                        counter_text_found = match.group(0)
+                        counter_count_found = int(match.group(1))
+                        if counter_count_found > 0:
+                            print(f"[CAE][READONLY][TRACE] ⚠️ GRID_PARSE_MISMATCH: UI muestra '{counter_text_found}' ({counter_count_found} registros) pero rows_data_count=0")
+                            instrumentation["grid_parse_mismatch"] = True
+                            instrumentation["counter_text_found"] = counter_text_found
+                            instrumentation["counter_count_found"] = counter_count_found
+                            instrumentation["rows_data_count"] = rows_data_count
+                            break
+            except Exception as e:
+                print(f"[CAE][READONLY][TRACE] Error al validar grid_parse_mismatch: {e}")
+            
+            # Si se intentó búsqueda y sigue vacío, incluir diagnostics pero NO error (ya se maneja más abajo)
+            if search_result.get("search_clicked"):
+                print(f"[CAE][READONLY][TRACE] ⚠️ Grid sigue vacío después de búsqueda: rows_data_count=0")
+        
+        # HOTFIX C2.13.9a: Asegurar que instrumentation existe antes de usarlo
+        if not isinstance(instrumentation, dict):
+            instrumentation = {}
+        
+        # Instrumentación: guardar contadores intermedios + loading/empty-state info
+        # SPRINT C2.13.0: Incluir información de búsqueda automática
+        # HOTFIX C2.13.9a: Actualizar instrumentation existente en lugar de reemplazarlo
+        instrumentation.update({
+            "rows_detected": len(raw_rows),
+            "headers_detected": len(extracted.get("headers", [])),
+            "current_url": page.url,
+            "frame_url": list_frame.url if hasattr(list_frame, 'url') else None,
+            "loading_overlay_detected": loading_info.get("loading_overlay_detected", False),
+            "loading_overlay_text": loading_info.get("loading_overlay_text"),
+            "loading_duration_ms": loading_info.get("loading_duration_ms", 0),
+        })
+        
+        # SPRINT C2.13.0: Añadir información de búsqueda automática
+        if 'search_result' in locals():
+            instrumentation["search_clicked"] = search_result.get("search_clicked", False)
+            instrumentation["search_rows_before"] = search_result.get("rows_before", 0)
+            instrumentation["search_rows_after"] = search_result.get("rows_after", 0)
+            instrumentation["search_counter_before"] = search_result.get("counter_text_before")
+            instrumentation["search_counter_after"] = search_result.get("counter_text_after")
+        
+        # SPRINT C2.13.1: Inicializar contadores de matches para instrumentación
+        instrumentation["matches_found"] = 0
+        instrumentation["local_docs_considered"] = 0
+        
+        # Intentar detectar tenant/client label desde la UI
+        try:
+            tenant_info = page.evaluate("""() => {
+                const userMenu = document.querySelector('[class*="user"], [id*="user"], [class*="usuario"]');
+                const clientLabel = document.querySelector('[class*="client"], [id*="client"], [class*="cliente"]');
+                return {
+                    userMenuText: userMenu ? userMenu.innerText.substring(0, 50) : null,
+                    clientLabelText: clientLabel ? clientLabel.innerText.substring(0, 50) : null
+                };
+            }""")
+            instrumentation["detected_tenant"] = tenant_info.get("clientLabelText") or tenant_info.get("userMenuText")
+        except Exception:
+            pass
+        
+        # Canonicalizar filas
+        canonical_rows = []
+        for row in raw_rows:
+            canonical = canonicalize_row(row)
+            # Solo incluir filas que tengan al menos tipo_doc o elemento
+            if canonical.get("tipo_doc") or canonical.get("elemento"):
+                canonical_rows.append(canonical)
+        
+        instrumentation["requirements_parsed"] = len(canonical_rows)
+        
+        # Si no hay filas después de canonicalizar, pero el extractor encontró filas,
+        # puede ser que estemos en una página incorrecta
+        if len(canonical_rows) == 0 and len(raw_rows) > 0:
+            print(f"WARNING: Se encontraron {len(raw_rows)} filas pero ninguna tiene tipo_doc o elemento válidos")
+            # Guardar evidencia adicional (solo si NO es return_plan_only)
+            if not return_plan_only:
+                grid_debug_path = evidence_dir / "grid_debug.json"
+                _safe_write_json(grid_debug_path, {
+                    "error": "No rows with tipo_doc or elemento",
+                    "total_raw_rows": len(raw_rows),
+                    "sample_raw_row": raw_rows[0] if raw_rows else None,
+                    "headers": extracted.get("headers", []),
+                    "raw_rows_preview": extracted.get("raw_rows_preview", []),
+                    "instrumentation": instrumentation,
+                })
+        
+        # Si no hay filas Y no hay tabla renderizada, verificar empty-state robusto
+        # SPRINT C2.13.0: Si se hizo búsqueda y sigue vacío, incluir diagnostics
+        if len(canonical_rows) == 0 and len(raw_rows) == 0:
+            # Verificar si realmente es empty-state o si es un error de navegación
+            has_empty_state = False
+            empty_state_text_sample = None
+            
+            try:
+                body_text = list_frame.evaluate("() => document.body.innerText")
+                body_text_lower = body_text.lower() if body_text else ""
+                
+                # Patrones robustos de empty-state (incluyendo "0 Registros")
+                import re
+                empty_state_patterns = [
+                    r"0\s+registros?",  # "0 Registros", "0 registros"
+                    r"0\s+registro\(s\)",  # "0 Registro(s)"
+                    r"no hay",
+                    r"sin resultados",
+                    r"sin datos",
+                    r"no se encontraron",
+                    r"lista vacía",
+                    r"ningún resultado",
+                    r"sin registros",
+                ]
+                
+                for pattern in empty_state_patterns:
+                    matches = re.search(pattern, body_text_lower, re.IGNORECASE)
+                    if matches:
+                        has_empty_state = True
+                        # Extraer muestra del texto alrededor del match
+                        start = max(0, matches.start() - 20)
+                        end = min(len(body_text), matches.end() + 60)
+                        empty_state_text_sample = body_text[start:end].strip()[:100]
+                        break
+                
+                # También buscar en elementos específicos del grid/paginador
+                if not has_empty_state:
+                    empty_selectors = [
+                        '.empty-state',
+                        '.no-results',
+                        '.sin-resultados',
+                        '[class*="empty"]',
+                        '[class*="no-data"]',
+                    ]
+                    for selector in empty_selectors:
+                        try:
+                            empty_elem = list_frame.locator(selector)
+                            if empty_elem.count() > 0 and empty_elem.first().is_visible():
+                                has_empty_state = True
+                                empty_state_text_sample = empty_elem.first().text_content()[:100] if empty_elem.first().text_content() else None
+                                break
+                        except Exception:
+                            continue
+            except Exception:
+                pass
+            
+            # Añadir empty_state a instrumentación
+            instrumentation["empty_state_detected"] = has_empty_state
+            instrumentation["empty_state_text_sample"] = empty_state_text_sample
+            
+            # Si headers existen y empty_state_detected es true y rows=0 => NO error
+            # SPRINT C2.13.0: Si se hizo búsqueda y sigue vacío, incluir diagnostics pero NO error
+            if has_empty_state and len(extracted.get("headers", [])) > 0:
+                # Es un empty-state real, no un error
+                print(f"[submission_plan] Empty-state real detectado: {empty_state_text_sample}")
+                
+                # SPRINT C2.13.0: Si se hizo búsqueda, añadir diagnostics
+                # HOTFIX C2.13.9: Si rows_data_count==0 después de búsqueda, incluir error_code
+                if search_result.get("search_clicked"):
+                    instrumentation["search_attempted"] = True
+                    instrumentation["search_result"] = search_result
+                    instrumentation["diagnostics"] = {
+                        "reason": "no_rows_after_search",
+                        "frame_url": search_result.get("frame_url"),
+                        "counter_text": search_result.get("counter_text_after") or search_result.get("counter_text_before"),
+                        "rows_before": search_result.get("rows_before", 0),
+                        "rows_after": search_result.get("rows_after", 0),
+                        "rows_data_count": rows_data_count,  # HOTFIX C2.13.9: Incluir conteo real de filas de datos
+                        "fallback_used": search_result.get("diagnostics", {}).get("fallback_used"),  # HOTFIX C2.13.9
+                    }
+                    
+                    # HOTFIX C2.13.9: Si rows_data_count==0 después de búsqueda, NO es status ok silencioso
+                    # Se maneja más abajo en el código que construye el resultado
+                
+                # Continuar normalmente (no lanzar error)
+            elif not has_empty_state:
+                # No es empty-state real, es un error
+                from backend.adapters.egestiona.page_contract_validator import PageContractError
+                if not return_plan_only:
+                    error_dump_path = evidence_dir / "pending_list_not_loaded_error.json"
+                    _safe_write_json(error_dump_path, {
+                        "error_code": "pending_list_not_loaded",
+                        "message": "No se encontraron filas y no hay empty-state válido. Posible error de navegación.",
+                        "instrumentation": instrumentation,
+                        "extracted": {
+                            "headers": extracted.get("headers", []),
+                            "rows_count": len(raw_rows),
+                            "warnings": extracted.get("warnings", []),
+                        }
+                    })
+                    evidence_paths = {
+                        "error_json": str(error_dump_path.relative_to(evidence_dir.parent.parent.parent)) if (error_dump_path.exists() and evidence_dir and evidence_dir.parent and evidence_dir.parent.parent and evidence_dir.parent.parent.parent) else None,
+                    }
+                else:
+                    evidence_paths = {}
+                raise PageContractError(
+                    error_code="pending_list_not_loaded",
+                    message="No se encontraron filas y no hay empty-state válido. Posible error de navegación.",
+                    details={
+                        "instrumentation": instrumentation,
+                        "extracted": {
+                            "headers": extracted.get("headers", []),
+                            "rows_count": len(raw_rows),
+                            "warnings": extracted.get("warnings", []),
+                        }
+                    },
+                    evidence_paths=evidence_paths
+                )
+        
+        raw_rows = canonical_rows
+        
+        # Guardar instrumentación (solo si NO es return_plan_only)
+        # SPRINT C2.13.1: Asegurar que instrumentation siempre tiene contadores de matches
+        if 'instrumentation' not in locals():
+            instrumentation = {}
+        instrumentation.setdefault("matches_found", 0)
+        instrumentation.setdefault("local_docs_considered", 0)
+        
+        if not return_plan_only:
+            instrumentation_path = evidence_dir / "instrumentation.json"
+            _safe_write_json(instrumentation_path, instrumentation)
 
-        # 5) Convertir a PendingItemV1 y filtrar si only_target
-        def _norm_company(v: str) -> str:
-            s = (v or "").strip()
-            if " (" in s:
-                s = s.split(" (", 1)[0].strip()
-            return s
+        # 5) Cargar información de persona si person_key está presente
+        person_data = None
+        if person_key and only_target:
+            try:
+                people = store.load_people()
+                person_data = next((p for p in people.people if p.worker_id == person_key), None)
+                if not person_data:
+                    # Log warning pero continuar (puede que el person_key sea un DNI o nombre)
+                    print(f"WARNING: person_key '{person_key}' no encontrado en people.json. Usando matching simple.")
+            except Exception as e:
+                print(f"WARNING: Error al cargar people.json: {e}. Usando matching simple.")
 
+        # 6) Filtrar si only_target (las filas ya están canonicalizadas)
         def _row_matches_target(r: Dict[str, Any]) -> bool:
-            """Filtra por company_key y person_key si only_target=True."""
+            """Filtra por company_key y person_key si only_target=True. Usa matching robusto normalizado."""
             if not only_target:
                 return True
-            empresa_raw = str(r.get("Empresa") or r.get("empresa") or "")
-            elemento_raw = str(r.get("Elemento") or r.get("elemento") or "")
-            empresa_norm = _norm_company(empresa_raw)
-            empresa_match = company_key.lower() in empresa_norm.lower() if company_key else True
-            elemento_match = person_key.lower() in elemento_raw.lower() if person_key else True
+            
+            empresa_raw = r.get("empresa") or ""
+            elemento_raw = r.get("elemento") or ""
+            
+            # Matching robusto de empresa
+            # company_key puede ser tax_id (ej: "F63161988") o nombre de empresa
+            empresa_match = True
+            if company_key and empresa_raw:
+                # Primero intentar buscar por código fiscal (tax_id) en paréntesis
+                company_code = extract_company_code(empresa_raw)
+                if company_code:
+                    # Si hay código en la empresa, comparar directamente
+                    company_key_upper = company_key.strip().upper().replace(' ', '')
+                    if company_key_upper == company_code:
+                        empresa_match = True
+                    else:
+                        # Si no coincide por código, intentar por nombre
+                        empresa_norm = normalize_company_name(empresa_raw)
+                        company_key_norm = normalize_text(company_key)
+                        empresa_match = text_contains(empresa_norm, company_key_norm)
+                else:
+                    # No hay código en la empresa, buscar por nombre normalizado
+                    empresa_norm = normalize_company_name(empresa_raw)
+                    company_key_norm = normalize_text(company_key)
+                    empresa_match = text_contains(empresa_norm, company_key_norm)
+            
+            # Matching robusto de persona si tenemos person_data
+            if person_data and elemento_raw:
+                elemento_match = match_person_in_element(person_data, elemento_raw)
+            else:
+                # Fallback a matching simple normalizado si no hay person_data
+                elemento_norm = normalize_text(elemento_raw)
+                person_key_norm = normalize_text(person_key) if person_key else ""
+                elemento_match = text_contains(elemento_norm, person_key_norm) if person_key else True
+            
             return empresa_match and elemento_match
 
         target_rows = [r for r in raw_rows if _row_matches_target(r)][:limit]
+        
+        # Log si no se encontraron filas pero había person_key
+        if only_target and person_key and len(target_rows) == 0 and len(raw_rows) > 0:
+            print(f"WARNING: No se encontraron filas para person_key='{person_key}' con only_target=True.")
+            print(f"  Total filas en grid: {len(raw_rows)}")
+            print(f"  Ejemplo de 'Elemento' en grid: {raw_rows[0].get('Elemento', 'N/A') if raw_rows else 'N/A'}")
+            if person_data:
+                print(f"  Persona buscada: {person_data.full_name} (DNI: {person_data.tax_id})")
 
-        # 6) Convertir a PendingItemV1, hacer matching y generar plan
+        # 7) Convertir a PendingItemV1, hacer matching y generar plan
+        # Las filas ya están canonicalizadas
+        print(f"[CAE][READONLY][TRACE] Procesando {len(target_rows)} filas target para matching...")
         for row in target_rows:
-            tipo_doc = str(row.get("Tipo Documento") or row.get("tipo_doc") or row.get("Tipo") or "")
-            elemento = str(row.get("Elemento") or row.get("elemento") or "")
-            empresa = str(row.get("Empresa") or row.get("empresa") or "")
+            tipo_doc = row.get("tipo_doc") or ""
+            elemento = row.get("elemento") or ""
+            empresa = row.get("empresa") or ""
             
-            fecha_inicio = _parse_date_from_cell(row.get("Inicio") or row.get("inicio") or row.get("Fecha Inicio") or "")
-            fecha_fin = _parse_date_from_cell(row.get("Fin") or row.get("fin") or row.get("Fecha Fin") or "")
+            fecha_inicio = _parse_date_from_cell(row.get("inicio") or "")
+            fecha_fin = _parse_date_from_cell(row.get("fin") or "")
 
             pending = PendingItemV1(
                 tipo_doc=tipo_doc,
@@ -411,17 +855,20 @@ def run_build_submission_plan_readonly_headful(
                 trabajador=elemento,
                 fecha_inicio=fecha_inicio,
                 fecha_fin=fecha_fin,
-                raw_data=row
+                raw_data=row.get("_raw_row", row)  # Mantener raw para debug
             )
 
             pending_dict = pending.to_dict()
             pending_items.append(pending_dict)
 
-            # Hacer matching
+            # Hacer matching (con platform y coord para reglas)
             match_result = matcher.match_pending_item(
                 pending,
                 company_key=company_key,
-                person_key=person_key
+                person_key=person_key,
+                platform_key=platform,
+                coord_label=coordination,
+                evidence_dir=evidence_dir if not return_plan_only else None  # Pasar evidence_dir para debug solo si NO es return_plan_only
             )
 
             match_results.append({
@@ -429,9 +876,16 @@ def run_build_submission_plan_readonly_headful(
                 "match_result": match_result
             })
 
-            # Generar plan de envío
+            # SPRINT C2.13.1: Instrumentación de matches
             best_doc = match_result.get("best_doc")
             match_count = 1 if best_doc else 0
+            
+            # Actualizar contadores de instrumentación
+            if best_doc:
+                instrumentation["matches_found"] = instrumentation.get("matches_found", 0) + 1
+            # Contar documentos locales considerados (si está disponible en match_result)
+            if match_result.get("candidates") and isinstance(match_result.get("candidates"), list):
+                instrumentation["local_docs_considered"] = instrumentation.get("local_docs_considered", 0) + len(match_result.get("candidates"))
             
             # Obtener tipo de documento para guardrails
             doc_type = None
@@ -449,6 +903,56 @@ def run_build_submission_plan_readonly_headful(
                 doc_type=doc_type
             )
 
+            # Dedupe: verificar si ya fue enviado
+            from backend.repository.submission_history_store_v1 import SubmissionHistoryStoreV1
+            from backend.repository.submission_history_utils import compute_pending_fingerprint
+            
+            history_store = SubmissionHistoryStoreV1(base_dir=base)
+            pending_dict_for_fp = pending.to_dict()
+            fingerprint = compute_pending_fingerprint(
+                platform_key=platform,
+                coord_label=coordination,
+                pending_item_dict=pending_dict_for_fp
+            )
+            
+            # Verificar si ya fue enviado
+            existing_submitted = history_store.find_by_fingerprint(
+                fingerprint=fingerprint,
+                action="submitted"
+            )
+            
+            if existing_submitted:
+                # Ya fue enviado -> SKIP
+                decision = {
+                    "action": "SKIP_ALREADY_SUBMITTED",
+                    "confidence": 1.0,
+                    "reasons": [
+                        f"Already submitted in run {existing_submitted.run_id}",
+                        f"Previous record: {existing_submitted.record_id}",
+                        f"Submitted at: {existing_submitted.submitted_at or existing_submitted.created_at}"
+                    ],
+                    "blocking_issues": ["Duplicate submission detected"]
+                }
+            
+            # Verificar si ya está planificado (self-test o dry-run previo)
+            existing_planned = history_store.find_by_fingerprint(
+                fingerprint=fingerprint,
+                action="planned"
+            )
+            
+            if existing_planned and not existing_submitted:
+                # Ya está planificado pero no enviado -> SKIP o REVIEW
+                decision = {
+                    "action": "SKIP_ALREADY_PLANNED",
+                    "confidence": 1.0,
+                    "reasons": [
+                        f"Already planned in run {existing_planned.run_id}",
+                        f"Previous record: {existing_planned.record_id}",
+                        f"Planned at: {existing_planned.created_at}"
+                    ],
+                    "blocking_issues": ["Duplicate plan detected"]
+                }
+
             # Construir plan item
             plan_item: Dict[str, Any] = {
                 "pending_ref": {
@@ -463,8 +967,15 @@ def run_build_submission_plan_readonly_headful(
                     "fecha_inicio_vigencia": None,
                     "fecha_fin_vigencia": None
                 },
-                "decision": decision
+                "decision": decision,
+                "pending_fingerprint": fingerprint,  # Añadir fingerprint para dedupe
+                "rule_form": None  # Se llenará si match vino de regla
             }
+            
+            # Si el match vino de regla, añadir rule.form al plan item
+            matched_rule = match_result.get("matched_rule")
+            if matched_rule:
+                plan_item["rule_form"] = matched_rule.get("form")
 
             if best_doc:
                 # Usar validity_from/validity_to del matcher (ya incluye override si existe)
@@ -479,7 +990,7 @@ def run_build_submission_plan_readonly_headful(
                         valid_from = datetime.strptime(valid_from_str, "%Y-%m-%d").date()
                     except ValueError:
                         valid_from = None
-                elif isinstance(valid_from_str, date):
+                elif isinstance(valid_from_str, dt_date):
                     valid_from = valid_from_str
                 
                 if isinstance(valid_to_str, str):
@@ -487,7 +998,7 @@ def run_build_submission_plan_readonly_headful(
                         valid_to = datetime.strptime(valid_to_str, "%Y-%m-%d").date()
                     except ValueError:
                         valid_to = None
-                elif isinstance(valid_to_str, date):
+                elif isinstance(valid_to_str, dt_date):
                     valid_to = valid_to_str
                 
                 plan_item["matched_doc"] = {
@@ -509,52 +1020,248 @@ def run_build_submission_plan_readonly_headful(
 
             submission_plan.append(plan_item)
 
+        # Guardar storage_state antes de cerrar (si no se guardó antes)
+        if not return_plan_only:
+            if storage_state_path is None and run_dir:
+                storage_state_path = run_dir / "storage_state.json"
+                try:
+                    context.storage_state(path=str(storage_state_path))
+                    print(f"[submission_plan] Storage state guardado al finalizar en: {storage_state_path}")
+                except Exception as e:
+                    print(f"[WARNING] No se pudo guardar storage_state al finalizar: {e}")
+                    storage_state_path = None
+
         context.close()
         browser.close()
 
-    # 7) Guardar evidence
-    _safe_write_json(pending_items_path, {"items": pending_items})
-    _safe_write_json(match_results_path, {"results": match_results})
-    _safe_write_json(submission_plan_path, {"plan": submission_plan})
+    # 7) Guardar evidence (solo si NO es return_plan_only)
+    if not return_plan_only:
+        _safe_write_json(pending_items_path, {"items": pending_items})
+        _safe_write_json(match_results_path, {"results": match_results})
+        _safe_write_json(submission_plan_path, {"plan": submission_plan})
 
     finished = time.time()
-    _safe_write_json(
-        meta_path,
-        {
-            "login_url_reused_exact": LOGIN_URL_PREVIOUS_SUCCESS,
-            "company_key": company_key,
-            "person_key": person_key,
-            "only_target": only_target,
-            "limit": limit,
-            "today": today.isoformat(),
-            "pending_items_count": len(pending_items),
-            "match_results_count": len(match_results),
-            "submission_plan_count": len(submission_plan),
-            "auto_submit_ok_count": sum(1 for item in submission_plan if item["decision"]["action"] == "AUTO_SUBMIT_OK"),
-            "review_required_count": sum(1 for item in submission_plan if item["decision"]["action"] == "REVIEW_REQUIRED"),
-            "no_match_count": sum(1 for item in submission_plan if item["decision"]["action"] == "NO_MATCH"),
-            "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)),
-            "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(finished)),
-            "duration_ms": int((finished - started) * 1000),
-        },
-    )
-
-    (run_dir / "run_finished.json").write_text(
-        json.dumps(
+    duration_ms = int((finished - started) * 1000)
+    
+    # HOTFIX C2.12.6: Si return_plan_only=True, devolver plan directamente sin tocar filesystem
+    if return_plan_only:
+        # Computar summary sin tocar filesystem
+        # HOTFIX: NO importar date localmente (causa shadowing), usar dt_date del import global
+        today = dt_date.today()
+        
+        matched_count = sum(1 for item in submission_plan if item.get("matched_doc") and item.get("matched_doc", {}).get("doc_id"))
+        summary = {
+            "pending_count": len(pending_items),
+            "matched_count": matched_count,
+            "unmatched_count": len(pending_items) - matched_count,
+            "duration_ms": duration_ms,
+        }
+        
+        # HOTFIX C2.13.7: Logging final antes de devolver
+        print(f"[CAE][READONLY][TRACE] ========================================")
+        print(f"[CAE][READONLY][TRACE] RESULTADO FINAL: pending_items={len(pending_items)} submission_plan={len(submission_plan)} matched_count={matched_count}")
+        print(f"[CAE][READONLY][TRACE] ========================================")
+        
+        # SPRINT C2.13.0: Incluir diagnostics si se hizo búsqueda y sigue vacío
+        # SPRINT C2.13.1: Incluir diagnostics si no hay matches (0 matches con repositorio)
+        result = {
+            "plan": submission_plan,
+            "summary": summary,
+            "pending_items": pending_items,
+            "match_results": match_results,
+            "duration_ms": duration_ms,
+        }
+        
+        # HOTFIX C2.13.9a: TAREA C - Si hay grid_parse_mismatch, incluir error_code
+        if instrumentation.get("grid_parse_mismatch") and counter_count_found and counter_count_found > 0:
+            result["diagnostics"] = {
+                "reason": "grid_parse_mismatch",
+                "error_code": "grid_parse_mismatch",
+                "frame_url": search_result.get("frame_url") if 'search_result' in locals() else None,
+                "counter_text": counter_text_found,
+                "counter_count": counter_count_found,
+                "rows_data_count": rows_data_count,
+                "note": f"UI muestra '{counter_text_found}' ({counter_count_found} registros) pero el parser extrajo 0 filas. Posible problema con selectores del grid.",
+            }
+            # Guardar screenshot adicional si evidence_dir disponible
+            if not return_plan_only and evidence_dir:
+                try:
+                    screenshot_path = evidence_dir / "03_grid_parse_mismatch.png"
+                    list_frame.locator("body").screenshot(path=str(screenshot_path))
+                    result["diagnostics"]["screenshot_path"] = str(screenshot_path)
+                except Exception:
+                    pass
+        # HOTFIX C2.13.9: Añadir diagnostics si search_result está disponible y se hizo búsqueda
+        elif 'search_result' in locals() and search_result.get("search_clicked") and len(submission_plan) == 0:
+            result["diagnostics"] = {
+                "reason": "no_rows_after_search",
+                "frame_url": search_result.get("frame_url"),
+                "counter_text": search_result.get("counter_text_after") or search_result.get("counter_text_before"),
+                "rows_before": search_result.get("rows_before", 0),
+                "rows_after": search_result.get("rows_after", 0),
+                "rows_data_count": rows_data_count,  # HOTFIX C2.13.9: Incluir conteo real de filas de datos
+                "fallback_used": search_result.get("diagnostics", {}).get("fallback_used"),  # HOTFIX C2.13.9
+                "buscar_selector_used": search_result.get("diagnostics", {}).get("buscar_selector_used"),  # HOTFIX C2.13.9
+                "clicked_buscar_candidate_index": search_result.get("diagnostics", {}).get("clicked_buscar_candidate_index"),  # HOTFIX C2.13.9a
+            }
+        # SPRINT C2.13.1: Si hay pendientes pero 0 matches, añadir diagnostics
+        elif len(pending_items) > 0 and matched_count == 0:
+            result["diagnostics"] = {
+                "reason": "no_matches_after_compute",
+                "note": "No matching documents found between eGestión and local repository",
+                "pending_count": len(pending_items),
+                "matches_found": 0,
+                "local_docs_considered": instrumentation.get("local_docs_considered", 0) if 'instrumentation' in locals() else 0,
+            }
+        
+        # SPRINT C2.13.1: Añadir información de matches a instrumentation si está disponible
+        if 'instrumentation' in locals():
+            result["instrumentation"] = {
+                "matches_found": instrumentation.get("matches_found", 0),
+                "local_docs_considered": instrumentation.get("local_docs_considered", 0),
+            }
+        
+        print(f"[CAE][READONLY][TRACE] Devolviendo result con plan.length={len(result.get('plan', []))}")
+        return result
+    
+    # Generar checksum y confirm_token para el plan
+    
+    # Checksum: hash estable de items relevantes (solo campos que afectan la ejecución)
+    plan_items_for_checksum = []
+    for item in submission_plan:
+        plan_items_for_checksum.append({
+            "pending_ref": item.get("pending_ref", {}),
+            "matched_doc": {
+                "doc_id": item.get("matched_doc", {}).get("doc_id"),
+                "type_id": item.get("matched_doc", {}).get("type_id"),
+            } if item.get("matched_doc") else None,
+            "decision": item.get("decision", {}),
+            "proposed_fields": item.get("proposed_fields", {}),
+        })
+    
+    checksum_data = jsonlib.dumps(plan_items_for_checksum, sort_keys=True, ensure_ascii=False)
+    plan_checksum = hashlib.sha256(checksum_data.encode('utf-8')).hexdigest()
+    
+    # Confirm token: HMAC con secret interno + timestamp (TTL 30 min)
+    created_at = datetime.utcnow()
+    expires_at = created_at + timedelta(minutes=30)
+    
+    # Secret interno (no usar secretos de usuario)
+    # En producción, esto debería venir de una variable de entorno o config
+    import os
+    secret_key = os.getenv("COMETLOCAL_PLAN_SECRET", "default-secret-key-change-in-production")
+    
+    # Si return_plan_only=True, run_id es None, usar placeholder para token
+    token_run_id = run_id if not return_plan_only else "readonly_no_run"
+    token_payload = f"{token_run_id}:{plan_checksum}:{created_at.isoformat()}"
+    confirm_token = hmac.new(
+        secret_key.encode('utf-8'),
+        token_payload.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+    
+    # Guardar plan_meta.json con checksum y token info (solo si NO es return_plan_only)
+    if not return_plan_only:
+        plan_meta_path = run_dir / "plan_meta.json"
+        _safe_write_json(
+            plan_meta_path,
             {
-                "run_id": run_id,
-                "status": "success",
+                "plan_id": run_id,
+                "plan_checksum": plan_checksum,
+                "confirm_token": confirm_token,
+                "created_at": created_at.isoformat(),
+                "expires_at": expires_at.isoformat(),
+                "platform": platform,
+                "coordination": coordination,
+                "company_key": company_key,
+                "person_key": person_key,
+                "scope": "worker" if person_key else ("company" if only_target else "both"),
+            },
+        )
+        
+        # Guardar plan.json (alias de submission_plan.json para el nuevo endpoint)
+        plan_json_path = run_dir / "plan.json"
+        _safe_write_json(plan_json_path, {"plan": submission_plan})
+        
+        _safe_write_json(
+            meta_path,
+            {
+                "login_url_reused_exact": LOGIN_URL_PREVIOUS_SUCCESS,
+                "company_key": company_key,
+                "person_key": person_key,
+                "only_target": only_target,
+                "limit": limit,
+                "today": today.isoformat(),
+                "pending_items_count": len(pending_items),
+                "match_results_count": len(match_results),
+                "submission_plan_count": len(submission_plan),
+                "auto_submit_ok_count": sum(1 for item in submission_plan if item["decision"]["action"] == "AUTO_SUBMIT_OK"),
+                "review_required_count": sum(1 for item in submission_plan if item["decision"]["action"] == "REVIEW_REQUIRED"),
+                "no_match_count": sum(1 for item in submission_plan if item["decision"]["action"] == "NO_MATCH"),
                 "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)),
                 "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(finished)),
-                "duration_ms": int((finished - started) * 1000),
-                "reason": "SUBMISSION_PLAN_GENERATED",
-                "last_error": None,
+                "duration_ms": duration_ms,
+                "plan_checksum": plan_checksum,
+                "confirm_token": confirm_token,
             },
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+        )
 
+        # Guardar información de artifacts (storage_state)
+        artifacts_info = {}
+        if storage_state_path and storage_state_path.exists():
+            from backend.shared.path_utils import as_str
+            artifacts_info["storage_state_path"] = as_str(storage_state_path.relative_to(Path(base)))
+            # Guardar log de artifacts
+            artifacts_log = run_dir / "artifacts_log.md"
+            
+            # Añadir instrumentación al log
+            instrumentation_summary = ""
+            try:
+                # Intentar leer instrumentation si existe
+                instrumentation_path = evidence_dir / "instrumentation.json"
+                if instrumentation_path.exists():
+                    # HOTFIX: Usar jsonlib del import global (no import local que causa shadowing)
+                    with open(instrumentation_path, "r", encoding="utf-8") as f:
+                        inst_data = jsonlib.load(f)
+                        instrumentation_summary = f"""
+## Instrumentación
+- URL actual: {inst_data.get('current_url', 'N/A')}
+- Filas detectadas: {inst_data.get('rows_detected', 0)}
+- Requisitos parseados: {inst_data.get('requirements_parsed', 0)}
+- Tenant detectado: {inst_data.get('detected_tenant', 'N/A')}
+"""
+            except Exception:
+                pass
+            
+            from datetime import datetime as dt_module
+            from backend.shared.path_utils import as_str
+            storage_state_rel = storage_state_path.relative_to(Path(base)) if storage_state_path else None
+            artifacts_log.write_text(
+                f"# Artifacts generados\n\n"
+                f"- **storage_state.json**: Sesión autenticada guardada para reutilización\n"
+                f"  - Path: `{as_str(storage_state_rel) if storage_state_rel else 'N/A'}`\n"
+                f"  - Generado: {dt_module.utcnow().isoformat()}\n"
+                f"{instrumentation_summary}",
+                encoding="utf-8"
+            )
+        
+        (run_dir / "run_finished.json").write_text(
+            jsonlib.dumps(
+                {
+                    "run_id": run_id,
+                    "status": "success",
+                    "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)),
+                    "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(finished)),
+                    "duration_ms": duration_ms,
+                    "reason": "SUBMISSION_PLAN_GENERATED",
+                    "last_error": None,
+                    "artifacts": artifacts_info,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+    
     return run_id
 

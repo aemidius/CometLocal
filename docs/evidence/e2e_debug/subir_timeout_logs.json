@@ -1,0 +1,172 @@
+[
+  {
+    "time": 1768077916288,
+    "text": "[repo-upload] listener installed {time: 1768077916281}",
+    "type": "log"
+  },
+  {
+    "time": 1768077916331,
+    "text": "[VIEWDBG] 1768077916329 bootstrap: start",
+    "type": "log"
+  },
+  {
+    "time": 1768077916332,
+    "text": "[VIEWDBG] 1768077916329 bootstrap: app-ready set",
+    "type": "log"
+  },
+  {
+    "time": 1768077916333,
+    "text": "[VIEWDBG] 1768077916330 initHashRouting: registering hashchange listener",
+    "type": "log"
+  },
+  {
+    "time": 1768077916333,
+    "text": "[VIEWDBG] 1768077916330 bootstrap: calling runRoutingNow for initial hash",
+    "type": "log"
+  },
+  {
+    "time": 1768077916334,
+    "text": "[VIEWDBG] 1768077916331 runRoutingNow: hash=, route=null",
+    "type": "log"
+  },
+  {
+    "time": 1768077916334,
+    "text": "[VIEWDBG] 1768077916332 runRoutingNow: normalizing hash from  to #inicio",
+    "type": "log"
+  },
+  {
+    "time": 1768077916338,
+    "text": "[VIEWDBG] 1768077916333 bootstrap: completed",
+    "type": "log"
+  },
+  {
+    "time": 1768077916356,
+    "text": "[VIEWDBG] 1768077916336 hashchange event fired",
+    "type": "log"
+  },
+  {
+    "time": 1768077916357,
+    "text": "[VIEWDBG] 1768077916336 runRoutingNow: hash=#inicio, route=inicio",
+    "type": "log"
+  },
+  {
+    "time": 1768077916357,
+    "text": "[VIEWDBG] 1768077916336 updateNavActive: updated nav for route=inicio",
+    "type": "log"
+  },
+  {
+    "time": 1768077916357,
+    "text": "[VIEWDBG] 1768077916336 runRoutingNow: calling loadPage(inicio)",
+    "type": "log"
+  },
+  {
+    "time": 1768077916361,
+    "text": "[VIEWDBG] 1768077916336 loadPage: start page=inicio",
+    "type": "log"
+  },
+  {
+    "time": 1768077916361,
+    "text": "[VIEWDBG] 1768077916336 loadPage: content.innerHTML set to loading",
+    "type": "log"
+  },
+  {
+    "time": 1768077916362,
+    "text": "[SETVIEWSTATE] inicio loaded readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1768077916362,
+    "text": "[VIEWDBG] 1768077916337 setViewState: inicio -> loaded on element DIV",
+    "type": "log"
+  },
+  {
+    "time": 1768077916365,
+    "text": "[VIEWDBG] 1768077916337 setViewState: inicio -> loaded applied, testId=view-inicio-loaded",
+    "type": "log"
+  },
+  {
+    "time": 1768077916372,
+    "text": "[VIEWDBG] 1768077916368 bootstrap: E2E mode detected: true",
+    "type": "log"
+  },
+  {
+    "time": 1768077916413,
+    "text": "[VIEWDBG] 1768077916393 hashchange event fired",
+    "type": "log"
+  },
+  {
+    "time": 1768077916414,
+    "text": "[VIEWDBG] 1768077916394 runRoutingNow: hash=#subir, route=subir",
+    "type": "log"
+  },
+  {
+    "time": 1768077916414,
+    "text": "[VIEWDBG] 1768077916394 updateNavActive: updated nav for route=subir",
+    "type": "log"
+  },
+  {
+    "time": 1768077916415,
+    "text": "[VIEWDBG] 1768077916394 runRoutingNow: calling loadPage(subir)",
+    "type": "log"
+  },
+  {
+    "time": 1768077916415,
+    "text": "[VIEWDBG] 1768077916394 loadPage: start page=subir",
+    "type": "log"
+  },
+  {
+    "time": 1768077916415,
+    "text": "[VIEWDBG] 1768077916394 loadPage: content.innerHTML set to loading",
+    "type": "log"
+  },
+  {
+    "time": 1768077916415,
+    "text": "[SETVIEWSTATE] subir loaded readyState= complete body exists= true",
+    "type": "log"
+  },
+  {
+    "time": 1768077916415,
+    "text": "[VIEWDBG] 1768077916394 setViewState: subir -> loaded on element DIV",
+    "type": "log"
+  },
+  {
+    "time": 1768077916415,
+    "text": "[VIEWDBG] 1768077916394 setViewState: subir -> loaded applied, testId=view-subir-loaded",
+    "type": "log"
+  },
+  {
+    "time": 1768077916416,
+    "text": "[VIEWDBG] 1768077916395 subir: setViewState loaded called",
+    "type": "log"
+  },
+  {
+    "time": 1768077916416,
+    "text": "[VIEWDBG] 1768077916395 subir: calling loadSubir",
+    "type": "log"
+  },
+  {
+    "time": 1768077916416,
+    "text": "[VIEWDBG] 1768077916395 loadSubir: start",
+    "type": "log"
+  },
+  {
+    "time": 1768077916416,
+    "text": "[VIEWDBG] 1768077916396 ensureRepoDataLoaded: start",
+    "type": "log"
+  },
+  {
+    "time": 1768077916416,
+    "text": "[VIEWDBG] 1768077916396 Loading types...",
+    "type": "log"
+  },
+  {
+    "time": 1768077916416,
+    "text": "[VIEWDBG] 1768077916396 Loading people...",
+    "type": "log"
+  },
+  {
+    "time": 1768077931355,
+    "text": "[VIEWDBG] 1768077931355 Types loaded:",
+    "type": "log"
+  }
+]

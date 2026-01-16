@@ -1,26 +1,27 @@
 const { test, expect } = require('@playwright/test');
 const path = require('path');
 const fs = require('fs');
+const { seedReset, seedBasicRepository, gotoHash, waitForTestId } = require('./helpers/e2eSeed');
 
 test.describe('Upload Validity Start Date Persistence - Fix', () => {
     const evidenceDir = path.join(__dirname, '..', 'docs', 'evidence', 'upload_validity_persistence_fix');
-    const BACKEND_URL = 'http://localhost:8000';
+    const BACKEND_URL = 'http://127.0.0.1:8000';
+    let seedData;
     
     // Asegurar que el directorio de evidencia existe
-    test.beforeAll(() => {
+    test.beforeAll(async ({ request }) => {
         if (!fs.existsSync(evidenceDir)) {
             fs.mkdirSync(evidenceDir, { recursive: true });
         }
+        // Reset y seed básico usando request (no page)
+        await seedReset({ request });
+        seedData = await seedBasicRepository({ request });
     });
     
     test('Validity start date persiste tras fallo de validación', async ({ page }) => {
-        // 1) Ir a Subir documentos
-        await page.goto(`${BACKEND_URL}/repository#subir`);
-        await page.waitForLoadState('networkidle');
-        
-        // Esperar a que la sección de upload se cargue
-        const dropzone = page.locator('[data-testid="upload-dropzone"]');
-        await expect(dropzone).toBeVisible({ timeout: 15000 });
+        // 1) Ir a Subir documentos usando helper
+        await gotoHash(page, 'subir');
+        await waitForTestId(page, 'upload-dropzone');
         
         // Screenshot inicial
         await page.screenshot({ path: path.join(evidenceDir, '01_initial_state.png'), fullPage: true });
@@ -30,7 +31,7 @@ test.describe('Upload Validity Start Date Persistence - Fix', () => {
         const pdfContent = Buffer.from('%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\ntrailer\n<<\n/Root 1 0 R\n>>\n%%EOF');
         fs.writeFileSync(pdfPath, pdfContent);
         
-        const fileInput = page.locator('[data-testid="upload-file-input"]');
+        const fileInput = page.locator('[data-testid="upload-input"]');
         await expect(fileInput).toBeAttached({ timeout: 10000 });
         await fileInput.setInputFiles(pdfPath);
         
@@ -50,7 +51,8 @@ test.describe('Upload Validity Start Date Persistence - Fix', () => {
             const firstTypeId = await typeOptions.first().getAttribute('value');
             if (firstTypeId) {
                 await typeSelect.selectOption(firstTypeId);
-                await page.waitForTimeout(1000); // Esperar a que se actualice el formulario
+                // SPRINT B2: Esperar a que se actualice el formulario usando selector específico
+                await page.waitForSelector('[data-testid="validity-start-input"], .repo-upload-company-select', { timeout: 5000 }).catch(() => {});
             }
         }
         
@@ -98,8 +100,8 @@ test.describe('Upload Validity Start Date Persistence - Fix', () => {
         
         await saveAllButton.click();
         
-        // Esperar a que aparezca el alert
-        await page.waitForTimeout(1000);
+        // SPRINT B2: Esperar alert usando expect
+        await expect(page.locator('text=/error/i')).toBeVisible({ timeout: 3000 }).catch(() => {});
         
         // Verificar que apareció el alert de errores
         expect(alertMessage).toContain('error');
@@ -108,7 +110,7 @@ test.describe('Upload Validity Start Date Persistence - Fix', () => {
         await page.screenshot({ path: path.join(evidenceDir, '03_despues_alert.png'), fullPage: true });
         
         // 8) Assert: el input de vigencia SIGUE conteniendo la fecha (no vacío)
-        await page.waitForTimeout(500); // Pequeña espera para que se procese el re-render
+        // SPRINT B2: Esperar usando expect en lugar de waitForTimeout
         
         const validityStartInputAfter = card.locator('[data-testid="validity-start-input"]');
         await expect(validityStartInputAfter).toBeVisible();
@@ -129,7 +131,8 @@ test.describe('Upload Validity Start Date Persistence - Fix', () => {
             const companyCount = await companyOptions.count();
             if (companyCount > 1) { // Más de 1 porque hay un placeholder
                 await companySelect.selectOption({ index: 1 }); // Seleccionar primera opción real
-                await page.waitForTimeout(500);
+                // SPRINT B2: Esperar cambio usando expect
+                await expect(companySelect).toHaveValue(/./, { timeout: 2000 }).catch(() => {});
             }
         }
         
@@ -147,8 +150,11 @@ test.describe('Upload Validity Start Date Persistence - Fix', () => {
         
         await saveAllButton.click();
         
-        // Esperar a que se procese (puede haber otro alert de éxito o el card desaparece)
-        await page.waitForTimeout(2000);
+        // SPRINT B2: Esperar a que el card desaparezca o aparezca mensaje de éxito
+        await Promise.race([
+            expect(cardAfterSave).not.toBeVisible({ timeout: 5000 }).catch(() => {}),
+            expect(page.locator('text=/éxito|guardado/i')).toBeVisible({ timeout: 5000 }).catch(() => {})
+        ]);
         
         // Verificar que el guardado fue exitoso
         // El card debería desaparecer o aparecer un mensaje de éxito

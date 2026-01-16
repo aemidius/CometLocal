@@ -1,22 +1,27 @@
 const { test, expect } = require('@playwright/test');
 const path = require('path');
 const fs = require('fs');
+const { seedReset, seedBasicRepository, gotoHash, waitForTestId } = require('./helpers/e2eSeed');
 
 test.describe('Upload Clear All - Fix Bug Dropzone Muerto', () => {
     const evidenceDir = path.join(__dirname, '..', 'docs', 'evidence', 'upload_clear_all_fix');
-    const BACKEND_URL = 'http://localhost:8000';
+    const BACKEND_URL = 'http://127.0.0.1:8000';
+    let seedData;
     
     // Asegurar que el directorio de evidencia existe
-    test.beforeAll(() => {
+    test.beforeAll(async ({ request }) => {
         if (!fs.existsSync(evidenceDir)) {
             fs.mkdirSync(evidenceDir, { recursive: true });
         }
+        // Reset y seed básico usando request (no page)
+        await seedReset({ request });
+        seedData = await seedBasicRepository({ request });
     });
     
     test('Clear All + Upload debe funcionar correctamente', async ({ page }) => {
-        // 1) Navegar a Subir documentos
-        await page.goto(`${BACKEND_URL}/repository#subir`);
-        await page.waitForLoadState('networkidle');
+        // 1) Navegar a Subir documentos usando helper
+        await gotoHash(page, 'subir');
+        await waitForTestId(page, 'upload-dropzone');
         
         // Esperar a que la sección de upload se cargue
         const dropzone = page.locator('[data-testid="upload-dropzone"]');
@@ -30,7 +35,7 @@ test.describe('Upload Clear All - Fix Bug Dropzone Muerto', () => {
         const pdfContent = Buffer.from('%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\ntrailer\n<<\n/Root 1 0 R\n>>\n%%EOF');
         fs.writeFileSync(pdfPath1, pdfContent);
         
-        const fileInput = page.locator('[data-testid="upload-file-input"]');
+        const fileInput = page.locator('[data-testid="upload-input"]');
         await expect(fileInput).toBeAttached({ timeout: 10000 });
         
         await fileInput.setInputFiles(pdfPath1);
@@ -104,41 +109,33 @@ test.describe('Upload Clear All - Fix Bug Dropzone Muerto', () => {
     });
     
     test('Navigate away and back - anti-flakiness', async ({ page }) => {
-        // Ir a Subir documentos, subir PDF, aparece card
-        await page.goto(`${BACKEND_URL}/repository#subir`);
-        await page.waitForLoadState('networkidle');
-        
-        const dropzone = page.locator('[data-testid="upload-dropzone"]');
-        await expect(dropzone).toBeVisible({ timeout: 15000 });
+        // Ir a Subir documentos usando helper
+        await gotoHash(page, 'subir');
+        await waitForTestId(page, 'upload-dropzone');
         
         const pdfPath1 = path.join(__dirname, '..', 'data', 'test_nav_1.pdf');
         const pdfContent = Buffer.from('%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\ntrailer\n<<\n/Root 1 0 R\n>>\n%%EOF');
         fs.writeFileSync(pdfPath1, pdfContent);
         
-        const fileInput = page.locator('[data-testid="upload-file-input"]');
+        const fileInput = page.locator('[data-testid="upload-input"]');
         await expect(fileInput).toBeAttached({ timeout: 10000 });
         await fileInput.setInputFiles(pdfPath1);
         
         const card1 = page.locator('[data-testid^="upload-card-"]').first();
         await expect(card1).toBeVisible({ timeout: 10000 });
         
-        // Ir a Catálogo
-        await page.goto(`${BACKEND_URL}/repository#catalogo`);
-        await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(1000); // Pequeña espera para asegurar navegación
+        // Ir a Catálogo usando helper
+        await gotoHash(page, 'catalogo');
         
-        // Volver a Subir documentos
-        await page.goto(`${BACKEND_URL}/repository#subir`);
-        await page.waitForLoadState('networkidle');
-        
-        const dropzone2 = page.locator('[data-testid="upload-dropzone"]');
-        await expect(dropzone2).toBeVisible({ timeout: 15000 });
+        // Volver a Subir documentos usando helper
+        await gotoHash(page, 'subir');
+        await waitForTestId(page, 'upload-dropzone');
         
         // Subir PDF
         const pdfPath2 = path.join(__dirname, '..', 'data', 'test_nav_2.pdf');
         fs.writeFileSync(pdfPath2, pdfContent);
         
-        const fileInput2 = page.locator('[data-testid="upload-file-input"]');
+        const fileInput2 = page.locator('[data-testid="upload-input"]');
         await expect(fileInput2).toBeAttached({ timeout: 10000 });
         await fileInput2.setInputFiles(pdfPath2);
         
@@ -156,7 +153,7 @@ test.describe('Upload Clear All - Fix Bug Dropzone Muerto', () => {
         const pdfPath3 = path.join(__dirname, '..', 'data', 'test_nav_3.pdf');
         fs.writeFileSync(pdfPath3, pdfContent);
         
-        const fileInput3 = page.locator('[data-testid="upload-file-input"]');
+        const fileInput3 = page.locator('[data-testid="upload-input"]');
         await expect(fileInput3).toBeAttached({ timeout: 10000 });
         await fileInput3.setInputFiles(pdfPath3);
         
@@ -165,18 +162,16 @@ test.describe('Upload Clear All - Fix Bug Dropzone Muerto', () => {
     });
     
     test('Drag & Drop debe seguir funcionando después de Clear All', async ({ page }) => {
-        await page.goto(`${BACKEND_URL}/repository#subir`);
-        await page.waitForLoadState('networkidle');
-        
-        const dropzone = page.locator('[data-testid="upload-dropzone"]');
-        await expect(dropzone).toBeVisible({ timeout: 15000 });
+        // Navigate usando helper
+        await gotoHash(page, 'subir');
+        await waitForTestId(page, 'upload-dropzone');
         
         // Subir un PDF
         const pdfPath = path.join(__dirname, '..', 'data', 'test_drag_drop.pdf');
         const pdfContent = Buffer.from('%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\ntrailer\n<<\n/Root 1 0 R\n>>\n%%EOF');
         fs.writeFileSync(pdfPath, pdfContent);
         
-        const fileInput = page.locator('[data-testid="upload-file-input"]');
+        const fileInput = page.locator('[data-testid="upload-input"]');
         await fileInput.setInputFiles(pdfPath);
         
         // Esperar card

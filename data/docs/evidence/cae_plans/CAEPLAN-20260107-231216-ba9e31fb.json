@@ -1,0 +1,37 @@
+{
+  "plan_id": "CAEPLAN-20260107-231216-ba9e31fb",
+  "created_at": "2026-01-07T23:12:16.519641",
+  "scope": {
+    "platform_key": "egestiona",
+    "type_ids": [],
+    "company_key": null,
+    "person_key": "E2E_PERSON_520ce4ab",
+    "period_keys": null,
+    "mode": "PREPARE_WRITE"
+  },
+  "decision": "BLOCKED",
+  "reasons": [
+    "Item E2E_TYPE_520ce4ab_0: company_key y person_key requeridos"
+  ],
+  "items": [
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "E2E_TYPE_520ce4ab_0",
+      "scope": "worker",
+      "company_key": null,
+      "person_key": "E2E_PERSON_520ce4ab",
+      "period_key": "2026-01",
+      "suggested_doc_id": "",
+      "resolved_dates": null,
+      "status": "BLOCKED",
+      "reason": "company_key y person_key requeridos para scope=worker"
+    }
+  ],
+  "summary": {
+    "total_items": 1,
+    "items_planned": 0,
+    "items_needs_confirmation": 0,
+    "items_blocked": 1
+  },
+  "executor_hint": "egestiona_upload_v1"
+}

@@ -2,9 +2,16 @@
   "schema_version": "v1",
   "people": [
     {
-      "worker_id": "emilio",
+      "worker_id": "erm",
       "full_name": "Emilio Roldán Molina",
       "tax_id": "37330395S",
+      "role": "Ingeniero",
+      "relation_type": "socio_autonomo"
+    },
+    {
+      "worker_id": "ovo",
+      "full_name": "Oriol Verdés Ochoa",
+      "tax_id": "38133024J",
       "role": "Ingeniero",
       "relation_type": "socio_autonomo"
     }

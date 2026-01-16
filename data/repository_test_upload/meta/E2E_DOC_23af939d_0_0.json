@@ -1,0 +1,37 @@
+{
+  "doc_id": "E2E_DOC_23af939d_0_0",
+  "file_name_original": "e2e_test_2025-09.pdf",
+  "stored_path": "data/repository/docs/E2E_DOC_23af939d_0_0.pdf",
+  "sha256": "f20103b677b9706d00ede18c15c69a41021d98714dcd6331e8bbfa55a6c47477",
+  "type_id": "E2E_TYPE_23af939d_0",
+  "scope": "worker",
+  "company_key": null,
+  "person_key": "E2E_PERSON_23af939d",
+  "extracted": {
+    "issue_date": "2025-09-01",
+    "name_date": null,
+    "validity_start_date": "2025-09-01",
+    "period_start": "2025-09-01",
+    "period_end": "2025-09-30"
+  },
+  "computed_validity": {
+    "valid_from": "2025-09-01",
+    "valid_to": "2025-09-30",
+    "confidence": 0.6,
+    "reasons": [
+      "using issue_date: 2025-09-01",
+      "month_source=issue_date: 2025-09-01",
+      "computed period: 2025-09-01 to 2025-09-30",
+      "valid_from=period_start",
+      "valid_to=period_end"
+    ]
+  },
+  "validity_override": null,
+  "status": "reviewed",
+  "period_kind": "MONTH",
+  "period_key": "2025-09",
+  "issued_at": "2025-09-01",
+  "needs_period": false,
+  "created_at": "2026-01-07T21:13:26.227268",
+  "updated_at": "2026-01-07T21:13:26.227268"
+}

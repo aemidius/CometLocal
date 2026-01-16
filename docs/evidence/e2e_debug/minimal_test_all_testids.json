@@ -1,0 +1,80 @@
+[
+  {
+    "testId": "app-ready",
+    "tag": "BODY",
+    "id": "",
+    "className": ""
+  },
+  {
+    "testId": "view-calendario-ready",
+    "tag": "DIV",
+    "id": "",
+    "className": "main-content"
+  },
+  {
+    "testId": "page-ready",
+    "tag": "DIV",
+    "id": "page-content",
+    "className": "content-body"
+  },
+  {
+    "testId": "calendar-search-input",
+    "tag": "INPUT",
+    "id": "calendar-filter-text",
+    "className": "form-input"
+  },
+  {
+    "testId": "calendar-type-select",
+    "tag": "SELECT",
+    "id": "calendar-filter-type",
+    "className": "form-input"
+  },
+  {
+    "testId": "calendar-scope-select",
+    "tag": "SELECT",
+    "id": "calendar-scope-select",
+    "className": "form-input"
+  },
+  {
+    "testId": "calendar-subject-select",
+    "tag": "SELECT",
+    "id": "calendar-filter-subject",
+    "className": "form-input"
+  },
+  {
+    "testId": "calendar-max-months-back",
+    "tag": "INPUT",
+    "id": "calendar-max-months-back",
+    "className": "form-input"
+  },
+  {
+    "testId": "calendar-clear-filters",
+    "tag": "BUTTON",
+    "id": "",
+    "className": "btn btn-secondary"
+  },
+  {
+    "testId": "calendar-tab-expired",
+    "tag": "BUTTON",
+    "id": "pending-tab-expired",
+    "className": "btn btn-secondary"
+  },
+  {
+    "testId": "calendar-tab-expiring",
+    "tag": "BUTTON",
+    "id": "pending-tab-expiring_soon",
+    "className": "btn btn-secondary"
+  },
+  {
+    "testId": "calendar-tab-pending",
+    "tag": "BUTTON",
+    "id": "pending-tab-missing",
+    "className": "btn btn-secondary"
+  },
+  {
+    "testId": "calendar-ready",
+    "tag": "DIV",
+    "id": "pending-documents-container",
+    "className": ""
+  }
+]

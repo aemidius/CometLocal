@@ -1,26 +1,40 @@
 const { test, expect } = require('@playwright/test');
 const path = require('path');
 const fs = require('fs');
+const { seedReset, seedBasicRepository, gotoHash, waitForTestId } = require('./helpers/e2eSeed');
 
 test.describe('Upload Preview - Previsualizar Documentos', () => {
     const evidenceDir = path.join(__dirname, '..', 'docs', 'evidence', 'upload_preview');
-    const BACKEND_URL = 'http://localhost:8000';
+    const BACKEND_URL = 'http://127.0.0.1:8000';
+    let seedData;
     
     // Asegurar que el directorio de evidencia existe
-    test.beforeAll(() => {
+    test.beforeAll(async ({ request }) => {
         if (!fs.existsSync(evidenceDir)) {
             fs.mkdirSync(evidenceDir, { recursive: true });
         }
+        // Reset y seed básico usando request (no page)
+        await seedReset({ request });
+        seedData = await seedBasicRepository({ request });
     });
     
     test('Preview de archivo local antes de guardar', async ({ page }) => {
-        // 1) Ir a Subir documentos
-        await page.goto(`${BACKEND_URL}/repository#subir`);
-        await page.waitForLoadState('networkidle');
+        // 1) Ir a Subir documentos usando helper
+        await gotoHash(page, 'subir');
         
-        // Esperar a que la sección de upload se cargue
-        const dropzone = page.locator('[data-testid="upload-dropzone"]');
-        await expect(dropzone).toBeVisible({ timeout: 15000 });
+        // SPRINT B3.4.1: Esperar explícitamente a que la vista esté ready
+        // SPRINT C2.9.8: Esperar view-subir-ready con state: attached (markers hidden)
+        await page.waitForSelector('[data-testid="view-subir-ready"]', { timeout: 15000, state: 'attached' });
+        
+        // SPRINT B3.4.1: Verificar que el dropzone existe en el DOM (attached, no necesariamente visible)
+        await page.waitForSelector('[data-testid="upload-dropzone"]', { timeout: 10000, state: 'attached' });
+        
+        // SPRINT B3.4.1: Verificar que el input existe en el DOM
+        await page.waitForSelector('[data-testid="upload-input"]', { timeout: 10000, state: 'attached' });
+        
+        // SPRINT B3.4.1: Verificar que solo hay un dropzone (count == 1)
+        const dropzoneCount = await page.locator('[data-testid="upload-dropzone"]').count();
+        expect(dropzoneCount).toBe(1);
         
         // Screenshot inicial
         await page.screenshot({ path: path.join(evidenceDir, '01_initial_state.png'), fullPage: true });
@@ -30,7 +44,7 @@ test.describe('Upload Preview - Previsualizar Documentos', () => {
         const pdfContent = Buffer.from('%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n/Pages 2 0 R\n>>\nendobj\n2 0 obj\n<<\n/Type /Pages\n/Kids [3 0 R]\n/Count 1\n>>\nendobj\n3 0 obj\n<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n>>\nendobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \ntrailer\n<<\n/Size 4\n/Root 1 0 R\n>>\n%%EOF');
         fs.writeFileSync(pdfPath, pdfContent);
         
-        const fileInput = page.locator('[data-testid="upload-file-input"]');
+        const fileInput = page.locator('[data-testid="upload-input"]');
         await expect(fileInput).toBeAttached({ timeout: 10000 });
         await fileInput.setInputFiles(pdfPath);
         
@@ -103,18 +117,19 @@ test.describe('Upload Preview - Previsualizar Documentos', () => {
     });
     
     test('Preview cierra con Esc', async ({ page }) => {
-        await page.goto(`${BACKEND_URL}/repository#subir`);
-        await page.waitForLoadState('networkidle');
-        
-        const dropzone = page.locator('[data-testid="upload-dropzone"]');
-        await expect(dropzone).toBeVisible({ timeout: 15000 });
+        // Navigate usando helper
+        await gotoHash(page, 'subir');
+        // SPRINT C2.9.8: Esperar explícitamente a que la vista esté ready con state: attached (markers hidden)
+        await page.waitForSelector('[data-testid="view-subir-ready"]', { timeout: 15000, state: 'attached' });
+        // SPRINT B3.4.1: Verificar que el dropzone existe en el DOM
+        await page.waitForSelector('[data-testid="upload-dropzone"]', { timeout: 10000, state: 'attached' });
         
         // Subir PDF
         const pdfPath = path.join(__dirname, '..', 'data', 'test_preview_esc.pdf');
         const pdfContent = Buffer.from('%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\ntrailer\n<<\n/Root 1 0 R\n>>\n%%EOF');
         fs.writeFileSync(pdfPath, pdfContent);
         
-        const fileInput = page.locator('[data-testid="upload-file-input"]');
+        const fileInput = page.locator('[data-testid="upload-input"]');
         await fileInput.setInputFiles(pdfPath);
         
         const card = page.locator('[data-testid^="upload-card-"]').first();

@@ -1,0 +1,11 @@
+{
+  "run_id": "CAERUN-20260106-223133-bead13a2_item1",
+  "status": "SUCCESS",
+  "started_at": "2026-01-06T22:31:33.281143",
+  "finished_at": "2026-01-06T22:31:33.284648",
+  "summary": {
+    "items_processed": 1,
+    "items_success": 1,
+    "items_failed": 0
+  }
+}

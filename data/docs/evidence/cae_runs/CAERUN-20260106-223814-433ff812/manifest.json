@@ -1,0 +1,32 @@
+{
+  "run_id": "CAERUN-20260106-223814-433ff812",
+  "plan_id": "CAEPLAN-20260106-223812-7513e02b",
+  "started_at": "2026-01-06T22:38:14.382493",
+  "finished_at": "2026-01-06T22:38:14.509645",
+  "status": "PARTIAL_SUCCESS",
+  "stop_reason": "FAILED",
+  "error": "Forzado fallo FAKE después de 1 item(s) (CAE_FAKE_FAIL_AFTER_ITEM=1)",
+  "items_results": [
+    {
+      "item_index": 0,
+      "item_type_id": "T9977_AUTONOMOS",
+      "item_period_key": "2026-01",
+      "status": "SUCCESS",
+      "error": null
+    },
+    {
+      "item_index": 1,
+      "item_type_id": "T9977_AUTONOMOS",
+      "item_period_key": "2025-10",
+      "status": "FAILED",
+      "error": "Forzado fallo FAKE después de 1 item(s) (CAE_FAKE_FAIL_AFTER_ITEM=1)"
+    }
+  ],
+  "summary": {
+    "total_items": 2,
+    "items_processed": 2,
+    "items_success": 1,
+    "items_failed": 1,
+    "items_blocked": 0
+  }
+}

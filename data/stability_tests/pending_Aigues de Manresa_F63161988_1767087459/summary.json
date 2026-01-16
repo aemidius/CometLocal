@@ -1,0 +1,88 @@
+{
+  "test_type": "stability_test_pending_readonly",
+  "coordination": "Aigues de Manresa",
+  "company_key": "F63161988",
+  "person_key": null,
+  "iterations": 5,
+  "results": [
+    {
+      "iteration": 1,
+      "run_id": null,
+      "count_pendings": 0,
+      "page_url": "error",
+      "frame_url": "error",
+      "screen_signature": "error",
+      "duration_ms": 37803,
+      "success": false,
+      "error": "PENDING_ENTRY_POINT_NOT_REACHED: No se pudo navegar al área de pendientes después de reintentos"
+    },
+    {
+      "iteration": 2,
+      "run_id": null,
+      "count_pendings": 0,
+      "page_url": "error",
+      "frame_url": "error",
+      "screen_signature": "error",
+      "duration_ms": 37371,
+      "success": false,
+      "error": "PENDING_ENTRY_POINT_NOT_REACHED: No se pudo navegar al área de pendientes después de reintentos"
+    },
+    {
+      "iteration": 3,
+      "run_id": "r_328fada7f03e4bcf8ba97009bc0881c3",
+      "count_pendings": 17,
+      "page_url": "unknown",
+      "frame_url": "unknown",
+      "screen_signature": "unknown",
+      "duration_ms": 15773,
+      "success": true
+    },
+    {
+      "iteration": 4,
+      "run_id": null,
+      "count_pendings": 0,
+      "page_url": "error",
+      "frame_url": "error",
+      "screen_signature": "error",
+      "duration_ms": 36548,
+      "success": false,
+      "error": "PENDING_ENTRY_POINT_NOT_REACHED: No se pudo navegar al área de pendientes después de reintentos"
+    },
+    {
+      "iteration": 5,
+      "run_id": "r_90599ccfb9e2455382cdf30e48fecc23",
+      "count_pendings": 17,
+      "page_url": "unknown",
+      "frame_url": "unknown",
+      "screen_signature": "unknown",
+      "duration_ms": 15487,
+      "success": true
+    }
+  ],
+  "analysis": {
+    "unique_counts": [
+      0,
+      17
+    ],
+    "unique_signatures": [],
+    "all_counts": [
+      0,
+      0,
+      17,
+      0,
+      17
+    ],
+    "all_signatures": [
+      "unknown",
+      "unknown"
+    ],
+    "min_count": 0,
+    "max_count": 17,
+    "avg_count": 6.8
+  },
+  "passed": false,
+  "failure_reasons": [
+    "Inconsistencia en conteos: {0, 17} (algunos >0, algunos 0)"
+  ],
+  "timestamp": "2025-12-30T09:40:10Z"
+}

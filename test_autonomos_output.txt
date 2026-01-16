@@ -1,0 +1,57 @@
+=== PRUEBAS DE MATCHING T205.0 (AUTËNOMOS) ===
+Cliente: Aigues de Manresa
+Trabajador: Emilio
+Iteraciones: 3
+
+
+=== Iteraci¾n 1/3 ===
+[DHX_BLOCKER] Iniciando pipeline de cierre de overlays DHTMLX...
+[DHX_BLOCKER] Ventana 'Avisos, comunicados y noticias sin leer' detectada, cerrando...
+[DHX_BLOCKER] Screenshot antes: D:\Proyectos_Cursor\CometLocal\data\runs\r_6aabcd78733341268f1ac30547fbd876\evidence\dhx_news_notices_before.png
+[DHX_BLOCKER] Click en bot¾n X (selector: .dhtmlx_window_active .dhtmlx_button_close_default)
+[DHX_BLOCKER] Ventana cerrada exitosamente. Screenshot: D:\Proyectos_Cursor\CometLocal\data\runs\r_6aabcd78733341268f1ac30547fbd876\evidence\dhx_news_notices_closed.png
+[DHX_BLOCKER] Pipeline de cierre de overlays DHTMLX completado
+[NAVIGATION] Intento 1/3 de navegaci¾n a pendientes...
+[NAVIGATION] Tile clickeado (selector: a.listado_link[href="javascript:Gestion(3);"])
+[NAVIGATION] Grid de pendientes encontrado y cargado
+[MATCH_PENDING] Navegaci¾n robusta completada, grid encontrado
+[MATCH_PENDING] Validando que el grid estß completamente cargado...
+[OK] Run ID: r_6aabcd78733341268f1ac30547fbd876
+  Debug entries: 17
+  Total pendientes procesados: 17
+
+=== Iteraci¾n 2/3 ===
+[DHX_BLOCKER] Iniciando pipeline de cierre de overlays DHTMLX...
+[DHX_BLOCKER] Ventana 'Avisos, comunicados y noticias sin leer' detectada, cerrando...
+[DHX_BLOCKER] Screenshot antes: D:\Proyectos_Cursor\CometLocal\data\runs\r_cf9f0848304647a0a7b38718b89d3913\evidence\dhx_news_notices_before.png
+[DHX_BLOCKER] Click en bot¾n X (selector: .dhtmlx_window_active .dhtmlx_button_close_default)
+[DHX_BLOCKER] Ventana cerrada exitosamente. Screenshot: D:\Proyectos_Cursor\CometLocal\data\runs\r_cf9f0848304647a0a7b38718b89d3913\evidence\dhx_news_notices_closed.png
+[DHX_BLOCKER] Pipeline de cierre de overlays DHTMLX completado
+[NAVIGATION] Intento 1/3 de navegaci¾n a pendientes...
+[NAVIGATION] Tile clickeado (selector: a.listado_link[href="javascript:Gestion(3);"])
+[NAVIGATION] Grid de pendientes encontrado y cargado
+[MATCH_PENDING] Navegaci¾n robusta completada, grid encontrado
+[MATCH_PENDING] Validando que el grid estß completamente cargado...
+[OK] Run ID: r_cf9f0848304647a0a7b38718b89d3913
+  Debug entries: 17
+  Total pendientes procesados: 17
+
+=== Iteraci¾n 3/3 ===
+[DHX_BLOCKER] Iniciando pipeline de cierre de overlays DHTMLX...
+[DHX_BLOCKER] Ventana 'Avisos, comunicados y noticias sin leer' detectada, cerrando...
+[DHX_BLOCKER] Screenshot antes: D:\Proyectos_Cursor\CometLocal\data\runs\r_bf9f9f4c573442b7b088726548594a98\evidence\dhx_news_notices_before.png
+[DHX_BLOCKER] Click en bot¾n X (selector: .dhtmlx_window_active .dhtmlx_button_close_default)
+[DHX_BLOCKER] Ventana cerrada exitosamente. Screenshot: D:\Proyectos_Cursor\CometLocal\data\runs\r_bf9f9f4c573442b7b088726548594a98\evidence\dhx_news_notices_closed.png
+[DHX_BLOCKER] Pipeline de cierre de overlays DHTMLX completado
+[NAVIGATION] Intento 1/3 de navegaci¾n a pendientes...
+[NAVIGATION] Tile clickeado (selector: a.listado_link[href="javascript:Gestion(3);"])
+[NAVIGATION] Grid de pendientes encontrado y cargado
+[MATCH_PENDING] Navegaci¾n robusta completada, grid encontrado
+[MATCH_PENDING] Validando que el grid estß completamente cargado...
+[OK] Run ID: r_bf9f9f4c573442b7b088726548594a98
+  Debug entries: 17
+  Total pendientes procesados: 17
+
+=== RESUMEN ===
+Run IDs: ['r_6aabcd78733341268f1ac30547fbd876', 'r_cf9f0848304647a0a7b38718b89d3913', 'r_bf9f9f4c573442b7b088726548594a98']
+Total ejecuciones exitosas: 3/3

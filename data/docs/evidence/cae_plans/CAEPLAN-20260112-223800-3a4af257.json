@@ -1,0 +1,402 @@
+{
+  "plan_id": "CAEPLAN-20260112-223800-3a4af257",
+  "created_at": "2026-01-12T22:38:00.040857",
+  "scope": {
+    "platform_key": "egestiona",
+    "type_ids": [
+      "T202_CERTIFICADO_APTITUD_MEDICA",
+      "E2E_TYPE_244c62f6_0",
+      "T5612_NO_DEUDA_HACIENDA",
+      "T104_AUTONOMOS_RECEIPT",
+      "TEST_MONTHLY"
+    ],
+    "company_key": null,
+    "person_key": null,
+    "period_keys": null,
+    "mode": "READ_ONLY"
+  },
+  "decision": "READY",
+  "reasons": [
+    "No hay sujetos que coincidan con el scope para T202_CERTIFICADO_APTITUD_MEDICA",
+    "No hay sujetos que coincidan con el scope para E2E_TYPE_244c62f6_0",
+    "No hay sujetos que coincidan con el scope para T5612_NO_DEUDA_HACIENDA",
+    "No hay sujetos que coincidan con el scope para T104_AUTONOMOS_RECEIPT"
+  ],
+  "items": [
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2026-01",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2026-01-01",
+        "valid_from": "2026-01-01",
+        "valid_to": "2026-01-31"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2025-11",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2025-11-01",
+        "valid_from": "2025-11-01",
+        "valid_to": "2025-11-30"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2025-10",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2025-10-01",
+        "valid_from": "2025-10-01",
+        "valid_to": "2025-10-31"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2025-09",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2025-09-01",
+        "valid_from": "2025-09-01",
+        "valid_to": "2025-09-30"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2025-08",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2025-08-01",
+        "valid_from": "2025-08-01",
+        "valid_to": "2025-08-31"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2025-07",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2025-07-01",
+        "valid_from": "2025-07-01",
+        "valid_to": "2025-07-31"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2025-06",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2025-06-01",
+        "valid_from": "2025-06-01",
+        "valid_to": "2025-06-30"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2025-05",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2025-05-01",
+        "valid_from": "2025-05-01",
+        "valid_to": "2025-05-31"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2025-04",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2025-04-01",
+        "valid_from": "2025-04-01",
+        "valid_to": "2025-04-30"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2025-03",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2025-03-01",
+        "valid_from": "2025-03-01",
+        "valid_to": "2025-03-31"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2025-02",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2025-02-01",
+        "valid_from": "2025-02-01",
+        "valid_to": "2025-02-28"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2025-01",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2025-01-01",
+        "valid_from": "2025-01-01",
+        "valid_to": "2025-01-31"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2024-12",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2024-12-01",
+        "valid_from": "2024-12-01",
+        "valid_to": "2024-12-31"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2024-11",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2024-11-01",
+        "valid_from": "2024-11-01",
+        "valid_to": "2024-11-30"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2024-10",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2024-10-01",
+        "valid_from": "2024-10-01",
+        "valid_to": "2024-10-31"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2024-09",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2024-09-01",
+        "valid_from": "2024-09-01",
+        "valid_to": "2024-09-30"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2024-08",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2024-08-01",
+        "valid_from": "2024-08-01",
+        "valid_to": "2024-08-31"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2024-07",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2024-07-01",
+        "valid_from": "2024-07-01",
+        "valid_to": "2024-07-31"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2024-06",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2024-06-01",
+        "valid_from": "2024-06-01",
+        "valid_to": "2024-06-30"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2024-05",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2024-05-01",
+        "valid_from": "2024-05-01",
+        "valid_to": "2024-05-31"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2024-04",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2024-04-01",
+        "valid_from": "2024-04-01",
+        "valid_to": "2024-04-30"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2024-03",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2024-03-01",
+        "valid_from": "2024-03-01",
+        "valid_to": "2024-03-31"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    },
+    {
+      "kind": "MISSING_PERIOD",
+      "type_id": "TEST_MONTHLY",
+      "scope": "worker",
+      "company_key": "TEST_COMPANY",
+      "person_key": "TEST_WORKER",
+      "period_key": "2024-02",
+      "suggested_doc_id": null,
+      "resolved_dates": {
+        "issued_at": "2024-02-01",
+        "valid_from": "2024-02-01",
+        "valid_to": "2024-02-29"
+      },
+      "status": "PLANNED",
+      "reason": "Período faltante"
+    }
+  ],
+  "summary": {
+    "pending_items": 23,
+    "docs_candidates": 0,
+    "total_items": 23,
+    "types_processed": 5
+  },
+  "executor_hint": "egestiona_upload_v1"
+}

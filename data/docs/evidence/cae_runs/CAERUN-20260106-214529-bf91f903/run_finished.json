@@ -1,0 +1,31 @@
+{
+  "run_id": "CAERUN-20260106-214529-bf91f903",
+  "status": "SUCCESS",
+  "started_at": "2026-01-06T21:45:29.915796",
+  "finished_at": "2026-01-06T21:45:30.102870",
+  "error": null,
+  "stop_reason": null,
+  "summary": {
+    "total_items": 2,
+    "items_processed": 2,
+    "items_success": 2,
+    "items_failed": 0,
+    "items_blocked": 0
+  },
+  "items_results": [
+    {
+      "item_index": 0,
+      "item_type_id": "E2E_MONTHLY_08805bbf",
+      "item_period_key": "2025-12",
+      "status": "SUCCESS",
+      "error": null
+    },
+    {
+      "item_index": 1,
+      "item_type_id": "E2E_MONTHLY_08805bbf",
+      "item_period_key": "2025-11",
+      "status": "SUCCESS",
+      "error": null
+    }
+  ]
+}

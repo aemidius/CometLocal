@@ -1,0 +1,37 @@
+{
+  "doc_id": "E2E_DOC_e596ae61_1",
+  "file_name_original": "e2e_test_2025-11.pdf",
+  "stored_path": "data/repository/docs/E2E_DOC_e596ae61_1.pdf",
+  "sha256": "f20103b677b9706d00ede18c15c69a41021d98714dcd6331e8bbfa55a6c47477",
+  "type_id": "E2E_MONTHLY_e596ae61",
+  "scope": "worker",
+  "company_key": "TEDELAB",
+  "person_key": "EMILIO",
+  "extracted": {
+    "issue_date": "2025-11-01",
+    "name_date": null,
+    "validity_start_date": "2025-11-01",
+    "period_start": "2025-11-01",
+    "period_end": "2025-11-30"
+  },
+  "computed_validity": {
+    "valid_from": "2025-11-01",
+    "valid_to": "2025-11-30",
+    "confidence": 0.6,
+    "reasons": [
+      "using issue_date: 2025-11-01",
+      "month_source=issue_date: 2025-11-01",
+      "computed period: 2025-11-01 to 2025-11-30",
+      "valid_from=period_start",
+      "valid_to=period_end"
+    ]
+  },
+  "validity_override": null,
+  "status": "reviewed",
+  "period_kind": "MONTH",
+  "period_key": "2025-11",
+  "issued_at": "2025-11-01",
+  "needs_period": false,
+  "created_at": "2026-01-06T21:23:56.820948",
+  "updated_at": "2026-01-06T21:23:56.820948"
+}

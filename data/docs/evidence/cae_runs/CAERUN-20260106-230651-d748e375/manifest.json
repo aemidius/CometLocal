@@ -1,0 +1,32 @@
+{
+  "run_id": "CAERUN-20260106-230651-d748e375",
+  "plan_id": "CAEPLAN-20260106-230646-f4201a6c",
+  "started_at": "2026-01-06T23:06:51.609368",
+  "finished_at": "2026-01-06T23:06:51.709419",
+  "status": "PARTIAL_SUCCESS",
+  "stop_reason": "FAILED",
+  "error": "Forzado fallo FAKE después de 1 item(s) (CAE_FAKE_FAIL_AFTER_ITEM=1)",
+  "items_results": [
+    {
+      "item_index": 0,
+      "item_type_id": "E2E_MONTHLY_0a6434e0",
+      "item_period_key": "2025-12",
+      "status": "SUCCESS",
+      "error": null
+    },
+    {
+      "item_index": 1,
+      "item_type_id": "E2E_MONTHLY_0a6434e0",
+      "item_period_key": "2025-11",
+      "status": "FAILED",
+      "error": "Forzado fallo FAKE después de 1 item(s) (CAE_FAKE_FAIL_AFTER_ITEM=1)"
+    }
+  ],
+  "summary": {
+    "total_items": 2,
+    "items_processed": 2,
+    "items_success": 1,
+    "items_failed": 1,
+    "items_blocked": 0
+  }
+}

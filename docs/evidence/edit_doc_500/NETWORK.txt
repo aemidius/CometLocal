@@ -1,0 +1,31 @@
+## BEFORE (bug: 500 Internal Server Error)
+
+REQUEST
+{
+  "url": "http://127.0.0.1:8000/api/repository/docs/7db82a52-b444-4e31-98eb-61a3095d92c5",
+  "method": "PUT",
+  "postData": "{\"company_key\":\"F63161988\",\"person_key\":null,\"status\":\"reviewed\",\"period_key\":\"2025-08\",\"issue_date\":\"2025-08-01\",\"validity_start_date\":\"2026-05-30\"}"
+}
+
+RESPONSE
+{
+  "url": "http://127.0.0.1:8000/api/repository/docs/7db82a52-b444-4e31-98eb-61a3095d92c5",
+  "status": 500,
+  "body": "Internal Server Error"
+}
+
+## AFTER (fix: 200 OK)
+
+REQUEST
+{
+  "url": "http://127.0.0.1:8000/api/repository/docs/7db82a52-b444-4e31-98eb-61a3095d92c5",
+  "method": "PUT",
+  "postData": "{\"company_key\":\"F63161988\",\"person_key\":null,\"status\":\"draft\",\"period_key\":\"2025-08\",\"issue_date\":\"2025-08-01\",\"validity_start_date\":\"2026-05-30\"}"
+}
+
+RESPONSE
+{
+  "url": "http://127.0.0.1:8000/api/repository/docs/7db82a52-b444-4e31-98eb-61a3095d92c5",
+  "status": 200,
+  "body": "(ver docs/evidence/edit_doc_500/NETWORK_AFTER.json para body completo)"
+}

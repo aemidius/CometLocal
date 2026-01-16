@@ -1,0 +1,6 @@
+{
+  "status": "error",
+  "error_code": "readonly_compute_failed",
+  "message": "Resultado inesperado de compute: <class 'NoneType'>",
+  "details": null
+}

@@ -3,12 +3,22 @@
  * Cubre el endpoint PUT /api/repository/docs/{doc_id}/pdf (antes 500).
  */
 const { test, expect } = require('@playwright/test');
+const { seedReset, seedBasicRepository, gotoHash, waitForTestId } = require('./helpers/e2eSeed');
 
 test.describe('Subir documentos - Resubir PDF', () => {
+  let seedData;
+  
+  test.beforeAll(async ({ request }) => {
+    // Reset y seed básico usando request (no page)
+    await seedReset({ request });
+    seedData = await seedBasicRepository({ request });
+  });
+  
   test('resubir desde Buscar documentos y guardar OK (200)', async ({ page }) => {
     const pdfPath = 'data/AEAT-16-oct-2025.pdf';
 
-    await page.goto('http://127.0.0.1:8000/repository#buscar', { waitUntil: 'networkidle' });
+    // SPRINT B2: Navegar usando helper
+    await gotoHash(page, 'buscar');
     await page.waitForSelector('button:has-text("Resubir")', { timeout: 20000 });
 
     await page.locator('button:has-text("Resubir")').first().click();
@@ -20,7 +30,7 @@ test.describe('Subir documentos - Resubir PDF', () => {
     });
 
     // Subir archivo
-    const fileInput = page.locator('[data-testid="upload-file-input"]');
+    const fileInput = page.locator('[data-testid="upload-input"]');
     await fileInput.setInputFiles(pdfPath);
 
     await page.waitForSelector('#upload-files-list', { timeout: 20000 });
@@ -59,5 +69,9 @@ test.describe('Subir documentos - Resubir PDF', () => {
     expect(body).toHaveProperty('file_name_original');
   });
 });
+
+
+
+
 
 

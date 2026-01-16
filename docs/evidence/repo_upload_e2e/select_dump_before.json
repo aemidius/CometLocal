@@ -1,0 +1,31 @@
+{
+  "outerHTML": "<select class=\"form-input repo-upload-type-select\" id=\"upload-file-type-select-1767879015476.0847\" data-upload-file-id=\"1767879015476.0847\" data-testid=\"type-autocomplete\" required=\"\">\n                                <option value=\"\">Selecciona un tipo...</option>\n                                <option value=\"TEST_RC_CERTIFICATE\" data-testid=\"type-option-TEST_RC_CERTIFICATE\">Certificado RC</option><option value=\"TEST_DATE_REQUIRED\" data-testid=\"type-option-TEST_DATE_REQUIRED\">Test Tipo con Fecha Requerida</option><option value=\"TEST_COMPANY_TYPE\" data-testid=\"type-option-TEST_COMPANY_TYPE\">Test Tipo Empresa</option>\n                            </select>",
+  "value": "",
+  "selectedIndex": 0,
+  "options": [
+    {
+      "value": "",
+      "text": "Selecciona un tipo...",
+      "selected": true,
+      "disabled": false
+    },
+    {
+      "value": "TEST_RC_CERTIFICATE",
+      "text": "Certificado RC",
+      "selected": false,
+      "disabled": false
+    },
+    {
+      "value": "TEST_DATE_REQUIRED",
+      "text": "Test Tipo con Fecha Requerida",
+      "selected": false,
+      "disabled": false
+    },
+    {
+      "value": "TEST_COMPANY_TYPE",
+      "text": "Test Tipo Empresa",
+      "selected": false,
+      "disabled": false
+    }
+  ]
+}
