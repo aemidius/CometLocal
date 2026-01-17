@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-01-17T10:13:04.270Z",
+  "test": "egestiona_hardening_e2e",
+  "planHttpStatus": 200,
+  "planStatus": "ok",
+  "uploadExecuted": false,
+  "uploadHttpStatus": null,
+  "runId": null,
+  "summaryListHttpStatus": 200,
+  "summaryListStatus": "ok",
+  "summaryListTotal": 0,
+  "testPassed": true
+}

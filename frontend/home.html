@@ -96,6 +96,66 @@
             gap: 12px;
         }
 
+        /* SPRINT C2.15: Estilos para tabs de auto-upload */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            border-bottom: 2px solid #334155;
+            margin-bottom: 16px;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            background: #1e293b;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            background: #334155;
+            color: #e5e7eb;
+        }
+
+        .tab-btn.active {
+            color: #60a5fa;
+            border-bottom-color: #60a5fa;
+            background: #0f172a;
+        }
+
+        /* SPRINT C2.15: Estilos para tabs de auto-upload */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            border-bottom: 2px solid #334155;
+            margin-bottom: 16px;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            background: #1e293b;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            background: #334155;
+            color: #e5e7eb;
+        }
+
+        .tab-btn.active {
+            color: #60a5fa;
+            border-bottom-color: #60a5fa;
+            background: #0f172a;
+        }
+
         .link-item {
             display: inline-block;
             padding: 12px 16px;
@@ -602,6 +662,9 @@
             <div style="margin-bottom: 16px;">
                 <button class="btn btn-primary" onclick="executePendingReview()" id="execute-btn" data-testid="cae-review-run-btn">
                     🔍 Revisar ahora (READ-ONLY)
+                </button>
+                <button class="btn btn-success" onclick="buildAutoUploadPlan()" id="build-auto-upload-plan-btn" data-testid="cae-build-auto-upload-plan-btn" style="margin-left: 8px;">
+                    🚀 Preparar auto-subida
                 </button>
                 <button class="btn btn-success" onclick="executePlanWithApproval()" id="execute-plan-btn" data-testid="cae-execute-plan-btn" style="margin-left: 8px; display: none;">
                     ⚡ Ejecutar plan (subir documentos)
@@ -2620,6 +2683,462 @@
                     btn.disabled = false;
                 }
             }
+        }
+
+        // SPRINT C2.15: Construir plan de auto-upload
+        async function buildAutoUploadPlan() {
+            const btn = document.getElementById('build-auto-upload-plan-btn');
+            const originalText = btn.textContent;
+            btn.textContent = '⏳ Preparando plan...';
+            btn.disabled = true;
+
+            // Ocultar resultados anteriores
+            document.getElementById('results-section').style.display = 'none';
+            document.getElementById('auto-upload-plan-section').style.display = 'none';
+
+            try {
+                // Validar parámetros (igual que executePendingReview)
+                const platform = pendingReviewData.selectedPlatform || '';
+                if (!platform || platform === '') {
+                    showAlert('pending-review-alert', '❌ Error: Debes seleccionar una plataforma CAE', 'error');
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+
+                if (platform !== 'egestiona') {
+                    showAlert('pending-review-alert', '❌ Error: Solo eGestiona está soportado actualmente', 'error');
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+
+                // Build query params
+                const params = new URLSearchParams();
+                const coord = pendingReviewData.selectedCoord || '';
+                if (coord && coord !== '') {
+                    params.append('coord', coord);
+                }
+
+                let company = pendingReviewData.selectedCompany || '';
+                if (!company || company === '') {
+                    if (pendingReviewData.org && pendingReviewData.org.tax_id) {
+                        company = pendingReviewData.org.tax_id;
+                    } else {
+                        showAlert('pending-review-alert', '❌ Error: No se pudo determinar company_key', 'error');
+                        btn.textContent = originalText;
+                        btn.disabled = false;
+                        return;
+                    }
+                }
+                params.append('company_key', company);
+
+                const scope = pendingReviewData.scope || 'both';
+                params.append('only_target', scope !== 'both' ? 'true' : 'false');
+
+                if (scope === 'worker' || scope === 'both') {
+                    const worker = pendingReviewData.selectedWorker || '';
+                    if (worker && worker !== '') {
+                        params.append('person_key', worker);
+                    }
+                }
+
+                params.append('limit', '200');
+                params.append('max_items', '200');
+                params.append('max_pages', '10');
+
+                const reqId = `auto_upload_plan_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+                const response = await fetch(`/runs/egestiona/build_auto_upload_plan?${params.toString()}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CLIENT-REQ-ID': reqId,
+                    },
+                });
+
+                const responseText = await response.text();
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                } catch (e) {
+                    showAlert('pending-review-alert', `❌ Error: Respuesta no es JSON válido: ${e.message}`, 'error');
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+
+                if (result.status === 'error') {
+                    showAlert('pending-review-alert', `❌ Error: ${result.message || result.error_code}`, 'error');
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+
+                // Guardar datos del plan
+                autoUploadPlanData.snapshot = result.snapshot || { items: [] };
+                autoUploadPlanData.decisions = result.decisions || [];
+                autoUploadPlanData.summary = result.summary || {
+                    total: 0,
+                    auto_upload_count: 0,
+                    review_required_count: 0,
+                    no_match_count: 0,
+                };
+                autoUploadPlanData.selectedItems.clear();
+
+                // Preseleccionar todos los AUTO_UPLOAD
+                autoUploadPlanData.decisions.forEach(d => {
+                    if (d.decision === 'AUTO_UPLOAD') {
+                        autoUploadPlanData.selectedItems.add(d.pending_item_key);
+                    }
+                });
+
+                // Renderizar plan
+                renderAutoUploadPlan();
+
+                // Mostrar sección
+                document.getElementById('auto-upload-plan-section').style.display = 'block';
+                showAlert('pending-review-alert', '✅ Plan de auto-subida preparado', 'success');
+
+            } catch (error) {
+                console.error('[AUTO_UPLOAD_PLAN] Error:', error);
+                showAlert('pending-review-alert', `❌ Error: ${error.message}`, 'error');
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // SPRINT C2.15: Renderizar plan de auto-upload
+        function renderAutoUploadPlan() {
+            const summary = autoUploadPlanData.summary;
+            const decisions = autoUploadPlanData.decisions;
+            const snapshot = autoUploadPlanData.snapshot;
+
+            // Renderizar summary
+            const summaryHtml = `
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+                    <div style="text-align: center; padding: 12px; background: #0f172a; border-radius: 4px;">
+                        <div style="font-size: 1.5em; font-weight: bold; color: #60a5fa;">${summary.total}</div>
+                        <div style="font-size: 0.9em; color: #94a3b8;">Total</div>
+                    </div>
+                    <div style="text-align: center; padding: 12px; background: #0f172a; border-radius: 4px;">
+                        <div style="font-size: 1.5em; font-weight: bold; color: #4ade80;">${summary.auto_upload_count}</div>
+                        <div style="font-size: 0.9em; color: #94a3b8;">AUTO_UPLOAD</div>
+                    </div>
+                    <div style="text-align: center; padding: 12px; background: #0f172a; border-radius: 4px;">
+                        <div style="font-size: 1.5em; font-weight: bold; color: #fbbf24;">${summary.review_required_count}</div>
+                        <div style="font-size: 0.9em; color: #94a3b8;">REVIEW_REQUIRED</div>
+                    </div>
+                    <div style="text-align: center; padding: 12px; background: #0f172a; border-radius: 4px;">
+                        <div style="font-size: 1.5em; font-weight: bold; color: #f87171;">${summary.no_match_count}</div>
+                        <div style="font-size: 0.9em; color: #94a3b8;">NO_MATCH</div>
+                    </div>
+                </div>
+            `;
+            safeSetHTML('auto-upload-summary', summaryHtml);
+
+            // Actualizar contadores en tabs
+            safeSetHTML('count-auto-upload', summary.auto_upload_count);
+            safeSetHTML('count-review-required', summary.review_required_count);
+            safeSetHTML('count-no-match', summary.no_match_count);
+
+            // Crear mapa de pending_item_key -> decision
+            const decisionMap = {};
+            decisions.forEach(d => {
+                decisionMap[d.pending_item_key] = d;
+            });
+
+            // Crear mapa de pending_item_key -> snapshot item
+            const snapshotMap = {};
+            snapshot.items.forEach(item => {
+                const key = item.pending_item_key || item.raw_data?.pending_item_key;
+                if (key) {
+                    snapshotMap[key] = item;
+                }
+            });
+
+            // Renderizar items por categoría (empezar con AUTO_UPLOAD)
+            renderAutoUploadTab('auto_upload', decisionMap, snapshotMap);
+        }
+
+        // SPRINT C2.15: Mostrar tab de auto-upload
+        function showAutoUploadTab(tabName) {
+            // Actualizar botones de tabs
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`tab-${tabName.replace('_', '-')}`).classList.add('active');
+
+            const decisions = autoUploadPlanData.decisions;
+            const snapshot = autoUploadPlanData.snapshot;
+
+            // Crear mapas
+            const decisionMap = {};
+            decisions.forEach(d => {
+                decisionMap[d.pending_item_key] = d;
+            });
+            const snapshotMap = {};
+            snapshot.items.forEach(item => {
+                const key = item.pending_item_key || item.raw_data?.pending_item_key;
+                if (key) {
+                    snapshotMap[key] = item;
+                }
+            });
+
+            renderAutoUploadTab(tabName, decisionMap, snapshotMap);
+        }
+
+        // SPRINT C2.15: Renderizar items de un tab
+        function renderAutoUploadTab(tabName, decisionMap, snapshotMap) {
+            const decisions = autoUploadPlanData.decisions;
+            const filteredDecisions = decisions.filter(d => {
+                if (tabName === 'auto_upload') return d.decision === 'AUTO_UPLOAD';
+                if (tabName === 'review_required') return d.decision === 'REVIEW_REQUIRED';
+                if (tabName === 'no_match') return d.decision === 'NO_MATCH';
+                return false;
+            });
+
+            if (filteredDecisions.length === 0) {
+                safeSetHTML('auto-upload-items-container', `<div class="empty-state">No hay items en esta categoría</div>`);
+                return;
+            }
+
+            let html = '<div style="overflow-x: auto;"><table class="results-table"><thead><tr>';
+            html += '<th>Seleccionar</th><th>Tipo Documento</th><th>Elemento</th><th>Empresa</th><th>Documento Local</th><th>Decisión</th><th>Razón</th><th>Confianza</th>';
+            html += '</tr></thead><tbody>';
+
+            filteredDecisions.forEach(decision => {
+                const snapshotItem = snapshotMap[decision.pending_item_key] || {};
+                const pendingItem = snapshotItem.raw_data || snapshotItem;
+                
+                const tipoDoc = pendingItem.tipo_doc || snapshotItem.tipo_doc || '';
+                const elemento = pendingItem.elemento || snapshotItem.elemento || '';
+                const empresa = pendingItem.empresa || snapshotItem.empresa || '';
+                const localDocRef = decision.local_doc_ref || {};
+                const docName = localDocRef.file_name || localDocRef.doc_id || 'N/A';
+                
+                const isChecked = tabName === 'auto_upload' && autoUploadPlanData.selectedItems.has(decision.pending_item_key);
+                const checkboxHtml = tabName === 'auto_upload' 
+                    ? `<input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleAutoUploadItem('${decision.pending_item_key.replace(/'/g, "\\'")}')" data-pending-item-key="${decision.pending_item_key.replace(/"/g, '&quot;')}">`
+                    : '<span style="color: #94a3b8;">—</span>';
+
+                let badgeClass = 'badge-info';
+                if (decision.decision === 'AUTO_UPLOAD') badgeClass = 'badge-success';
+                else if (decision.decision === 'REVIEW_REQUIRED') badgeClass = 'badge-warning';
+                else badgeClass = 'badge-error';
+
+                html += `<tr>`;
+                html += `<td>${checkboxHtml}</td>`;
+                html += `<td>${window.escapeHtml(tipoDoc)}</td>`;
+                html += `<td>${window.escapeHtml(elemento)}</td>`;
+                html += `<td>${window.escapeHtml(empresa)}</td>`;
+                html += `<td><code>${window.escapeHtml(docName)}</code></td>`;
+                html += `<td><span class="badge ${badgeClass}">${decision.decision}</span></td>`;
+                html += `<td>${window.escapeHtml(decision.reason || '')}</td>`;
+                html += `<td>${(decision.confidence * 100).toFixed(0)}%</td>`;
+                html += `</tr>`;
+            });
+
+            html += '</tbody></table></div>';
+            safeSetHTML('auto-upload-items-container', html);
+
+            // Actualizar checkbox "select all"
+            const selectAllCheckbox = document.getElementById('auto-upload-select-all');
+            if (selectAllCheckbox && tabName === 'auto_upload') {
+                const autoUploadDecisions = decisions.filter(d => d.decision === 'AUTO_UPLOAD');
+                const allSelected = autoUploadDecisions.every(d => autoUploadPlanData.selectedItems.has(d.pending_item_key));
+                selectAllCheckbox.checked = allSelected;
+            }
+
+            // Actualizar guidance si auto_upload_count == 0
+            const summary = autoUploadPlanData.summary;
+            if (summary.auto_upload_count === 0) {
+                safeSetHTML('auto-upload-guidance', `
+                    <div style="color: #fbbf24;">
+                        <strong>ℹ️ No hay items listos para auto-subida.</strong><br>
+                        Revisa los items en REVIEW_REQUIRED para ver qué requiere confirmación manual.
+                    </div>
+                `);
+                safeSetDisplay('auto-upload-guidance', 'block');
+                const execBtn = document.getElementById('execute-auto-upload-btn');
+                if (execBtn) execBtn.disabled = true;
+            } else {
+                safeSetDisplay('auto-upload-guidance', 'none');
+                const execBtn = document.getElementById('execute-auto-upload-btn');
+                if (execBtn) execBtn.disabled = false;
+            }
+        }
+
+        // SPRINT C2.15: Toggle item de auto-upload
+        function toggleAutoUploadItem(pendingItemKey) {
+            if (autoUploadPlanData.selectedItems.has(pendingItemKey)) {
+                autoUploadPlanData.selectedItems.delete(pendingItemKey);
+            } else {
+                autoUploadPlanData.selectedItems.add(pendingItemKey);
+            }
+        }
+
+        // SPRINT C2.15: Toggle todos los items AUTO_UPLOAD
+        function toggleAllAutoUploadItems() {
+            const checkbox = document.getElementById('auto-upload-select-all');
+            const decisions = autoUploadPlanData.decisions.filter(d => d.decision === 'AUTO_UPLOAD');
+            
+            if (checkbox.checked) {
+                decisions.forEach(d => autoUploadPlanData.selectedItems.add(d.pending_item_key));
+            } else {
+                decisions.forEach(d => autoUploadPlanData.selectedItems.delete(d.pending_item_key));
+            }
+
+            // Re-renderizar tab actual
+            const activeTab = document.querySelector('.tab-btn.active');
+            if (activeTab) {
+                const tabName = activeTab.id.replace('tab-', '').replace('-', '_');
+                const decisionMap = {};
+                autoUploadPlanData.decisions.forEach(d => {
+                    decisionMap[d.pending_item_key] = d;
+                });
+                const snapshotMap = {};
+                autoUploadPlanData.snapshot.items.forEach(item => {
+                    const key = item.pending_item_key || item.raw_data?.pending_item_key;
+                    if (key) {
+                        snapshotMap[key] = item;
+                    }
+                });
+                renderAutoUploadTab(tabName, decisionMap, snapshotMap);
+            }
+        }
+
+        // SPRINT C2.15: Ejecutar auto-upload
+        async function executeAutoUpload() {
+            const btn = document.getElementById('execute-auto-upload-btn');
+            const originalText = btn.textContent;
+            btn.textContent = '⏳ Subiendo...';
+            btn.disabled = true;
+
+            try {
+                const selectedItems = Array.from(autoUploadPlanData.selectedItems);
+                if (selectedItems.length === 0) {
+                    showAlert('pending-review-alert', '❌ Error: No hay items seleccionados', 'error');
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+
+                // Validar parámetros
+                const platform = pendingReviewData.selectedPlatform || '';
+                if (platform !== 'egestiona') {
+                    showAlert('pending-review-alert', '❌ Error: Solo eGestiona está soportado', 'error');
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+
+                let company = pendingReviewData.selectedCompany || '';
+                if (!company && pendingReviewData.org && pendingReviewData.org.tax_id) {
+                    company = pendingReviewData.org.tax_id;
+                }
+
+                const scope = pendingReviewData.scope || 'both';
+                const onlyTarget = scope !== 'both';
+                let personKey = null;
+                if (scope === 'worker' || scope === 'both') {
+                    personKey = pendingReviewData.selectedWorker || null;
+                }
+
+                const coord = pendingReviewData.selectedCoord || '';
+
+                // Llamar endpoint execute_auto_upload
+                const reqId = `auto_upload_exec_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+                const response = await fetch('/runs/egestiona/execute_auto_upload', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-USE-REAL-UPLOADER': '1',  // SPRINT C2.15: Header requerido
+                        'X-CLIENT-REQ-ID': reqId,
+                    },
+                    body: JSON.stringify({
+                        coord: coord,
+                        company_key: company,
+                        person_key: personKey,
+                        only_target: onlyTarget,
+                        items: selectedItems,
+                        max_uploads: Math.min(selectedItems.length, 5),  // SPRINT C2.15: Límite por defecto
+                        stop_on_first_error: true,
+                        rate_limit_seconds: 1.5,
+                    }),
+                });
+
+                const responseText = await response.text();
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                } catch (e) {
+                    showAlert('pending-review-alert', `❌ Error: Respuesta no es JSON válido: ${e.message}`, 'error');
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+
+                if (result.status === 'error') {
+                    showAlert('pending-review-alert', `❌ Error: ${result.message || result.error_code}`, 'error');
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+
+                // Mostrar resultados
+                const summary = result.summary || {};
+                const results = result.results || [];
+                const successCount = results.filter(r => r.success).length;
+                const failedCount = results.filter(r => !r.success).length;
+
+                let resultHtml = `<div style="padding: 16px; background: #1e293b; border-radius: 6px; margin-bottom: 16px;">`;
+                resultHtml += `<h4>Resultado de Auto-Upload</h4>`;
+                resultHtml += `<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px;">`;
+                resultHtml += `<div><strong>Total:</strong> ${summary.total || 0}</div>`;
+                resultHtml += `<div style="color: #4ade80;"><strong>Exitosos:</strong> ${successCount}</div>`;
+                resultHtml += `<div style="color: #f87171;"><strong>Fallidos:</strong> ${failedCount}</div>`;
+                resultHtml += `</div>`;
+                resultHtml += `<div style="margin-top: 12px;">`;
+                resultHtml += `<details><summary>Ver detalles por item</summary>`;
+                resultHtml += `<pre style="margin-top: 8px; padding: 8px; background: #0f172a; border-radius: 4px; overflow-x: auto; font-size: 12px;">${window.escapeHtml(JSON.stringify(results, null, 2))}</pre>`;
+                resultHtml += `</details></div>`;
+                resultHtml += `</div>`;
+
+                safeSetHTML('auto-upload-items-container', resultHtml);
+
+                if (result.status === 'ok') {
+                    showAlert('pending-review-alert', `✅ Auto-upload completado: ${successCount} items subidos exitosamente`, 'success');
+                } else if (result.status === 'partial') {
+                    showAlert('pending-review-alert', `⚠️ Auto-upload parcial: ${successCount} exitosos, ${failedCount} fallidos`, 'warning');
+                } else {
+                    showAlert('pending-review-alert', `❌ Auto-upload falló: ${failedCount} fallidos`, 'error');
+                }
+
+            } catch (error) {
+                console.error('[AUTO_UPLOAD] Error:', error);
+                showAlert('pending-review-alert', `❌ Error: ${error.message}`, 'error');
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // SPRINT C2.15: Exportar diagnóstico
+        function exportAutoUploadDiagnostic() {
+            const diagnostic = {
+                timestamp: new Date().toISOString(),
+                snapshot: autoUploadPlanData.snapshot,
+                decisions: autoUploadPlanData.decisions,
+                summary: autoUploadPlanData.summary,
+                selectedItems: Array.from(autoUploadPlanData.selectedItems),
+            };
+
+            const blob = new Blob([JSON.stringify(diagnostic, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `auto_upload_plan_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
         }
     </script>
 </body>

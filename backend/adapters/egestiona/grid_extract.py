@@ -240,15 +240,86 @@ def canonicalize_row(row: Dict[str, Any]) -> Dict[str, Any]:
         v_str = str(v).strip()
         return v_str if v_str else None
     
+    tipo_doc_clean = clean_value(tipo_doc)
+    elemento_clean = clean_value(elemento)
+    empresa_clean = clean_value(empresa)
+    estado_clean = clean_value(estado)
+    origen_clean = clean_value(origen)
+    fecha_solicitud_clean = clean_value(fecha_solicitud)
+    inicio_clean = clean_value(inicio)
+    fin_clean = clean_value(fin)
+    
+    # SPRINT C2.14.1: Construir pending_item_key (ID estable para deduplicación y re-localización)
+    def normalize_for_key(s: Optional[str]) -> str:
+        """Normaliza string para usar en key: trim, upper, sin espacios dobles"""
+        if not s:
+            return ""
+        # Normalizar: trim, upper, reemplazar espacios múltiples por uno
+        normalized = " ".join(str(s).strip().upper().split())
+        return normalized
+    
+    # Construir key determinista: concatenar campos clave normalizados
+    key_parts = []
+    
+    # Si hay ID interno en el DOM (href param, data attribute, etc.), usarlo como base
+    raw_row = row.get("_raw_row", row)
+    internal_id = None
+    if isinstance(raw_row, dict):
+        # Buscar ID en atributos comunes
+        for attr_key in ["id", "data-id", "href", "_id", "row_id"]:
+            if attr_key in raw_row:
+                internal_id = str(raw_row[attr_key])
+                break
+    
+    if internal_id:
+        key_parts.append(f"ID:{normalize_for_key(internal_id)}")
+    
+    # Campos principales (siempre presentes)
+    if tipo_doc_clean:
+        key_parts.append(f"TIPO:{normalize_for_key(tipo_doc_clean)}")
+    if elemento_clean:
+        key_parts.append(f"ELEM:{normalize_for_key(elemento_clean)}")
+    if empresa_clean:
+        key_parts.append(f"EMP:{normalize_for_key(empresa_clean)}")
+    
+    # Campos secundarios (si existen)
+    if estado_clean:
+        key_parts.append(f"EST:{normalize_for_key(estado_clean)}")
+    if origen_clean:
+        key_parts.append(f"ORIG:{normalize_for_key(origen_clean)}")
+    if fecha_solicitud_clean:
+        key_parts.append(f"FSOL:{normalize_for_key(fecha_solicitud_clean)}")
+    if inicio_clean:
+        key_parts.append(f"INI:{normalize_for_key(inicio_clean)}")
+    if fin_clean:
+        key_parts.append(f"FIN:{normalize_for_key(fin_clean)}")
+    
+    # Si no hay suficientes campos, usar raw_row_signature como fallback
+    if len(key_parts) < 2:
+        # Construir signature de todas las celdas concatenadas
+        raw_cells = raw_row.get("_raw_cells", [])
+        if raw_cells:
+            signature = "|".join([normalize_for_key(str(c)) for c in raw_cells[:5]])  # Primeras 5 celdas
+            key_parts.append(f"SIG:{signature}")
+    
+    pending_item_key = "|".join(key_parts) if key_parts else f"UNKNOWN:{hash(str(row)) % 1000000}"
+    
+    # Construir raw_row_signature para debugging
+    raw_cells = raw_row.get("_raw_cells", [])
+    raw_row_signature = "|".join([str(c)[:50] for c in raw_cells[:10]]) if raw_cells else str(row)[:200]
+    
     return {
-        "tipo_doc": clean_value(tipo_doc),
-        "elemento": clean_value(elemento),
-        "empresa": clean_value(empresa),
-        "estado": clean_value(estado),
-        "origen": clean_value(origen),
-        "fecha_solicitud": clean_value(fecha_solicitud),
-        "inicio": clean_value(inicio),
-        "fin": clean_value(fin),
+        "tipo_doc": tipo_doc_clean,
+        "elemento": elemento_clean,
+        "empresa": empresa_clean,
+        "estado": estado_clean,
+        "origen": origen_clean,
+        "fecha_solicitud": fecha_solicitud_clean,
+        "inicio": inicio_clean,
+        "fin": fin_clean,
+        # SPRINT C2.14.1: ID estable para deduplicación y re-localización
+        "pending_item_key": pending_item_key,
+        "raw_row_signature": raw_row_signature,
         # Mantener raw_data para debug
         "_raw_row": row
     }

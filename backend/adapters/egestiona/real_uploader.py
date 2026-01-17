@@ -7,7 +7,7 @@ Solo se usa cuando:
 - max_uploads=1
 - len(allowlist_type_ids)=1
 
-NOTA: Usa Playwright sync API (no async) para compatibilidad con código existente.
+NOTA: Usa Playwright sync API (no async) para compatibilidad con c?digo existente.
 """
 
 from __future__ import annotations
@@ -27,9 +27,9 @@ class EgestionaRealUploader:
     Sube documentos reales en e-gestiona usando Playwright.
     
     Requiere:
-    - Página ya autenticada
-    - Navegación previa al grid de pendientes
-    - Documento válido en el repositorio
+    - P?gina ya autenticada
+    - Navegaci?n previa al grid de pendientes
+    - Documento v?lido en el repositorio
     """
     
     def __init__(self, evidence_dir: Path, logger=None):
@@ -55,7 +55,7 @@ class EgestionaRealUploader:
         Sube UN documento real en e-gestiona.
         
         Args:
-            page: Página de Playwright ya autenticada
+            page: P?gina de Playwright ya autenticada
             item: Item del plan con pending_ref, matched_doc, proposed_fields, etc.
             requirement_id: ID del requirement para evidencias (opcional)
         
@@ -66,7 +66,7 @@ class EgestionaRealUploader:
             - evidence_path: str
             - duration_ms: int
             - reason: str
-            - portal_reference: str (si éxito)
+            - portal_reference: str (si ?xito)
         """
         self.upload_count += 1
         upload_id = f"real_upload_{self.upload_count}_{int(time.time())}"
@@ -162,72 +162,89 @@ class EgestionaRealUploader:
             if not list_frame:
                 raise RuntimeError("No se pudo encontrar el frame de lista de pendientes")
             
-            # 3) Buscar la fila correspondiente al requirement
-            # Usar pending_ref para identificar la fila
-            tipo_doc = pending_ref.get("tipo_doc", "")
-            elemento = pending_ref.get("elemento", "")
-            empresa = pending_ref.get("empresa", "")
+            # SPRINT C2.14.1: 3) Re-localizar la fila usando pending_item_key (robusto ante lista cambiante)
+            pending_item_key = pending_ref.get("pending_item_key")
             
-            # Extraer filas del grid
-            extraction = list_frame.evaluate(
-                """() => {
-  function norm(s){ return (s||'').replace(/\\s+/g,' ').trim(); }
-  function headersFromHdrTable(hdr){
-    const cells = Array.from(hdr.querySelectorAll('tr:nth-of-type(2) td'));
-    if(cells.length){
-      return cells.map(td => {
-        const span = td.querySelector('.hdrcell span');
-        return span ? norm(span.innerText) : norm(td.innerText);
-      });
-    }
-    return Array.from(hdr.querySelectorAll('.hdrcell span')).map(s => norm(s.innerText));
-  }
-  function extractRowsFromObjTable(tbl, headers){
-    const trs = Array.from(tbl.querySelectorAll('tr'));
-    const rows = [];
-    for(const tr of trs){
-      const tds = Array.from(tr.querySelectorAll('td'));
-      if(!tds.length) continue;
-      const cells = tds.map(td => norm(td.innerText));
-      if(!cells.some(x => x)) continue;
-      const mapped = {};
-      for(let i=0;i<cells.length;i++){
-        const k = (i < headers.length && headers[i]) ? headers[i] : `col_${i+1}`;
-        mapped[k] = cells[i] || '';
-      }
-      rows.push({ mapped, raw_cells: cells, tr });
-    }
-    return rows;
-  }
-  const hdrTables = Array.from(document.querySelectorAll('table.hdr'));
-  const objTables = Array.from(document.querySelectorAll('table.obj.row20px'));
-  if(!hdrTables.length || !objTables.length) return { headers: [], rows: [] };
-  const bestHdr = hdrTables[0];
-  const headers = headersFromHdrTable(bestHdr);
-  let best = { tbl: null, rows: [] };
-  for(const t of objTables){
-    const rs = extractRowsFromObjTable(t, headers);
-    if(rs.length > best.rows.length){
-      best = { tbl: t, rows: rs };
-    }
-  }
-  return { headers, rows: best.rows };
-}"""
+            if not pending_item_key:
+                # Fallback: construir key desde pending_ref si no est? disponible
+                tipo_doc = pending_ref.get("tipo_doc", "")
+                elemento = pending_ref.get("elemento", "")
+                empresa = pending_ref.get("empresa", "")
+                # Construir key b?sico como fallback
+                from backend.adapters.egestiona.grid_extract import canonicalize_row
+                fallback_row = {
+                    "Tipo Documento": tipo_doc,
+                    "Elemento": elemento,
+                    "Empresa": empresa,
+                }
+                canonical_fallback = canonicalize_row(fallback_row)
+                pending_item_key = canonical_fallback.get("pending_item_key")
+                self.log(f"Warning: pending_item_key no estaba en pending_ref, construido: {pending_item_key}")
+            
+            # SPRINT C2.14.1: Buscar fila por pending_item_key en todas las p?ginas (si hay paginaci?n)
+            from backend.adapters.egestiona.pagination_helper import (
+                detect_pagination_controls,
+                wait_for_page_change,
+                click_pagination_button,
             )
+            from backend.adapters.egestiona.grid_extract import extract_dhtmlx_grid, canonicalize_row
             
-            rows = extraction.get("rows", [])
+            # Detectar paginaci?n
+            pagination_info = detect_pagination_controls(list_frame)
+            has_pagination = pagination_info.get("has_pagination", False)
             
-            # Buscar fila que coincida (simplificado: buscar por tipo_doc y elemento)
+            # Ir a primera p?gina si existe
+            if has_pagination and pagination_info.get("first_button"):
+                first_btn = pagination_info["first_button"]
+                if first_btn.get("isVisible") and first_btn.get("isEnabled"):
+                    self.log("Navegando a primera p?gina para buscar item...")
+                    click_pagination_button(list_frame, first_btn, item_evidence_dir)
+                    time.sleep(1.0)
+            
+            # Buscar en todas las p?ginas (hasta max_pages)
             target_row_idx = None
-            for idx, row_data in enumerate(rows):
-                mapped = row_data.get("mapped", {})
-                row_text = " ".join(str(v) for v in mapped.values()).lower()
-                if tipo_doc.lower() in row_text and elemento.lower() in row_text:
-                    target_row_idx = idx
+            target_page = None
+            max_search_pages = 10  # L?mite de seguridad
+            
+            for page_num in range(1, max_search_pages + 1):
+                # Extraer filas de la p?gina actual
+                extracted = extract_dhtmlx_grid(list_frame)
+                page_rows = extracted.get("rows", [])
+                
+                # Buscar fila con pending_item_key coincidente
+                for idx, row in enumerate(page_rows):
+                    canonical = canonicalize_row(row)
+                    row_key = canonical.get("pending_item_key")
+                    
+                    if row_key == pending_item_key:
+                        target_row_idx = idx
+                        target_page = page_num
+                        self.log(f"? Item encontrado en p?gina {page_num}, fila {idx}")
+                        break
+                
+                if target_row_idx is not None:
                     break
+                
+                # Si hay paginaci?n y no se encontr?, ir a siguiente p?gina
+                if has_pagination and page_num < max_search_pages:
+                    next_button = pagination_info.get("next_button")
+                    if next_button and next_button.get("isVisible") and next_button.get("isEnabled"):
+                        self.log(f"Item no encontrado en p?gina {page_num}, buscando en siguiente...")
+                        if click_pagination_button(list_frame, next_button, item_evidence_dir):
+                            wait_for_page_change(list_frame, timeout_seconds=10.0)
+                            time.sleep(0.5)
+                        else:
+                            break  # No se pudo hacer click, salir
+                    else:
+                        break  # No hay m?s p?ginas
             
             if target_row_idx is None:
-                raise RuntimeError(f"No se encontró fila que coincida con tipo_doc='{tipo_doc}', elemento='{elemento}'")
+                return {
+                    "success": False,
+                    "upload_id": upload_id,
+                    "reason": "item_not_found_before_upload",
+                    "error": f"No se encontr? fila con pending_item_key='{pending_item_key}' en las primeras {max_search_pages} p?ginas",
+                }
             
             # 4) Screenshot before
             before_screenshot = item_evidence_dir / "before_upload.png"
@@ -272,7 +289,7 @@ class EgestionaRealUploader:
             time.sleep(2)
             
             # 6) Buscar formulario de subida en el detalle
-            # El detalle puede estar en un frame o en la misma página
+            # El detalle puede estar en un frame o en la misma p?gina
             detail_frame = None
             for fr in page.frames:
                 u = (fr.url or "").lower()
@@ -281,7 +298,7 @@ class EgestionaRealUploader:
                     break
             
             if not detail_frame:
-                # Intentar buscar en la página principal
+                # Intentar buscar en la p?gina principal
                 detail_frame = page
             
             # 7) Seleccionar tipo de documento (si hay selector)
@@ -296,7 +313,7 @@ class EgestionaRealUploader:
                     # Intentar con select
                     select_locator = detail_frame.locator('select, [role="combobox"]')
                     if select_locator.count() > 0:
-                        # Buscar opción que contenga el tipo de documento
+                        # Buscar opci?n que contenga el tipo de documento
                         options = detail_frame.locator('option, [role="option"]')
                         for i in range(options.count()):
                             option_text = options.nth(i).inner_text()
@@ -308,14 +325,14 @@ class EgestionaRealUploader:
                     pass
                 
                 if not select_found:
-                    self.log(f"Warning: No se encontró selector de tipo de documento, continuando...")
+                    self.log(f"Warning: No se encontr? selector de tipo de documento, continuando...")
             except Exception as e:
                 self.log(f"Warning: Error al seleccionar tipo de documento: {e}")
             
             # 8) Subir archivo
             file_input = detail_frame.locator('input[type="file"]')
             if file_input.count() == 0:
-                raise RuntimeError("No se encontró input[type='file'] en el formulario")
+                raise RuntimeError("No se encontr? input[type='file'] en el formulario")
             
             self.log(f"Subiendo archivo: {pdf_path}")
             file_input.first.set_input_files(str(pdf_path))
@@ -360,25 +377,25 @@ class EgestionaRealUploader:
                 except Exception as e:
                     self.log(f"Warning: No se pudo rellenar fecha_fin: {e}")
             
-            # 10) Confirmar subida (buscar botón "Enviar", "Subir", "Guardar")
+            # 10) Confirmar subida (buscar bot?n "Enviar", "Subir", "Guardar")
             submit_button = detail_frame.locator('button:has-text("Enviar"), button:has-text("Subir"), button:has-text("Guardar"), input[type="submit"]:has-text("Enviar")')
             if submit_button.count() == 0:
-                # Intentar con texto más genérico
+                # Intentar con texto m?s gen?rico
                 submit_button = detail_frame.get_by_text("Enviar", exact=False)
             
             if submit_button.count() == 0:
-                raise RuntimeError("No se encontró botón de envío")
+                raise RuntimeError("No se encontr? bot?n de env?o")
             
             submit_button.first.click()
             
-            # 11) Esperar confirmación
+            # 11) Esperar confirmaci?n
             time.sleep(3)
             
-            # Buscar mensaje de éxito o cambio en la UI
+            # Buscar mensaje de ?xito o cambio en la UI
             confirmation_found = False
             try:
-                # Buscar mensajes de éxito
-                success_messages = detail_frame.locator('text=/éxito|exitoso|correcto|enviado|subido/i')
+                # Buscar mensajes de ?xito
+                success_messages = detail_frame.locator('text=/?xito|exitoso|correcto|enviado|subido/i')
                 if success_messages.count() > 0:
                     confirmation_found = True
             except Exception:
@@ -397,11 +414,11 @@ class EgestionaRealUploader:
             # 13) Generar portal_reference (extraer de la UI si es posible)
             portal_reference = f"PORTAL_REF_{upload_id}"
             try:
-                # Intentar extraer referencia del portal si hay algún elemento que la muestre
+                # Intentar extraer referencia del portal si hay alg?n elemento que la muestre
                 ref_elements = detail_frame.locator('text=/referencia|ref|id/i')
                 if ref_elements.count() > 0:
                     ref_text = ref_elements.first.inner_text()
-                    # Extraer números o códigos
+                    # Extraer n?meros o c?digos
                     import re
                     matches = re.findall(r'[A-Z0-9\-]+', ref_text)
                     if matches:
@@ -409,10 +426,88 @@ class EgestionaRealUploader:
             except Exception:
                 pass
             
+            # SPRINT C2.14.1: 14) Post-verificaci?n: verificar que el documento ya NO est? en "Pendientes"
+            self.log("Realizando post-verificaci?n: buscando item en listado despu?s de upload...")
+            
+            # Volver al listado de Pendientes
+            try:
+                # Si estamos en un frame de detalle, cerrarlo o volver
+                frame_dashboard = page.frame(name="nm_contenido")
+                if frame_dashboard:
+                    # Click en Gestion(3) para volver al listado
+                    tile_sel = 'a.listado_link[href="javascript:Gestion(3);"]'
+                    try:
+                        frame_dashboard.locator(tile_sel).first.wait_for(state="visible", timeout=10000)
+                        frame_dashboard.locator(tile_sel).first.click(timeout=10000)
+                        time.sleep(2)
+                        list_frame = _find_list_frame()
+                    except Exception as e:
+                        self.log(f"Warning: No se pudo volver al listado: {e}")
+                
+                # Buscar el item en todas las p?ginas despu?s del upload
+                item_still_present = False
+                item_found_page = None
+                
+                # Ir a primera p?gina
+                if has_pagination and pagination_info.get("first_button"):
+                    first_btn = pagination_info["first_button"]
+                    if first_btn.get("isVisible") and first_btn.get("isEnabled"):
+                        click_pagination_button(list_frame, first_btn, item_evidence_dir)
+                        time.sleep(1.0)
+                
+                # Buscar en todas las p?ginas
+                for page_num in range(1, max_search_pages + 1):
+                    extracted = extract_dhtmlx_grid(list_frame)
+                    page_rows = extracted.get("rows", [])
+                    
+                    for row in page_rows:
+                        canonical = canonicalize_row(row)
+                        row_key = canonical.get("pending_item_key")
+                        
+                        if row_key == pending_item_key:
+                            item_still_present = True
+                            item_found_page = page_num
+                            self.log(f"?? Item todav?a presente en p?gina {page_num} despu?s del upload")
+                            break
+                    
+                    if item_still_present:
+                        break
+                    
+                    # Ir a siguiente p?gina si existe
+                    if has_pagination and page_num < max_search_pages:
+                        next_button = pagination_info.get("next_button")
+                        if next_button and next_button.get("isVisible") and next_button.get("isEnabled"):
+                            if click_pagination_button(list_frame, next_button, item_evidence_dir):
+                                wait_for_page_change(list_frame, timeout_seconds=10.0)
+                                time.sleep(0.5)
+                            else:
+                                break
+                        else:
+                            break
+                
+                # Screenshot de b?squeda post-upload
+                after_search_screenshot = item_evidence_dir / "after_upload_grid_search.png"
+                try:
+                    list_frame.locator("body").screenshot(path=str(after_search_screenshot))
+                except Exception:
+                    pass
+                
+                if item_still_present:
+                    self.log(f"?? ADVERTENCIA: Item todav?a presente despu?s del upload (p?gina {item_found_page})")
+                    # No fallar, pero registrar advertencia
+                    post_verification_status = "item_still_present_after_upload"
+                else:
+                    self.log("? Post-verificaci?n OK: Item no encontrado en listado despu?s del upload")
+                    post_verification_status = "item_not_found_after_upload_ok"
+            
+            except Exception as e:
+                self.log(f"Warning: Error en post-verificaci?n: {e}")
+                post_verification_status = "post_verification_error"
+            
             finished = time.time()
             duration_ms = int((finished - started) * 1000)
             
-            # 14) Generar log
+            # 15) Generar log
             upload_log = item_evidence_dir / "upload_log.txt"
             upload_log.write_text(
                 f"REAL UPLOAD LOG\n"
@@ -420,12 +515,27 @@ class EgestionaRealUploader:
                 f"Doc ID: {doc_id}\n"
                 f"Type ID: {type_id}\n"
                 f"File: {pdf_path}\n"
+                f"Pending Item Key: {pending_item_key}\n"
                 f"Duration: {duration_ms}ms\n"
                 f"Confirmation: {'Found' if confirmation_found else 'Not found'}\n"
+                f"Post-Verification: {post_verification_status}\n"
                 f"Portal Reference: {portal_reference}\n"
                 f"Timestamp: {datetime.utcnow().isoformat()}\n",
                 encoding="utf-8"
             )
+            
+            # Si item todav?a est? presente, devolver success=False
+            if post_verification_status == "item_still_present_after_upload":
+                return {
+                    "success": False,
+                    "upload_id": upload_id,
+                    "evidence_path": str(item_evidence_dir),
+                    "duration_ms": duration_ms,
+                    "reason": "item_still_present_after_upload",
+                    "error": f"Item todav?a presente en p?gina {item_found_page} despu?s del upload",
+                    "portal_reference": portal_reference,
+                    "simulated": False,
+                }
             
             return {
                 "success": True,
@@ -434,6 +544,8 @@ class EgestionaRealUploader:
                 "duration_ms": duration_ms,
                 "reason": "Real upload completed",
                 "portal_reference": portal_reference,
+                "post_verification": post_verification_status,
+                "pending_item_key": pending_item_key,  # SPRINT C2.14.1: Incluir en resultado
                 "simulated": False,
             }
             

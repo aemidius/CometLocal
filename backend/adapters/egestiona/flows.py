@@ -3229,6 +3229,8 @@ async def egestiona_build_submission_plan_readonly(
                     viewport={"width": 1600, "height": 1000},
                     wait_after_login_s=2.5,
                     return_plan_only=True,  # NO crear run ni tocar filesystem, pero SÍ ejecutar Playwright
+                    max_pages=10,  # SPRINT C2.14.1: Límite de páginas para paginación
+                    max_items=200,  # SPRINT C2.14.1: Límite de items totales
                 )
             )
             print(f"[CAE][READONLY][TRACE] run_build_submission_plan_readonly_headful completado. plan_result type: {type(plan_result)}")
@@ -3295,6 +3297,16 @@ async def egestiona_build_submission_plan_readonly(
             
             # SPRINT C2.13.0: Incluir diagnostics si está disponible
             diagnostics = plan_result.get("diagnostics")
+            
+            # SPRINT C2.14.1: Asegurar que cada item incluye pending_item_key
+            for item in items:
+                if "pending_item_key" not in item.get("pending_ref", {}):
+                    # Si no está en pending_ref, intentar obtenerlo del item original
+                    pending_item_key = item.get("pending_item_key")
+                    if pending_item_key:
+                        if "pending_ref" not in item:
+                            item["pending_ref"] = {}
+                        item["pending_ref"]["pending_item_key"] = pending_item_key
             
             # SPRINT C2.13.1: Si items.length === 0, asegurar que status = ok y añadir diagnostics si no existe
             if len(items) == 0 and not diagnostics:
@@ -3832,6 +3844,315 @@ async def egestiona_build_submission_plan_readonly(
                 pass
         
         return response
+
+
+@router.post("/runs/egestiona/build_auto_upload_plan")
+async def egestiona_build_auto_upload_plan(
+    coord: str = "Kern",
+    company_key: str = "",
+    person_key: Optional[str] = None,
+    limit: int = 20,
+    only_target: bool = True,
+    max_items: int = 200,  # SPRINT C2.15: Límite de items para snapshot
+    max_pages: int = 10,  # SPRINT C2.15: Límite de páginas para snapshot
+    request: Request = None,  # Para leer headers
+):
+    """
+    SPRINT C2.15: Construye plan de auto-upload sin ejecutar uploads.
+    
+    Reutiliza C2.14.1 snapshot paginado y aplica política de decisión
+    para clasificar items en AUTO_UPLOAD, REVIEW_REQUIRED, NO_MATCH.
+    
+    Response:
+    {
+        status: "ok",
+        snapshot: { items: [...] },  # incluye pending_item_key
+        decisions: [
+            { pending_item_key, decision, reason_code, reason, confidence, local_doc_ref? }
+        ],
+        summary: {
+            total, auto_upload_count, review_required_count, no_match_count
+        },
+        diagnostics: { pagination... }
+    }
+    """
+    import uuid
+    import os
+    client_request_id = None
+    if request and hasattr(request, 'headers'):
+        client_request_id = request.headers.get("X-CLIENT-REQ-ID")
+    if not client_request_id:
+        client_request_id = str(uuid.uuid4())
+    
+    if not company_key:
+        return {
+            "status": "error",
+            "error_code": "missing_company_key",
+            "message": "company_key is required",
+            "details": None,
+            "snapshot": {"items": []},
+            "decisions": [],
+            "summary": {
+                "total": 0,
+                "auto_upload_count": 0,
+                "review_required_count": 0,
+                "no_match_count": 0,
+            },
+            "diagnostics": {},
+            "artifacts": {"client_request_id": client_request_id},
+        }
+    
+    # SPRINT C2.16.2: Generar run_id propio para plan
+    import time
+    from datetime import datetime
+    from pathlib import Path
+    from backend.shared.run_summary import save_run_summary
+    
+    run_id = f"plan_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+    plan_dir = Path("data") / "runs" / run_id
+    plan_dir.mkdir(parents=True, exist_ok=True)
+    started_at = datetime.utcnow()
+    
+    try:
+        # Reutilizar snapshot paginado de C2.14.1
+        from starlette.concurrency import run_in_threadpool
+        from backend.adapters.egestiona.submission_plan_headful import run_build_submission_plan_readonly_headful
+        
+        print(f"[CAE][AUTO_UPLOAD_PLAN] Construyendo plan de auto-upload (run_id={run_id})...")
+        plan_result = await run_in_threadpool(
+            lambda: run_build_submission_plan_readonly_headful(
+                base_dir="data",
+                platform="egestiona",
+                coordination=coord,
+                company_key=company_key,
+                person_key=person_key,
+                limit=limit,
+                only_target=only_target,
+                slow_mo_ms=300,
+                viewport={"width": 1600, "height": 1000},
+                wait_after_login_s=2.5,
+                return_plan_only=True,  # NO crear run
+                max_pages=max_pages,
+                max_items=max_items,
+            )
+        )
+        
+        if not isinstance(plan_result, dict):
+            return {
+                "status": "error",
+                "error_code": "unexpected_result_type",
+                "message": f"Expected dict, got {type(plan_result)}",
+                "details": None,
+                "snapshot": {"items": []},
+                "decisions": [],
+                "summary": {
+                    "total": 0,
+                    "auto_upload_count": 0,
+                    "review_required_count": 0,
+                    "no_match_count": 0,
+                },
+                "diagnostics": {},
+                "artifacts": {"client_request_id": client_request_id},
+            }
+        
+        # Obtener snapshot (pending_items) y plan (con decisions)
+        pending_items = plan_result.get("pending_items", [])
+        plan_items = plan_result.get("plan", [])
+        match_results = plan_result.get("match_results", [])
+        diagnostics = plan_result.get("diagnostics") or {}
+        instrumentation = plan_result.get("instrumentation", {})
+        
+        # SPRINT C2.15: Aplicar política de decisión a cada item
+        from backend.adapters.egestiona.upload_policy import evaluate_upload_policy
+        
+        decisions = []
+        auto_upload_count = 0
+        review_required_count = 0
+        no_match_count = 0
+        
+        # SPRINT C2.16.2: Guardar plan_response.json en plan_dir
+        plan_response_path = plan_dir / "plan_response.json"
+        
+        # Crear mapa de pending_item_key -> match_result para lookup rápido
+        match_result_map = {}
+        for match_result_item in match_results:
+            pending_item = match_result_item.get("pending_item", {})
+            pending_item_key = pending_item.get("pending_item_key")
+            if pending_item_key:
+                match_result_map[pending_item_key] = match_result_item.get("match_result", {})
+        
+        # También buscar en plan_items para obtener match_result
+        for plan_item in plan_items:
+            pending_item_key = plan_item.get("pending_item_key") or plan_item.get("pending_ref", {}).get("pending_item_key")
+            if pending_item_key and pending_item_key not in match_result_map:
+                matched_doc = plan_item.get("matched_doc", {})
+                if matched_doc:
+                    match_result_map[pending_item_key] = {
+                        "best_doc": matched_doc,
+                        "confidence": matched_doc.get("validity", {}).get("confidence", 0.0),
+                        "candidates": [],
+                    }
+        
+        # Evaluar política para cada item del plan
+        for plan_item in plan_items:
+            pending_ref = plan_item.get("pending_ref", {})
+            pending_item_key = pending_ref.get("pending_item_key") or plan_item.get("pending_item_key")
+            
+            if not pending_item_key:
+                # Si no hay pending_item_key, construir uno básico
+                tipo_doc = pending_ref.get("tipo_doc", "")
+                elemento = pending_ref.get("elemento", "")
+                empresa = pending_ref.get("empresa", "")
+                # Construir key básico
+                from backend.adapters.egestiona.grid_extract import canonicalize_row
+                fallback_row = {
+                    "Tipo Documento": tipo_doc,
+                    "Elemento": elemento,
+                    "Empresa": empresa,
+                }
+                canonical_fallback = canonicalize_row(fallback_row)
+                pending_item_key = canonical_fallback.get("pending_item_key")
+            
+            # Buscar match_result correspondiente
+            match_result = match_result_map.get(pending_item_key, {})
+            
+            # Construir pending_item dict para la política
+            pending_item_dict = {
+                "tipo_doc": pending_ref.get("tipo_doc"),
+                "elemento": pending_ref.get("elemento"),
+                "empresa": pending_ref.get("empresa"),
+            }
+            
+            # Evaluar política
+            policy_result = evaluate_upload_policy(
+                pending_item=pending_item_dict,
+                match_result=match_result,
+                company_key=company_key,
+                person_key=person_key,
+                only_target=only_target,
+                base_dir="data",
+            )
+            
+            # Añadir a decisions
+            decisions.append({
+                "pending_item_key": pending_item_key,
+                "decision": policy_result["decision"],
+                "reason_code": policy_result["reason_code"],
+                "reason": policy_result["reason"],
+                "confidence": policy_result["confidence"],
+                "local_doc_ref": policy_result["local_doc_ref"],
+            })
+            
+            # Contar por decisión
+            if policy_result["decision"] == "AUTO_UPLOAD":
+                auto_upload_count += 1
+            elif policy_result["decision"] == "REVIEW_REQUIRED":
+                review_required_count += 1
+            else:
+                no_match_count += 1
+        
+        # Construir snapshot (items con pending_item_key)
+        snapshot_items = []
+        for pending_item in pending_items:
+            # Asegurar que tiene pending_item_key
+            if "pending_item_key" not in pending_item:
+                # Construir desde raw_data si está disponible
+                raw_data = pending_item.get("raw_data", {})
+                if raw_data:
+                    from backend.adapters.egestiona.grid_extract import canonicalize_row
+                    canonical = canonicalize_row(raw_data)
+                    pending_item["pending_item_key"] = canonical.get("pending_item_key")
+            snapshot_items.append(pending_item)
+        
+        # Construir summary
+        summary = {
+            "total": len(snapshot_items),
+            "auto_upload_count": auto_upload_count,
+            "review_required_count": review_required_count,
+            "no_match_count": no_match_count,
+        }
+        
+        # Incluir diagnostics de paginación si está disponible
+        if instrumentation.get("pagination"):
+            if not diagnostics:
+                diagnostics = {}
+            diagnostics["pagination"] = instrumentation["pagination"]
+        
+        response = {
+            "status": "ok",
+            "snapshot": {"items": snapshot_items},
+            "decisions": decisions,
+            "summary": summary,
+            "diagnostics": diagnostics,
+            "artifacts": {"client_request_id": client_request_id, "run_id": run_id},  # SPRINT C2.16.2: Incluir run_id
+        }
+        
+        # SPRINT C2.16.2: Guardar plan_response.json
+        plan_response_path = plan_dir / "plan_response.json"
+        with open(plan_response_path, "w", encoding="utf-8") as f:
+            pyjson.dump(response, f, indent=2, ensure_ascii=False)
+        
+        # SPRINT C2.16.2: Guardar run_summary.json
+        finished_at = datetime.utcnow()
+        duration_ms = int((finished_at - started_at).total_seconds() * 1000)
+        
+        evidence_root = str(plan_dir)
+        evidence_paths = {
+            "plan_dir": str(plan_dir),
+            "plan_response": str(plan_response_path),
+        }
+        
+        try:
+            save_run_summary(
+                run_id=run_id,
+                platform="egestiona",
+                coord=coord,
+                company_key=company_key,
+                person_key=person_key,
+                started_at=started_at,
+                finished_at=finished_at,
+                duration_ms=duration_ms,
+                pending_total=len(snapshot_items),
+                auto_upload_count=auto_upload_count,
+                review_required_count=review_required_count,
+                no_match_count=no_match_count,
+                attempted_uploads=0,  # Plan no ejecuta uploads
+                success_uploads=0,
+                failed_uploads=0,
+                errors=None,
+                evidence_root=evidence_root,
+                evidence_paths=evidence_paths,
+                run_kind="plan",  # SPRINT C2.16.2
+                base_dir="data",
+            )
+        except Exception as summary_error:
+            print(f"[CAE][AUTO_UPLOAD_PLAN] ⚠️ Error guardando run_summary: {summary_error}")
+        
+        print(f"[CAE][AUTO_UPLOAD_PLAN] Plan construido: total={summary['total']}, auto_upload={auto_upload_count}, review_required={review_required_count}, no_match={no_match_count}")
+        
+        return response
+    
+    except Exception as e:
+        import traceback
+        print(f"[CAE][AUTO_UPLOAD_PLAN] Error: {e}")
+        print(f"[CAE][AUTO_UPLOAD_PLAN] Traceback:\n{traceback.format_exc()}")
+        
+        return {
+            "status": "error",
+            "error_code": "plan_build_failed",
+            "message": str(e),
+            "details": traceback.format_exc() if os.getenv("ENVIRONMENT", "").lower() == "dev" else None,
+            "snapshot": {"items": []},
+            "decisions": [],
+            "summary": {
+                "total": 0,
+                "auto_upload_count": 0,
+                "review_required_count": 0,
+                "no_match_count": 0,
+            },
+            "diagnostics": {},
+            "artifacts": {"client_request_id": client_request_id},
+        }
 
 
 @router.post("/runs/egestiona/execute_submission_plan_scoped")

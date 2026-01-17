@@ -23,6 +23,12 @@ from backend.shared.document_repository_v1 import DocumentStatusV1
 from backend.shared.person_matcher import match_person_in_element
 from backend.shared.text_normalizer import normalize_text, normalize_company_name, text_contains, extract_company_code
 from backend.adapters.egestiona.grid_extract import extract_dhtmlx_grid, canonicalize_row
+from backend.adapters.egestiona.pagination_helper import (
+    detect_pagination_controls,
+    wait_for_page_change,
+    click_pagination_button,
+)
+from backend.adapters.egestiona.upload_policy import evaluate_upload_policy
 from backend.adapters.egestiona.frame_scan_headful import LOGIN_URL_PREVIOUS_SUCCESS, _safe_write_json
 from backend.adapters.egestiona.match_pending_headful import (
     _parse_date_from_cell,
@@ -189,6 +195,8 @@ def run_build_submission_plan_readonly_headful(
     viewport: Optional[Dict[str, int]] = None,
     wait_after_login_s: float = 2.5,
     return_plan_only: bool = False,  # Si True, devuelve plan directamente sin crear run
+    max_pages: int = 10,  # SPRINT C2.14.1: Límite de páginas para paginación
+    max_items: int = 200,  # SPRINT C2.14.1: Límite de items totales
 ) -> str | Dict[str, Any]:
     """
     HEADFUL / READ-ONLY:
@@ -488,24 +496,155 @@ def run_build_submission_plan_readonly_headful(
         print(f"[submission_plan] Search result: clicked={search_result.get('search_clicked')}, "
               f"rows_before={search_result.get('rows_before')}, rows_after={search_result.get('rows_after')}")
 
-        # 4) Extraer grid usando extractor robusto
-        extracted = extract_dhtmlx_grid(list_frame)
+        # SPRINT C2.14.1: 4) Extraer grid con soporte de paginación completa
+        print(f"[CAE][READONLY][PAGINATION] Iniciando extracción de grid con paginación (max_pages={max_pages}, max_items={max_items})...")
         
-        # Guardar debug info si hay warnings (solo si NO es return_plan_only)
-        if extracted.get("warnings") and not return_plan_only:
-            grid_debug_path = evidence_dir / "grid_debug.json"
-            _safe_write_json(grid_debug_path, {
-                "warnings": extracted.get("warnings", []),
-                "headers": extracted.get("headers", []),
-                "mapping_debug": extracted.get("mapping_debug", {}),
-                "raw_rows_preview": extracted.get("raw_rows_preview", []),
-                "debug": extracted.get("debug", {})
-            })
-            print(f"WARNING: Grid extraction issues detected. Debug saved to {grid_debug_path}")
-            for warning in extracted.get("warnings", []):
-                print(f"  - {warning}")
-
-        raw_rows = extracted.get("rows") or []
+        # Detectar paginación
+        pagination_info = detect_pagination_controls(list_frame)
+        has_pagination = pagination_info.get("has_pagination", False)
+        
+        # Inicializar estructuras para acumulación
+        seen_keys = set()
+        all_raw_rows = []
+        pages_processed = 0
+        next_clicks = 0
+        pagination_truncated = False
+        
+        # Ir a primera página si existe control "first"
+        if has_pagination and pagination_info.get("first_button"):
+            first_btn = pagination_info["first_button"]
+            if first_btn.get("isVisible") and first_btn.get("isEnabled"):
+                print(f"[CAE][READONLY][PAGINATION] Navegando a primera página...")
+                if click_pagination_button(list_frame, first_btn, evidence_dir if not return_plan_only else None):
+                    time.sleep(1.0)  # Esperar a que cargue la primera página
+        
+        # Loop de paginación
+        while pages_processed < max_pages:
+            pages_processed += 1
+            print(f"[CAE][READONLY][PAGINATION] Procesando página {pages_processed}...")
+            
+            # Extraer grid de la página actual
+            extracted = extract_dhtmlx_grid(list_frame)
+            
+            # Guardar debug info si hay warnings (solo si NO es return_plan_only y primeras 3 páginas o última)
+            if extracted.get("warnings") and not return_plan_only and (pages_processed <= 3 or not has_pagination):
+                grid_debug_path = evidence_dir / f"grid_debug_page_{pages_processed}.json"
+                _safe_write_json(grid_debug_path, {
+                    "page": pages_processed,
+                    "warnings": extracted.get("warnings", []),
+                    "headers": extracted.get("headers", []),
+                    "mapping_debug": extracted.get("mapping_debug", {}),
+                    "raw_rows_preview": extracted.get("raw_rows_preview", []),
+                    "debug": extracted.get("debug", {})
+                })
+                if pages_processed == 1:
+                    print(f"WARNING: Grid extraction issues detected. Debug saved to {grid_debug_path}")
+                    for warning in extracted.get("warnings", []):
+                        print(f"  - {warning}")
+            
+            # Capturar screenshot de primeras 3 páginas + última (si hay paginación)
+            if not return_plan_only and evidence_dir and (pages_processed <= 3 or (has_pagination and pages_processed == max_pages)):
+                try:
+                    screenshot_path = evidence_dir / f"grid_page_{pages_processed}.png"
+                    list_frame.locator("body").screenshot(path=str(screenshot_path))
+                except Exception as e:
+                    print(f"[CAE][READONLY][PAGINATION] Error al guardar screenshot página {pages_processed}: {e}")
+            
+            # Procesar filas de esta página
+            page_rows = extracted.get("rows") or []
+            items_before_dedupe = len(all_raw_rows)
+            
+            for row in page_rows:
+                # Canonicalizar para obtener pending_item_key
+                canonical = canonicalize_row(row)
+                pending_item_key = canonical.get("pending_item_key")
+                
+                # Deduplicación por pending_item_key
+                if pending_item_key and pending_item_key not in seen_keys:
+                    seen_keys.add(pending_item_key)
+                    all_raw_rows.append(row)
+                    
+                    # Verificar límite de items
+                    if len(all_raw_rows) >= max_items:
+                        pagination_truncated = True
+                        print(f"[CAE][READONLY][PAGINATION] ⚠️ Límite de items alcanzado ({max_items}), deteniendo paginación")
+                        break
+            
+            items_after_dedupe = len(all_raw_rows)
+            print(f"[CAE][READONLY][PAGINATION] Página {pages_processed}: {len(page_rows)} filas extraídas, {items_after_dedupe - items_before_dedupe} nuevas (total acumulado: {items_after_dedupe})")
+            
+            # Si se alcanzó el límite de items, salir
+            if pagination_truncated:
+                break
+            
+            # Si no hay paginación o no hay botón "next" habilitado, salir
+            if not has_pagination:
+                break
+            
+            next_button = pagination_info.get("next_button")
+            if not next_button or not next_button.get("isVisible") or not next_button.get("isEnabled"):
+                print(f"[CAE][READONLY][PAGINATION] No hay botón 'next' disponible, finalizando paginación")
+                break
+            
+            # Guardar firma de la primera fila antes del click
+            initial_signature = None
+            initial_row_count = None
+            if all_raw_rows:
+                try:
+                    first_row = all_raw_rows[0]
+                    initial_signature = " | ".join([
+                        str(first_row.get("tipo_doc", "")),
+                        str(first_row.get("elemento", "")),
+                        str(first_row.get("empresa", ""))
+                    ])[:100]
+                except Exception:
+                    pass
+            
+            try:
+                initial_row_count = list_frame.locator("table.obj.row20px tbody tr").count()
+            except Exception:
+                pass
+            
+            # Hacer click en "next"
+            print(f"[CAE][READONLY][PAGINATION] Haciendo click en botón 'next'...")
+            if click_pagination_button(list_frame, next_button, evidence_dir if not return_plan_only else None):
+                next_clicks += 1
+                # Esperar a que cambie la página
+                page_changed = wait_for_page_change(
+                    list_frame,
+                    initial_signature=initial_signature,
+                    initial_row_count=initial_row_count,
+                    timeout_seconds=10.0,
+                )
+                if not page_changed:
+                    print(f"[CAE][READONLY][PAGINATION] ⚠️ No se detectó cambio de página después del click, finalizando paginación")
+                    break
+                time.sleep(0.5)  # Pequeña pausa adicional
+            else:
+                print(f"[CAE][READONLY][PAGINATION] ⚠️ No se pudo hacer click en botón 'next', finalizando paginación")
+                break
+        
+        # Guardar información de paginación en diagnostics
+        pagination_diagnostics = {
+            "has_pagination": has_pagination,
+            "pages_detected": pagination_info.get("page_info", {}).get("total") if pagination_info.get("page_info") else None,
+            "pages_processed": pages_processed,
+            "items_before_dedupe": len(all_raw_rows),
+            "items_after_dedupe": len(all_raw_rows),
+            "next_clicks": next_clicks,
+            "truncated": pagination_truncated,
+            "max_pages": max_pages,
+            "max_items": max_items,
+        }
+        
+        if pagination_info.get("page_info"):
+            pagination_diagnostics["page_info"] = pagination_info["page_info"]
+        
+        instrumentation["pagination"] = pagination_diagnostics
+        print(f"[CAE][READONLY][PAGINATION] Paginación completada: {pages_processed} páginas procesadas, {len(all_raw_rows)} items únicos")
+        
+        # Usar todas las filas acumuladas
+        raw_rows = all_raw_rows
         
         # HOTFIX C2.13.9a: Inicializar variables para grid_parse_mismatch
         counter_text_found = None
@@ -954,13 +1093,17 @@ def run_build_submission_plan_readonly_headful(
                 }
 
             # Construir plan item
+            # SPRINT C2.14.1: Incluir pending_item_key en pending_ref para re-localización robusta
+            pending_item_key = row.get("pending_item_key")
             plan_item: Dict[str, Any] = {
                 "pending_ref": {
                     "tipo_doc": tipo_doc,
                     "elemento": elemento,
                     "empresa": empresa,
-                    "row_index": len(pending_items) - 1
+                    "row_index": len(pending_items) - 1,  # Mantener para compatibilidad
+                    "pending_item_key": pending_item_key,  # SPRINT C2.14.1: ID estable
                 },
+                "pending_item_key": pending_item_key,  # SPRINT C2.14.1: También en nivel superior para fácil acceso
                 "expected_doc_type_text": f"{tipo_doc} {elemento}",
                 "matched_doc": None,
                 "proposed_fields": {
@@ -1113,6 +1256,12 @@ def run_build_submission_plan_readonly_headful(
                 "matches_found": 0,
                 "local_docs_considered": instrumentation.get("local_docs_considered", 0) if 'instrumentation' in locals() else 0,
             }
+        
+        # SPRINT C2.14.1: Incluir diagnostics de paginación si está disponible
+        if instrumentation.get("pagination"):
+            if not result.get("diagnostics"):
+                result["diagnostics"] = {}
+            result["diagnostics"]["pagination"] = instrumentation["pagination"]
         
         # SPRINT C2.13.1: Añadir información de matches a instrumentation si está disponible
         if 'instrumentation' in locals():
