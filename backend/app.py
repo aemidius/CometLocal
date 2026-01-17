@@ -40,6 +40,7 @@ from backend.adapters.egestiona.execute_plan_headful_gate import router as egest
 from backend.adapters.egestiona.execute_auto_upload_gate import router as egestiona_execute_auto_upload_router
 from backend.adapters.egestiona.headful_run_routes import router as egestiona_headful_run_router
 from backend.api.runs_summary_routes import router as runs_summary_router
+from backend.api.auto_upload_routes import router as auto_upload_router  # SPRINT C2.17
 from backend.repository.document_repository_routes import router as document_repository_router
 from backend.repository.config_routes import router as config_routes_router
 from backend.repository.submission_rules_routes import router as submission_rules_router
@@ -82,6 +83,7 @@ app.include_router(egestiona_execute_headful_router)
 app.include_router(egestiona_execute_auto_upload_router)
 app.include_router(egestiona_headful_run_router)
 app.include_router(runs_summary_router)
+app.include_router(auto_upload_router)  # SPRINT C2.17
 app.include_router(document_repository_router)
 app.include_router(config_routes_router)
 app.include_router(submission_rules_router)

@@ -41,7 +41,8 @@ class ExecuteAutoUploadRequest(BaseModel):
     person_key: Optional[str] = None
     only_target: bool = True
     allowlist_type_ids: Optional[List[str]] = None
-    items: List[str]  # Lista de pending_item_key
+    items: Optional[List[str]] = None  # SPRINT C2.17: Opcional si se usa plan_id
+    plan_id: Optional[str] = None  # SPRINT C2.17: ID del plan congelado
     max_uploads: int = 5  # SPRINT C2.15: Límite por defecto
     stop_on_first_error: bool = True  # SPRINT C2.15: Parar en primer error
     continue_on_error: bool = False  # SPRINT C2.16: Continuar con siguiente item si error es "no side-effect"
@@ -86,17 +87,17 @@ def _validate_auto_upload_gate(request: ExecuteAutoUploadRequest, http_request: 
             "details": None,
         }
     
-    # Validar que items no esté vacío
-    if not request.items or len(request.items) == 0:
+    # SPRINT C2.17: Validar items o plan_id
+    if not request.plan_id and (not request.items or len(request.items) == 0):
         return {
             "status": "error",
             "error_code": "no_items",
-            "message": "items no puede estar vacío",
+            "message": "items no puede estar vacío si no se proporciona plan_id",
             "details": None,
         }
     
-    # Validar que len(items) <= max_uploads
-    if len(request.items) > request.max_uploads:
+    # Validar que len(items) <= max_uploads (solo si se proporciona items explícitamente)
+    if request.items and len(request.items) > request.max_uploads:
         return {
             "status": "error",
             "error_code": "items_exceed_max_uploads",
@@ -154,10 +155,72 @@ async def egestiona_execute_auto_upload(
     started_at = datetime.utcnow()
     errors_logged = []  # Lista de errores para run_summary
     
+    # SPRINT C2.17: Cargar plan congelado si se proporciona plan_id
+    frozen_plan = None
+    plan_decisions_map = {}  # pending_item_key -> decision
+    
+    if request.plan_id:
+        # Cargar plan congelado desde data/runs/
+        plan_path = Path(DATA_DIR) / "runs" / request.plan_id / "plan_response.json"
+        if plan_path.exists():
+            with open(plan_path, "r", encoding="utf-8") as f:
+                import json
+                frozen_plan = json.load(f)
+            
+            # Crear mapa de decisiones
+            for decision in frozen_plan.get("decisions", []):
+                pending_item_key = decision.get("pending_item_key")
+                if pending_item_key:
+                    plan_decisions_map[pending_item_key] = decision
+            
+            print(f"[CAE][AUTO_UPLOAD] Plan congelado cargado: plan_id={request.plan_id}, {len(plan_decisions_map)} decisiones")
+        else:
+            return {
+                "status": "error",
+                "error_code": "plan_not_found",
+                "message": f"Plan {request.plan_id} not found",
+                "details": None,
+                "results": [],
+                "summary": {
+                    "total": 0,
+                    "success": 0,
+                    "failed": 0,
+                    "skipped": 0,
+                },
+            }
+    
     # 2) Construir snapshot completo para obtener items con pending_item_key
     from backend.adapters.egestiona.submission_plan_headful import run_build_submission_plan_readonly_headful
+    from starlette.concurrency import run_in_threadpool
     
-    print(f"[CAE][AUTO_UPLOAD] Construyendo snapshot para {len(request.items)} items...")
+    items_to_process = request.items if request.items else []
+    
+    # SPRINT C2.17: Si hay plan_id, obtener items AUTO_UPLOAD del plan congelado
+    if request.plan_id and frozen_plan:
+        auto_upload_items = [
+            d.get("pending_item_key")
+            for d in frozen_plan.get("decisions", [])
+            if d.get("decision") == "AUTO_UPLOAD"
+        ]
+        items_to_process = auto_upload_items[:request.max_uploads]  # Limitar a max_uploads
+        print(f"[CAE][AUTO_UPLOAD] Procesando {len(items_to_process)} items AUTO_UPLOAD del plan {request.plan_id}")
+    
+    if not items_to_process:
+        return {
+            "status": "error",
+            "error_code": "no_items_to_process",
+            "message": "No items to process (empty items list or no AUTO_UPLOAD items in plan)",
+            "details": None,
+            "results": [],
+            "summary": {
+                "total": 0,
+                "success": 0,
+                "failed": 0,
+                "skipped": 0,
+            },
+        }
+    
+    print(f"[CAE][AUTO_UPLOAD] Construyendo snapshot para {len(items_to_process)} items...")
     
     # SPRINT C2.16: Guardar plan_result para run_summary
     plan_result = None
@@ -212,11 +275,133 @@ async def egestiona_execute_auto_upload(
         if pending_item_key:
             plan_items_map[pending_item_key] = plan_item
     
+    # SPRINT C2.17: Filtrar items a procesar: solo AUTO_UPLOAD
+    items_to_upload = []
+    skipped_count = 0  # Inicializar contador
+    
+    for pending_item_key in items_to_process:
+        # SPRINT C2.17: Si hay plan_id, verificar decisión del plan congelado
+        if request.plan_id and frozen_plan:
+            decision_obj = plan_decisions_map.get(pending_item_key)
+            if not decision_obj:
+                print(f"[CAE][AUTO_UPLOAD] ⚠️ Item {pending_item_key} no encontrado en plan congelado, saltando")
+                skipped_count += 1
+                results.append({
+                    "pending_item_key": pending_item_key,
+                    "success": False,
+                    "reason": "item_not_in_frozen_plan",
+                })
+                continue
+            
+            decision = decision_obj.get("decision")
+            if decision != "AUTO_UPLOAD":
+                print(f"[CAE][AUTO_UPLOAD] ⚠️ Item {pending_item_key} tiene decision={decision}, no AUTO_UPLOAD, saltando")
+                skipped_count += 1
+                results.append({
+                    "pending_item_key": pending_item_key,
+                    "success": False,
+                    "reason": f"decision_not_auto_upload",
+                    "decision": decision,
+                    "decision_reason": decision_obj.get("decision_reason"),
+                })
+                continue
+        
+        # Si no hay plan_id, validar server-side (legacy)
+        if not request.plan_id:
+            plan_item = plan_items_map.get(pending_item_key)
+            if not plan_item:
+                print(f"[CAE][AUTO_UPLOAD] ⚠️ Item {pending_item_key} no encontrado en snapshot, saltando")
+                skipped_count += 1
+                results.append({
+                    "pending_item_key": pending_item_key,
+                    "success": False,
+                    "reason": "item_not_found_in_snapshot",
+                })
+                continue
+        
+        items_to_upload.append(pending_item_key)
+    
+    if not items_to_upload:
+        return {
+            "status": "error",
+            "error_code": "no_auto_upload_items",
+            "message": "No items with decision=AUTO_UPLOAD to process",
+            "details": None,
+            "results": results,
+            "summary": {
+                "total": len(items_to_process),
+                "success": 0,
+                "failed": 0,
+                "skipped": skipped_count,
+            },
+        }
+    
+    # SPRINT C2.17: Filtrar items a procesar: solo AUTO_UPLOAD
+    items_to_upload = []
+    skipped_count = 0
+    pre_results = []  # Resultados de items filtrados antes de ejecutar
+    
+    for pending_item_key in items_to_process:
+        # SPRINT C2.17: Si hay plan_id, verificar decisión del plan congelado
+        if request.plan_id and frozen_plan:
+            decision_obj = plan_decisions_map.get(pending_item_key)
+            if not decision_obj:
+                print(f"[CAE][AUTO_UPLOAD] ⚠️ Item {pending_item_key} no encontrado en plan congelado, saltando")
+                skipped_count += 1
+                pre_results.append({
+                    "pending_item_key": pending_item_key,
+                    "success": False,
+                    "reason": "item_not_in_frozen_plan",
+                })
+                continue
+            
+            decision = decision_obj.get("decision")
+            if decision != "AUTO_UPLOAD":
+                print(f"[CAE][AUTO_UPLOAD] ⚠️ Item {pending_item_key} tiene decision={decision}, no AUTO_UPLOAD, saltando")
+                skipped_count += 1
+                pre_results.append({
+                    "pending_item_key": pending_item_key,
+                    "success": False,
+                    "reason": f"decision_not_auto_upload",
+                    "decision": decision,
+                    "decision_reason": decision_obj.get("decision_reason"),
+                })
+                continue
+        
+        # Si no hay plan_id, validar server-side (legacy)
+        if not request.plan_id:
+            plan_item = plan_items_map.get(pending_item_key)
+            if not plan_item:
+                print(f"[CAE][AUTO_UPLOAD] ⚠️ Item {pending_item_key} no encontrado en snapshot, saltando")
+                skipped_count += 1
+                pre_results.append({
+                    "pending_item_key": pending_item_key,
+                    "success": False,
+                    "reason": "item_not_found_in_snapshot",
+                })
+                continue
+        
+        items_to_upload.append(pending_item_key)
+    
+    if not items_to_upload:
+        return {
+            "status": "error",
+            "error_code": "no_auto_upload_items",
+            "message": "No items with decision=AUTO_UPLOAD to process",
+            "details": None,
+            "results": pre_results,
+            "summary": {
+                "total": len(items_to_process),
+                "success": 0,
+                "failed": 0,
+                "skipped": skipped_count,
+            },
+        }
+    
     # 3) Ejecutar uploads 1 a 1
-    results = []
+    results = pre_results.copy()  # Incluir resultados de items filtrados
     success_count = 0
     failed_count = 0
-    skipped_count = 0
     attempted_uploads = 0
     success_uploads = 0
     failed_uploads = 0
@@ -354,9 +539,10 @@ async def egestiona_execute_auto_upload(
                 else:
                     raise login_error
             
-            # Para cada item
-            for idx, pending_item_key in enumerate(request.items):
-                print(f"[CAE][AUTO_UPLOAD] Procesando item {idx+1}/{len(request.items)}: {pending_item_key}")
+            # SPRINT C2.17: Para cada item (usar items_to_upload si existe, sino request.items)
+            items_list = items_to_upload if items_to_upload else (request.items if request.items else [])
+            for idx, pending_item_key in enumerate(items_list):
+                print(f"[CAE][AUTO_UPLOAD] Procesando item {idx+1}/{len(items_list)}: {pending_item_key}")
                 
                 # Buscar plan_item correspondiente
                 plan_item = plan_items_map.get(pending_item_key)
@@ -370,41 +556,50 @@ async def egestiona_execute_auto_upload(
                     skipped_count += 1
                     continue
                 
-                # SPRINT C2.15: Revalidar política server-side (NO subir si decision != AUTO_UPLOAD)
-                pending_ref = plan_item.get("pending_ref", {})
-                match_result = {
-                    "best_doc": plan_item.get("matched_doc", {}),
-                    "confidence": plan_item.get("matched_doc", {}).get("validity", {}).get("confidence", 0.0),
-                    "candidates": [],
-                }
+                # SPRINT C2.17: Si hay plan_id, usar decisión del plan congelado (NO revalidar)
+                # Si NO hay plan_id, revalidar política server-side (legacy)
+                if not request.plan_id:
+                    # SPRINT C2.15: Revalidar política server-side (NO subir si decision != AUTO_UPLOAD)
+                    pending_ref = plan_item.get("pending_ref", {})
+                    match_result = {
+                        "best_doc": plan_item.get("matched_doc", {}),
+                        "confidence": plan_item.get("matched_doc", {}).get("validity", {}).get("confidence", 0.0),
+                        "candidates": [],
+                    }
+                    
+                    pending_item_dict = {
+                        "tipo_doc": pending_ref.get("tipo_doc"),
+                        "elemento": pending_ref.get("elemento"),
+                        "empresa": pending_ref.get("empresa"),
+                    }
+                    
+                    from backend.adapters.egestiona.upload_policy import evaluate_upload_policy
+                    policy_result = evaluate_upload_policy(
+                        pending_item=pending_item_dict,
+                        match_result=match_result,
+                        company_key=request.company_key,
+                        person_key=request.person_key,
+                        only_target=request.only_target,
+                        base_dir="data",
+                    )
+                    
+                    if policy_result["decision"] != "AUTO_UPLOAD":
+                        results.append({
+                            "pending_item_key": pending_item_key,
+                            "success": False,
+                            "reason": f"policy_rejected: {policy_result['reason_code']}",
+                            "policy_decision": policy_result["decision"],
+                            "policy_reason": policy_result["reason"],
+                            "evidence_paths": {},
+                        })
+                        skipped_count += 1
+                        print(f"[CAE][AUTO_UPLOAD] ⚠️ Item rechazado por política: {policy_result['reason_code']}")
+                        continue
                 
-                pending_item_dict = {
-                    "tipo_doc": pending_ref.get("tipo_doc"),
-                    "elemento": pending_ref.get("elemento"),
-                    "empresa": pending_ref.get("empresa"),
-                }
-                
-                policy_result = evaluate_upload_policy(
-                    pending_item=pending_item_dict,
-                    match_result=match_result,
-                    company_key=request.company_key,
-                    person_key=request.person_key,
-                    only_target=request.only_target,
-                    base_dir="data",
-                )
-                
-                if policy_result["decision"] != "AUTO_UPLOAD":
-                    results.append({
-                        "pending_item_key": pending_item_key,
-                        "success": False,
-                        "reason": f"policy_rejected: {policy_result['reason_code']}",
-                        "policy_decision": policy_result["decision"],
-                        "policy_reason": policy_result["reason"],
-                        "evidence_paths": {},
-                    })
-                    skipped_count += 1
-                    print(f"[CAE][AUTO_UPLOAD] ⚠️ Item rechazado por política: {policy_result['reason_code']}")
-                    continue
+                # SPRINT C2.17: Obtener decisión del plan congelado (si existe)
+                decision_obj = plan_decisions_map.get(pending_item_key) if request.plan_id else None
+                decision = decision_obj.get("decision") if decision_obj else "AUTO_UPLOAD"  # Default si no hay plan_id
+                decision_reason = decision_obj.get("decision_reason") if decision_obj else None
                 
                 # SPRINT C2.15: Re-localizar item en portal usando pending_item_key (C2.14.1)
                 # El uploader ya tiene lógica de re-localización, pero necesitamos asegurar
@@ -504,6 +699,8 @@ async def egestiona_execute_auto_upload(
                             "pending_item_key": pending_item_key,
                             "success": True,
                             "reason": upload_result.get("reason", "upload_success"),
+                            "decision": decision or "AUTO_UPLOAD",  # SPRINT C2.17: Incluir decisión
+                            "decision_reason": decision_reason,  # SPRINT C2.17: Incluir razón
                             "upload_id": upload_result.get("upload_id"),
                             "post_verification": upload_result.get("post_verification"),
                             "evidence_paths": {
@@ -607,6 +804,8 @@ async def egestiona_execute_auto_upload(
                             "pending_item_key": pending_item_key,
                             "success": False,
                             "reason": reason,
+                            "decision": decision or "AUTO_UPLOAD",  # SPRINT C2.17: Incluir decisión
+                            "decision_reason": decision_reason,  # SPRINT C2.17: Incluir razón
                             "error": upload_result.get("error"),
                             "error_code": upload_error_code,
                             "evidence_paths": {
@@ -680,6 +879,8 @@ async def egestiona_execute_auto_upload(
                                         "pending_item_key": pending_item_key,
                                         "success": True,
                                         "reason": upload_result.get("reason", "upload_success_after_retry"),
+                                        "decision": decision,  # SPRINT C2.17: Incluir decisión
+                                        "decision_reason": decision_reason,  # SPRINT C2.17: Incluir razón
                                         "upload_id": upload_result.get("upload_id"),
                                         "post_verification": upload_result.get("post_verification"),
                                         "evidence_paths": {
@@ -723,6 +924,8 @@ async def egestiona_execute_auto_upload(
                         "pending_item_key": pending_item_key,
                         "success": False,
                         "reason": "upload_exception",
+                        "decision": decision or "AUTO_UPLOAD",  # SPRINT C2.17: Incluir decisión
+                        "decision_reason": decision_reason,  # SPRINT C2.17: Incluir razón
                         "error": str(e),
                         "error_code": upload_error_code,
                         "traceback": error_trace if os.getenv("ENVIRONMENT", "").lower() == "dev" else None,
@@ -743,7 +946,7 @@ async def egestiona_execute_auto_upload(
                         break
                 
                 # Rate-limit: sleep entre uploads (excepto el último)
-                if idx < len(request.items) - 1:
+                if idx < len(items_list) - 1:
                     time.sleep(request.rate_limit_seconds)
             
             context.close()
@@ -758,11 +961,13 @@ async def egestiona_execute_auto_upload(
             "details": traceback.format_exc() if os.getenv("ENVIRONMENT", "").lower() == "dev" else None,
             "results": results,
             "summary": {
-                "total": len(request.items),
+                "total": len(items_to_process) if items_to_process else (len(request.items) if request.items else 0),
                 "success": success_count,
                 "failed": failed_count,
                 "skipped": skipped_count,
+                "plan_id": request.plan_id,  # SPRINT C2.17: Incluir plan_id en summary
             },
+            "plan_id": request.plan_id,  # SPRINT C2.17: Incluir plan_id en nivel superior
         }
     
     # SPRINT C2.16: Guardar run_summary
@@ -817,6 +1022,7 @@ async def egestiona_execute_auto_upload(
             errors=errors_logged,
             evidence_root=evidence_root,  # SPRINT C2.16.1
             evidence_paths=evidence_paths,  # SPRINT C2.16.1
+            run_kind="execution",  # SPRINT C2.17: Tipo de run
             base_dir="data",
         )
     except Exception as summary_error:
@@ -831,17 +1037,19 @@ async def egestiona_execute_auto_upload(
         final_status = "error"
     
     summary = {
-        "total": len(request.items),
+        "total": len(items_to_process) if items_to_process else (len(request.items) if request.items else 0),
         "success": success_count,
         "failed": failed_count,
         "skipped": skipped_count,
         "run_id": run_id,
+        "plan_id": request.plan_id,  # SPRINT C2.17: Incluir plan_id en summary
     }
     
     return {
         "status": final_status,
         "results": results,
         "summary": summary,
+        "plan_id": request.plan_id,  # SPRINT C2.17: Incluir plan_id en nivel superior
         "artifacts": {
             "run_id": run_id,
             "execution_dir": str(execution_dir),

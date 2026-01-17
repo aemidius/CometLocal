@@ -3904,13 +3904,13 @@ async def egestiona_build_auto_upload_plan(
     
     # SPRINT C2.16.2: Generar run_id propio para plan
     import time
+    import uuid
     from datetime import datetime
     from pathlib import Path
     from backend.shared.run_summary import save_run_summary
     
-    run_id = f"plan_{int(time.time())}_{uuid.uuid4().hex[:8]}"
-    plan_dir = Path("data") / "runs" / run_id
-    plan_dir.mkdir(parents=True, exist_ok=True)
+    # Generar run_id temporal para logging (antes de generar plan_id)
+    temp_run_id = f"plan_{int(time.time())}_{uuid.uuid4().hex[:8]}"
     started_at = datetime.utcnow()
     
     try:
@@ -3918,7 +3918,7 @@ async def egestiona_build_auto_upload_plan(
         from starlette.concurrency import run_in_threadpool
         from backend.adapters.egestiona.submission_plan_headful import run_build_submission_plan_readonly_headful
         
-        print(f"[CAE][AUTO_UPLOAD_PLAN] Construyendo plan de auto-upload (run_id={run_id})...")
+        print(f"[CAE][AUTO_UPLOAD_PLAN] Construyendo plan de auto-upload (temp_run_id={temp_run_id})...")
         plan_result = await run_in_threadpool(
             lambda: run_build_submission_plan_readonly_headful(
                 base_dir="data",
@@ -3962,94 +3962,24 @@ async def egestiona_build_auto_upload_plan(
         diagnostics = plan_result.get("diagnostics") or {}
         instrumentation = plan_result.get("instrumentation", {})
         
-        # SPRINT C2.15: Aplicar política de decisión a cada item
-        from backend.adapters.egestiona.upload_policy import evaluate_upload_policy
+        # SPRINT C2.17: Aplicar motor de decisión explícita
+        from backend.shared.upload_decision_engine import apply_decisions_to_plan
         
-        decisions = []
-        auto_upload_count = 0
-        review_required_count = 0
-        no_match_count = 0
+        decisions = apply_decisions_to_plan(
+            plan_items=plan_items,
+            match_results=match_results,
+            company_key=company_key,
+            person_key=person_key,
+            only_target=only_target,
+            base_dir="data",
+            user_overrides=None,  # SPRINT C2.17: Se puede añadir override manual en el futuro
+        )
         
-        # SPRINT C2.16.2: Guardar plan_response.json en plan_dir
-        plan_response_path = plan_dir / "plan_response.json"
-        
-        # Crear mapa de pending_item_key -> match_result para lookup rápido
-        match_result_map = {}
-        for match_result_item in match_results:
-            pending_item = match_result_item.get("pending_item", {})
-            pending_item_key = pending_item.get("pending_item_key")
-            if pending_item_key:
-                match_result_map[pending_item_key] = match_result_item.get("match_result", {})
-        
-        # También buscar en plan_items para obtener match_result
-        for plan_item in plan_items:
-            pending_item_key = plan_item.get("pending_item_key") or plan_item.get("pending_ref", {}).get("pending_item_key")
-            if pending_item_key and pending_item_key not in match_result_map:
-                matched_doc = plan_item.get("matched_doc", {})
-                if matched_doc:
-                    match_result_map[pending_item_key] = {
-                        "best_doc": matched_doc,
-                        "confidence": matched_doc.get("validity", {}).get("confidence", 0.0),
-                        "candidates": [],
-                    }
-        
-        # Evaluar política para cada item del plan
-        for plan_item in plan_items:
-            pending_ref = plan_item.get("pending_ref", {})
-            pending_item_key = pending_ref.get("pending_item_key") or plan_item.get("pending_item_key")
-            
-            if not pending_item_key:
-                # Si no hay pending_item_key, construir uno básico
-                tipo_doc = pending_ref.get("tipo_doc", "")
-                elemento = pending_ref.get("elemento", "")
-                empresa = pending_ref.get("empresa", "")
-                # Construir key básico
-                from backend.adapters.egestiona.grid_extract import canonicalize_row
-                fallback_row = {
-                    "Tipo Documento": tipo_doc,
-                    "Elemento": elemento,
-                    "Empresa": empresa,
-                }
-                canonical_fallback = canonicalize_row(fallback_row)
-                pending_item_key = canonical_fallback.get("pending_item_key")
-            
-            # Buscar match_result correspondiente
-            match_result = match_result_map.get(pending_item_key, {})
-            
-            # Construir pending_item dict para la política
-            pending_item_dict = {
-                "tipo_doc": pending_ref.get("tipo_doc"),
-                "elemento": pending_ref.get("elemento"),
-                "empresa": pending_ref.get("empresa"),
-            }
-            
-            # Evaluar política
-            policy_result = evaluate_upload_policy(
-                pending_item=pending_item_dict,
-                match_result=match_result,
-                company_key=company_key,
-                person_key=person_key,
-                only_target=only_target,
-                base_dir="data",
-            )
-            
-            # Añadir a decisions
-            decisions.append({
-                "pending_item_key": pending_item_key,
-                "decision": policy_result["decision"],
-                "reason_code": policy_result["reason_code"],
-                "reason": policy_result["reason"],
-                "confidence": policy_result["confidence"],
-                "local_doc_ref": policy_result["local_doc_ref"],
-            })
-            
-            # Contar por decisión
-            if policy_result["decision"] == "AUTO_UPLOAD":
-                auto_upload_count += 1
-            elif policy_result["decision"] == "REVIEW_REQUIRED":
-                review_required_count += 1
-            else:
-                no_match_count += 1
+        # Contar por decisión
+        auto_upload_count = len([d for d in decisions if d.get("decision") == "AUTO_UPLOAD"])
+        review_required_count = len([d for d in decisions if d.get("decision") == "REVIEW_REQUIRED"])
+        no_match_count = len([d for d in decisions if d.get("decision") == "NO_MATCH"])
+        skipped_count = len([d for d in decisions if d.get("decision") == "SKIPPED"])
         
         # Construir snapshot (items con pending_item_key)
         snapshot_items = []
@@ -4070,6 +4000,7 @@ async def egestiona_build_auto_upload_plan(
             "auto_upload_count": auto_upload_count,
             "review_required_count": review_required_count,
             "no_match_count": no_match_count,
+            "skipped_count": skipped_count,  # SPRINT C2.17: Incluir skipped_count
         }
         
         # Incluir diagnostics de paginación si está disponible
@@ -4078,16 +4009,39 @@ async def egestiona_build_auto_upload_plan(
                 diagnostics = {}
             diagnostics["pagination"] = instrumentation["pagination"]
         
+        # SPRINT C2.17: Generar plan_id estable (hash del contenido) y run_id
+        from backend.shared.upload_decision_engine import generate_plan_id
+        
+        # Generar plan_id basado en contenido
+        plan_id = generate_plan_id({
+            "snapshot": {"items": snapshot_items},
+            "decisions": decisions,
+        })
+        
+        # SPRINT C2.17: Usar plan_id como directorio (no run_id)
+        plan_dir = Path("data") / "runs" / plan_id
+        plan_dir.mkdir(parents=True, exist_ok=True)
+        
+        # También generar run_id para run_summary (usar temp_run_id o generar nuevo)
+        run_id = temp_run_id
+        
         response = {
             "status": "ok",
+            "plan_id": plan_id,  # SPRINT C2.17: Plan congelado con ID estable
             "snapshot": {"items": snapshot_items},
             "decisions": decisions,
             "summary": summary,
             "diagnostics": diagnostics,
-            "artifacts": {"client_request_id": client_request_id, "run_id": run_id},  # SPRINT C2.16.2: Incluir run_id
+            "artifacts": {
+                "client_request_id": client_request_id,
+                "run_id": run_id,  # SPRINT C2.16.2: Incluir run_id
+                "coord": coord,  # SPRINT C2.17: Guardar metadata para recuperación
+                "company_key": company_key,
+                "person_key": person_key,
+            },
         }
         
-        # SPRINT C2.16.2: Guardar plan_response.json
+        # SPRINT C2.17: Guardar plan_response.json en plan_dir (usando plan_id)
         plan_response_path = plan_dir / "plan_response.json"
         with open(plan_response_path, "w", encoding="utf-8") as f:
             pyjson.dump(response, f, indent=2, ensure_ascii=False)
