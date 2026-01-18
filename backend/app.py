@@ -61,6 +61,8 @@ from backend.connectors.routes import router as connectors_router
 from backend.config import LLM_CONFIG_FILE, LLM_DEFAULT_CONFIG
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi import HTTPException
+from backend.shared.context_guardrails import validate_write_request_context
 
 # Constantes de rutas
 BASE_DIR = Path(__file__).resolve().parent.parent

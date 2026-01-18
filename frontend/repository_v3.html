@@ -961,7 +961,54 @@
         }
         
         /**
+         * SPRINT C2.27: Muestra mensaje humano cuando falta contexto de coordinación.
+         * Enfoca visualmente los 3 selectores sin romper layout.
+         */
+        function showContextRequiredMessage() {
+            // Mostrar banner claro arriba
+            const banner = document.createElement('div');
+            banner.className = 'alert alert-warning';
+            banner.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; z-index: 10000; padding: 16px; background: #fef3c7; border-bottom: 2px solid #fbbf24; color: #92400e; text-align: center; font-weight: 500;';
+            banner.textContent = 'Selecciona Empresa propia, Plataforma y Empresa coordinada para continuar.';
+            document.body.appendChild(banner);
+            
+            // Enfocar visualmente los 3 selectores (borde rojo 2s)
+            const ownSelect = document.getElementById('ctx-own-company');
+            const platformSelect = document.getElementById('ctx-platform');
+            const coordinatedSelect = document.getElementById('ctx-coordinated-company');
+            
+            [ownSelect, platformSelect, coordinatedSelect].forEach(select => {
+                if (select) {
+                    const originalBorder = select.style.border;
+                    select.style.border = '2px solid #ef4444';
+                    select.style.transition = 'border 0.2s';
+                    
+                    setTimeout(() => {
+                        select.style.border = originalBorder;
+                        setTimeout(() => {
+                            select.style.transition = '';
+                        }, 200);
+                    }, 2000);
+                }
+            });
+            
+            // Auto-ocultar banner después de 5 segundos
+            setTimeout(() => {
+                if (banner.parentNode) {
+                    banner.style.transition = 'opacity 0.3s';
+                    banner.style.opacity = '0';
+                    setTimeout(() => {
+                        if (banner.parentNode) {
+                            banner.parentNode.removeChild(banner);
+                        }
+                    }, 300);
+                }
+            }, 5000);
+        }
+        
+        /**
          * SPRINT C2.26: Helper central para fetch con headers humanos de coordinación.
+         * SPRINT C2.27: Maneja error missing_coordination_context con mensaje humano.
          * NO menciona "tenant" - solo envía headers humanos.
          * @param {string} url - URL a llamar
          * @param {Object} options - Opciones de fetch (headers, body, etc.)
@@ -1004,7 +1051,26 @@
                 headers,
             };
             
-            return fetch(url, fetchOptions);
+            const response = await fetch(url, fetchOptions);
+            
+            // SPRINT C2.27: Manejar error missing_coordination_context
+            if (!response.ok && response.status === 400) {
+                try {
+                    const errorData = await response.json();
+                    if (errorData.detail && typeof errorData.detail === 'object' && errorData.detail.error === 'missing_coordination_context') {
+                        showContextRequiredMessage();
+                        // Re-lanzar error para que el caller pueda manejarlo
+                        throw new Error(errorData.detail.message || 'Selecciona Empresa propia, Plataforma y Empresa coordinada');
+                    }
+                } catch (e) {
+                    // Si no es JSON o no es el error esperado, continuar normalmente
+                    if (e.message && e.message.includes('Selecciona Empresa propia')) {
+                        throw e; // Re-lanzar si es nuestro error
+                    }
+                }
+            }
+            
+            return response;
         }
         
         // Alias para compatibilidad (deprecated)

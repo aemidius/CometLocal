@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
 
 from backend.config import DATA_DIR
@@ -218,7 +218,7 @@ async def update_settings(
 
 
 @router.get("/debug/data_dir")
-async def get_debug_data_dir() -> dict:
+async def get_debug_data_dir(request: Request = None) -> dict:
     """
     SPRINT C2.10.2: Endpoint DEV-ONLY para verificar el directorio de datos usado.
     
@@ -237,10 +237,22 @@ async def get_debug_data_dir() -> dict:
     base_dir = get_repository_data_dir()
     repository_root = get_default_repository_root()
     
+    # SPRINT C2.27: Incluir información de tenant
+    from backend.shared.tenant_context import get_tenant_from_request
+    from backend.shared.tenant_paths import tenant_root
+    from backend.config import DATA_DIR
+    
+    tenant_ctx = get_tenant_from_request(request)
+    tenant_data_dir = tenant_root(DATA_DIR, tenant_ctx.tenant_id)
+    
     return {
         "data_dir": str(base_dir.resolve()),
         "repository_root": repository_root,
         "repository_data_dir_env": os.getenv("REPOSITORY_DATA_DIR"),
-        "is_e2e": "repository_e2e" in str(base_dir) or "repository_e2e" in repository_root
+        "is_e2e": "repository_e2e" in str(base_dir) or "repository_e2e" in repository_root,
+        "tenant_id": tenant_ctx.tenant_id,
+        "tenant_source": tenant_ctx.source,
+        "tenant_data_dir": str(tenant_data_dir),
+        "tenant_data_dir_resolved": str(tenant_data_dir.resolve())
     }
 
