@@ -10,24 +10,45 @@ import json
 
 from backend.config import DATA_DIR
 from backend.shared.decision_preset import DecisionPresetV1
+from backend.shared.tenant_paths import tenant_presets_root, resolve_read_path, ensure_write_dir
 
 
 class DecisionPresetStore:
     """Store para presets de decisiones."""
     
-    def __init__(self, base_dir: Path = None):
+    def __init__(self, base_dir: Path = None, tenant_id: str = "default"):
         """
         Inicializa el store.
         
         Args:
             base_dir: Directorio base (default: DATA_DIR)
+            tenant_id: ID del tenant (default: "default")
         """
         self.base_dir = Path(base_dir) if base_dir else Path(DATA_DIR)
-        self.presets_dir = self.base_dir / "presets"
-        self.presets_file = self.presets_dir / "decision_presets_v1.json"
+        self.tenant_id = tenant_id
         
-        # Asegurar directorio existe
-        self.presets_dir.mkdir(parents=True, exist_ok=True)
+        # SPRINT C2.22B: Usar tenant presets root
+        self.tenant_presets_dir = tenant_presets_root(self.base_dir, tenant_id)
+        self.legacy_presets_dir = self.base_dir / "presets"
+        
+        # Para lectura: tenant con fallback legacy (NO crear directorio)
+        # Si tenant dir no existe, usar legacy
+        if self.tenant_presets_dir.exists():
+            self.presets_dir_read = self.tenant_presets_dir
+        else:
+            self.presets_dir_read = self.legacy_presets_dir
+        
+        # Para escritura: siempre usar tenant path (se crea cuando se escribe)
+        # NO crear aquí para permitir fallback legacy en lectura
+        self.presets_dir_write = self.tenant_presets_dir
+        
+        # Archivos (usar tenant para escritura, resolved para lectura)
+        self.presets_file_write = self.presets_dir_write / "decision_presets_v1.json"
+        self.presets_file_read = self.presets_dir_read / "decision_presets_v1.json"
+        
+        # Para compatibilidad: usar write para operaciones que crean archivos
+        self.presets_dir = self.presets_dir_write
+        self.presets_file = self.presets_file_write
     
     def list_presets(
         self,
@@ -124,12 +145,19 @@ class DecisionPresetStore:
         return False
     
     def _load_all_presets(self) -> List[DecisionPresetV1]:
-        """Carga todos los presets desde el archivo."""
-        if not self.presets_file.exists():
+        """Carga todos los presets desde el archivo (con fallback legacy)."""
+        # SPRINT C2.22B: Recalcular path de lectura dinámicamente (tenant o legacy)
+        # Si tenant dir existe ahora, usar tenant, si no legacy
+        if self.tenant_presets_dir.exists():
+            presets_file = self.presets_file_write
+        else:
+            presets_file = self.legacy_presets_dir / "decision_presets_v1.json"
+        
+        if not presets_file.exists():
             return []
         
         try:
-            with open(self.presets_file, "r", encoding="utf-8") as f:
+            with open(presets_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 presets = []
                 for preset_dict in data.get("presets", []):
@@ -144,13 +172,16 @@ class DecisionPresetStore:
             return []
     
     def _save_presets(self, presets: List[DecisionPresetV1]) -> None:
-        """Guarda todos los presets al archivo."""
+        """Guarda todos los presets al archivo (en tenant path)."""
+        # SPRINT C2.22B: Guardar en tenant path (escritura)
+        # Asegurar que el directorio existe antes de escribir
+        ensure_write_dir(self.presets_dir_write)
         data = {
             "presets": [p.model_dump(mode="json") for p in presets],
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         
-        with open(self.presets_file, "w", encoding="utf-8") as f:
+        with open(self.presets_file_write, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
     
     def get_preset(self, preset_id: str) -> Optional[DecisionPresetV1]:

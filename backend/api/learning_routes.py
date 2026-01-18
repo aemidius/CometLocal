@@ -3,15 +3,14 @@ SPRINT C2.19A: API endpoints para Learning Store (hints de aprendizaje).
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from typing import Optional, List
 from pydantic import BaseModel
 
 from backend.shared.learning_store import LearningStore, LearnedHintV1, HintStrength
+from backend.shared.tenant_context import get_tenant_from_request
 
 router = APIRouter(prefix="/api/learning", tags=["learning"])
-
-store = LearningStore()
 
 
 @router.get("/hints")
@@ -23,6 +22,7 @@ async def list_hints(
     strength: Optional[str] = Query(None, description="Filtrar por strength (EXACT/SOFT)"),
     include_disabled: bool = Query(False, description="Incluir hints desactivados"),
     limit: int = Query(200, description="Límite de resultados", ge=1, le=1000),
+    request: Request = None,
 ) -> dict:
     """
     Lista hints con filtros opcionales.
@@ -33,6 +33,10 @@ async def list_hints(
         "total": N
     }
     """
+    # SPRINT C2.22B: Extraer tenant_id del request
+    tenant_ctx = get_tenant_from_request(request)
+    store = LearningStore(tenant_id=tenant_ctx.tenant_id)
+    
     strength_enum = None
     if strength:
         try:
@@ -77,7 +81,7 @@ class DisableHintRequest(BaseModel):
 
 
 @router.post("/hints/{hint_id}/disable")
-async def disable_hint(hint_id: str, body: Optional[DisableHintRequest] = None) -> dict:
+async def disable_hint(hint_id: str, body: Optional[DisableHintRequest] = None, request: Request = None) -> dict:
     """
     Desactiva un hint.
     
@@ -92,6 +96,10 @@ async def disable_hint(hint_id: str, body: Optional[DisableHintRequest] = None) 
         "disabled": true
     }
     """
+    # SPRINT C2.22B: Extraer tenant_id del request
+    tenant_ctx = get_tenant_from_request(request)
+    store = LearningStore(tenant_id=tenant_ctx.tenant_id)
+    
     reason = body.reason if body else None
     success = store.disable_hint(hint_id, reason=reason)
     if not success:

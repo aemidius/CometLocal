@@ -3,7 +3,7 @@ SPRINT C2.21: API endpoints para export CAE.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -13,6 +13,8 @@ import tempfile
 
 from backend.config import DATA_DIR
 from backend.export.cae_exporter import export_cae
+from backend.shared.tenant_context import get_tenant_from_request
+from backend.shared.tenant_paths import tenant_exports_root, ensure_write_dir
 
 router = APIRouter(prefix="/api/export", tags=["export"])
 
@@ -24,11 +26,12 @@ class ExportCAERequest(BaseModel):
 
 
 # Store temporal de exports (en producción usar cache/DB)
-_exports_store: dict[str, Path] = {}
+# SPRINT C2.22B: Store por tenant
+_exports_store: dict[str, dict[str, Path]] = {}  # tenant_id -> export_id -> Path
 
 
 @router.post("/cae")
-async def create_cae_export(request: ExportCAERequest) -> dict:
+async def create_cae_export(request: ExportCAERequest, http_request: Request = None) -> dict:
     """
     Crea un export CAE para un cliente y periodo.
     
@@ -57,9 +60,11 @@ async def create_cae_export(request: ExportCAERequest) -> dict:
         else:
             raise HTTPException(status_code=400, detail="Period must be YYYY or YYYY-MM")
         
-        # Crear directorio temporal para exports
-        exports_dir = Path(DATA_DIR) / "exports"
-        exports_dir.mkdir(parents=True, exist_ok=True)
+        # SPRINT C2.22B: Extraer tenant_id del request
+        tenant_ctx = get_tenant_from_request(http_request)
+        
+        # Crear directorio de exports por tenant
+        exports_dir = ensure_write_dir(tenant_exports_root(DATA_DIR, tenant_ctx.tenant_id))
         
         # Generar export
         zip_path = export_cae(
@@ -70,7 +75,11 @@ async def create_cae_export(request: ExportCAERequest) -> dict:
         
         # Generar export_id
         export_id = f"export_{uuid.uuid4().hex[:16]}"
-        _exports_store[export_id] = zip_path
+        
+        # SPRINT C2.22B: Store por tenant
+        if tenant_ctx.tenant_id not in _exports_store:
+            _exports_store[tenant_ctx.tenant_id] = {}
+        _exports_store[tenant_ctx.tenant_id][export_id] = zip_path
         
         return {
             "export_id": export_id,
@@ -85,14 +94,22 @@ async def create_cae_export(request: ExportCAERequest) -> dict:
 
 
 @router.get("/cae/download/{export_id}")
-async def download_cae_export(export_id: str):
+async def download_cae_export(export_id: str, request: Request = None):
     """
-    Descarga un export CAE por ID.
+    Descarga un export CAE por ID (solo del tenant del request).
     """
-    if export_id not in _exports_store:
+    # SPRINT C2.22B: Extraer tenant_id del request
+    tenant_ctx = get_tenant_from_request(request)
+    
+    # SPRINT C2.22B: Solo acceder a exports del tenant
+    if tenant_ctx.tenant_id not in _exports_store:
         raise HTTPException(status_code=404, detail=f"Export {export_id} not found")
     
-    zip_path = _exports_store[export_id]
+    tenant_exports = _exports_store[tenant_ctx.tenant_id]
+    if export_id not in tenant_exports:
+        raise HTTPException(status_code=404, detail=f"Export {export_id} not found")
+    
+    zip_path = tenant_exports[export_id]
     
     if not zip_path.exists():
         raise HTTPException(status_code=404, detail=f"Export file not found: {zip_path}")

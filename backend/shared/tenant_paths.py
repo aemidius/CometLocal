@@ -133,9 +133,9 @@ def resolve_read_path(tenant_path: Path, legacy_path: Path) -> Path:
     if tenant_path.exists():
         return tenant_path
     
-    # Si el path es un directorio, verificar si existe
-    if tenant_path.is_dir() or tenant_path.parent.exists():
-        # Si el directorio padre existe, usar tenant_path
+    # Si el directorio padre del tenant path existe, usar tenant_path
+    # (aunque el archivo específico no exista aún)
+    if tenant_path.parent.exists() and tenant_path.parent.is_dir():
         return tenant_path
     
     # Fallback a legacy

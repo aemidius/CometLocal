@@ -3,17 +3,16 @@ SPRINT C2.20A: API endpoints para Decision Presets.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, Body
+from fastapi import APIRouter, HTTPException, Query, Body, Request
 from typing import Optional, Dict, Any
 from pydantic import BaseModel
 
 from backend.shared.decision_preset import DecisionPresetV1, DecisionPresetScope, DecisionPresetDefaults
 from backend.shared.decision_pack import ManualDecisionAction
 from backend.shared.decision_preset_store import DecisionPresetStore
+from backend.shared.tenant_context import get_tenant_from_request
 
 router = APIRouter(prefix="/api/presets", tags=["presets"])
-
-store = DecisionPresetStore()
 
 
 class CreatePresetRequest(BaseModel):
@@ -31,6 +30,7 @@ async def list_presets(
     period_key: Optional[str] = Query(None, description="Filtrar por period_key"),
     platform: Optional[str] = Query(None, description="Filtrar por platform"),
     include_disabled: bool = Query(False, description="Incluir presets desactivados"),
+    request: Request = None,
 ) -> dict:
     """
     Lista presets con filtros opcionales.
@@ -41,6 +41,10 @@ async def list_presets(
         "total": N
     }
     """
+    # SPRINT C2.22B: Extraer tenant_id del request
+    tenant_ctx = get_tenant_from_request(request)
+    store = DecisionPresetStore(tenant_id=tenant_ctx.tenant_id)
+    
     presets = store.list_presets(
         type_id=type_id,
         subject_key=subject_key,
@@ -56,7 +60,7 @@ async def list_presets(
 
 
 @router.post("/decision_presets")
-async def create_preset(request: CreatePresetRequest) -> dict:
+async def create_preset(request: CreatePresetRequest, http_request: Request = None) -> dict:
     """
     Crea o actualiza un preset.
     
@@ -106,6 +110,10 @@ async def create_preset(request: CreatePresetRequest) -> dict:
         defaults=defaults,
     )
     
+    # SPRINT C2.22B: Extraer tenant_id del request
+    tenant_ctx = get_tenant_from_request(http_request)
+    store = DecisionPresetStore(tenant_id=tenant_ctx.tenant_id)
+    
     # Guardar
     preset_id = store.upsert_preset(preset)
     
@@ -116,7 +124,7 @@ async def create_preset(request: CreatePresetRequest) -> dict:
 
 
 @router.post("/decision_presets/{preset_id}/disable")
-async def disable_preset(preset_id: str) -> dict:
+async def disable_preset(preset_id: str, request: Request = None) -> dict:
     """
     Desactiva un preset.
     
@@ -126,6 +134,10 @@ async def disable_preset(preset_id: str) -> dict:
         "disabled": true
     }
     """
+    # SPRINT C2.22B: Extraer tenant_id del request
+    tenant_ctx = get_tenant_from_request(request)
+    store = DecisionPresetStore(tenant_id=tenant_ctx.tenant_id)
+    
     success = store.disable_preset(preset_id)
     if not success:
         raise HTTPException(status_code=404, detail=f"Preset {preset_id} not found")

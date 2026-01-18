@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 
 from backend.config import DATA_DIR
+from backend.shared.tenant_paths import tenant_learning_root, resolve_read_path, ensure_write_dir
 
 
 class HintStrength(str, Enum):
@@ -116,21 +117,44 @@ class LearnedHintV1(BaseModel):
 class LearningStore:
     """Store para hints aprendidos."""
     
-    def __init__(self, base_dir: Path = None):
+    def __init__(self, base_dir: Path = None, tenant_id: str = "default"):
         """
         Inicializa el store.
         
         Args:
             base_dir: Directorio base (default: DATA_DIR)
+            tenant_id: ID del tenant (default: "default")
         """
         self.base_dir = Path(base_dir) if base_dir else Path(DATA_DIR)
-        self.learning_dir = self.base_dir / "learning"
-        self.hints_file = self.learning_dir / "hints_v1.jsonl"
-        self.index_file = self.learning_dir / "index_v1.json"
-        self.tombstones_file = self.learning_dir / "tombstones_v1.json"
+        self.tenant_id = tenant_id
         
-        # Asegurar directorio existe
-        self.learning_dir.mkdir(parents=True, exist_ok=True)
+        # SPRINT C2.22B: Usar tenant learning root para escritura
+        self.tenant_learning_dir = tenant_learning_root(self.base_dir, tenant_id)
+        self.legacy_learning_dir = self.base_dir / "learning"
+        
+        # Para lectura: tenant con fallback legacy (NO crear directorio)
+        # Si tenant dir no existe, usar legacy
+        if self.tenant_learning_dir.exists():
+            self.learning_dir_read = self.tenant_learning_dir
+        else:
+            self.learning_dir_read = self.legacy_learning_dir
+        
+        # Para escritura: siempre usar tenant path (se crea cuando se escribe)
+        # NO crear aquí para permitir fallback legacy en lectura
+        self.learning_dir_write = self.tenant_learning_dir
+        
+        # Archivos (usar tenant para escritura, resolved para lectura)
+        self.hints_file_write = self.learning_dir_write / "hints_v1.jsonl"
+        self.hints_file_read = self.learning_dir_read / "hints_v1.jsonl"
+        self.index_file_write = self.learning_dir_write / "index_v1.json"
+        self.index_file_read = self.learning_dir_read / "index_v1.json"
+        self.tombstones_file_write = self.learning_dir_write / "tombstones_v1.json"
+        self.tombstones_file_read = self.learning_dir_read / "tombstones_v1.json"
+        
+        # Para compatibilidad: usar write para operaciones que crean archivos
+        self.hints_file = self.hints_file_write
+        self.index_file = self.index_file_write
+        self.tombstones_file = self.tombstones_file_write
     
     def add_hints(self, hints: List[LearnedHintV1]) -> List[str]:
         """
@@ -154,8 +178,10 @@ class LearningStore:
         if not new_hints:
             return []
         
-        # Append a JSONL
-        with open(self.hints_file, "a", encoding="utf-8") as f:
+        # SPRINT C2.22B: Append a JSONL en tenant path (escritura)
+        # Asegurar que el directorio existe antes de escribir
+        ensure_write_dir(self.learning_dir_write)
+        with open(self.hints_file_write, "a", encoding="utf-8") as f:
             for hint in new_hints:
                 hint_dict = hint.model_dump(mode="json")
                 f.write(json.dumps(hint_dict, ensure_ascii=False) + "\n")
@@ -253,7 +279,10 @@ class LearningStore:
                 tombstone_data["reasons"] = {}
             tombstone_data["reasons"][hint_id] = reason
         
-        with open(self.tombstones_file, "w", encoding="utf-8") as f:
+        # SPRINT C2.22B: Guardar tombstones en tenant path (escritura)
+        # Asegurar que el directorio existe antes de escribir
+        ensure_write_dir(self.learning_dir_write)
+        with open(self.tombstones_file_write, "w", encoding="utf-8") as f:
             json.dump(tombstone_data, f, indent=2, ensure_ascii=False)
         
         return True
@@ -299,13 +328,20 @@ class LearningStore:
         return filtered
     
     def _load_all_hints(self) -> List[LearnedHintV1]:
-        """Carga todos los hints desde JSONL."""
-        if not self.hints_file.exists():
+        """Carga todos los hints desde JSONL (con fallback legacy)."""
+        # SPRINT C2.22B: Recalcular path de lectura dinámicamente (tenant o legacy)
+        # Si tenant dir existe ahora, usar tenant, si no legacy
+        if self.tenant_learning_dir.exists():
+            hints_file = self.hints_file_write
+        else:
+            hints_file = self.legacy_learning_dir / "hints_v1.jsonl"
+        
+        if not hints_file.exists():
             return []
         
         hints = []
         try:
-            with open(self.hints_file, "r", encoding="utf-8") as f:
+            with open(hints_file, "r", encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -322,12 +358,19 @@ class LearningStore:
         return hints
     
     def _load_disabled_ids(self) -> set:
-        """Carga IDs de hints desactivados."""
-        if not self.tombstones_file.exists():
+        """Carga IDs de hints desactivados (con fallback legacy)."""
+        # SPRINT C2.22B: Recalcular path de lectura dinámicamente (tenant o legacy)
+        # Si tenant dir existe ahora, usar tenant, si no legacy
+        if self.tenant_learning_dir.exists():
+            tombstones_file = self.tombstones_file_write
+        else:
+            tombstones_file = self.legacy_learning_dir / "tombstones_v1.json"
+        
+        if not tombstones_file.exists():
             return set()
         
         try:
-            with open(self.tombstones_file, "r", encoding="utf-8") as f:
+            with open(tombstones_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 return set(data.get("disabled_ids", []))
         except Exception:
@@ -345,5 +388,8 @@ class LearningStore:
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         
-        with open(self.index_file, "w", encoding="utf-8") as f:
+        # SPRINT C2.22B: Guardar índice en tenant path (escritura)
+        # Asegurar que el directorio existe antes de escribir
+        ensure_write_dir(self.learning_dir_write)
+        with open(self.index_file_write, "w", encoding="utf-8") as f:
             json.dump(index, f, indent=2, ensure_ascii=False)
