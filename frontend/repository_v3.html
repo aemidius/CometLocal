@@ -674,6 +674,10 @@
                 <span class="nav-item-icon">🔗</span>
                 Coordinación CAE
             </a>
+            <a class="nav-item" data-page="plan_review">
+                <span class="nav-item-icon">📋</span>
+                Revisión Plan (CAE)
+            </a>
         </nav>
     </div>
     
@@ -965,7 +969,7 @@
             viewDbg(`runRoutingNow: hash=${window.location.hash}, route=${route}`);
             
             // Normalizar ruta: si no hay hash o ruta inválida, usar 'inicio'
-            const validRoutes = ['inicio', 'calendario', 'subir', 'buscar', 'plataformas', 'catalogo', 'configuracion', 'actividad', 'coordinacion'];
+            const validRoutes = ['inicio', 'calendario', 'subir', 'buscar', 'plataformas', 'catalogo', 'configuracion', 'actividad', 'coordinacion', 'plan_review'];
             const normalizedRoute = (route && validRoutes.includes(route)) ? route : 'inicio';
             
             // Si la ruta cambió, actualizar hash (sin disparar hashchange si ya es correcto)
@@ -1204,7 +1208,8 @@
                 buscar: 'Buscar documentos',
                 plataformas: 'Plataformas',
                 catalogo: 'Catálogo de documentos',
-                actividad: 'Actividad'
+                actividad: 'Actividad',
+                plan_review: 'Revisión Plan (CAE)'
             };
             
             const descriptions = {
@@ -1214,7 +1219,8 @@
                 buscar: 'Busca documentos en el repositorio',
                 plataformas: 'Estado de configuración de plataformas',
                 catalogo: 'Gestiona tipos de documento',
-                actividad: 'Historial de actividad'
+                actividad: 'Historial de actividad',
+                plan_review: 'Revisa y decide sobre items del plan congelado'
             };
             
             document.getElementById('page-title').textContent = titles[page] || page;
@@ -1323,6 +1329,17 @@
                         console.error('[repo] Error in loadCoordinacion:', error);
                         setViewState('coordinacion', 'error', error.message || String(error));
                         throw error; // Re-throw para que el catch externo lo maneje
+                    }
+                    break;
+                case 'plan_review':
+                    setViewState('plan_review', 'loaded');
+                    try {
+                        await loadPlanReview(params);
+                        setViewState('plan_review', 'ready');
+                    } catch (error) {
+                        console.error('[repo] Error in loadPlanReview:', error);
+                        setViewState('plan_review', 'error', error.message || String(error));
+                        throw error;
                     }
                     break;
                 }
@@ -9827,6 +9844,1884 @@
                 const text = option.textContent.toLowerCase();
                 option.style.display = (filter === '' || text.includes(filter)) ? '' : 'none';
             });
+        }
+        
+        // SPRINT C2.18B.1: Plan Review UI
+        let planReviewState = {
+            planId: null,
+            planData: null,
+            draftDecisions: {}, // item_id -> decision
+            savedPackId: null,
+            debugCache: {}, // item_id -> debug data (para mostrar hints en tabla)
+            selectedItems: new Set(), // item_id -> selected (SPRINT C2.20A)
+            presetsCache: null, // Cache de presets (SPRINT C2.20A)
+        };
+        
+        async function loadPlanReview(params = {}) {
+            const content = document.getElementById('page-content');
+            if (!content) {
+                console.error('[repo] loadPlanReview: page-content not found');
+                return;
+            }
+            
+            // Cargar estado desde localStorage
+            const savedPlanId = localStorage.getItem('plan_review_last_plan_id');
+            const savedDraft = localStorage.getItem(`plan_review_draft_${savedPlanId}`);
+            if (savedDraft) {
+                try {
+                    planReviewState.draftDecisions = JSON.parse(savedDraft);
+                } catch (e) {
+                    console.warn('[repo] Error loading draft decisions:', e);
+                }
+            }
+            
+            // Si hay plan_id en params, cargarlo automáticamente
+            if (params.plan_id) {
+                planReviewState.planId = params.plan_id;
+                await loadPlanData(params.plan_id);
+            }
+            
+            renderPlanReview();
+        }
+        
+        function renderPlanReview() {
+            const content = document.getElementById('page-content');
+            const hasPlan = planReviewState.planData !== null;
+            const decisionsCount = Object.keys(planReviewState.draftDecisions).length;
+            
+            content.innerHTML = `
+                <div class="card" data-testid="plan-review-load">
+                    <h3>Cargar Plan</h3>
+                    <div class="form-group">
+                        <label class="form-label">Plan ID</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input 
+                                type="text" 
+                                id="plan-id-input" 
+                                class="form-input" 
+                                placeholder="plan_abc123..."
+                                value="${planReviewState.planId || ''}"
+                            >
+                            <button class="btn btn-primary" onclick="handleLoadPlan()" data-testid="plan-review-load-btn">
+                                Cargar
+                            </button>
+                        </div>
+                        <p class="form-help">Pega el plan_id de un plan congelado (C2.17).</p>
+                    </div>
+                </div>
+                
+                ${hasPlan ? `
+                    <div class="card" data-testid="plan-review-table">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <h3>Items del Plan</h3>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-secondary" onclick="openExportModal()" data-testid="export-open">
+                                    📦 Exportar CAE
+                                </button>
+                                <button class="btn btn-secondary" onclick="openMetricsPanel()" data-testid="metrics-open">
+                                    📊 Métricas
+                                </button>
+                                <button class="btn btn-secondary" onclick="openPresetsPanel()" data-testid="presets-open">
+                                    📋 Presets
+                                </button>
+                                <button class="btn btn-secondary" onclick="openLearningPanel()" data-testid="learning-open">
+                                    🧠 Learning (Hints)
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Panel de Métricas (SPRINT C2.20B) -->
+                        <div id="metrics-panel" class="card" style="margin-bottom: 16px; display: none;" data-testid="metrics-panel">
+                            <h4>📊 Métricas del Plan</h4>
+                            <div id="metrics-content">
+                                <div class="loading">Cargando métricas...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Barra de acciones batch (sticky) -->
+                        <div id="batch-actions-bar" style="display: none; position: sticky; top: 0; background: #1e293b; padding: 12px; border-radius: 4px; margin-bottom: 16px; z-index: 100; border: 1px solid #334155;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong data-testid="batch-selected-count">0</strong> item(s) seleccionado(s)
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn btn-secondary" onclick="handleBatchAction('SKIP')" data-testid="batch-action-skip">
+                                        Apply SKIP
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="handleBatchAction('FORCE_UPLOAD')" data-testid="batch-action-force">
+                                        Apply FORCE_UPLOAD
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="handleBatchAction('MARK_AS_MATCH')" data-testid="batch-action-mark">
+                                        Apply MARK_AS_MATCH
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="handleBatchApplyPreset()" data-testid="batch-action-preset">
+                                        Apply Preset…
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="clearBatchSelection()">
+                                        Clear selection
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th style="width: 40px;">
+                                            <input 
+                                                type="checkbox" 
+                                                id="batch-select-all" 
+                                                data-testid="batch-select-all"
+                                                onchange="toggleSelectAll()"
+                                            >
+                                        </th>
+                                        <th>Item ID</th>
+                                        <th>Tipo</th>
+                                        <th>Sujeto</th>
+                                        <th>Periodo</th>
+                                        <th>Estado</th>
+                                        <th>Reason</th>
+                                        <th>Hints</th>
+                                        <th>Preset</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="plan-items-tbody">
+                                    ${renderPlanItemsTable()}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="card" data-testid="decision-pack-section">
+                        <h3>Decision Pack</h3>
+                        <p style="color: #94a3b8; margin-bottom: 16px;">
+                            Items decididos: <strong>${decisionsCount}</strong>
+                        </p>
+                        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                            <button 
+                                class="btn btn-primary" 
+                                onclick="handleSaveDecisionPack()" 
+                                data-testid="decision-pack-save"
+                                ${decisionsCount === 0 ? 'disabled' : ''}
+                            >
+                                Guardar Pack
+                            </button>
+                            ${planReviewState.savedPackId ? `
+                                <button 
+                                    class="btn btn-primary" 
+                                    onclick="handleExecutePlan()" 
+                                    data-testid="decision-pack-execute"
+                                >
+                                    Ejecutar con Pack
+                                </button>
+                            ` : ''}
+                        </div>
+                        ${planReviewState.savedPackId ? `
+                            <div class="alert alert-info">
+                                <strong>Pack guardado:</strong> 
+                                <code data-testid="decision-pack-id">${planReviewState.savedPackId}</code>
+                                <br>
+                                <a href="${BACKEND_URL}/api/plans/${planReviewState.planId}/decision_packs/${planReviewState.savedPackId}" target="_blank" style="color: #93c5fd;">
+                                    Ver pack completo
+                                </a>
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : ''}
+                
+                <!-- Modal para ver debug -->
+                <div id="debug-modal" class="modal-overlay" style="display: none;" onclick="closeDebugModal()">
+                    <div class="modal" onclick="event.stopPropagation()" style="max-width: 800px;">
+                        <div class="modal-header">
+                            <h3>Matching Debug</h3>
+                            <button onclick="closeDebugModal()" style="background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                        </div>
+                        <div class="modal-body" id="debug-modal-body">
+                            <div class="loading">Cargando...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Modal para decidir -->
+                <div id="decide-modal" class="modal-overlay" style="display: none;" onclick="closeDecideModal()">
+                    <div class="modal" onclick="event.stopPropagation()" style="max-width: 600px;">
+                        <div class="modal-header">
+                            <h3>Decidir sobre Item</h3>
+                            <button onclick="closeDecideModal()" style="background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                        </div>
+                        <div class="modal-body" id="decide-modal-body">
+                            <!-- Se llena dinámicamente -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Modal para Learning (Hints) -->
+                <div id="learning-modal" class="modal-overlay" style="display: none;" onclick="closeLearningModal()">
+                    <div class="modal" onclick="event.stopPropagation()" style="max-width: 1000px; max-height: 90vh; overflow-y: auto;">
+                        <div class="modal-header">
+                            <h3>🧠 Learning (Hints)</h3>
+                            <button onclick="closeLearningModal()" style="background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                        </div>
+                        <div class="modal-body" id="learning-modal-body">
+                            <div class="loading">Cargando...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Modal para Batch Actions (SPRINT C2.20A) -->
+                <div id="batch-action-modal" class="modal-overlay" style="display: none;" onclick="closeBatchActionModal()">
+                    <div class="modal" onclick="event.stopPropagation()" style="max-width: 600px;">
+                        <div class="modal-header">
+                            <h3 id="batch-action-modal-title">Aplicar Acción en Lote</h3>
+                            <button onclick="closeBatchActionModal()" style="background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                        </div>
+                        <div class="modal-body" id="batch-action-modal-body">
+                            <!-- Se llena dinámicamente -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Modal para Presets Manager (SPRINT C2.20A) -->
+                <div id="presets-modal" class="modal-overlay" style="display: none;" onclick="closePresetsModal()">
+                    <div class="modal" onclick="event.stopPropagation()" style="max-width: 1000px; max-height: 90vh; overflow-y: auto;">
+                        <div class="modal-header">
+                            <h3>📋 Presets Manager</h3>
+                            <button onclick="closePresetsModal()" style="background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                        </div>
+                        <div class="modal-body" id="presets-modal-body">
+                            <div class="loading">Cargando...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Modal para Export CAE (SPRINT C2.21) -->
+                <div id="export-modal" class="modal-overlay" style="display: none;" onclick="closeExportModal()">
+                    <div class="modal" onclick="event.stopPropagation()" style="max-width: 600px;">
+                        <div class="modal-header">
+                            <h3>📦 Exportar CAE</h3>
+                            <button onclick="closeExportModal()" style="background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                        </div>
+                        <div class="modal-body" id="export-modal-body">
+                            <div class="form-group">
+                                <label class="form-label">Company Key</label>
+                                <input 
+                                    type="text" 
+                                    id="export-company-key" 
+                                    class="form-input" 
+                                    placeholder="COMPANY123"
+                                    required
+                                >
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Periodo</label>
+                                <select id="export-period" class="form-input" required>
+                                    <option value="">Seleccionar...</option>
+                                    <option value="2025">2025 (Año completo)</option>
+                                    <option value="2025-01">2025-01 (Enero)</option>
+                                    <option value="2025-02">2025-02 (Febrero)</option>
+                                    <option value="2025-03">2025-03 (Marzo)</option>
+                                    <option value="2025-04">2025-04 (Abril)</option>
+                                    <option value="2025-05">2025-05 (Mayo)</option>
+                                    <option value="2025-06">2025-06 (Junio)</option>
+                                    <option value="2025-07">2025-07 (Julio)</option>
+                                    <option value="2025-08">2025-08 (Agosto)</option>
+                                    <option value="2025-09">2025-09 (Septiembre)</option>
+                                    <option value="2025-10">2025-10 (Octubre)</option>
+                                    <option value="2025-11">2025-11 (Noviembre)</option>
+                                    <option value="2025-12">2025-12 (Diciembre)</option>
+                                </select>
+                                <p class="form-help">Selecciona el periodo a exportar (YYYY o YYYY-MM)</p>
+                            </div>
+                            <div id="export-status" style="margin-top: 16px;"></div>
+                            <div style="display: flex; gap: 8px; margin-top: 24px;">
+                                <button class="btn btn-primary" onclick="handleExportCAE()" data-testid="export-submit">
+                                    Exportar
+                                </button>
+                                <button class="btn btn-secondary" onclick="closeExportModal()">
+                                    Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // SPRINT C2.20B: Métricas Panel
+        async function openMetricsPanel() {
+            const panel = document.getElementById('metrics-panel');
+            const content = document.getElementById('metrics-content');
+            
+            if (!panel || !content) return;
+            
+            panel.style.display = 'block';
+            content.innerHTML = '<div class="loading">Cargando métricas...</div>';
+            
+            if (!planReviewState.planId) {
+                content.innerHTML = '<div class="alert alert-warning">No hay plan cargado</div>';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/runs/${planReviewState.planId}/metrics`);
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        content.innerHTML = '<div class="alert alert-info">No hay métricas disponibles para este plan aún.</div>';
+                        return;
+                    }
+                    throw new Error(`Error: ${response.statusText}`);
+                }
+                
+                const metrics = await response.json();
+                renderMetrics(metrics, content);
+            } catch (error) {
+                content.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        function renderMetrics(metrics, container) {
+            const totalItems = metrics.total_items || 0;
+            const decisionsCount = metrics.decisions_count || {};
+            const sourceBreakdown = metrics.source_breakdown || {};
+            
+            const autoUpload = decisionsCount.AUTO_UPLOAD || 0;
+            const reviewRequired = decisionsCount.REVIEW_REQUIRED || 0;
+            const noMatch = decisionsCount.NO_MATCH || 0;
+            const skip = decisionsCount.SKIP || 0;
+            
+            const autoMatching = sourceBreakdown.auto_matching || 0;
+            const learningResolved = sourceBreakdown.learning_hint_resolved || 0;
+            const presetApplied = sourceBreakdown.preset_applied || 0;
+            const manualSingle = sourceBreakdown.manual_single || 0;
+            const manualBatch = sourceBreakdown.manual_batch || 0;
+            
+            // Calcular porcentajes
+            const totalDecisions = autoUpload + reviewRequired + noMatch + skip;
+            const autoPercent = totalDecisions > 0 ? ((autoUpload / totalDecisions) * 100).toFixed(1) : 0;
+            const manualPercent = totalDecisions > 0 ? (((manualSingle + manualBatch) / totalDecisions) * 100).toFixed(1) : 0;
+            const learningPercent = totalDecisions > 0 ? ((learningResolved / totalDecisions) * 100).toFixed(1) : 0;
+            const presetPercent = totalDecisions > 0 ? ((presetApplied / totalDecisions) * 100).toFixed(1) : 0;
+            
+            // Calcular esfuerzo humano evitado
+            const humanEffortAvoided = totalDecisions > 0 ? ((autoUpload / totalDecisions) * 100).toFixed(1) : 0;
+            
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                    <div class="card" style="padding: 16px;">
+                        <h5 style="margin-bottom: 12px;">Distribución de Decisiones</h5>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>AUTO_UPLOAD:</span>
+                                <strong>${autoUpload}</strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>REVIEW_REQUIRED:</span>
+                                <strong>${reviewRequired}</strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>NO_MATCH:</span>
+                                <strong>${noMatch}</strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>SKIP:</span>
+                                <strong>${skip}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card" style="padding: 16px;">
+                        <h5 style="margin-bottom: 12px;">Origen de Decisiones</h5>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Auto Matching:</span>
+                                <strong>${autoMatching}</strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Learning Hints:</span>
+                                <strong>${learningResolved}</strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Presets:</span>
+                                <strong>${presetApplied}</strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Manual (Single):</span>
+                                <strong>${manualSingle}</strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Manual (Batch):</span>
+                                <strong>${manualBatch}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card" style="margin-top: 16px; padding: 16px; background: #1e3a8a; border: 1px solid #3b82f6;">
+                    <h5 style="margin-bottom: 12px; color: #60a5fa;">💡 Valor Generado</h5>
+                    <div style="font-size: 1.1rem; line-height: 1.6;">
+                        <p style="margin-bottom: 8px;">
+                            <strong>Total items:</strong> ${totalItems}
+                        </p>
+                        <p style="margin-bottom: 8px;">
+                            <strong>Esfuerzo humano evitado:</strong> ${humanEffortAvoided}% (${autoUpload} de ${totalDecisions} items resueltos automáticamente)
+                        </p>
+                        ${learningResolved > 0 ? `
+                            <p style="margin-bottom: 8px;">
+                                <span class="badge badge-info">Learning</span> Resueltos por hints: ${learningResolved} (${learningPercent}%)
+                            </p>
+                        ` : ''}
+                        ${presetApplied > 0 ? `
+                            <p style="margin-bottom: 8px;">
+                                <span class="badge badge-info">Presets</span> Aplicados: ${presetApplied} (${presetPercent}%)
+                            </p>
+                        ` : ''}
+                        <p style="margin-top: 12px; font-size: 0.95rem; color: #93c5fd;">
+                            ${humanEffortAvoided >= 50 ? 
+                                `✅ Este plan ha evitado revisión manual en ${humanEffortAvoided}% de los items.` :
+                                humanEffortAvoided > 0 ?
+                                `⚠️ Este plan requiere revisión manual en ${(100 - humanEffortAvoided).toFixed(1)}% de los items.` :
+                                '⚠️ Todos los items requieren revisión manual.'
+                            }
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // SPRINT C2.21: Export CAE
+        function openExportModal() {
+            const modal = document.getElementById('export-modal');
+            if (!modal) return;
+            
+            modal.style.display = 'flex';
+            
+            // Prefill company_key desde plan si está disponible
+            const companyKeyInput = document.getElementById('export-company-key');
+            if (planReviewState.planData && planReviewState.planData.items && planReviewState.planData.items.length > 0) {
+                const firstItem = planReviewState.planData.items[0];
+                if (firstItem.empresa) {
+                    companyKeyInput.value = firstItem.empresa;
+                }
+            }
+            
+            // Limpiar status
+            document.getElementById('export-status').innerHTML = '';
+        }
+        
+        function closeExportModal() {
+            document.getElementById('export-modal').style.display = 'none';
+        }
+        
+        async function handleExportCAE() {
+            const companyKey = document.getElementById('export-company-key').value.trim();
+            const period = document.getElementById('export-period').value.trim();
+            const statusDiv = document.getElementById('export-status');
+            
+            if (!companyKey || !period) {
+                statusDiv.innerHTML = '<div class="alert alert-error">Por favor completa todos los campos</div>';
+                return;
+            }
+            
+            statusDiv.innerHTML = '<div class="loading">Generando export...</div>';
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/export/cae`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        company_key: companyKey,
+                        period: period,
+                    }),
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || `Error: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                statusDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>✅ Export generado exitosamente</strong>
+                        <p>Export ID: ${result.export_id}</p>
+                        <p style="margin-top: 8px;">
+                            <a href="${BACKEND_URL}${result.download_url}" class="btn btn-primary" download="${result.filename}" data-testid="export-download">
+                                📥 Descargar ZIP
+                            </a>
+                        </p>
+                    </div>
+                `;
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        function renderPlanItemsTable() {
+            if (!planReviewState.planData || !planReviewState.planData.items) {
+                return '<tr><td colspan="10" style="text-align: center; color: #94a3b8;">No hay items</td></tr>';
+            }
+            
+            // Cargar presets si no están en cache
+            if (!planReviewState.presetsCache) {
+                loadPresetsCache();
+            }
+            
+            return planReviewState.planData.items.map(item => {
+                const decision = planReviewState.draftDecisions[item.item_id];
+                const hasDecision = decision !== undefined;
+                const decisionBadge = hasDecision ? `<span class="badge badge-info">${decision.action}</span>` : '';
+                
+                // Obtener hints aplicados si están en el estado
+                const debugData = planReviewState.debugCache && planReviewState.debugCache[item.item_id];
+                const appliedHints = debugData?.outcome?.applied_hints || [];
+                const hintsCount = appliedHints.length;
+                const hintsDisplay = hintsCount > 0 
+                    ? `<span class="badge badge-info" title="${appliedHints.map(h => `${h.effect} (${h.strength})`).join(', ')}">${hintsCount} hint(s)</span>`
+                    : '<span style="color: #94a3b8; font-size: 0.75rem;" title="Abrir debug para ver hints">—</span>';
+                
+                // Verificar si hay preset aplicable
+                const applicablePreset = findApplicablePreset(item);
+                const presetDisplay = applicablePreset
+                    ? `<span class="badge badge-info" title="Preset disponible: ${applicablePreset.name}">Preset</span>`
+                    : '<span style="color: #94a3b8; font-size: 0.75rem;">—</span>';
+                
+                const isSelected = planReviewState.selectedItems.has(item.item_id);
+                
+                return `
+                    <tr data-testid="plan-item-row-${item.item_id}">
+                        <td>
+                            <input 
+                                type="checkbox" 
+                                class="batch-item-checkbox"
+                                data-item-id="${item.item_id}"
+                                ${isSelected ? 'checked' : ''}
+                                onchange="toggleItemSelection('${item.item_id}')"
+                            >
+                        </td>
+                        <td><code>${item.item_id || 'N/A'}</code></td>
+                        <td>${item.tipo_doc || 'N/A'}</td>
+                        <td>${item.empresa || ''} / ${item.elemento || ''}</td>
+                        <td>${item.periodo || 'N/A'}</td>
+                        <td>
+                            ${getDecisionBadge(item.decision)}
+                            ${decisionBadge}
+                        </td>
+                        <td>
+                            ${item.reason_code ? `<span class="badge badge-falta">${item.reason_code}</span>` : ''}
+                            ${item.reason ? `<div style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">${item.reason}</div>` : ''}
+                        </td>
+                        <td>${hintsDisplay}</td>
+                        <td>${presetDisplay}</td>
+                        <td>
+                            <button class="btn btn-secondary" onclick="handleViewDebug('${item.item_id}')" data-testid="plan-item-debug-${item.item_id}">
+                                Ver debug
+                            </button>
+                            <button class="btn btn-primary" onclick="handleDecide('${item.item_id}')" data-testid="plan-item-decide-${item.item_id}">
+                                ${hasDecision ? 'Editar' : 'Decidir'}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // SPRINT C2.20A: Batch selection functions
+        function toggleItemSelection(itemId) {
+            if (planReviewState.selectedItems.has(itemId)) {
+                planReviewState.selectedItems.delete(itemId);
+            } else {
+                planReviewState.selectedItems.add(itemId);
+            }
+            updateBatchActionsBar();
+        }
+        
+        function toggleSelectAll() {
+            const checkbox = document.getElementById('batch-select-all');
+            const checkboxes = document.querySelectorAll('.batch-item-checkbox');
+            
+            checkboxes.forEach(cb => {
+                const itemId = cb.getAttribute('data-item-id');
+                if (checkbox.checked) {
+                    planReviewState.selectedItems.add(itemId);
+                    cb.checked = true;
+                } else {
+                    planReviewState.selectedItems.delete(itemId);
+                    cb.checked = false;
+                }
+            });
+            
+            updateBatchActionsBar();
+        }
+        
+        function clearBatchSelection() {
+            planReviewState.selectedItems.clear();
+            document.querySelectorAll('.batch-item-checkbox').forEach(cb => cb.checked = false);
+            document.getElementById('batch-select-all').checked = false;
+            updateBatchActionsBar();
+        }
+        
+        function updateBatchActionsBar() {
+            const count = planReviewState.selectedItems.size;
+            const bar = document.getElementById('batch-actions-bar');
+            const countEl = document.querySelector('[data-testid="batch-selected-count"]');
+            
+            if (countEl) {
+                countEl.textContent = count;
+            }
+            
+            if (bar) {
+                bar.style.display = count > 0 ? 'block' : 'none';
+            }
+        }
+        
+        // SPRINT C2.20A: Presets functions
+        async function loadPresetsCache() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/presets/decision_presets?include_disabled=false`);
+                if (response.ok) {
+                    const data = await response.json();
+                    planReviewState.presetsCache = data.presets || [];
+                }
+            } catch (e) {
+                console.warn('[repo] Error loading presets cache:', e);
+                planReviewState.presetsCache = [];
+            }
+        }
+        
+        function findApplicablePreset(item) {
+            if (!planReviewState.presetsCache) return null;
+            
+            for (const preset of planReviewState.presetsCache) {
+                if (!preset.is_enabled) continue;
+                
+                // Verificar scope
+                if (preset.scope.type_id !== item.type_id) continue;
+                if (preset.scope.subject_key && preset.scope.subject_key !== item.empresa) continue;
+                if (preset.scope.period_key && preset.scope.period_key !== item.periodo) continue;
+                
+                return preset;
+            }
+            
+            return null;
+        }
+        
+        function getDecisionBadge(decision) {
+            const badges = {
+                'AUTO_UPLOAD': '<span class="badge badge-ok">AUTO_UPLOAD</span>',
+                'REVIEW_REQUIRED': '<span class="badge badge-falta">REVIEW_REQUIRED</span>',
+                'NO_MATCH': '<span class="badge badge-tarde">NO_MATCH</span>',
+                'SKIPPED': '<span class="badge badge-info">SKIPPED</span>',
+            };
+            return badges[decision] || `<span class="badge">${decision || 'UNKNOWN'}</span>`;
+        }
+        
+        async function handleLoadPlan() {
+            const input = document.getElementById('plan-id-input');
+            const planId = input.value.trim();
+            if (!planId) {
+                alert('Por favor ingresa un plan_id');
+                return;
+            }
+            
+            await loadPlanData(planId);
+        }
+        
+        async function loadPlanData(planId) {
+            const content = document.getElementById('page-content');
+            content.innerHTML = '<div class="loading">Cargando plan...</div>';
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/plans/${planId}`);
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        throw new Error(`Plan ${planId} no encontrado`);
+                    }
+                    throw new Error(`Error al cargar plan: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                planReviewState.planId = planId;
+                planReviewState.planData = data;
+                
+                // Cargar draft desde localStorage
+                const savedDraft = localStorage.getItem(`plan_review_draft_${planId}`);
+                if (savedDraft) {
+                    try {
+                        planReviewState.draftDecisions = JSON.parse(savedDraft);
+                    } catch (e) {
+                        console.warn('[repo] Error loading draft:', e);
+                    }
+                }
+                
+                // Guardar plan_id en localStorage
+                localStorage.setItem('plan_review_last_plan_id', planId);
+                
+                renderPlanReview();
+            } catch (error) {
+                content.innerHTML = `
+                    <div class="alert alert-error">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                    <button class="btn btn-secondary" onclick="renderPlanReview()">Volver</button>
+                `;
+            }
+        }
+        
+        async function handleViewDebug(itemId) {
+            const modal = document.getElementById('debug-modal');
+            const modalBody = document.getElementById('debug-modal-body');
+            modal.style.display = 'flex';
+            modalBody.innerHTML = '<div class="loading">Cargando debug...</div>';
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/runs/${planReviewState.planId}/matching_debug/${itemId}`);
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        modalBody.innerHTML = '<div class="alert alert-warning">No hay debug generado para este item.</div>';
+                        return;
+                    }
+                    throw new Error(`Error: ${response.statusText}`);
+                }
+                
+                const debug = await response.json();
+                // Guardar en cache para mostrar hints en tabla
+                if (!planReviewState.debugCache) {
+                    planReviewState.debugCache = {};
+                }
+                planReviewState.debugCache[itemId] = debug;
+                modalBody.innerHTML = renderDebugContent(debug);
+            } catch (error) {
+                modalBody.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        function renderDebugContent(debug) {
+            const outcome = debug.outcome || {};
+            const pipeline = debug.pipeline || [];
+            const candidates = debug.candidates_top || [];
+            
+            return `
+                <div>
+                    <h4>Outcome</h4>
+                    <div class="alert ${outcome.primary_reason_code === 'REPO_EMPTY' ? 'alert-error' : 'alert-info'}">
+                        <strong>Decision:</strong> ${outcome.decision || 'N/A'}<br>
+                        <strong>Reason Code:</strong> ${outcome.primary_reason_code || 'N/A'}<br>
+                        <strong>Hint:</strong> ${outcome.human_hint || 'N/A'}
+                    </div>
+                    
+                    <h4 style="margin-top: 24px;">Pipeline Steps</h4>
+                    <table style="margin-top: 12px;">
+                        <thead>
+                            <tr>
+                                <th>Step</th>
+                                <th>Input</th>
+                                <th>Output</th>
+                                <th>Rule</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${pipeline.map(step => `
+                                <tr>
+                                    <td>${step.step_name}</td>
+                                    <td>${step.input_count}</td>
+                                    <td>${step.output_count}</td>
+                                    <td><code style="font-size: 0.75rem;">${step.rule || 'N/A'}</code></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    
+                    ${candidates.length > 0 ? `
+                        <h4 style="margin-top: 24px;">Top Candidates</h4>
+                        <table style="margin-top: 12px;">
+                            <thead>
+                                <tr>
+                                    <th>Doc ID</th>
+                                    <th>Type</th>
+                                    <th>Score</th>
+                                    <th>Reject Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${candidates.map(c => `
+                                    <tr>
+                                        <td><code>${c.doc_id}</code></td>
+                                        <td>${c.type_id}</td>
+                                        <td>${c.score_breakdown ? JSON.stringify(c.score_breakdown) : 'N/A'}</td>
+                                        <td>${c.reject_reason || 'N/A'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    ` : ''}
+                    
+                    ${outcome.applied_hints && outcome.applied_hints.length > 0 ? `
+                        <div data-testid="debug-hints-section" style="margin-top: 24px;">
+                            <h4>Learning Hints Aplicados</h4>
+                            <p style="color: #94a3b8; font-size: 0.875rem; margin-bottom: 12px;">
+                                ${outcome.applied_hints.length} hint(s) aplicado(s) durante el matching
+                            </p>
+                            <table style="margin-top: 12px;">
+                                <thead>
+                                    <tr>
+                                        <th>Hint ID</th>
+                                        <th>Strength</th>
+                                        <th>Effect</th>
+                                        <th>Reason</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${outcome.applied_hints.map((hint, idx) => {
+                                        const effectBadge = hint.effect === 'resolved' 
+                                            ? '<span class="badge badge-ok">resolved</span>'
+                                            : hint.effect === 'boosted'
+                                            ? '<span class="badge badge-info">boosted</span>'
+                                            : '<span class="badge badge-tarde">ignored</span>';
+                                        const strengthBadge = hint.strength === 'EXACT'
+                                            ? '<span class="badge badge-ok">EXACT</span>'
+                                            : '<span class="badge badge-info">SOFT</span>';
+                                        return `
+                                            <tr data-testid="debug-hint-row-${hint.hint_id}">
+                                                <td>
+                                                    <code style="font-size: 0.75rem; cursor: pointer; color: #3b82f6;" 
+                                                          onclick="openLearningPanel('${hint.hint_id}')" 
+                                                          title="Ver detalles del hint">
+                                                        ${hint.hint_id}
+                                                    </code>
+                                                </td>
+                                                <td>${strengthBadge}</td>
+                                                <td>${effectBadge}</td>
+                                                <td style="font-size: 0.875rem; color: #94a3b8;">${hint.reason || 'N/A'}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+        
+        function closeDebugModal() {
+            document.getElementById('debug-modal').style.display = 'none';
+        }
+        
+        async function handleDecide(itemId) {
+            const modal = document.getElementById('decide-modal');
+            const modalBody = document.getElementById('decide-modal-body');
+            modal.style.display = 'flex';
+            
+            // Cargar debug para obtener candidates si existe
+            let debugData = null;
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/runs/${planReviewState.planId}/matching_debug/${itemId}`);
+                if (response.ok) {
+                    debugData = await response.json();
+                }
+            } catch (e) {
+                console.warn('[repo] Error loading debug for decide:', e);
+            }
+            
+            const existingDecision = planReviewState.draftDecisions[itemId];
+            
+            modalBody.innerHTML = `
+                <div class="form-group">
+                    <label class="form-label">Acción</label>
+                    <select id="decision-action-select" class="form-input" data-testid="decision-action-select" onchange="updateDecideForm()">
+                        <option value="">Selecciona...</option>
+                        <option value="MARK_AS_MATCH" ${existingDecision?.action === 'MARK_AS_MATCH' ? 'selected' : ''}>MARK_AS_MATCH</option>
+                        <option value="FORCE_UPLOAD" ${existingDecision?.action === 'FORCE_UPLOAD' ? 'selected' : ''}>FORCE_UPLOAD</option>
+                        <option value="SKIP" ${existingDecision?.action === 'SKIP' ? 'selected' : ''}>SKIP</option>
+                    </select>
+                </div>
+                
+                <div id="decide-form-content">
+                    <!-- Se llena dinámicamente según acción -->
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Razón / Notas</label>
+                    <textarea 
+                        id="decision-reason-input" 
+                        class="form-input" 
+                        rows="3" 
+                        data-testid="decision-reason-input"
+                        placeholder="Explica la razón de esta decisión..."
+                    >${existingDecision?.reason || ''}</textarea>
+                </div>
+                
+                <div style="display: flex; gap: 8px; margin-top: 24px;">
+                    <button class="btn btn-primary" onclick="saveItemDecision('${itemId}')" data-testid="decision-save-item">
+                        Guardar Decisión
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeDecideModal()">
+                        Cancelar
+                    </button>
+                </div>
+            `;
+            
+            // Inicializar formulario
+            updateDecideForm(debugData, existingDecision);
+        }
+        
+        function updateDecideForm(debugData = null, existingDecision = null) {
+            const actionSelect = document.getElementById('decision-action-select');
+            const contentDiv = document.getElementById('decide-form-content');
+            const action = actionSelect.value;
+            
+            if (!action) {
+                contentDiv.innerHTML = '';
+                return;
+            }
+            
+            if (action === 'MARK_AS_MATCH') {
+                const candidates = debugData?.candidates_top || [];
+                const candidatesHtml = candidates.length > 0 
+                    ? candidates.map(c => `
+                        <label style="display: flex; align-items: center; padding: 8px; background: #1e293b; border-radius: 4px; margin-bottom: 8px; cursor: pointer;">
+                            <input 
+                                type="radio" 
+                                name="chosen-doc-id" 
+                                value="${c.doc_id}" 
+                                style="margin-right: 8px;"
+                                ${existingDecision?.chosen_local_doc_id === c.doc_id ? 'checked' : ''}
+                            >
+                            <div>
+                                <strong>${c.doc_id}</strong> - ${c.type_id}<br>
+                                <small style="color: #94a3b8;">${c.file_path || 'N/A'}</small>
+                            </div>
+                        </label>
+                    `).join('')
+                    : '<p style="color: #94a3b8; font-size: 0.875rem;">No hay candidates disponibles en el debug.</p>';
+                
+                contentDiv.innerHTML = `
+                    <div class="form-group">
+                        <label class="form-label">Documento Local</label>
+                        ${candidatesHtml}
+                        <div style="margin-top: 12px;">
+                            <label class="form-label">O pegar doc_id manualmente:</label>
+                            <input 
+                                type="text" 
+                                id="decision-docid-input" 
+                                class="form-input" 
+                                data-testid="decision-docid-input"
+                                placeholder="doc_abc123..."
+                                value="${existingDecision?.chosen_local_doc_id || ''}"
+                            >
+                        </div>
+                    </div>
+                `;
+            } else if (action === 'FORCE_UPLOAD') {
+                contentDiv.innerHTML = `
+                    <div class="form-group">
+                        <label class="form-label">Ruta del Archivo</label>
+                        <input 
+                            type="text" 
+                            id="decision-filepath-input" 
+                            class="form-input" 
+                            data-testid="decision-filepath-input"
+                            placeholder="Dentro de repository_root_dir/data_dir"
+                            value="${existingDecision?.chosen_file_path || ''}"
+                        >
+                        <p class="form-help">Debe estar dentro del repositorio; el servidor valida.</p>
+                    </div>
+                `;
+            } else if (action === 'SKIP') {
+                contentDiv.innerHTML = `
+                    <div class="alert alert-warning">
+                        Esta acción marcará el item como DO_NOT_UPLOAD.
+                    </div>
+                `;
+            }
+        }
+        
+        function saveItemDecision(itemId) {
+            const actionSelect = document.getElementById('decision-action-select');
+            const reasonInput = document.getElementById('decision-reason-input');
+            const action = actionSelect.value;
+            const reason = reasonInput.value.trim();
+            
+            if (!action) {
+                alert('Por favor selecciona una acción');
+                return;
+            }
+            
+            if (!reason) {
+                alert('Por favor ingresa una razón');
+                return;
+            }
+            
+            const decision = {
+                item_id: itemId,
+                action: action,
+                reason: reason,
+            };
+            
+            if (action === 'MARK_AS_MATCH') {
+                const docIdRadio = document.querySelector('input[name="chosen-doc-id"]:checked');
+                const docIdInput = document.getElementById('decision-docid-input');
+                const chosenDocId = docIdRadio ? docIdRadio.value : (docIdInput ? docIdInput.value.trim() : '');
+                
+                if (!chosenDocId) {
+                    alert('Por favor selecciona o ingresa un doc_id');
+                    return;
+                }
+                
+                decision.chosen_local_doc_id = chosenDocId;
+            } else if (action === 'FORCE_UPLOAD') {
+                const filePathInput = document.getElementById('decision-filepath-input');
+                const chosenFilePath = filePathInput ? filePathInput.value.trim() : '';
+                
+                if (!chosenFilePath) {
+                    alert('Por favor ingresa una ruta de archivo');
+                    return;
+                }
+                
+                decision.chosen_file_path = chosenFilePath;
+            }
+            
+            planReviewState.draftDecisions[itemId] = decision;
+            
+            // Guardar en localStorage
+            localStorage.setItem(`plan_review_draft_${planReviewState.planId}`, JSON.stringify(planReviewState.draftDecisions));
+            
+            closeDecideModal();
+            renderPlanReview();
+        }
+        
+        function closeDecideModal() {
+            document.getElementById('decide-modal').style.display = 'none';
+        }
+        
+        // SPRINT C2.19A.1: Learning Panel
+        async function openLearningPanel(hintIdToFocus = null) {
+            const modal = document.getElementById('learning-modal');
+            const modalBody = document.getElementById('learning-modal-body');
+            modal.style.display = 'flex';
+            
+            // Cargar filtros guardados
+            const savedFilters = localStorage.getItem('learning_last_filters');
+            const filters = savedFilters ? JSON.parse(savedFilters) : { type_id: '', subject_key: '', period_key: '' };
+            
+            modalBody.innerHTML = renderLearningPanel(filters, hintIdToFocus);
+            
+            // Si hay hintIdToFocus, buscar y resaltar
+            if (hintIdToFocus) {
+                await loadLearningHints(filters, hintIdToFocus);
+            } else {
+                await loadLearningHints(filters);
+            }
+        }
+        
+        function renderLearningPanel(filters, hintIdToFocus = null) {
+            return `
+                <div>
+                    <div class="card" style="margin-bottom: 16px;">
+                        <h4>Filtros</h4>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px;">
+                            <div class="form-group">
+                                <label class="form-label">Type ID</label>
+                                <input 
+                                    type="text" 
+                                    id="learning-filter-type" 
+                                    class="form-input" 
+                                    data-testid="learning-filter-type"
+                                    placeholder="T104_AUTONOMOS_RECEIPT"
+                                    value="${filters.type_id || ''}"
+                                >
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Subject Key</label>
+                                <input 
+                                    type="text" 
+                                    id="learning-filter-subject" 
+                                    class="form-input" 
+                                    data-testid="learning-filter-subject"
+                                    placeholder="COMPANY123"
+                                    value="${filters.subject_key || ''}"
+                                >
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Period Key</label>
+                                <input 
+                                    type="text" 
+                                    id="learning-filter-period" 
+                                    class="form-input" 
+                                    data-testid="learning-filter-period"
+                                    placeholder="2025-01"
+                                    value="${filters.period_key || ''}"
+                                >
+                            </div>
+                        </div>
+                        <button 
+                            class="btn btn-primary" 
+                            onclick="loadLearningHints()" 
+                            data-testid="learning-search"
+                        >
+                            Buscar
+                        </button>
+                    </div>
+                    
+                    <div id="learning-results" data-testid="learning-table">
+                        <div class="loading">Cargando hints...</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        async function loadLearningHints(filters = null, hintIdToFocus = null) {
+            const resultsDiv = document.getElementById('learning-results');
+            if (!resultsDiv) return;
+            
+            // Obtener filtros del formulario si no se proporcionan
+            if (!filters) {
+                filters = {
+                    type_id: document.getElementById('learning-filter-type')?.value || '',
+                    subject_key: document.getElementById('learning-filter-subject')?.value || '',
+                    period_key: document.getElementById('learning-filter-period')?.value || '',
+                };
+            }
+            
+            // Guardar filtros
+            localStorage.setItem('learning_last_filters', JSON.stringify(filters));
+            
+            resultsDiv.innerHTML = '<div class="loading">Buscando hints...</div>';
+            
+            try {
+                const params = new URLSearchParams();
+                if (filters.type_id) params.append('type_id', filters.type_id);
+                if (filters.subject_key) params.append('subject_key', filters.subject_key);
+                if (filters.period_key) params.append('period_key', filters.period_key);
+                params.append('include_disabled', 'true');
+                params.append('limit', '200');
+                
+                const response = await fetch(`${BACKEND_URL}/api/learning/hints?${params}`);
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                const hints = data.hints || [];
+                
+                if (hints.length === 0) {
+                    resultsDiv.innerHTML = '<div class="alert alert-info">No se encontraron hints con estos filtros.</div>';
+                    return;
+                }
+                
+                resultsDiv.innerHTML = `
+                    <div class="card">
+                        <h4>Resultados (${data.total} total, ${data.returned} mostrados)</h4>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Hint ID</th>
+                                        <th>Strength</th>
+                                        <th>Type ID</th>
+                                        <th>Subject</th>
+                                        <th>Period</th>
+                                        <th>Local Doc ID</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${hints.map(hint => {
+                                        const isDisabled = hint.disabled || false;
+                                        const isFocused = hintIdToFocus && hint.hint_id === hintIdToFocus;
+                                        const rowStyle = isFocused ? 'background: #1e3a8a;' : '';
+                                        const strengthBadge = hint.strength === 'EXACT'
+                                            ? '<span class="badge badge-ok">EXACT</span>'
+                                            : '<span class="badge badge-info">SOFT</span>';
+                                        const disabledBadge = isDisabled
+                                            ? '<span class="badge badge-tarde">Disabled</span>'
+                                            : '<span class="badge badge-ok">Active</span>';
+                                        
+                                        return `
+                                            <tr style="${rowStyle}" data-hint-id="${hint.hint_id}">
+                                                <td>
+                                                    <code style="font-size: 0.75rem;">${hint.hint_id}</code>
+                                                    <button 
+                                                        onclick="copyToClipboard('${hint.hint_id}')" 
+                                                        style="margin-left: 4px; padding: 2px 6px; font-size: 0.7rem;"
+                                                        title="Copiar hint_id"
+                                                    >
+                                                        📋
+                                                    </button>
+                                                </td>
+                                                <td>${strengthBadge}</td>
+                                                <td><code>${hint.learned_mapping?.type_id_expected || 'N/A'}</code></td>
+                                                <td>${hint.conditions?.subject_key || 'N/A'}</td>
+                                                <td>${hint.conditions?.period_key || 'N/A'}</td>
+                                                <td><code>${hint.learned_mapping?.local_doc_id || 'N/A'}</code></td>
+                                                <td>${disabledBadge}</td>
+                                                <td>
+                                                    ${!isDisabled ? `
+                                                        <button 
+                                                            class="btn btn-secondary" 
+                                                            onclick="handleDisableHint('${hint.hint_id}')"
+                                                            data-testid="learning-disable-${hint.hint_id}"
+                                                        >
+                                                            Disable
+                                                        </button>
+                                                    ` : '<span style="color: #94a3b8;">Ya desactivado</span>'}
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                // Scroll a hint si está enfocado
+                if (hintIdToFocus) {
+                    const focusedRow = document.querySelector(`tr[data-hint-id="${hintIdToFocus}"]`);
+                    if (focusedRow) {
+                        focusedRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function handleDisableHint(hintId) {
+            const reason = prompt('Razón para desactivar (opcional):');
+            if (reason === null) return; // Usuario canceló
+            
+            if (!confirm(`¿Desactivar hint ${hintId}?`)) {
+                return;
+            }
+            
+            try {
+                const body = reason ? { reason } : {};
+                const response = await fetch(`${BACKEND_URL}/api/learning/hints/${hintId}/disable`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || `Error: ${response.statusText}`);
+                }
+                
+                // Recargar lista
+                await loadLearningHints();
+                alert('Hint desactivado correctamente');
+            } catch (error) {
+                alert(`Error al desactivar hint: ${error.message}`);
+            }
+        }
+        
+        function closeLearningModal() {
+            document.getElementById('learning-modal').style.display = 'none';
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert(`Copiado: ${text}`);
+            }).catch(err => {
+                console.error('Error copying:', err);
+            });
+        }
+        
+        // SPRINT C2.20A: Batch Actions
+        function handleBatchAction(action) {
+            const selectedCount = planReviewState.selectedItems.size;
+            if (selectedCount === 0) {
+                alert('No hay items seleccionados');
+                return;
+            }
+            
+            const modal = document.getElementById('batch-action-modal');
+            const modalBody = document.getElementById('batch-action-modal-body');
+            const modalTitle = document.getElementById('batch-action-modal-title');
+            
+            modal.style.display = 'flex';
+            modalTitle.textContent = `Aplicar ${action} a ${selectedCount} item(s)`;
+            
+            let formHtml = '';
+            
+            if (action === 'SKIP') {
+                formHtml = `
+                    <div class="form-group">
+                        <label class="form-label">Razón (requerido)</label>
+                        <textarea 
+                            id="batch-reason-input" 
+                            class="form-input" 
+                            rows="3" 
+                            placeholder="Razón para saltar estos items..."
+                            required
+                        ></textarea>
+                    </div>
+                `;
+            } else if (action === 'FORCE_UPLOAD') {
+                formHtml = `
+                    <div class="form-group">
+                        <label class="form-label">Ruta del Archivo (requerido)</label>
+                        <input 
+                            type="text" 
+                            id="batch-filepath-input" 
+                            class="form-input" 
+                            placeholder="Ruta relativa o absoluta del archivo..."
+                            required
+                        >
+                        <p class="form-help">Debe estar dentro del repositorio; el servidor valida.</p>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Razón (opcional)</label>
+                        <textarea 
+                            id="batch-reason-input" 
+                            class="form-input" 
+                            rows="2" 
+                            placeholder="Razón opcional..."
+                        ></textarea>
+                    </div>
+                `;
+            } else if (action === 'MARK_AS_MATCH') {
+                formHtml = `
+                    <div class="form-group">
+                        <label class="form-label">Local Doc ID (requerido)</label>
+                        <input 
+                            type="text" 
+                            id="batch-docid-input" 
+                            class="form-input" 
+                            placeholder="doc_abc123..."
+                            required
+                        >
+                        <p class="form-help">ID del documento local a vincular. Debe ser el mismo para todos los items seleccionados.</p>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Razón (opcional)</label>
+                        <textarea 
+                            id="batch-reason-input" 
+                            class="form-input" 
+                            rows="2" 
+                            placeholder="Razón opcional..."
+                        ></textarea>
+                    </div>
+                `;
+            }
+            
+            modalBody.innerHTML = `
+                ${formHtml}
+                <div style="display: flex; gap: 8px; margin-top: 24px;">
+                    <button class="btn btn-primary" onclick="applyBatchAction('${action}')">
+                        Aplicar a ${selectedCount} item(s)
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeBatchActionModal()">
+                        Cancelar
+                    </button>
+                </div>
+            `;
+        }
+        
+        function applyBatchAction(action) {
+            const selectedItems = Array.from(planReviewState.selectedItems);
+            if (selectedItems.length === 0) {
+                alert('No hay items seleccionados');
+                return;
+            }
+            
+            let reason = '';
+            let filePath = '';
+            let docId = '';
+            
+            const reasonInput = document.getElementById('batch-reason-input');
+            if (reasonInput) {
+                reason = reasonInput.value.trim();
+            }
+            
+            if (action === 'SKIP') {
+                if (!reason) {
+                    alert('La razón es requerida para SKIP');
+                    return;
+                }
+            } else if (action === 'FORCE_UPLOAD') {
+                const filePathInput = document.getElementById('batch-filepath-input');
+                if (!filePathInput || !filePathInput.value.trim()) {
+                    alert('La ruta del archivo es requerida para FORCE_UPLOAD');
+                    return;
+                }
+                filePath = filePathInput.value.trim();
+            } else if (action === 'MARK_AS_MATCH') {
+                const docIdInput = document.getElementById('batch-docid-input');
+                if (!docIdInput || !docIdInput.value.trim()) {
+                    alert('El Local Doc ID es requerido para MARK_AS_MATCH');
+                    return;
+                }
+                docId = docIdInput.value.trim();
+            }
+            
+            // Aplicar a todos los items seleccionados
+            selectedItems.forEach(itemId => {
+                const decision = {
+                    action: action,
+                    reason: reason || `Batch ${action} applied`,
+                    decided_by: 'human',
+                };
+                
+                if (action === 'FORCE_UPLOAD') {
+                    decision.chosen_file_path = filePath;
+                } else if (action === 'MARK_AS_MATCH') {
+                    decision.chosen_local_doc_id = docId;
+                }
+                
+                planReviewState.draftDecisions[itemId] = decision;
+            });
+            
+            // SPRINT C2.20B: Registrar batch action (se registrará cuando se guarde el decision pack)
+            
+            // Guardar en localStorage
+            localStorage.setItem(`plan_review_draft_${planReviewState.planId}`, JSON.stringify(planReviewState.draftDecisions));
+            
+            // Limpiar selección
+            clearBatchSelection();
+            
+            // Cerrar modal y refrescar
+            closeBatchActionModal();
+            renderPlanReview();
+            
+            alert(`Aplicado ${action} a ${selectedItems.length} item(s)`);
+        }
+        
+        function closeBatchActionModal() {
+            document.getElementById('batch-action-modal').style.display = 'none';
+        }
+        
+        async function handleBatchApplyPreset() {
+            const selectedCount = planReviewState.selectedItems.size;
+            if (selectedCount === 0) {
+                alert('No hay items seleccionados');
+                return;
+            }
+            
+            // Cargar presets si no están en cache
+            if (!planReviewState.presetsCache) {
+                await loadPresetsCache();
+            }
+            
+            if (!planReviewState.presetsCache || planReviewState.presetsCache.length === 0) {
+                alert('No hay presets disponibles. Crea uno primero desde el panel Presets.');
+                return;
+            }
+            
+            // Mostrar selector de preset
+            const presetOptions = planReviewState.presetsCache
+                .filter(p => p.is_enabled)
+                .map(p => `<option value="${p.preset_id}">${p.name} (${p.action})</option>`)
+                .join('');
+            
+            const presetId = prompt(`Selecciona un preset:\n\n${planReviewState.presetsCache.filter(p => p.is_enabled).map((p, i) => `${i + 1}. ${p.name} (${p.action})`).join('\n')}\n\nIngresa el número o el preset_id:`, '');
+            
+            if (!presetId) return;
+            
+            // Buscar preset por número o ID
+            let preset = null;
+            const presetIndex = parseInt(presetId) - 1;
+            const enabledPresets = planReviewState.presetsCache.filter(p => p.is_enabled);
+            
+            if (!isNaN(presetIndex) && presetIndex >= 0 && presetIndex < enabledPresets.length) {
+                preset = enabledPresets[presetIndex];
+            } else {
+                preset = planReviewState.presetsCache.find(p => p.preset_id === presetId && p.is_enabled);
+            }
+            
+            if (!preset) {
+                alert('Preset no encontrado');
+                return;
+            }
+            
+            // Aplicar preset a items seleccionados
+            const selectedItems = Array.from(planReviewState.selectedItems);
+            let appliedCount = 0;
+            
+            selectedItems.forEach(itemId => {
+                const item = planReviewState.planData.items.find(i => i.item_id === itemId);
+                if (!item) return;
+                
+                // Verificar si el preset aplica a este item
+                if (preset.scope.type_id !== item.type_id) return;
+                if (preset.scope.subject_key && preset.scope.subject_key !== item.empresa) return;
+                if (preset.scope.period_key && preset.scope.period_key !== item.periodo) return;
+                
+                const decision = {
+                    action: preset.action,
+                    reason: `Applied preset: ${preset.name}${preset.defaults.reason ? ` - ${preset.defaults.reason}` : ''}`,
+                    decided_by: 'human',
+                };
+                
+                if (preset.action === 'FORCE_UPLOAD' && preset.defaults.file_path) {
+                    decision.chosen_file_path = preset.defaults.file_path;
+                } else if (preset.action === 'MARK_AS_MATCH' && preset.defaults.local_doc_id) {
+                    decision.chosen_local_doc_id = preset.defaults.local_doc_id;
+                }
+                
+                planReviewState.draftDecisions[itemId] = decision;
+                appliedCount++;
+            });
+            
+            // SPRINT C2.20B: Registrar aplicación de preset
+            if (appliedCount > 0 && planReviewState.planId) {
+                try {
+                    const response = await fetch(`${BACKEND_URL}/api/runs/${planReviewState.planId}/metrics`);
+                    if (response.ok) {
+                        // Métricas existen, registrar preset aplicado
+                        // Nota: Esto requiere un endpoint adicional o actualizar directamente
+                        // Por ahora, se registrará cuando se guarde el decision pack
+                    }
+                } catch (e) {
+                    console.warn('[repo] Error recording preset applied:', e);
+                }
+            }
+            
+            if (appliedCount === 0) {
+                alert('El preset no aplica a ninguno de los items seleccionados');
+                return;
+            }
+            
+            // Guardar en localStorage
+            localStorage.setItem(`plan_review_draft_${planReviewState.planId}`, JSON.stringify(planReviewState.draftDecisions));
+            
+            // Limpiar selección
+            clearBatchSelection();
+            
+            // Refrescar
+            renderPlanReview();
+            
+            alert(`Aplicado preset "${preset.name}" a ${appliedCount} item(s)`);
+        }
+        
+        // SPRINT C2.20A: Presets Manager
+        async function openPresetsPanel() {
+            const modal = document.getElementById('presets-modal');
+            const modalBody = document.getElementById('presets-modal-body');
+            modal.style.display = 'flex';
+            
+            await loadPresetsList();
+        }
+        
+        async function loadPresetsList() {
+            const modalBody = document.getElementById('presets-modal-body');
+            modalBody.innerHTML = '<div class="loading">Cargando presets...</div>';
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/presets/decision_presets?include_disabled=true`);
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                const presets = data.presets || [];
+                
+                // Actualizar cache
+                planReviewState.presetsCache = presets.filter(p => p.is_enabled);
+                
+                modalBody.innerHTML = `
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <h4>Presets Existentes</h4>
+                            <button class="btn btn-primary" onclick="showCreatePresetForm()" data-testid="presets-save">
+                                Crear Nuevo Preset
+                            </button>
+                        </div>
+                        
+                        ${presets.length > 0 ? `
+                            <div class="table-container">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Nombre</th>
+                                            <th>Action</th>
+                                            <th>Scope</th>
+                                            <th>Defaults</th>
+                                            <th>Estado</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${presets.map(p => {
+                                            const scopeStr = `${p.scope.type_id}${p.scope.subject_key ? ` / ${p.scope.subject_key}` : ''}${p.scope.period_key ? ` / ${p.scope.period_key}` : ''}`;
+                                            const defaultsStr = p.defaults.reason || p.defaults.file_path || p.defaults.local_doc_id || 'N/A';
+                                            const statusBadge = p.is_enabled 
+                                                ? '<span class="badge badge-ok">Enabled</span>'
+                                                : '<span class="badge badge-tarde">Disabled</span>';
+                                            
+                                            return `
+                                                <tr>
+                                                    <td><strong>${p.name}</strong></td>
+                                                    <td><span class="badge badge-info">${p.action}</span></td>
+                                                    <td><code style="font-size: 0.75rem;">${scopeStr}</code></td>
+                                                    <td><code style="font-size: 0.75rem;">${defaultsStr}</code></td>
+                                                    <td>${statusBadge}</td>
+                                                    <td>
+                                                        ${p.is_enabled ? `
+                                                            <button 
+                                                                class="btn btn-secondary" 
+                                                                onclick="handleDisablePreset('${p.preset_id}')"
+                                                                data-testid="presets-disable-${p.preset_id}"
+                                                            >
+                                                                Disable
+                                                            </button>
+                                                        ` : '<span style="color: #94a3b8;">Ya desactivado</span>'}
+                                                    </td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ` : '<p style="color: #94a3b8;">No hay presets creados aún.</p>'}
+                        
+                        <div id="create-preset-form" style="display: none; margin-top: 24px;">
+                            <h4>Crear Nuevo Preset</h4>
+                            <div class="form-group">
+                                <label class="form-label">Nombre</label>
+                                <input type="text" id="preset-name-input" class="form-input" placeholder="Skip T104">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Type ID (requerido)</label>
+                                <input type="text" id="preset-type-id-input" class="form-input" placeholder="T104_AUTONOMOS_RECEIPT" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Subject Key (opcional)</label>
+                                <input type="text" id="preset-subject-key-input" class="form-input" placeholder="COMPANY123">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Period Key (opcional)</label>
+                                <input type="text" id="preset-period-key-input" class="form-input" placeholder="2025-01">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Action</label>
+                                <select id="preset-action-select" class="form-input">
+                                    <option value="SKIP">SKIP</option>
+                                    <option value="FORCE_UPLOAD">FORCE_UPLOAD</option>
+                                    <option value="MARK_AS_MATCH">MARK_AS_MATCH</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Default Reason (para SKIP)</label>
+                                <textarea id="preset-reason-input" class="form-input" rows="2" placeholder="No disponible"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Default File Path (para FORCE_UPLOAD)</label>
+                                <input type="text" id="preset-filepath-input" class="form-input" placeholder="path/to/file.pdf">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Default Local Doc ID (para MARK_AS_MATCH)</label>
+                                <input type="text" id="preset-docid-input" class="form-input" placeholder="doc_abc123">
+                            </div>
+                            <div style="display: flex; gap: 8px; margin-top: 16px;">
+                                <button class="btn btn-primary" onclick="handleCreatePreset()">
+                                    Guardar Preset
+                                </button>
+                                <button class="btn btn-secondary" onclick="hideCreatePresetForm()">
+                                    Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                modalBody.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        function showCreatePresetForm() {
+            document.getElementById('create-preset-form').style.display = 'block';
+        }
+        
+        function hideCreatePresetForm() {
+            document.getElementById('create-preset-form').style.display = 'none';
+        }
+        
+        async function handleCreatePreset() {
+            const name = document.getElementById('preset-name-input').value.trim();
+            const typeId = document.getElementById('preset-type-id-input').value.trim();
+            const subjectKey = document.getElementById('preset-subject-key-input').value.trim() || null;
+            const periodKey = document.getElementById('preset-period-key-input').value.trim() || null;
+            const action = document.getElementById('preset-action-select').value;
+            const reason = document.getElementById('preset-reason-input').value.trim() || null;
+            const filePath = document.getElementById('preset-filepath-input').value.trim() || null;
+            const docId = document.getElementById('preset-docid-input').value.trim() || null;
+            
+            if (!name || !typeId) {
+                alert('Nombre y Type ID son requeridos');
+                return;
+            }
+            
+            try {
+                const requestBody = {
+                    name: name,
+                    scope: {
+                        platform: 'egestiona',
+                        type_id: typeId,
+                        subject_key: subjectKey,
+                        period_key: periodKey,
+                    },
+                    action: action,
+                    defaults: {},
+                };
+                
+                if (reason) requestBody.defaults.reason = reason;
+                if (filePath) requestBody.defaults.file_path = filePath;
+                if (docId) requestBody.defaults.local_doc_id = docId;
+                
+                const response = await fetch(`${BACKEND_URL}/api/presets/decision_presets`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || `Error: ${response.statusText}`);
+                }
+                
+                // Recargar lista
+                await loadPresetsList();
+                hideCreatePresetForm();
+                alert('Preset creado correctamente');
+            } catch (error) {
+                alert(`Error al crear preset: ${error.message}`);
+            }
+        }
+        
+        async function handleDisablePreset(presetId) {
+            if (!confirm(`¿Desactivar preset ${presetId}?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/presets/decision_presets/${presetId}/disable`, {
+                    method: 'POST',
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || `Error: ${response.statusText}`);
+                }
+                
+                // Recargar lista
+                await loadPresetsList();
+                alert('Preset desactivado correctamente');
+            } catch (error) {
+                alert(`Error al desactivar preset: ${error.message}`);
+            }
+        }
+        
+        function closePresetsModal() {
+            document.getElementById('presets-modal').style.display = 'none';
+        }
+        
+        async function handleSaveDecisionPack() {
+            const decisions = Object.values(planReviewState.draftDecisions);
+            if (decisions.length === 0) {
+                alert('No hay decisiones para guardar');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/plans/${planReviewState.planId}/decision_packs`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ decisions: decisions }),
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || `Error: ${response.statusText}`);
+                }
+                
+                const pack = await response.json();
+                planReviewState.savedPackId = pack.decision_pack_id;
+                
+                // SPRINT C2.20B: Refrescar métricas si el panel está abierto
+                const metricsPanel = document.getElementById('metrics-panel');
+                if (metricsPanel && metricsPanel.style.display !== 'none') {
+                    await openMetricsPanel();
+                }
+                
+                renderPlanReview();
+                alert(`Decision Pack guardado: ${pack.decision_pack_id}`);
+                
+                // Auto-abrir panel de métricas si está disponible
+                setTimeout(() => {
+                    if (metricsPanel) {
+                        openMetricsPanel();
+                    }
+                }, 500);
+            } catch (error) {
+                alert(`Error al guardar pack: ${error.message}`);
+            }
+        }
+        
+        async function handleExecutePlan() {
+            if (!planReviewState.savedPackId) {
+                alert('Primero debes guardar el Decision Pack');
+                return;
+            }
+            
+            if (!confirm(`¿Ejecutar plan ${planReviewState.planId} con pack ${planReviewState.savedPackId}?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/runs/auto_upload/execute`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        plan_id: planReviewState.planId,
+                        decision_pack_id: planReviewState.savedPackId,
+                        max_uploads: 5,
+                    }),
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || `Error: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                // Mostrar resultado
+                const content = document.getElementById('page-content');
+                const resultHtml = `
+                    <div class="alert alert-info">
+                        <h4>Ejecución completada</h4>
+                        <p><strong>Status:</strong> ${result.status || 'N/A'}</p>
+                        ${result.run_id ? `<p><strong>Run ID:</strong> <code>${result.run_id}</code></p>` : ''}
+                        ${result.summary ? `
+                            <p><strong>Resumen:</strong></p>
+                            <ul>
+                                <li>Total: ${result.summary.total || 0}</li>
+                                <li>Success: ${result.summary.success || 0}</li>
+                                <li>Failed: ${result.summary.failed || 0}</li>
+                                <li>Skipped: ${result.summary.skipped || 0}</li>
+                            </ul>
+                        ` : ''}
+                        ${result.run_id ? `
+                            <a href="${BACKEND_URL}/api/runs/summary?run_id=${result.run_id}" target="_blank" style="color: #93c5fd;">
+                                Ver resumen del run
+                            </a>
+                        ` : ''}
+                    </div>
+                `;
+                
+                content.insertAdjacentHTML('afterbegin', resultHtml);
+                
+                // Scroll al resultado
+                content.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch (error) {
+                alert(`Error al ejecutar: ${error.message}`);
+            }
         }
     </script>
 </body>

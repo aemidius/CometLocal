@@ -6,7 +6,7 @@ SPRINT C2.17: Separación estricta PLAN → DECISION → EXECUTION
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 import json
@@ -30,6 +30,10 @@ class PlanRequest(BaseModel):
 class ExecuteRequest(BaseModel):
     """Request para ejecutar plan."""
     plan_id: str
+    decision_pack_id: Optional[str] = Field(
+        None,
+        description="ID del Decision Pack con overrides manuales (SPRINT C2.18B)"
+    )
     max_uploads: int = 5
     stop_on_first_error: bool = True
     continue_on_error: bool = False
@@ -80,6 +84,67 @@ async def create_auto_upload_plan(
         "summary": result.get("summary", {}),
         "diagnostics": result.get("diagnostics", {}),
     }
+
+
+@router.get("/plans/{plan_id}")
+async def get_plan(plan_id: str):
+    """
+    SPRINT C2.18B.1: Endpoint simplificado para UI de revisión.
+    
+    Devuelve plan con estructura optimizada para UI.
+    
+    Response:
+    {
+        "plan_id": "...",
+        "items": [{ item_id, tipo_doc, empresa, elemento, periodo, decision, reason_code... }],
+        "summary": {...}
+    }
+    """
+    plan_path = Path(DATA_DIR) / "runs" / plan_id / "plan_response.json"
+    
+    if not plan_path.exists():
+        raise HTTPException(status_code=404, detail=f"Plan {plan_id} not found")
+    
+    try:
+        with open(plan_path, "r", encoding="utf-8") as f:
+            plan_data = json.load(f)
+        
+        # Transformar a formato optimizado para UI
+        snapshot_items = plan_data.get("snapshot", {}).get("items", [])
+        decisions = plan_data.get("decisions", [])
+        
+        # Crear mapa de decisiones por item_id
+        decisions_map = {}
+        for decision in decisions:
+            item_id = decision.get("pending_item_key") or decision.get("item_id")
+            if item_id:
+                decisions_map[item_id] = decision
+        
+        # Construir items con información combinada
+        items = []
+        for item in snapshot_items:
+            item_id = item.get("pending_item_key") or item.get("item_id") or item.get("key")
+            decision = decisions_map.get(item_id, {})
+            
+            items.append({
+                "item_id": item_id,
+                "tipo_doc": item.get("tipo_doc") or item.get("type_id"),
+                "empresa": item.get("empresa") or item.get("company_key"),
+                "elemento": item.get("elemento") or item.get("person_key"),
+                "periodo": item.get("periodo") or item.get("period_key"),
+                "decision": decision.get("decision", "UNKNOWN"),
+                "reason_code": decision.get("reason_code") or decision.get("primary_reason_code"),
+                "reason": decision.get("reason") or decision.get("decision_reason"),
+                "confidence": decision.get("confidence"),
+            })
+        
+        return {
+            "plan_id": plan_id,
+            "items": items,
+            "summary": plan_data.get("summary", {}),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading plan: {str(e)}")
 
 
 @router.get("/runs/auto_upload/plan/{plan_id}")
@@ -144,8 +209,16 @@ async def execute_auto_upload_plan(
     if not plan_path.exists():
         raise HTTPException(status_code=404, detail=f"Plan {request.plan_id} not found")
     
-    with open(plan_path, "r", encoding="utf-8") as f:
-        frozen_plan = json.load(f)
+    # SPRINT C2.18B: Validar Decision Pack si se proporciona (la aplicación se hace en execute_auto_upload)
+    if request.decision_pack_id:
+        from backend.shared.decision_pack_store import DecisionPackStore
+        pack_store = DecisionPackStore()
+        decision_pack = pack_store.load_pack(request.plan_id, request.decision_pack_id)
+        if not decision_pack:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Decision pack {request.decision_pack_id} not found for plan {request.plan_id}"
+            )
     
     # Obtener coord, company_key, person_key del plan (si están guardados)
     # Por ahora, requerirlos en el request o inferirlos del plan
@@ -169,6 +242,7 @@ async def execute_auto_upload_plan(
         company_key=company_key,
         person_key=person_key,
         plan_id=request.plan_id,  # SPRINT C2.17: Usar plan_id
+        decision_pack_id=request.decision_pack_id,  # SPRINT C2.18B: Pasar decision_pack_id
         items=None,  # SPRINT C2.17: Se obtienen del plan (solo AUTO_UPLOAD)
         max_uploads=request.max_uploads,
         stop_on_first_error=request.stop_on_first_error,
@@ -178,8 +252,10 @@ async def execute_auto_upload_plan(
     
     result = await egestiona_execute_auto_upload(execute_request, http_request)
     
-    # Añadir plan_id al resultado
+    # Añadir plan_id y decision_pack_id al resultado
     if isinstance(result, dict):
         result["plan_id"] = request.plan_id
+        if request.decision_pack_id:
+            result["decision_pack_id"] = request.decision_pack_id
     
     return result

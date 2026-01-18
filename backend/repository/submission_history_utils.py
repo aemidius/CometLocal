@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 def normalize_text_for_fingerprint(text: str) -> str:

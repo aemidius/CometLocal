@@ -4022,6 +4022,24 @@ async def egestiona_build_auto_upload_plan(
         plan_dir = Path("data") / "runs" / plan_id
         plan_dir.mkdir(parents=True, exist_ok=True)
         
+        # SPRINT C2.18A: Copiar matching_debug desde temp_evidence_dir (si existe) al plan_dir
+        # Los matching_debug se generaron durante el matching en submission_plan_headful
+        # y se guardaron en temp_evidence_dir. Ahora los movemos al plan_dir final.
+        temp_evidence_dir_path = plan_result.get("_temp_evidence_dir") if isinstance(plan_result, dict) else None
+        if temp_evidence_dir_path:
+            temp_evidence_dir = Path(temp_evidence_dir_path)
+            if temp_evidence_dir.exists():
+                temp_matching_debug = temp_evidence_dir / "matching_debug"
+                if temp_matching_debug.exists():
+                    plan_matching_debug = plan_dir / "matching_debug"
+                    import shutil
+                    shutil.copytree(temp_matching_debug, plan_matching_debug, dirs_exist_ok=True)
+                    # Limpiar temp
+                    try:
+                        shutil.rmtree(temp_evidence_dir)
+                    except Exception:
+                        pass
+        
         # También generar run_id para run_summary (usar temp_run_id o generar nuevo)
         run_id = temp_run_id
         
@@ -4040,6 +4058,34 @@ async def egestiona_build_auto_upload_plan(
                 "person_key": person_key,
             },
         }
+        
+        # SPRINT C2.20B: Inicializar métricas
+        try:
+            from backend.shared.run_metrics import initialize_metrics, update_metrics_from_decisions, record_learning_hint_applied
+            
+            metrics = initialize_metrics(plan_id, len(snapshot_items))
+            # Actualizar con decisiones iniciales (auto_matching)
+            update_metrics_from_decisions(plan_id, decisions, source="auto_matching")
+            
+            # Detectar hints de learning aplicados desde matching_debug
+            matching_debug_dir = plan_dir / "matching_debug"
+            if matching_debug_dir.exists():
+                learning_hints_count = 0
+                for debug_file in matching_debug_dir.glob("*__debug.json"):
+                    try:
+                        with open(debug_file, "r", encoding="utf-8") as f:
+                            debug_data = pyjson.load(f)
+                        applied_hints = debug_data.get("outcome", {}).get("applied_hints", [])
+                        # Contar hints con effect="resolved"
+                        resolved_hints = [h for h in applied_hints if h.get("effect") == "resolved"]
+                        learning_hints_count += len(resolved_hints)
+                    except Exception:
+                        continue
+                
+                if learning_hints_count > 0:
+                    record_learning_hint_applied(plan_id, count=learning_hints_count)
+        except Exception as e:
+            print(f"[CAE][PLAN] WARNING: Error initializing metrics: {e}")
         
         # SPRINT C2.17: Guardar plan_response.json en plan_dir (usando plan_id)
         plan_response_path = plan_dir / "plan_response.json"

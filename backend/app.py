@@ -41,6 +41,12 @@ from backend.adapters.egestiona.execute_auto_upload_gate import router as egesti
 from backend.adapters.egestiona.headful_run_routes import router as egestiona_headful_run_router
 from backend.api.runs_summary_routes import router as runs_summary_router
 from backend.api.auto_upload_routes import router as auto_upload_router  # SPRINT C2.17
+from backend.api.matching_debug_routes import router as matching_debug_router
+from backend.api.decision_pack_routes import router as decision_pack_router  # SPRINT C2.18A
+from backend.api.learning_routes import router as learning_router  # SPRINT C2.19A
+from backend.api.preset_routes import router as preset_router  # SPRINT C2.20A
+from backend.api.metrics_routes import router as metrics_router  # SPRINT C2.20B
+from backend.api.export_routes import router as export_router  # SPRINT C2.21
 from backend.repository.document_repository_routes import router as document_repository_router
 from backend.repository.config_routes import router as config_routes_router
 from backend.repository.submission_rules_routes import router as submission_rules_router
@@ -84,6 +90,12 @@ app.include_router(egestiona_execute_auto_upload_router)
 app.include_router(egestiona_headful_run_router)
 app.include_router(runs_summary_router)
 app.include_router(auto_upload_router)  # SPRINT C2.17
+app.include_router(matching_debug_router)  # SPRINT C2.18A
+app.include_router(decision_pack_router)  # SPRINT C2.18B
+app.include_router(learning_router)  # SPRINT C2.19A
+app.include_router(preset_router)  # SPRINT C2.20A
+app.include_router(metrics_router)  # SPRINT C2.20B
+app.include_router(export_router)  # SPRINT C2.21
 app.include_router(document_repository_router)
 app.include_router(config_routes_router)
 app.include_router(submission_rules_router)

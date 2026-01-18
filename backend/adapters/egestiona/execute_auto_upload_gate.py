@@ -43,6 +43,7 @@ class ExecuteAutoUploadRequest(BaseModel):
     allowlist_type_ids: Optional[List[str]] = None
     items: Optional[List[str]] = None  # SPRINT C2.17: Opcional si se usa plan_id
     plan_id: Optional[str] = None  # SPRINT C2.17: ID del plan congelado
+    decision_pack_id: Optional[str] = None  # SPRINT C2.18B: ID del Decision Pack con overrides
     max_uploads: int = 5  # SPRINT C2.15: Límite por defecto
     stop_on_first_error: bool = True  # SPRINT C2.15: Parar en primer error
     continue_on_error: bool = False  # SPRINT C2.16: Continuar con siguiente item si error es "no side-effect"
@@ -160,6 +161,13 @@ async def egestiona_execute_auto_upload(
     plan_decisions_map = {}  # pending_item_key -> decision
     
     if request.plan_id:
+        # SPRINT C2.20B: Registrar inicio de ejecución
+        try:
+            from backend.shared.run_metrics import record_execution_started
+            record_execution_started(request.plan_id, run_id)
+        except Exception as e:
+            print(f"[CAE][AUTO_UPLOAD] WARNING: Error recording execution start: {e}")
+        
         # Cargar plan congelado desde data/runs/
         plan_path = Path(DATA_DIR) / "runs" / request.plan_id / "plan_response.json"
         if plan_path.exists():
@@ -167,8 +175,34 @@ async def egestiona_execute_auto_upload(
                 import json
                 frozen_plan = json.load(f)
             
-            # Crear mapa de decisiones
-            for decision in frozen_plan.get("decisions", []):
+            # SPRINT C2.18B: Aplicar Decision Pack si se proporciona
+            plan_decisions = frozen_plan.get("decisions", [])
+            decision_pack = None
+            if request.decision_pack_id:
+                from backend.shared.decision_pack_store import DecisionPackStore
+                pack_store = DecisionPackStore()
+                decision_pack = pack_store.load_pack(request.plan_id, request.decision_pack_id)
+                if decision_pack:
+                    plan_decisions = decision_pack.apply_to_decisions(plan_decisions)
+                    print(f"[CAE][AUTO_UPLOAD] Decision Pack aplicado: {request.decision_pack_id}")
+                    
+                    # SPRINT C2.19A: Generar hints desde Decision Pack
+                    try:
+                        from backend.shared.learning_hints_generator import generate_hints_from_decision_pack
+                        hint_ids = generate_hints_from_decision_pack(
+                            plan_id=request.plan_id,
+                            decision_pack=decision_pack,
+                            plan_data=frozen_plan,
+                        )
+                        if hint_ids:
+                            print(f"[CAE][AUTO_UPLOAD] Generados {len(hint_ids)} hints de aprendizaje")
+                    except Exception as e:
+                        print(f"[CAE][AUTO_UPLOAD] WARNING: Error generando hints: {e}")
+                else:
+                    print(f"[CAE][AUTO_UPLOAD] WARNING: Decision Pack {request.decision_pack_id} not found, usando decisiones originales")
+            
+            # Crear mapa de decisiones (con overrides aplicados si hay)
+            for decision in plan_decisions:
                 pending_item_key = decision.get("pending_item_key")
                 if pending_item_key:
                     plan_decisions_map[pending_item_key] = decision
@@ -1027,6 +1061,14 @@ async def egestiona_execute_auto_upload(
         )
     except Exception as summary_error:
         print(f"[CAE][AUTO_UPLOAD] ⚠️ Error guardando run_summary: {summary_error}")
+    
+    # SPRINT C2.20B: Registrar finalización de ejecución
+    if request.plan_id:
+        try:
+            from backend.shared.run_metrics import record_execution_finished
+            record_execution_finished(request.plan_id)
+        except Exception as e:
+            print(f"[CAE][AUTO_UPLOAD] WARNING: Error recording execution finished: {e}")
     
     # Determinar status final
     if failed_count == 0 and skipped_count == 0:

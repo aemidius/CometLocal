@@ -235,11 +235,17 @@ def run_build_submission_plan_readonly_headful(
     print(f"[CAE][READONLY][TRACE] Credenciales OK, iniciando Playwright...")
 
     # HOTFIX C2.12.6: Si return_plan_only=True, NO crear run ni tocar filesystem
+    # SPRINT C2.18A: Pero aún así necesitamos evidence_dir para matching_debug
     if return_plan_only:
-        # No crear run_id ni directorios
+        # No crear run_id ni directorios principales, pero sí un temp para matching_debug
         run_id = None
         run_dir = None
-        evidence_dir = None
+        # SPRINT C2.18A: Crear evidence_dir temporal para matching_debug
+        # Este se copiará al plan_dir final cuando se genere el plan_id
+        from tempfile import mkdtemp
+        temp_evidence = Path(mkdtemp(prefix="plan_evidence_"))
+        evidence_dir = temp_evidence
+        evidence_dir.mkdir(parents=True, exist_ok=True)
     else:
         run_id = f"r_{uuid.uuid4().hex}"
         run_dir = Path(base) / "runs" / run_id
@@ -1001,13 +1007,16 @@ def run_build_submission_plan_readonly_headful(
             pending_items.append(pending_dict)
 
             # Hacer matching (con platform y coord para reglas)
+            # SPRINT C2.18A: Generar debug report estructurado
+            # Siempre pasar evidence_dir si está disponible (incluso en return_plan_only)
             match_result = matcher.match_pending_item(
                 pending,
                 company_key=company_key,
                 person_key=person_key,
                 platform_key=platform,
                 coord_label=coordination,
-                evidence_dir=evidence_dir if not return_plan_only else None  # Pasar evidence_dir para debug solo si NO es return_plan_only
+                evidence_dir=evidence_dir,  # SPRINT C2.18A: Siempre pasar evidence_dir si está disponible
+                generate_debug_report=True,  # SPRINT C2.18A: Siempre generar reporte estructurado
             )
 
             match_results.append({
@@ -1022,8 +1031,14 @@ def run_build_submission_plan_readonly_headful(
             # Actualizar contadores de instrumentación
             if best_doc:
                 instrumentation["matches_found"] = instrumentation.get("matches_found", 0) + 1
-            # Contar documentos locales considerados (si está disponible en match_result)
-            if match_result.get("candidates") and isinstance(match_result.get("candidates"), list):
+            
+            # SPRINT C2.18A: Usar local_docs_considered del debug_report si está disponible
+            matching_debug_report = match_result.get("matching_debug_report")
+            if matching_debug_report and isinstance(matching_debug_report, dict):
+                local_docs_considered_from_report = matching_debug_report.get("outcome", {}).get("local_docs_considered", 0)
+                instrumentation["local_docs_considered"] = instrumentation.get("local_docs_considered", 0) + local_docs_considered_from_report
+            elif match_result.get("candidates") and isinstance(match_result.get("candidates"), list):
+                # Fallback legacy
                 instrumentation["local_docs_considered"] = instrumentation.get("local_docs_considered", 0) + len(match_result.get("candidates"))
             
             # Obtener tipo de documento para guardrails
@@ -1271,6 +1286,12 @@ def run_build_submission_plan_readonly_headful(
             }
         
         print(f"[CAE][READONLY][TRACE] Devolviendo result con plan.length={len(result.get('plan', []))}")
+        
+        # SPRINT C2.18A: Si return_plan_only=True, incluir temp_evidence_dir en el resultado
+        # para que pueda ser copiado al plan_dir final
+        if return_plan_only and evidence_dir and evidence_dir.exists():
+            result["_temp_evidence_dir"] = str(evidence_dir)  # Para copiar matching_debug después
+        
         return result
     
     # Generar checksum y confirm_token para el plan

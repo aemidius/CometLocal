@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -16,6 +16,13 @@ from backend.repository.rule_based_matcher_v1 import RuleBasedMatcherV1
 from backend.repository.submission_rules_store_v1 import SubmissionRulesStoreV1
 from backend.shared.text_normalizer import normalize_text as normalize_text_robust
 from backend.repository.text_utils import normalize_whitespace
+from backend.shared.matching_debug_report import (
+    MatchingDebugReportV1,
+    PipelineStep,
+    CandidateTop,
+    MatchingOutcome,
+    PrimaryReasonCode,
+)
 
 # Mantener compatibilidad: normalize_text para matching
 def normalize_text(text: str) -> str:
@@ -121,6 +128,9 @@ class DocumentMatcherV1:
         required_aliases = [
             "T205.0",
             "T205",
+            "T104.0 Recibo autónomos",
+            "T104.0",
+            "T104",
             "último recibo bancario pago cuota autónomos",
             "pago cuota autónomos",
             "cuota autónomos",
@@ -263,13 +273,15 @@ class DocumentMatcherV1:
         person_key: Optional[str] = None,
         platform_key: str = "egestiona",
         coord_label: Optional[str] = None,
-        evidence_dir: Optional[Path] = None
+        evidence_dir: Optional[Path] = None,
+        generate_debug_report: bool = True,  # SPRINT C2.18A: Generar reporte estructurado
     ) -> Dict:
         """
         Hace matching de un pending item con documentos del repositorio.
         
         Args:
             evidence_dir: Directorio opcional donde guardar pending_match_debug.json
+            generate_debug_report: SPRINT C2.18A: Si True, genera MatchingDebugReportV1 estructurado
         
         Retorna:
         {
@@ -278,10 +290,37 @@ class DocumentMatcherV1:
             "confidence": float,
             "reasons": List[str],
             "needs_operator": bool,
-            "matched_rule": dict o None  # Si vino de regla, incluye rule.form
+            "matched_rule": dict o None,  # Si vino de regla, incluye rule.form
+            "matching_debug_report": MatchingDebugReportV1 o None  # SPRINT C2.18A
         }
         """
-        # INSTRUMENTACIÓN: Preparar debug info
+        # SPRINT C2.18A: Inicializar reporte de debug estructurado
+        debug_report: Optional[MatchingDebugReportV1] = None
+        # SPRINT C2.19A: Inicializar applied_hints al inicio
+        applied_hints: List[Dict[str, Any]] = []
+        if generate_debug_report:
+            # SPRINT C2.18A.1: Usar base_dir del store (que es el data_dir, no el repo_dir)
+            # El repo_dir es data_dir/repository, pero queremos el data_dir
+            data_dir_resolved = str(self.store.base_dir.resolve())
+            debug_report = MatchingDebugReportV1.create_empty(
+                data_dir_resolved=data_dir_resolved,
+                platform=platform_key,
+                company_key=company_key,
+                person_key=person_key,
+                pending_label=f"{pending.tipo_doc} | {pending.elemento}",
+                pending_text=pending.get_base_text(),
+            )
+            # Paso 0: start: all_docs
+            all_docs = self.store.list_documents()  # Sin filtros
+            debug_report.pipeline.append(PipelineStep(
+                step_name="start: all_docs",
+                input_count=0,  # No hay input previo
+                output_count=len(all_docs),
+                rule="load_all_documents",
+                dropped_sample=[],
+            ))
+        
+        # INSTRUMENTACIÓN: Preparar debug info (legacy, mantener compatibilidad)
         debug_info = {
             "pending_text_original": pending.get_base_text(),
             "pending_tipo_doc": pending.tipo_doc,
@@ -327,6 +366,10 @@ class DocumentMatcherV1:
             debug_info["pending_month_year_detected"] = None
             debug_info["pending_period_key"] = None
         
+        # SPRINT C2.18A: Actualizar period_key en debug_report
+        if debug_report:
+            debug_report.meta["request_context"]["period_key"] = pending_period_key
+        
         base_normalized = normalize_text(base_text)
         debug_info["pending_title_normalized"] = base_normalized
         
@@ -367,6 +410,53 @@ class DocumentMatcherV1:
                         person_key=person_key
                     )
                 
+                # SPRINT C2.18A: Si hay debug_report, actualizar con info de regla
+                if debug_report:
+                    debug_report.meta["request_context"]["matched_rule_id"] = rule.rule_id
+                    debug_report.meta["request_context"]["type_ids"] = [rule.document_type_id]
+                    if not docs:
+                        # Regla matchea pero no hay docs - determinar causa específica
+                        # SPRINT C2.18A.1: Verificar DATA_DIR_MISMATCH primero
+                        primary_reason = PrimaryReasonCode.SUBJECT_FILTER_ZERO
+                        human_hint = f"Regla {rule.rule_id} matchea pero no hay documentos del tipo {rule.document_type_id}."
+                        
+                        # Si repo está vacío, verificar mismatch
+                        if debug_report.meta["repo_docs_total"] == 0:
+                            data_dir_resolved = debug_report.meta.get("data_dir_resolved")
+                            data_dir_expected = debug_report.meta.get("data_dir_expected")
+                            
+                            if data_dir_expected:
+                                from pathlib import Path
+                                resolved_norm = str(Path(data_dir_resolved).resolve())
+                                expected_norm = str(Path(data_dir_expected).resolve())
+                                
+                                if resolved_norm != expected_norm:
+                                    primary_reason = PrimaryReasonCode.DATA_DIR_MISMATCH
+                                    expected_source = debug_report.meta.get("data_dir_expected_source", "unknown")
+                                    human_hint = (
+                                        f"El repositorio local parece vacío porque data_dir_resolved ({data_dir_resolved}) "
+                                        f"difiere de data_dir_expected ({data_dir_expected}) "
+                                        f"(fuente: {expected_source}). "
+                                        f"Revisa variables de entorno o configuración."
+                                    )
+                        elif pending_period_key:
+                            primary_reason = PrimaryReasonCode.PERIOD_FILTER_ZERO
+                            human_hint = f"Regla {rule.rule_id} matchea pero no hay documentos del tipo {rule.document_type_id} para el período {pending_period_key}."
+                        
+                        # SPRINT C2.19A: applied_hints vacío aquí (aún no se han aplicado)
+                        from backend.shared.matching_debug_report import AppliedHint
+                        applied_hints_models = []
+                        
+                        debug_report.outcome = MatchingOutcome(
+                            decision="NO_MATCH",
+                            local_docs_considered=0,
+                            primary_reason_code=primary_reason,
+                            human_hint=human_hint,
+                            applied_hints=applied_hints_models,
+                        )
+                        if evidence_dir:
+                            self._save_debug_report(evidence_dir, pending, debug_report)
+                
                 if docs:
                     # Usar el primer documento encontrado (o el mejor según scoring)
                     best_doc = docs[0]
@@ -375,6 +465,38 @@ class DocumentMatcherV1:
                     
                     # Construir match result con regla
                     match_result = MatchResultV1(best_doc, score, reasons + rule_reasons)
+                    
+                    # SPRINT C2.18A: Actualizar outcome si hay debug_report
+                    if debug_report:
+                        decision = "AUTO_UPLOAD" if score >= 0.7 else "REVIEW_REQUIRED"
+                        # Añadir candidato top
+                        debug_report.candidates_top.append(CandidateTop(
+                            doc_id=best_doc.doc_id,
+                            type_id=best_doc.type_id,
+                            company_key=best_doc.company_key,
+                            person_key=best_doc.person_key,
+                            period_key=best_doc.period_key,
+                            file_path=best_doc.file_name_original,
+                            status=best_doc.status.value,
+                            score_breakdown={
+                                "final_confidence": score,
+                                "rule_confidence": rule_confidence,
+                            },
+                            reject_reason=None,  # Match exitoso
+                        ))
+                        # SPRINT C2.19A: applied_hints vacío aquí (match por regla, no por hint)
+                        from backend.shared.matching_debug_report import AppliedHint
+                        applied_hints_models = []
+                        
+                        debug_report.outcome = MatchingOutcome(
+                            decision=decision,
+                            local_docs_considered=len(docs),
+                            primary_reason_code=PrimaryReasonCode.UNKNOWN,  # Match exitoso
+                            human_hint=f"Match encontrado mediante regla {rule.rule_id} (confidence={score:.2f}).",
+                            applied_hints=applied_hints_models,
+                        )
+                        if evidence_dir:
+                            self._save_debug_report(evidence_dir, pending, debug_report)
                     
                     return {
                         "best_doc": match_result.to_dict(),
@@ -385,13 +507,15 @@ class DocumentMatcherV1:
                         "matched_rule": {
                             "rule_id": rule.rule_id,
                             "form": rule.form.model_dump(mode="json")
-                        }
+                        },
+                        "matching_debug_report": debug_report.model_dump(mode="json") if debug_report else None,  # SPRINT C2.18A
                     }
                 else:
                     # Regla matchea pero no hay documentos
                     reason = f"No documents found for type {rule.document_type_id}"
                     if pending_period_key:
                         reason = f"Missing document for period {pending_period_key}"
+                    # SPRINT C2.18A: Ya se actualizó debug_report arriba si existe
                     return {
                         "best_doc": None,
                         "alternatives": [],
@@ -401,11 +525,24 @@ class DocumentMatcherV1:
                         "matched_rule": {
                             "rule_id": rule.rule_id,
                             "form": rule.form.model_dump(mode="json")
-                        }
+                        },
+                        "matching_debug_report": debug_report.model_dump(mode="json") if debug_report else None,  # SPRINT C2.18A
                     }
         
         # 1) Fallback: Encontrar tipos candidatos por aliases (método original)
         matching_types = self.find_matching_types(base_text)
+        
+        # SPRINT C2.18A: Paso 1: filter: active types
+        if debug_report:
+            all_types = self.store.list_types(include_inactive=True)
+            active_types = self.store.list_types(include_inactive=False)
+            debug_report.pipeline.append(PipelineStep(
+                step_name="filter: active",
+                input_count=len(all_types),
+                output_count=len(active_types),
+                rule="include_inactive=False",
+                dropped_sample=[],
+            ))
         
         # INSTRUMENTACIÓN: Guardar type candidates
         debug_info["type_candidates"] = [
@@ -418,6 +555,45 @@ class DocumentMatcherV1:
             for doc_type, conf in matching_types
         ]
         
+        # SPRINT C2.18A: Paso 2: filter: type_id (matching por aliases)
+        if debug_report:
+            type_ids = [t[0].type_id for t in matching_types]
+            debug_report.meta["request_context"]["type_ids"] = type_ids
+            if not matching_types:
+                # No hay tipos que matcheen
+                debug_report.pipeline.append(PipelineStep(
+                    step_name="filter: type_id",
+                    input_count=len(active_types) if 'active_types' in locals() else 0,
+                    output_count=0,
+                    rule=f"type_match_by_alias: no match for '{base_text}'",
+                    dropped_sample=[],
+                ))
+                # SPRINT C2.19A: applied_hints vacío aquí (aún no se han aplicado)
+                from backend.shared.matching_debug_report import AppliedHint
+                applied_hints_models = []
+                
+                debug_report.outcome = MatchingOutcome(
+                    decision="NO_MATCH",
+                    local_docs_considered=0,
+                    primary_reason_code=PrimaryReasonCode.TYPE_FILTER_ZERO,
+                    human_hint=f"No se encontró tipo de documento que coincida con '{base_text}'. Verificar aliases en tipos.",
+                    applied_hints=applied_hints_models,
+                )
+                if evidence_dir:
+                    self._save_debug_report(evidence_dir, pending, debug_report)
+                debug_info["match_result"] = "NO_TYPE_MATCH"
+                debug_info["reasons"] = [f"No type match found for text: '{base_text}'"]
+                if evidence_dir:
+                    self._save_debug_info(evidence_dir, debug_info)
+                return {
+                    "best_doc": None,
+                    "alternatives": [],
+                    "confidence": 0.0,
+                    "reasons": [f"No type match found for text: '{base_text}'"],
+                    "needs_operator": True,
+                    "matching_debug_report": debug_report.model_dump(mode="json") if debug_report else None,  # SPRINT C2.18A
+                }
+        
         if not matching_types:
             debug_info["match_result"] = "NO_TYPE_MATCH"
             debug_info["reasons"] = [f"No type match found for text: '{base_text}'"]
@@ -428,12 +604,32 @@ class DocumentMatcherV1:
                 "alternatives": [],
                 "confidence": 0.0,
                 "reasons": [f"No type match found for text: '{base_text}'"],
-                "needs_operator": True
+                "needs_operator": True,
+                "matching_debug_report": debug_report.model_dump(mode="json") if debug_report else None,  # SPRINT C2.18A
             }
         
         # 2) Filtrar documentos por sujeto (con fallback sin empresa)
         all_candidates: List[MatchResultV1] = []
         debug_info["document_queries"] = []
+        docs_after_subject_filter = 0  # SPRINT C2.18A: Contador para pipeline
+        total_docs_after_type_filter = 0  # SPRINT C2.18A: Contador para pipeline
+        
+        # SPRINT C2.18A: Paso 3: filter: type_id (después de matching por aliases)
+        if debug_report:
+            # Contar docs por cada type_id candidato (sin filtros de subject/period)
+            docs_by_type_before_subject = {}
+            for doc_type, _ in matching_types:
+                docs_by_type_before_subject[doc_type.type_id] = len(
+                    self.store.list_documents(type_id=doc_type.type_id)
+                )
+            total_docs_after_type_filter = sum(docs_by_type_before_subject.values())
+            debug_report.pipeline.append(PipelineStep(
+                step_name="filter: type_id",
+                input_count=len(all_docs) if 'all_docs' in locals() else debug_report.meta["repo_docs_total"],
+                output_count=total_docs_after_type_filter,
+                rule=f"type_id in {[t[0].type_id for t in matching_types]}",
+                dropped_sample=[],
+            ))
         
         for doc_type, type_confidence in matching_types:
             # Si hay pending_period_key, buscar exactamente ese período
@@ -474,6 +670,21 @@ class DocumentMatcherV1:
                 
                 # Si aún no hay docs, error explícito
                 if not docs:
+                    # SPRINT C2.18A: Actualizar debug_report si existe
+                    if debug_report:
+                        # SPRINT C2.19A: applied_hints vacío aquí (aún no se han aplicado)
+                        from backend.shared.matching_debug_report import AppliedHint
+                        applied_hints_models = []
+                        
+                        debug_report.outcome = MatchingOutcome(
+                            decision="NO_MATCH",
+                            local_docs_considered=0,
+                            primary_reason_code=PrimaryReasonCode.PERIOD_FILTER_ZERO,
+                            human_hint=f"No hay documentos para el período {pending_period_key}.",
+                            applied_hints=applied_hints_models,
+                        )
+                        if evidence_dir:
+                            self._save_debug_report(evidence_dir, pending, debug_report)
                     debug_info["match_result"] = "MISSING_DOC_FOR_PERIOD"
                     debug_info["reasons"] = [f"Missing document for period {pending_period_key}"]
                     if evidence_dir:
@@ -483,7 +694,8 @@ class DocumentMatcherV1:
                         "alternatives": [],
                         "confidence": 0.0,
                         "reasons": [f"Missing document for period {pending_period_key}"],
-                        "needs_operator": True
+                        "needs_operator": True,
+                        "matching_debug_report": debug_report.model_dump(mode="json") if debug_report else None,  # SPRINT C2.18A
                     }
             else:
                 # Sin period_key: Query 1: Con empresa y persona
@@ -519,9 +731,33 @@ class DocumentMatcherV1:
                     }
                     debug_info["document_queries"].append(query_info_fallback)
             
+            docs_after_subject_filter += len(docs)  # SPRINT C2.18A: Acumular docs después de filtro subject
+            
             for doc in docs:
                 score, reasons = self.score_document(doc, doc_type, pending, type_confidence)
                 all_candidates.append(MatchResultV1(doc, score, reasons))
+        
+        # SPRINT C2.18A: Paso 4: filter: subject (company_key/person_key)
+        if debug_report:
+            total_docs_after_type = total_docs_after_type_filter if 'total_docs_after_type_filter' in locals() else 0
+            debug_report.pipeline.append(PipelineStep(
+                step_name="filter: subject",
+                input_count=total_docs_after_type,
+                output_count=docs_after_subject_filter,
+                rule=f"company_key={company_key}, person_key={person_key}",
+                dropped_sample=[],
+            ))
+        
+        # SPRINT C2.18A: Paso 5: filter: period_key (si aplica)
+        if debug_report and pending_period_key:
+            docs_after_period_filter = len(all_candidates)  # Ya filtrados por period en queries
+            debug_report.pipeline.append(PipelineStep(
+                step_name="filter: period_key",
+                input_count=docs_after_subject_filter,
+                output_count=docs_after_period_filter,
+                rule=f"period_key={pending_period_key}",
+                dropped_sample=[],
+            ))
         
         # INSTRUMENTACIÓN: Guardar info de documentos candidatos
         debug_info["candidates_found"] = len(all_candidates)
@@ -535,7 +771,180 @@ class DocumentMatcherV1:
             for c in all_candidates[:5]  # Primeros 5
         ]
         
+        # SPRINT C2.19A: Aplicar hints de aprendizaje ANTES del ranking final
+        # (applied_hints ya inicializado al inicio de la función)
+        try:
+            from backend.shared.learning_store import LearningStore
+            from backend.shared.learning_store import HintStrength
+            from backend.shared.text_normalizer import normalize_text as normalize_text_for_hint
+            
+            # Usar el mismo base_dir que el store para que los tests funcionen
+            learning_store = LearningStore(base_dir=self.base_dir)
+            
+            # Construir portal label normalizado
+            portal_type_label_normalized = None
+            tipo_doc = pending.tipo_doc
+            if tipo_doc:
+                portal_type_label_normalized = normalize_text_for_hint(tipo_doc)
+            
+            # Buscar hints aplicables
+            hints = learning_store.find_hints(
+                platform="egestiona",  # Por ahora hardcodeado
+                type_id=None,  # No filtrar por type_id aquí, el hint lo tiene
+                subject_key=company_key,
+                person_key=person_key,
+                period_key=pending_period_key,
+                portal_label_norm=portal_type_label_normalized,
+            )
+            
+            if hints:
+                # Filtrar por type_id esperado (si tenemos matching_types)
+                matching_type_ids = {t[0].type_id for t in matching_types} if matching_types else set()
+                applicable_hints = []
+                for hint in hints:
+                    expected_type = hint.learned_mapping.get("type_id_expected")
+                    # Aplicar hint si:
+                    # 1. No tiene type_id esperado (hint genérico)
+                    # 2. Es UNKNOWN
+                    # 3. Coincide con alguno de los matching_types encontrados
+                    # 4. O si no hay matching_types pero el hint tiene un type_id válido (permite resolver casos donde el tipo no se detecta automáticamente)
+                    if not expected_type or expected_type == "UNKNOWN" or expected_type in matching_type_ids or (not matching_type_ids and expected_type):
+                        applicable_hints.append(hint)
+                
+                if applicable_hints:
+                    # Si hay 1 hint EXACT que apunta a un doc que existe
+                    exact_hints = [h for h in applicable_hints if h.strength == HintStrength.EXACT]
+                    if len(exact_hints) == 1:
+                        hint = exact_hints[0]
+                        target_doc_id = hint.learned_mapping.get("local_doc_id")
+                        
+                        # Buscar el doc en all_candidates o en el store
+                        target_doc = None
+                        for candidate in all_candidates:
+                            if candidate.doc.doc_id == target_doc_id:
+                                target_doc = candidate.doc
+                                break
+                        
+                        if not target_doc:
+                            # Intentar cargar desde store
+                            target_doc = self.store.get_document(target_doc_id)
+                        
+                        if target_doc:
+                            # Verificar condiciones estrictas
+                            type_match = not hint.learned_mapping.get("type_id_expected") or target_doc.type_id == hint.learned_mapping.get("type_id_expected")
+                            subject_match = not hint.conditions.get("subject_key") or target_doc.company_key == hint.conditions.get("subject_key")
+                            period_match = True
+                            if hint.conditions.get("period_key") and pending_period_key:
+                                period_match = target_doc.period_key == hint.conditions.get("period_key")
+                            
+                            if type_match and subject_match and period_match:
+                                # Resolver directamente
+                                score = 1.0
+                                reasons = [f"Resolved by learned hint {hint.hint_id}"]
+                                hint_result = MatchResultV1(target_doc, score, reasons)
+                                
+                                # Reemplazar all_candidates con este único candidato
+                                all_candidates = [hint_result]
+                                
+                                applied_hints.append({
+                                    "hint_id": hint.hint_id,
+                                    "strength": hint.strength.value,
+                                    "effect": "resolved",
+                                    "reason": "EXACT hint matched, doc verified",
+                                })
+                            else:
+                                applied_hints.append({
+                                    "hint_id": hint.hint_id,
+                                    "strength": hint.strength.value,
+                                    "effect": "ignored",
+                                    "reason": f"Conditions mismatch: type={type_match}, subject={subject_match}, period={period_match}",
+                                })
+                        else:
+                            applied_hints.append({
+                                "hint_id": hint.hint_id,
+                                "strength": hint.strength.value,
+                                "effect": "ignored",
+                                "reason": f"Target doc {target_doc_id} not found",
+                            })
+                    elif len(applicable_hints) > 1:
+                        # Múltiples hints: solo boost, no resolver
+                        for hint in applicable_hints:
+                            target_doc_id = hint.learned_mapping.get("local_doc_id")
+                            # Buscar en candidates y boostear score
+                            for candidate in all_candidates:
+                                if candidate.doc.doc_id == target_doc_id:
+                                    # Boost suave: +0.2 al score
+                                    candidate.score = min(1.0, candidate.score + 0.2)
+                                    candidate.reasons.append(f"Boosted by hint {hint.hint_id}")
+                                    applied_hints.append({
+                                        "hint_id": hint.hint_id,
+                                        "strength": hint.strength.value,
+                                        "effect": "boosted",
+                                        "reason": "Multiple hints, soft boost applied",
+                                    })
+                                    break
+        except Exception as e:
+            print(f"[DocumentMatcher] WARNING: Error applying learning hints: {e}")
+            # Continuar sin hints si hay error
+        
         if not all_candidates:
+            # SPRINT C2.18A: Detectar causa específica de NO_MATCH
+            if debug_report:
+                # Determinar primary_reason_code
+                primary_reason = PrimaryReasonCode.UNKNOWN
+                human_hint = "No se encontraron documentos después de aplicar filtros."
+                
+                # SPRINT C2.18A.1: Detectar DATA_DIR_MISMATCH primero (si repo está vacío)
+                if debug_report.meta["repo_docs_total"] == 0:
+                    data_dir_resolved = debug_report.meta.get("data_dir_resolved")
+                    data_dir_expected = debug_report.meta.get("data_dir_expected")
+                    
+                    # Heurística DATA_DIR_MISMATCH
+                    if data_dir_expected:
+                        from pathlib import Path
+                        resolved_norm = str(Path(data_dir_resolved).resolve())
+                        expected_norm = str(Path(data_dir_expected).resolve())
+                        
+                        if resolved_norm != expected_norm:
+                            primary_reason = PrimaryReasonCode.DATA_DIR_MISMATCH
+                            expected_source = debug_report.meta.get("data_dir_expected_source", "unknown")
+                            human_hint = (
+                                f"El repositorio local parece vacío porque data_dir_resolved ({data_dir_resolved}) "
+                                f"difiere de data_dir_expected ({data_dir_expected}) "
+                                f"(fuente: {expected_source}). "
+                                f"Revisa variables de entorno o configuración."
+                            )
+                        else:
+                            primary_reason = PrimaryReasonCode.REPO_EMPTY
+                            human_hint = "El repositorio está vacío. No hay documentos disponibles."
+                    else:
+                        primary_reason = PrimaryReasonCode.REPO_EMPTY
+                        human_hint = "El repositorio está vacío. No hay documentos disponibles."
+                elif 'total_docs_after_type_filter' in locals() and total_docs_after_type_filter == 0:
+                    type_ids_list = debug_report.meta["request_context"].get("type_ids", [])
+                    primary_reason = PrimaryReasonCode.TYPE_FILTER_ZERO
+                    human_hint = f"No hay documentos del tipo requerido. Tipos buscados: {type_ids_list}."
+                elif 'docs_after_subject_filter' in locals() and docs_after_subject_filter == 0:
+                    primary_reason = PrimaryReasonCode.SUBJECT_FILTER_ZERO
+                    human_hint = f"No hay documentos para company_key={company_key}, person_key={person_key}."
+                elif pending_period_key and len(all_candidates) == 0:
+                    primary_reason = PrimaryReasonCode.PERIOD_FILTER_ZERO
+                    human_hint = f"No hay documentos para el período {pending_period_key}."
+                
+                # SPRINT C2.19A: Añadir applied_hints al outcome
+                from backend.shared.matching_debug_report import AppliedHint
+                applied_hints_models = [AppliedHint(**h) for h in applied_hints] if applied_hints else []
+                
+                debug_report.outcome = MatchingOutcome(
+                    decision="NO_MATCH",
+                    local_docs_considered=0,
+                    primary_reason_code=primary_reason,
+                    human_hint=human_hint,
+                    applied_hints=applied_hints_models,
+                )
+                if evidence_dir:
+                    self._save_debug_report(evidence_dir, pending, debug_report)
+            
             debug_info["match_result"] = "NO_DOCUMENTS_FOUND"
             debug_info["reasons"] = [f"No documents found for company={company_key}, person={person_key}"]
             if evidence_dir:
@@ -545,14 +954,59 @@ class DocumentMatcherV1:
                 "alternatives": [],
                 "confidence": 0.0,
                 "reasons": [f"No documents found for company={company_key}, person={person_key}"],
-                "needs_operator": True
+                "needs_operator": True,
+                "matching_debug_report": debug_report.model_dump(mode="json") if debug_report else None,  # SPRINT C2.18A
             }
         
         # 3) Ordenar por score descendente
         all_candidates.sort(key=lambda x: x.score, reverse=True)
         
+        # SPRINT C2.18A: Paso 6: rank: compute confidence
+        if debug_report:
+            debug_report.pipeline.append(PipelineStep(
+                step_name="rank: compute confidence",
+                input_count=len(all_candidates),
+                output_count=len(all_candidates),  # Todos pasan, solo se ordenan
+                rule="sort_by_score_descending",
+                dropped_sample=[],
+            ))
+        
         best = all_candidates[0]
         alternatives = all_candidates[1:4]  # Hasta 3 alternativas
+        
+        # SPRINT C2.18A: Paso 7: threshold: min_confidence (0.7)
+        threshold = 0.7
+        if debug_report:
+            candidates_above_threshold = [c for c in all_candidates if c.score >= threshold]
+            debug_report.pipeline.append(PipelineStep(
+                step_name="threshold: min_confidence",
+                input_count=len(all_candidates),
+                output_count=len(candidates_above_threshold),
+                rule=f"confidence >= {threshold}",
+                dropped_sample=[
+                    {
+                        "doc_id": c.doc.doc_id,
+                        "reason": f"confidence_below_threshold ({c.score:.2f} < {threshold})"
+                    }
+                    for c in all_candidates if c.score < threshold
+                ][:5],  # Hasta 5 ejemplos
+            ))
+            
+            # Añadir candidatos top al reporte
+            for cand in all_candidates[:5]:
+                debug_report.candidates_top.append(CandidateTop(
+                    doc_id=cand.doc.doc_id,
+                    type_id=cand.doc.type_id,
+                    company_key=cand.doc.company_key,
+                    person_key=cand.doc.person_key,
+                    period_key=cand.doc.period_key,
+                    file_path=cand.doc.file_name_original,
+                    status=cand.doc.status.value,
+                    score_breakdown={
+                        "final_confidence": cand.score,
+                    },
+                    reject_reason=f"confidence_below_threshold ({cand.score:.2f} < {threshold})" if cand.score < threshold else None,
+                ))
         
         # 4) Determinar needs_operator
         needs_operator = False
@@ -561,6 +1015,40 @@ class DocumentMatcherV1:
         if len(all_candidates) > 1 and abs(all_candidates[0].score - all_candidates[1].score) < 0.1:
             # Empate cercano
             needs_operator = True
+        
+        # SPRINT C2.18A: Determinar outcome final
+        if debug_report:
+            decision = "AUTO_UPLOAD" if best.score >= 0.7 and not needs_operator else "REVIEW_REQUIRED" if best.score >= 0.5 else "NO_MATCH"
+            primary_reason = PrimaryReasonCode.UNKNOWN
+            human_hint = ""
+            
+            if decision == "NO_MATCH":
+                if best.score < threshold:
+                    primary_reason = PrimaryReasonCode.CONFIDENCE_TOO_LOW
+                    human_hint = f"Se encontraron candidatos pero ninguno supera el umbral de confianza ({threshold}). Mejor score: {best.score:.2f}."
+                else:
+                    primary_reason = PrimaryReasonCode.UNKNOWN
+                    human_hint = "No se pudo determinar la causa específica."
+            elif decision == "REVIEW_REQUIRED":
+                primary_reason = PrimaryReasonCode.CONFIDENCE_TOO_LOW
+                human_hint = f"Match encontrado pero requiere revisión (confidence={best.score:.2f} < {threshold})."
+            else:  # AUTO_UPLOAD
+                primary_reason = PrimaryReasonCode.UNKNOWN  # No aplica, hay match
+                human_hint = f"Match encontrado con alta confianza (confidence={best.score:.2f})."
+            
+            # SPRINT C2.19A: Añadir applied_hints al outcome
+            from backend.shared.matching_debug_report import AppliedHint
+            applied_hints_models = [AppliedHint(**h) for h in applied_hints] if applied_hints else []
+            
+            debug_report.outcome = MatchingOutcome(
+                decision=decision,
+                local_docs_considered=len(all_candidates),
+                primary_reason_code=primary_reason,
+                human_hint=human_hint,
+                applied_hints=applied_hints_models,
+            )
+            if evidence_dir:
+                self._save_debug_report(evidence_dir, pending, debug_report)
         
         # INSTRUMENTACIÓN: Guardar resultado final
         debug_info["match_result"] = "MATCH_FOUND" if best.score >= 0.7 else "LOW_CONFIDENCE_MATCH"
@@ -578,11 +1066,12 @@ class DocumentMatcherV1:
             "confidence": best.score,
             "reasons": best.reasons,
             "needs_operator": needs_operator,
-            "matched_rule": None  # No vino de regla
+            "matched_rule": None,  # No vino de regla
+            "matching_debug_report": debug_report.model_dump(mode="json") if debug_report else None,  # SPRINT C2.18A
         }
     
     def _save_debug_info(self, evidence_dir: Path, debug_info: dict) -> None:
-        """Guarda pending_match_debug.json en evidence_dir."""
+        """Guarda pending_match_debug.json en evidence_dir (legacy)."""
         try:
             debug_path = evidence_dir / "pending_match_debug.json"
             # Si ya existe, leer y añadir a lista
@@ -605,5 +1094,80 @@ class DocumentMatcherV1:
             )
         except Exception as e:
             # No fallar si no se puede guardar debug
+            pass
+    
+    def _save_debug_report(self, evidence_dir: Path, pending: PendingItemV1, debug_report: MatchingDebugReportV1) -> None:
+        """SPRINT C2.18A: Guarda MatchingDebugReportV1 estructurado en evidence_dir."""
+        try:
+            # Crear subdirectorio matching_debug
+            matching_debug_dir = evidence_dir / "matching_debug"
+            matching_debug_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Generar item_id desde pending_item_key o hash del pending
+            import hashlib
+            pending_key = f"{pending.tipo_doc}|{pending.elemento}|{pending.empresa}"
+            item_id_hash = hashlib.md5(pending_key.encode("utf-8")).hexdigest()[:8]
+            item_id = f"item_{item_id_hash}"
+            
+            # Guardar reporte individual
+            report_path = matching_debug_dir / f"{item_id}__debug.json"
+            report_path.write_text(
+                debug_report.model_dump_json(indent=2, exclude_none=True),
+                encoding="utf-8"
+            )
+            
+            # Actualizar índice
+            index_path = matching_debug_dir / "index.json"
+            index_data = {}
+            if index_path.exists():
+                try:
+                    index_data = json.loads(index_path.read_text(encoding="utf-8"))
+                except Exception:
+                    index_data = {}
+            
+            if "items" not in index_data:
+                index_data["items"] = []
+            
+            # Añadir o actualizar entrada
+            existing_idx = next((i for i, item in enumerate(index_data["items"]) if item.get("item_id") == item_id), None)
+            item_entry = {
+                "item_id": item_id,
+                "pending_label": debug_report.meta["request_context"]["pending_label"],
+                "pending_text": debug_report.meta["request_context"]["pending_text"],
+                "outcome": {
+                    "decision": debug_report.outcome.decision,
+                    "local_docs_considered": debug_report.outcome.local_docs_considered,
+                    "primary_reason_code": debug_report.outcome.primary_reason_code.value,
+                    "human_hint": debug_report.outcome.human_hint,
+                },
+                "report_path": str(report_path.relative_to(evidence_dir)),
+                "created_at": debug_report.meta["created_at"],
+            }
+            
+            if existing_idx is not None:
+                index_data["items"][existing_idx] = item_entry
+            else:
+                index_data["items"].append(item_entry)
+            
+            # Actualizar resumen
+            index_data["summary"] = {
+                "total_items": len(index_data["items"]),
+                "no_match_count": len([i for i in index_data["items"] if i["outcome"]["decision"] == "NO_MATCH"]),
+                "review_required_count": len([i for i in index_data["items"] if i["outcome"]["decision"] == "REVIEW_REQUIRED"]),
+                "auto_upload_count": len([i for i in index_data["items"] if i["outcome"]["decision"] == "AUTO_UPLOAD"]),
+                "repo_empty_count": len([i for i in index_data["items"] if i["outcome"]["primary_reason_code"] == "REPO_EMPTY"]),
+                "type_filter_zero_count": len([i for i in index_data["items"] if i["outcome"]["primary_reason_code"] == "TYPE_FILTER_ZERO"]),
+                "subject_filter_zero_count": len([i for i in index_data["items"] if i["outcome"]["primary_reason_code"] == "SUBJECT_FILTER_ZERO"]),
+                "period_filter_zero_count": len([i for i in index_data["items"] if i["outcome"]["primary_reason_code"] == "PERIOD_FILTER_ZERO"]),
+                "confidence_too_low_count": len([i for i in index_data["items"] if i["outcome"]["primary_reason_code"] == "CONFIDENCE_TOO_LOW"]),
+            }
+            
+            index_path.write_text(
+                json.dumps(index_data, ensure_ascii=False, indent=2),
+                encoding="utf-8"
+            )
+        except Exception as e:
+            # No fallar si no se puede guardar debug report
+            print(f"[MATCHING_DEBUG] Error guardando debug report: {e}")
             pass
 
