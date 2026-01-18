@@ -1,0 +1,292 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic: "UI build: upload-autocomplete-v1 2026-01-18 21:54:12"
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - heading "Repositorio" [level=1] [ref=e4]
+      - paragraph [ref=e5]: Documental
+    - navigation [ref=e6]:
+      - generic [ref=e7] [cursor=pointer]:
+        - generic [ref=e8]: 🏠
+        - text: Inicio
+      - generic [ref=e9] [cursor=pointer]:
+        - generic [ref=e10]: 📅
+        - text: Calendario de documentos
+      - generic [ref=e11] [cursor=pointer]:
+        - generic [ref=e12]: 📤
+        - text: Subir documentos
+      - generic [ref=e13] [cursor=pointer]:
+        - generic [ref=e14]: 🔍
+        - text: Buscar documentos
+      - generic [ref=e15] [cursor=pointer]:
+        - generic [ref=e16]: 🌐
+        - text: Plataformas
+      - generic [ref=e17] [cursor=pointer]:
+        - generic [ref=e18]: 📚
+        - text: Catálogo de documentos
+      - generic [ref=e19] [cursor=pointer]:
+        - generic [ref=e20]: ⚙️
+        - text: Configuración
+      - generic [ref=e21] [cursor=pointer]:
+        - generic [ref=e22]: 📜
+        - text: Actividad
+      - generic [ref=e23] [cursor=pointer]:
+        - generic [ref=e24]: 🔗
+        - text: Coordinación CAE
+      - generic [ref=e25] [cursor=pointer]:
+        - generic [ref=e26]: 📋
+        - text: Revisión Plan (CAE)
+  - generic [ref=e27]:
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - heading "Inicio" [level=2] [ref=e31]
+        - paragraph [ref=e32]: Vista general del repositorio
+      - generic [ref=e34]:
+        - generic [ref=e35]: "Empresa propia:"
+        - combobox "Empresa propia:" [ref=e36]:
+          - option "-- Sin seleccionar --" [selected]
+          - option "Tedelab Ingeniería SCCL"
+        - generic [ref=e37]: "Plataforma:"
+        - combobox "Plataforma:" [ref=e38]:
+          - option "-- Sin seleccionar --" [selected]
+          - option "Egestiona"
+        - generic [ref=e39]: "Empresa coordinada:"
+        - combobox "Empresa coordinada:" [ref=e40]:
+          - option "-- Selecciona plataforma primero --" [selected]
+        - generic [ref=e41]: Sin contexto
+    - generic [ref=e42]:
+      - generic [ref=e43]:
+        - generic [ref=e44]:
+          - generic [ref=e45]: Faltan este mes
+          - generic [ref=e46]: "0"
+          - generic [ref=e47]: Documentos pendientes
+        - generic [ref=e48]:
+          - generic [ref=e49]: A punto de caducar
+          - generic [ref=e50]: "0"
+          - generic [ref=e51]: Próximos 30 días
+        - generic [ref=e52]:
+          - generic [ref=e53]: Plataformas sin configurar
+          - generic [ref=e54]: "1"
+          - generic [ref=e55]: Clientes sin reglas
+        - generic [ref=e56]:
+          - generic [ref=e57]: Documentos
+          - generic [ref=e58]: "40"
+          - generic [ref=e59]: En el repositorio
+      - generic [ref=e60]:
+        - heading "Subidas recientes" [level=3] [ref=e61]
+        - table [ref=e63]:
+          - rowgroup [ref=e64]:
+            - row "Documento De quién Mes Fecha" [ref=e65]:
+              - columnheader "Documento" [ref=e66]
+              - columnheader "De quién" [ref=e67]
+              - columnheader "Mes" [ref=e68]
+              - columnheader "Fecha" [ref=e69]
+          - rowgroup [ref=e70]:
+            - row "E2E Test Type 1 E2E_PERSON_a5121292 Agosto 2025 14/1/2026" [ref=e71]:
+              - cell "E2E Test Type 1" [ref=e72]
+              - cell "E2E_PERSON_a5121292" [ref=e73]
+              - cell "Agosto 2025" [ref=e74]
+              - cell "14/1/2026" [ref=e75]
+            - row "E2E Test Type 1 E2E_PERSON_a5121292 Septiembre 2025 14/1/2026" [ref=e76]:
+              - cell "E2E Test Type 1" [ref=e77]
+              - cell "E2E_PERSON_a5121292" [ref=e78]
+              - cell "Septiembre 2025" [ref=e79]
+              - cell "14/1/2026" [ref=e80]
+            - row "E2E_TYPE_d2a421f8_0 E2E_PERSON_d2a421f8 Agosto 2025 14/1/2026" [ref=e81]:
+              - cell "E2E_TYPE_d2a421f8_0" [ref=e82]
+              - cell "E2E_PERSON_d2a421f8" [ref=e83]
+              - cell "Agosto 2025" [ref=e84]
+              - cell "14/1/2026" [ref=e85]
+            - row "E2E_TYPE_d2a421f8_0 E2E_PERSON_d2a421f8 Septiembre 2025 14/1/2026" [ref=e86]:
+              - cell "E2E_TYPE_d2a421f8_0" [ref=e87]
+              - cell "E2E_PERSON_d2a421f8" [ref=e88]
+              - cell "Septiembre 2025" [ref=e89]
+              - cell "14/1/2026" [ref=e90]
+            - row "E2E_TYPE_05c484e6_0 E2E_PERSON_05c484e6 Agosto 2025 14/1/2026" [ref=e91]:
+              - cell "E2E_TYPE_05c484e6_0" [ref=e92]
+              - cell "E2E_PERSON_05c484e6" [ref=e93]
+              - cell "Agosto 2025" [ref=e94]
+              - cell "14/1/2026" [ref=e95]
+            - row "E2E_TYPE_05c484e6_0 E2E_PERSON_05c484e6 Septiembre 2025 14/1/2026" [ref=e96]:
+              - cell "E2E_TYPE_05c484e6_0" [ref=e97]
+              - cell "E2E_PERSON_05c484e6" [ref=e98]
+              - cell "Septiembre 2025" [ref=e99]
+              - cell "14/1/2026" [ref=e100]
+            - row "E2E_TYPE_415da1f8_0 E2E_PERSON_415da1f8 Agosto 2025 14/1/2026" [ref=e101]:
+              - cell "E2E_TYPE_415da1f8_0" [ref=e102]
+              - cell "E2E_PERSON_415da1f8" [ref=e103]
+              - cell "Agosto 2025" [ref=e104]
+              - cell "14/1/2026" [ref=e105]
+            - row "E2E_TYPE_415da1f8_0 E2E_PERSON_415da1f8 Septiembre 2025 14/1/2026" [ref=e106]:
+              - cell "E2E_TYPE_415da1f8_0" [ref=e107]
+              - cell "E2E_PERSON_415da1f8" [ref=e108]
+              - cell "Septiembre 2025" [ref=e109]
+              - cell "14/1/2026" [ref=e110]
+            - row "E2E_TYPE_67e6b91b_0 E2E_PERSON_67e6b91b Agosto 2025 14/1/2026" [ref=e111]:
+              - cell "E2E_TYPE_67e6b91b_0" [ref=e112]
+              - cell "E2E_PERSON_67e6b91b" [ref=e113]
+              - cell "Agosto 2025" [ref=e114]
+              - cell "14/1/2026" [ref=e115]
+            - row "E2E_TYPE_67e6b91b_0 E2E_PERSON_67e6b91b Septiembre 2025 14/1/2026" [ref=e116]:
+              - cell "E2E_TYPE_67e6b91b_0" [ref=e117]
+              - cell "E2E_PERSON_67e6b91b" [ref=e118]
+              - cell "Septiembre 2025" [ref=e119]
+              - cell "14/1/2026" [ref=e120]
+            - row "E2E_TYPE_daf85a5b_0 E2E_PERSON_daf85a5b Agosto 2025 14/1/2026" [ref=e121]:
+              - cell "E2E_TYPE_daf85a5b_0" [ref=e122]
+              - cell "E2E_PERSON_daf85a5b" [ref=e123]
+              - cell "Agosto 2025" [ref=e124]
+              - cell "14/1/2026" [ref=e125]
+            - row "E2E_TYPE_daf85a5b_0 E2E_PERSON_daf85a5b Septiembre 2025 14/1/2026" [ref=e126]:
+              - cell "E2E_TYPE_daf85a5b_0" [ref=e127]
+              - cell "E2E_PERSON_daf85a5b" [ref=e128]
+              - cell "Septiembre 2025" [ref=e129]
+              - cell "14/1/2026" [ref=e130]
+            - row "E2E_TYPE_7c755488_0 E2E_PERSON_7c755488 Agosto 2025 14/1/2026" [ref=e131]:
+              - cell "E2E_TYPE_7c755488_0" [ref=e132]
+              - cell "E2E_PERSON_7c755488" [ref=e133]
+              - cell "Agosto 2025" [ref=e134]
+              - cell "14/1/2026" [ref=e135]
+            - row "E2E_TYPE_7c755488_0 E2E_PERSON_7c755488 Septiembre 2025 14/1/2026" [ref=e136]:
+              - cell "E2E_TYPE_7c755488_0" [ref=e137]
+              - cell "E2E_PERSON_7c755488" [ref=e138]
+              - cell "Septiembre 2025" [ref=e139]
+              - cell "14/1/2026" [ref=e140]
+            - row "E2E_TYPE_372a6999_0 E2E_PERSON_372a6999 Agosto 2025 14/1/2026" [ref=e141]:
+              - cell "E2E_TYPE_372a6999_0" [ref=e142]
+              - cell "E2E_PERSON_372a6999" [ref=e143]
+              - cell "Agosto 2025" [ref=e144]
+              - cell "14/1/2026" [ref=e145]
+            - row "E2E_TYPE_372a6999_0 E2E_PERSON_372a6999 Septiembre 2025 14/1/2026" [ref=e146]:
+              - cell "E2E_TYPE_372a6999_0" [ref=e147]
+              - cell "E2E_PERSON_372a6999" [ref=e148]
+              - cell "Septiembre 2025" [ref=e149]
+              - cell "14/1/2026" [ref=e150]
+            - row "E2E_TYPE_9ad08567_0 E2E_PERSON_9ad08567 Agosto 2025 14/1/2026" [ref=e151]:
+              - cell "E2E_TYPE_9ad08567_0" [ref=e152]
+              - cell "E2E_PERSON_9ad08567" [ref=e153]
+              - cell "Agosto 2025" [ref=e154]
+              - cell "14/1/2026" [ref=e155]
+            - row "E2E_TYPE_9ad08567_0 E2E_PERSON_9ad08567 Septiembre 2025 14/1/2026" [ref=e156]:
+              - cell "E2E_TYPE_9ad08567_0" [ref=e157]
+              - cell "E2E_PERSON_9ad08567" [ref=e158]
+              - cell "Septiembre 2025" [ref=e159]
+              - cell "14/1/2026" [ref=e160]
+            - row "E2E_TYPE_86dc4bcb_0 E2E_PERSON_86dc4bcb Agosto 2025 14/1/2026" [ref=e161]:
+              - cell "E2E_TYPE_86dc4bcb_0" [ref=e162]
+              - cell "E2E_PERSON_86dc4bcb" [ref=e163]
+              - cell "Agosto 2025" [ref=e164]
+              - cell "14/1/2026" [ref=e165]
+            - row "E2E_TYPE_86dc4bcb_0 E2E_PERSON_86dc4bcb Septiembre 2025 14/1/2026" [ref=e166]:
+              - cell "E2E_TYPE_86dc4bcb_0" [ref=e167]
+              - cell "E2E_PERSON_86dc4bcb" [ref=e168]
+              - cell "Septiembre 2025" [ref=e169]
+              - cell "14/1/2026" [ref=e170]
+            - row "E2E_TYPE_c794bc21_0 E2E_PERSON_c794bc21 Agosto 2025 14/1/2026" [ref=e171]:
+              - cell "E2E_TYPE_c794bc21_0" [ref=e172]
+              - cell "E2E_PERSON_c794bc21" [ref=e173]
+              - cell "Agosto 2025" [ref=e174]
+              - cell "14/1/2026" [ref=e175]
+            - row "E2E_TYPE_c794bc21_0 E2E_PERSON_c794bc21 Septiembre 2025 14/1/2026" [ref=e176]:
+              - cell "E2E_TYPE_c794bc21_0" [ref=e177]
+              - cell "E2E_PERSON_c794bc21" [ref=e178]
+              - cell "Septiembre 2025" [ref=e179]
+              - cell "14/1/2026" [ref=e180]
+            - row "E2E_TYPE_711960bc_0 E2E_PERSON_711960bc Agosto 2025 14/1/2026" [ref=e181]:
+              - cell "E2E_TYPE_711960bc_0" [ref=e182]
+              - cell "E2E_PERSON_711960bc" [ref=e183]
+              - cell "Agosto 2025" [ref=e184]
+              - cell "14/1/2026" [ref=e185]
+            - row "E2E_TYPE_711960bc_0 E2E_PERSON_711960bc Septiembre 2025 14/1/2026" [ref=e186]:
+              - cell "E2E_TYPE_711960bc_0" [ref=e187]
+              - cell "E2E_PERSON_711960bc" [ref=e188]
+              - cell "Septiembre 2025" [ref=e189]
+              - cell "14/1/2026" [ref=e190]
+            - row "E2E_TYPE_0d701fb8_0 E2E_PERSON_0d701fb8 Agosto 2025 14/1/2026" [ref=e191]:
+              - cell "E2E_TYPE_0d701fb8_0" [ref=e192]
+              - cell "E2E_PERSON_0d701fb8" [ref=e193]
+              - cell "Agosto 2025" [ref=e194]
+              - cell "14/1/2026" [ref=e195]
+            - row "E2E_TYPE_0d701fb8_0 E2E_PERSON_0d701fb8 Septiembre 2025 14/1/2026" [ref=e196]:
+              - cell "E2E_TYPE_0d701fb8_0" [ref=e197]
+              - cell "E2E_PERSON_0d701fb8" [ref=e198]
+              - cell "Septiembre 2025" [ref=e199]
+              - cell "14/1/2026" [ref=e200]
+            - row "E2E_TYPE_cb6d64f3_0 E2E_PERSON_cb6d64f3 Agosto 2025 14/1/2026" [ref=e201]:
+              - cell "E2E_TYPE_cb6d64f3_0" [ref=e202]
+              - cell "E2E_PERSON_cb6d64f3" [ref=e203]
+              - cell "Agosto 2025" [ref=e204]
+              - cell "14/1/2026" [ref=e205]
+            - row "E2E_TYPE_cb6d64f3_0 E2E_PERSON_cb6d64f3 Septiembre 2025 14/1/2026" [ref=e206]:
+              - cell "E2E_TYPE_cb6d64f3_0" [ref=e207]
+              - cell "E2E_PERSON_cb6d64f3" [ref=e208]
+              - cell "Septiembre 2025" [ref=e209]
+              - cell "14/1/2026" [ref=e210]
+            - row "E2E_TYPE_8fac87d8_0 E2E_PERSON_8fac87d8 Agosto 2025 14/1/2026" [ref=e211]:
+              - cell "E2E_TYPE_8fac87d8_0" [ref=e212]
+              - cell "E2E_PERSON_8fac87d8" [ref=e213]
+              - cell "Agosto 2025" [ref=e214]
+              - cell "14/1/2026" [ref=e215]
+            - row "E2E_TYPE_8fac87d8_0 E2E_PERSON_8fac87d8 Septiembre 2025 14/1/2026" [ref=e216]:
+              - cell "E2E_TYPE_8fac87d8_0" [ref=e217]
+              - cell "E2E_PERSON_8fac87d8" [ref=e218]
+              - cell "Septiembre 2025" [ref=e219]
+              - cell "14/1/2026" [ref=e220]
+            - row "E2E_TYPE_96bd1266_0 E2E_PERSON_96bd1266 Agosto 2025 14/1/2026" [ref=e221]:
+              - cell "E2E_TYPE_96bd1266_0" [ref=e222]
+              - cell "E2E_PERSON_96bd1266" [ref=e223]
+              - cell "Agosto 2025" [ref=e224]
+              - cell "14/1/2026" [ref=e225]
+            - row "E2E_TYPE_96bd1266_0 E2E_PERSON_96bd1266 Septiembre 2025 14/1/2026" [ref=e226]:
+              - cell "E2E_TYPE_96bd1266_0" [ref=e227]
+              - cell "E2E_PERSON_96bd1266" [ref=e228]
+              - cell "Septiembre 2025" [ref=e229]
+              - cell "14/1/2026" [ref=e230]
+            - row "E2E_TYPE_660e2930_0 E2E_PERSON_660e2930 Agosto 2025 13/1/2026" [ref=e231]:
+              - cell "E2E_TYPE_660e2930_0" [ref=e232]
+              - cell "E2E_PERSON_660e2930" [ref=e233]
+              - cell "Agosto 2025" [ref=e234]
+              - cell "13/1/2026" [ref=e235]
+            - row "E2E_TYPE_660e2930_0 E2E_PERSON_660e2930 Septiembre 2025 13/1/2026" [ref=e236]:
+              - cell "E2E_TYPE_660e2930_0" [ref=e237]
+              - cell "E2E_PERSON_660e2930" [ref=e238]
+              - cell "Septiembre 2025" [ref=e239]
+              - cell "13/1/2026" [ref=e240]
+            - row "E2E_TYPE_0c51be2d_0 E2E_PERSON_0c51be2d Agosto 2025 13/1/2026" [ref=e241]:
+              - cell "E2E_TYPE_0c51be2d_0" [ref=e242]
+              - cell "E2E_PERSON_0c51be2d" [ref=e243]
+              - cell "Agosto 2025" [ref=e244]
+              - cell "13/1/2026" [ref=e245]
+            - row "E2E_TYPE_0c51be2d_0 E2E_PERSON_0c51be2d Septiembre 2025 13/1/2026" [ref=e246]:
+              - cell "E2E_TYPE_0c51be2d_0" [ref=e247]
+              - cell "E2E_PERSON_0c51be2d" [ref=e248]
+              - cell "Septiembre 2025" [ref=e249]
+              - cell "13/1/2026" [ref=e250]
+            - row "E2E_TYPE_3792007e_0 E2E_PERSON_3792007e Agosto 2025 13/1/2026" [ref=e251]:
+              - cell "E2E_TYPE_3792007e_0" [ref=e252]
+              - cell "E2E_PERSON_3792007e" [ref=e253]
+              - cell "Agosto 2025" [ref=e254]
+              - cell "13/1/2026" [ref=e255]
+            - row "E2E_TYPE_3792007e_0 E2E_PERSON_3792007e Septiembre 2025 13/1/2026" [ref=e256]:
+              - cell "E2E_TYPE_3792007e_0" [ref=e257]
+              - cell "E2E_PERSON_3792007e" [ref=e258]
+              - cell "Septiembre 2025" [ref=e259]
+              - cell "13/1/2026" [ref=e260]
+            - row "E2E_TYPE_b946f716_0 E2E_PERSON_b946f716 Agosto 2025 13/1/2026" [ref=e261]:
+              - cell "E2E_TYPE_b946f716_0" [ref=e262]
+              - cell "E2E_PERSON_b946f716" [ref=e263]
+              - cell "Agosto 2025" [ref=e264]
+              - cell "13/1/2026" [ref=e265]
+            - row "E2E_TYPE_b946f716_0 E2E_PERSON_b946f716 Septiembre 2025 13/1/2026" [ref=e266]:
+              - cell "E2E_TYPE_b946f716_0" [ref=e267]
+              - cell "E2E_PERSON_b946f716" [ref=e268]
+              - cell "Septiembre 2025" [ref=e269]
+              - cell "13/1/2026" [ref=e270]
+  - generic [ref=e271]:
+    - generic [ref=e272]: "Estado: CONTEXTO INCOMPLETO"
+    - generic [ref=e273]: "Empresa propia: —"
+    - generic [ref=e274]: "Plataforma: —"
+    - generic [ref=e275]: "Empresa coordinada: —"
+```

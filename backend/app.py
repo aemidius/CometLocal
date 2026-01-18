@@ -61,7 +61,7 @@ from backend.connectors.routes import router as connectors_router
 from backend.config import LLM_CONFIG_FILE, LLM_DEFAULT_CONFIG
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from backend.shared.context_guardrails import validate_write_request_context
 
 # Constantes de rutas
@@ -80,6 +80,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# SPRINT C2.27: Guardrail de contexto para operaciones WRITE
+@app.middleware("http")
+async def context_guardrail_middleware(request: Request, call_next):
+    """
+    Middleware que valida contexto humano para operaciones WRITE.
+    SPRINT C2.28: Incluye logs estructurados para señales operativas.
+    """
+    try:
+        validate_write_request_context(request)
+    except HTTPException:
+        # Re-lanzar HTTPException para que FastAPI la maneje
+        raise
+    except Exception:
+        # Otros errores: continuar sin bloquear
+        pass
+    
+    response = await call_next(request)
+    return response
 
 # Registrar routers
 app.include_router(simulation_router)

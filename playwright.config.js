@@ -23,6 +23,9 @@ function getPythonCommand() {
   }
 }
 
+// SPRINT C2.28: Configuración para guardar evidencias post-fallo
+// (path y fs ya están declarados arriba)
+
 module.exports = {
   testDir: './tests',
   timeout: 30000,
@@ -31,7 +34,10 @@ module.exports = {
     headless: false,
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    trace: 'retain-on-failure', // SPRINT C2.28: Incluir trace para debugging
   },
+  // SPRINT C2.28: El helper de evidencias se inicializa en cada test
+  // No se necesita globalSetup ya que el directorio se crea automáticamente
   webServer: {
     // SPRINT C2.9.18: Permitir 2 ejecuciones seguidas sin "port already used"
     reuseExistingServer: true,

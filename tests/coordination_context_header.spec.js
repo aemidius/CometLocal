@@ -1,10 +1,16 @@
 /**
- * SPRINT C2.26: Tests E2E para contexto de coordinación humano en header.
+ * SPRINT C2.26/C2.27: Tests E2E para contexto de coordinación humano en header.
+ * 
+ * Este test es BLOQUEANTE para producción.
  * 
  * Verifica:
  * 1) Los 3 selectores existen y cargan opciones
  * 2) Cambiar contexto cambia el data_dir (aislamiento real)
  * 3) El badge muestra información humana (sin "tenant")
+ * 4) Guardrail bloquea WRITE sin contexto
+ * 
+ * No depende de datos reales. Usa dataset mínimo o seed controlado (dev/test).
+ * Tiempo objetivo: < 30s
  */
 
 import { test, expect } from '@playwright/test';

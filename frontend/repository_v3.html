@@ -12381,6 +12381,85 @@
                 alert(`Error al ejecutar: ${error.message}`);
             }
         }
+        
+        /**
+         * SPRINT C2.28: Debug badge operativo (solo dev/test).
+         * Muestra contexto actual y estado para debugging.
+         */
+        function initDebugBadge() {
+            // Solo mostrar en dev/test (localhost o ENVIRONMENT != "prod")
+            const isDevTest = window.location.hostname === 'localhost' || 
+                             window.location.hostname === '127.0.0.1' ||
+                             (window.location.search.includes('debug=true'));
+            
+            if (!isDevTest) {
+                return; // No mostrar en producción
+            }
+            
+            // Crear badge si no existe
+            let debugBadge = document.getElementById('debug-context-badge');
+            if (!debugBadge) {
+                debugBadge = document.createElement('div');
+                debugBadge.id = 'debug-context-badge';
+                debugBadge.style.cssText = `
+                    position: fixed;
+                    bottom: 10px;
+                    right: 10px;
+                    background: rgba(0, 0, 0, 0.8);
+                    color: #fff;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    font-family: monospace;
+                    z-index: 9999;
+                    max-width: 300px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                `;
+                document.body.appendChild(debugBadge);
+            }
+            
+            // Actualizar contenido
+            updateDebugBadge();
+            
+            // Actualizar cuando cambie el contexto
+            window.addEventListener('coordinationContextChanged', updateDebugBadge);
+        }
+        
+        function updateDebugBadge() {
+            const debugBadge = document.getElementById('debug-context-badge');
+            if (!debugBadge) return;
+            
+            const context = getCoordinationContext();
+            const isValid = context.isValid();
+            
+            // Obtener nombres legibles
+            const ownCompany = coordinationOptions.own_companies.find(c => c.key === context.own_company_key);
+            const platform = coordinationOptions.platforms.find(p => p.key === context.platform_key);
+            const coordinatedCompany = (coordinationOptions.coordinated_companies_by_platform[context.platform_key] || [])
+                .find(c => c.key === context.coordinated_company_key);
+            
+            const ownLabel = ownCompany ? ownCompany.name : (context.own_company_key || '—');
+            const platformLabel = platform ? platform.name : (context.platform_key || '—');
+            const coordinatedLabel = coordinatedCompany ? coordinatedCompany.name : 
+                (context.coordinated_company_key || '—');
+            
+            const status = isValid ? 'OK' : 'CONTEXTO INCOMPLETO';
+            const statusColor = isValid ? '#4ade80' : '#fbbf24';
+            
+            debugBadge.innerHTML = `
+                <div style="font-weight: bold; margin-bottom: 4px; color: ${statusColor};">Estado: ${status}</div>
+                <div style="margin: 2px 0;">Empresa propia: ${ownLabel}</div>
+                <div style="margin: 2px 0;">Plataforma: ${platformLabel}</div>
+                <div style="margin: 2px 0;">Empresa coordinada: ${coordinatedLabel}</div>
+            `;
+        }
+        
+        // Inicializar debug badge cuando la app esté lista
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initDebugBadge);
+        } else {
+            initDebugBadge();
+        }
     </script>
 </body>
 </html>

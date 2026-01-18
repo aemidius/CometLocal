@@ -3,10 +3,14 @@ SPRINT C2.27: Guardrails de contexto para operaciones WRITE.
 
 Impedir operaciones WRITE si no hay contexto humano válido (own/platform/coordinated),
 salvo legacy explícito en entornos controlados (dev/test).
+
+SPRINT C2.28: Añadidos logs estructurados para señales operativas.
 """
 from __future__ import annotations
 
 import os
+import json
+from datetime import datetime
 from fastapi import Request, HTTPException
 from backend.shared.tenant_context import get_tenant_from_request
 
@@ -97,6 +101,9 @@ def validate_write_request_context(request: Request) -> None:
         # Legacy explícito en dev/test: permitir
         return
     
+    # SPRINT C2.28: Log estructurado antes de rechazar
+    _log_guardrail_block(request)
+    
     # WRITE sin contexto válido: rechazar
     raise HTTPException(
         status_code=400,
@@ -105,3 +112,56 @@ def validate_write_request_context(request: Request) -> None:
             "message": "Selecciona Empresa propia, Plataforma y Empresa coordinada"
         }
     )
+
+
+def _log_guardrail_block(request: Request) -> None:
+    """
+    SPRINT C2.28: Log estructurado cuando se bloquea una operación WRITE por falta de contexto.
+    
+    Log JSON con:
+    - event: "context_guardrail_block"
+    - reason: motivo del bloqueo
+    - route: ruta de la request
+    - headers humanos presentes (keys, no valores sensibles)
+    - timestamp
+    
+    NO incluye:
+    - palabra "tenant"
+    - rutas internas sensibles
+    """
+    # Detectar qué headers humanos están presentes (solo keys)
+    human_headers_present = []
+    if request.headers.get("X-Coordination-Own-Company"):
+        human_headers_present.append("X-Coordination-Own-Company")
+    if request.headers.get("X-Coordination-Platform"):
+        human_headers_present.append("X-Coordination-Platform")
+    if request.headers.get("X-Coordination-Coordinated-Company"):
+        human_headers_present.append("X-Coordination-Coordinated-Company")
+    
+    # Determinar razón del bloqueo
+    has_legacy = bool(request.headers.get("X-Tenant-ID"))
+    is_dev_test = is_dev_or_test_environment()
+    
+    if has_legacy and not is_dev_test:
+        reason = "legacy_header_in_prod"
+    elif not human_headers_present:
+        reason = "no_human_context_headers"
+    elif len(human_headers_present) < 3:
+        reason = "incomplete_human_context"
+    else:
+        reason = "unknown"
+    
+    # Construir log estructurado
+    log_data = {
+        "event": "context_guardrail_block",
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "reason": reason,
+        "route": str(request.url.path),
+        "method": request.method,
+        "human_headers_present": human_headers_present,
+        "has_legacy_header": has_legacy,
+        "environment": os.getenv("ENVIRONMENT", "unknown")
+    }
+    
+    # Imprimir como JSON estructurado a stdout
+    print(json.dumps(log_data, ensure_ascii=False))
