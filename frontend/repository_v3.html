@@ -12462,7 +12462,7 @@
         }
         
         /**
-         * SPRINT C2.29: Scheduler y runs audit-ready
+         * SPRINT C2.29/C2.30: Scheduler y runs audit-ready + Programación
          */
         async function loadRunsScheduler() {
             const content = document.getElementById('page-content');
@@ -12484,6 +12484,47 @@
                     </div>
                     <div id="runs-status" style="margin-top: 16px; padding: 12px; background: #1e293b; border-radius: 4px; display: none;"></div>
                 </div>
+                <div class="card" style="margin-top: 16px;" data-testid="schedules-section">
+                    <h3 style="margin-bottom: 16px;">Programación</h3>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 8px;">Cadencia:</label>
+                        <select id="schedule-cadence" style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0; margin-bottom: 8px;">
+                            <option value="daily">Diaria</option>
+                            <option value="weekly">Semanal</option>
+                        </select>
+                        <label style="display: block; margin-bottom: 8px;">Hora (HH:MM):</label>
+                        <input type="text" id="schedule-time" placeholder="09:00" 
+                               style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0; margin-bottom: 8px;">
+                        <div id="schedule-weekday-container" style="display: none; margin-bottom: 8px;">
+                            <label style="display: block; margin-bottom: 8px;">Día de la semana:</label>
+                            <select id="schedule-weekday" style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0;">
+                                <option value="0">Lunes</option>
+                                <option value="1">Martes</option>
+                                <option value="2">Miércoles</option>
+                                <option value="3">Jueves</option>
+                                <option value="4">Viernes</option>
+                                <option value="5">Sábado</option>
+                                <option value="6">Domingo</option>
+                            </select>
+                        </div>
+                        <input type="text" id="schedule-plan-id" placeholder="Plan ID" 
+                               style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0; margin-bottom: 8px;">
+                        <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <input type="checkbox" id="schedule-dry-run">
+                            <span>Dry-run</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <input type="checkbox" id="schedule-enabled" checked>
+                            <span>Habilitado</span>
+                        </label>
+                        <button class="btn btn-primary" onclick="saveSchedule()" id="schedule-save-btn" data-testid="schedule-save-btn">
+                            Guardar programación
+                        </button>
+                    </div>
+                    <div id="schedules-list-content" style="margin-top: 16px;">
+                        <div class="loading">Cargando programaciones...</div>
+                    </div>
+                </div>
                 <div class="card" style="margin-top: 16px;" data-testid="runs-list">
                     <h3 style="margin-bottom: 16px;">Últimas Ejecuciones</h3>
                     <div id="runs-list-content">
@@ -12492,8 +12533,15 @@
                 </div>
             `;
             
-            // Cargar últimas ejecuciones
+            // Mostrar/ocultar weekday según cadence
+            document.getElementById('schedule-cadence').addEventListener('change', (e) => {
+                const weekdayContainer = document.getElementById('schedule-weekday-container');
+                weekdayContainer.style.display = e.target.value === 'weekly' ? 'block' : 'none';
+            });
+            
+            // Cargar últimas ejecuciones y schedules
             await loadLatestRuns();
+            await loadSchedules();
         }
         
         async function executeRunNow() {
@@ -12543,6 +12591,9 @@
                 
                 // Recargar lista de ejecuciones
                 await loadLatestRuns();
+                
+                // SPRINT C2.30: Notificación mínima
+                showRunNotification(result.status, result.run_id);
                 
             } catch (error) {
                 statusDiv.innerHTML = `
@@ -12650,6 +12701,236 @@
                 sidebarNav.appendChild(ejecucionesItem);
             }
         });
+        
+        // SPRINT C2.30: Funciones de schedules
+        async function loadSchedules() {
+            const listContent = document.getElementById('schedules-list-content');
+            if (!listContent) return;
+            
+            try {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/schedules/list`);
+                if (!response.ok) {
+                    listContent.innerHTML = '<div style="color: #94a3b8;">No hay programaciones</div>';
+                    return;
+                }
+                
+                const data = await response.json();
+                const schedules = data.schedules || [];
+                
+                if (schedules.length === 0) {
+                    listContent.innerHTML = '<div style="color: #94a3b8;">No hay programaciones configuradas</div>';
+                    return;
+                }
+                
+                let html = '';
+                for (const schedule of schedules) {
+                    const statusBadge = schedule.enabled 
+                        ? '<span class="badge badge-ok">Activa</span>'
+                        : '<span class="badge">Inactiva</span>';
+                    
+                    const cadenceLabel = schedule.cadence === 'daily' ? 'Diaria' : 'Semanal';
+                    const weekdayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+                    const weekdayLabel = schedule.weekday !== null ? weekdayNames[schedule.weekday] : '';
+                    
+                    html += `
+                        <div style="padding: 12px; background: #1e293b; border-radius: 4px; margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <strong>${schedule.schedule_id}</strong>
+                                ${statusBadge}
+                            </div>
+                            <div style="font-size: 0.875rem; color: #94a3b8;">
+                                <div>Plan: ${schedule.plan_id}</div>
+                                <div>Cadencia: ${cadenceLabel}${weekdayLabel ? ` (${weekdayLabel})` : ''}</div>
+                                <div>Hora: ${schedule.at_time}</div>
+                                ${schedule.dry_run ? '<div>Modo: DRY-RUN</div>' : ''}
+                                ${schedule.last_run_at ? `<div>Última ejecución: ${new Date(schedule.last_run_at).toLocaleString('es-ES')}</div>` : ''}
+                                ${schedule.last_status ? `<div>Último estado: ${schedule.last_status}</div>` : ''}
+                            </div>
+                            <div style="margin-top: 8px; display: flex; gap: 8px;">
+                                <button class="btn btn-secondary" onclick="toggleSchedule('${schedule.schedule_id}', ${!schedule.enabled})" 
+                                        style="font-size: 0.75rem; padding: 4px 8px;">
+                                    ${schedule.enabled ? 'Desactivar' : 'Activar'}
+                                </button>
+                                <button class="btn btn-danger" onclick="deleteSchedule('${schedule.schedule_id}')" 
+                                        style="font-size: 0.75rem; padding: 4px 8px;">
+                                    Eliminar
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                listContent.innerHTML = html;
+                
+            } catch (error) {
+                listContent.innerHTML = `<div style="color: #ef4444;">Error: ${escapeHtml(error.message)}</div>`;
+            }
+        }
+        
+        async function saveSchedule() {
+            const cadence = document.getElementById('schedule-cadence').value;
+            const atTime = document.getElementById('schedule-time').value;
+            const weekday = cadence === 'weekly' ? parseInt(document.getElementById('schedule-weekday').value) : null;
+            const planId = document.getElementById('schedule-plan-id').value.trim();
+            const dryRun = document.getElementById('schedule-dry-run').checked;
+            const enabled = document.getElementById('schedule-enabled').checked;
+            const saveBtn = document.getElementById('schedule-save-btn');
+            
+            if (!planId) {
+                alert('Por favor, introduce un Plan ID');
+                return;
+            }
+            
+            if (!atTime || !/^\d{2}:\d{2}$/.test(atTime)) {
+                alert('Por favor, introduce una hora válida (HH:MM)');
+                return;
+            }
+            
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Guardando...';
+            
+            try {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/schedules/upsert`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        plan_id: planId,
+                        dry_run: dryRun,
+                        cadence: cadence,
+                        at_time: atTime,
+                        weekday: weekday,
+                        enabled: enabled,
+                    }),
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail?.message || errorData.detail || 'Error al guardar');
+                }
+                
+                const result = await response.json();
+                alert('Programación guardada correctamente');
+                
+                // Limpiar formulario
+                document.getElementById('schedule-plan-id').value = '';
+                document.getElementById('schedule-time').value = '';
+                document.getElementById('schedule-dry-run').checked = false;
+                document.getElementById('schedule-enabled').checked = true;
+                
+                // Recargar lista
+                await loadSchedules();
+                
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Guardar programación';
+            }
+        }
+        
+        async function toggleSchedule(scheduleId, enabled) {
+            try {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/schedules/toggle`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        schedule_id: scheduleId,
+                        enabled: enabled,
+                    }),
+                });
+                
+                if (!response.ok) throw new Error('Error al actualizar');
+                
+                await loadSchedules();
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+        
+        async function deleteSchedule(scheduleId) {
+            if (!confirm('¿Eliminar esta programación?')) return;
+            
+            try {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/schedules/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        schedule_id: scheduleId,
+                    }),
+                });
+                
+                if (!response.ok) throw new Error('Error al eliminar');
+                
+                await loadSchedules();
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+        
+        // SPRINT C2.30: Notificación mínima al finalizar run
+        function showRunNotification(status, runId) {
+            const statusLabels = {
+                'success': 'SUCCESS',
+                'error': 'ERROR',
+                'blocked': 'BLOQUEADO',
+                'partial_success': 'PARCIAL',
+                'canceled': 'CANCELADO',
+            };
+            
+            const statusLabel = statusLabels[status] || status.toUpperCase();
+            const statusColor = status === 'success' ? '#4ade80' : status === 'error' ? '#ef4444' : '#fbbf24';
+            
+            const banner = document.createElement('div');
+            banner.className = 'run-notification';
+            banner.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: #1e293b;
+                border: 2px solid ${statusColor};
+                border-radius: 8px;
+                padding: 16px;
+                color: #e2e8f0;
+                z-index: 10001;
+                max-width: 400px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            banner.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                    <strong style="color: ${statusColor};">Run completado: ${statusLabel}</strong>
+                    <button onclick="this.parentElement.parentElement.remove()" 
+                            style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 18px;">×</button>
+                </div>
+                <div style="font-size: 0.875rem; margin-bottom: 8px;">
+                    Run ID: ${runId}
+                </div>
+                <a href="#" onclick="downloadRunSummary('${runId}'); this.parentElement.remove(); return false;" 
+                   style="color: #3b82f6; text-decoration: none; font-size: 0.875rem;">
+                    📄 Ver resumen
+                </a>
+            `;
+            
+            document.body.appendChild(banner);
+            
+            // Auto-ocultar después de 10 segundos
+            setTimeout(() => {
+                if (banner.parentNode) {
+                    banner.style.transition = 'opacity 0.3s';
+                    banner.style.opacity = '0';
+                    setTimeout(() => {
+                        if (banner.parentNode) {
+                            banner.parentNode.removeChild(banner);
+                        }
+                    }, 300);
+                }
+            }, 10000);
+        }
         
         // Integrar en router de hash
         const originalHashChange = window.onhashchange;

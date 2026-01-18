@@ -26,6 +26,7 @@ from backend.shared.run_summary import (
 from backend.shared.run_lock import RunLock
 from backend.cae.execution_runner_v1 import CAEExecutionRunnerV1
 from backend.cae.submission_routes import _get_plan_evidence
+from backend.shared.schedule_models import ScheduleV1
 from backend.repository.config_store_v1 import ConfigStoreV1
 from backend.api.coordination_context_routes import (
     CompanyOptionV1, PlatformOptionV1, CoordinationContextOptionsV1
@@ -141,6 +142,101 @@ def _get_context_from_request(request: Request) -> RunContextV1:
         coordinated_company_key=coordinated_company_key,
         coordinated_company_name=coordinated_company_name,
     )
+
+
+def _execute_schedule_run(
+    schedule: ScheduleV1,
+    tenant_id: str,
+    context: RunContextV1,
+) -> dict:
+    """
+    Función interna para ejecutar un run desde un schedule.
+    
+    Args:
+        schedule: ScheduleV1 con plan_id y configuración
+        tenant_id: ID del tenant
+        context: RunContextV1 (opcional, se construye si no se proporciona)
+    
+    Returns:
+        Dict con run_id, status, run_dir_rel
+    """
+    import uuid
+    import shutil
+    
+    # Generar run_id
+    run_id = str(uuid.uuid4())[:8]
+    
+    # Lock por contexto
+    lock = RunLock(DATA_DIR, tenant_id)
+    acquired, lock_error = lock.acquire(run_id)
+    if not acquired:
+        raise RuntimeError(f"Lock failed: {lock_error}")
+    
+    try:
+        # Crear run_dir
+        run_dir = create_run_dir(DATA_DIR, tenant_id, run_id)
+        run_dir_rel = f"tenants/{tenant_id}/runs/{run_dir.name}"
+        
+        # Ejecutar plan
+        plan = _get_plan_evidence(schedule.plan_id)
+        if not plan:
+            raise ValueError(f"Plan {schedule.plan_id} not found")
+        
+        # Guardar input
+        input_data = {
+            "type": "plan",
+            "plan_id": schedule.plan_id,
+            "schedule_id": schedule.schedule_id,
+            "plan": plan.model_dump(mode="json")
+        }
+        
+        # Ejecutar
+        runner = CAEExecutionRunnerV1()
+        result = runner.execute_plan_egestiona(plan=plan, dry_run=schedule.dry_run)
+        
+        # Copiar evidencias
+        if result.evidence_path and Path(result.evidence_path).exists():
+            evidence_src = Path(result.evidence_path)
+            evidence_dst = run_dir / "evidence"
+            evidence_dst.mkdir(exist_ok=True)
+            
+            if evidence_src.is_dir():
+                for item in evidence_src.iterdir():
+                    if item.is_file():
+                        shutil.copy2(item, evidence_dst / item.name)
+                    elif item.is_dir():
+                        shutil.copytree(item, evidence_dst / item.name, dirs_exist_ok=True)
+        
+        # Guardar result
+        result_data = result.model_dump(mode="json", exclude_none=True)
+        
+        # Crear summary
+        summary = RunSummaryV1(
+            run_id=run_id,
+            started_at=result.started_at,
+            finished_at=result.finished_at,
+            status=_map_status(result.status),
+            context=context,
+            plan_id=schedule.plan_id,
+            dry_run=schedule.dry_run,
+            steps_executed=_extract_steps(result),
+            counters=_extract_counters(result),
+            artifacts=_extract_artifacts(result, run_dir),
+            error=result.error,
+            run_dir_rel=run_dir_rel,
+        )
+        
+        # Guardar summary
+        save_run_summary(run_dir, summary, input_data, result_data)
+        
+        return {
+            "run_id": run_id,
+            "status": summary.status,
+            "run_dir_rel": run_dir_rel,
+        }
+    
+    finally:
+        lock.release(run_id)
 
 
 @router.post("/start", response_model=StartRunResponseV1)

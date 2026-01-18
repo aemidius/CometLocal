@@ -68,6 +68,85 @@ Resumen de hitos alcanzados.
 
 ---
 
+## SPRINT C2.30 — Scheduling real + notificaciones mínimas (por contexto humano)
+
+**Fecha:** 2026-01-18  
+**Estado:** ✅ COMPLETADO
+
+### Objetivos
+1. Añadir programación (cron-like) para ejecutar runs automáticamente por contexto humano
+2. Implementar seguridad (locks/guardrails) en scheduling
+3. Añadir notificación mínima del resultado
+
+### Implementación
+
+#### Modelo de Schedule
+- **Nuevo módulo:** `backend/shared/schedule_models.py`
+  - `ScheduleV1`: Modelo con schedule_id, enabled, plan_id, cadence, at_time, weekday
+  - Guarda contexto humano (own_company_key, platform_key, coordinated_company_key)
+  - `ScheduleStore`: Persistencia en `data/tenants/<tenant_id>/schedules/schedules.json`
+  - Tests: 4/4 pasando
+
+#### Tick Endpoint + CLI
+- **Endpoint:** `POST /api/schedules/tick`
+  - Gated a dev/test o API key local
+  - Recorre schedules habilitados del tenant
+  - Ejecuta los que "tocan ejecutar ahora"
+  - Respeta locks (no ejecuta si hay run activo)
+
+- **CLI:** `python -m backend.schedules.tick`
+  - `--all-tenants`: Ejecuta para todos los tenants
+  - `--tenant <tenant_id>`: Ejecuta para un tenant específico
+  - Integrable con Windows Task Scheduler / cron
+
+- **Lógica "toca ejecutar":**
+  - Daily: Si hora >= at_time y no se ejecutó hoy
+  - Weekly: Si es el día correcto, hora >= at_time, y no se ejecutó esta semana
+  - Tests: 7/7 pasando
+
+#### Endpoints CRUD
+- **Nuevo módulo:** `backend/api/schedules_routes.py`
+  - `GET /api/schedules/list`: Lista schedules del contexto
+  - `POST /api/schedules/upsert`: Crea o actualiza schedule
+  - `POST /api/schedules/toggle`: Habilita/deshabilita schedule
+  - `POST /api/schedules/delete`: Elimina schedule
+  - Todos requieren contexto humano válido
+  - Tests: 4/4 pasando
+
+#### Frontend
+- **UI mínima:** `frontend/repository_v3.html`
+  - Sección "Programación" en vista "Ejecuciones"
+  - Formulario: cadence, hora, weekday, plan_id, dry_run, enabled
+  - Lista de schedules con estado y última ejecución
+  - Botones Activar/Desactivar y Eliminar
+
+- **Notificaciones mínimas:**
+  - Banner/toast al finalizar run (manual o schedule)
+  - Muestra: "Run completado: SUCCESS/ERROR"
+  - Incluye Run ID y link a summary.md
+  - Auto-oculta después de 10 segundos
+
+#### Tests
+- **Tests unitarios:**
+  - `tests/test_schedule_tick.py`: 7 tests (cálculo "toca ejecutar")
+  - `tests/test_schedule_store.py`: 4 tests (persistencia)
+  - `tests/test_schedules_routes.py`: 4 tests (endpoints)
+  - Total: 15/15 pasando
+
+### Archivos Modificados/Creados
+- `backend/shared/schedule_models.py` (nuevo)
+- `backend/shared/schedule_tick.py` (nuevo)
+- `backend/api/schedules_routes.py` (nuevo)
+- `backend/schedules/tick.py` (nuevo)
+- `frontend/repository_v3.html` (UI Programación + notificaciones)
+- `backend/app.py` (registro de schedules_router)
+- `tests/test_schedule_tick.py` (nuevo)
+- `tests/test_schedule_store.py` (nuevo)
+- `tests/test_schedules_routes.py` (nuevo)
+- `docs/evidence/c2_30/README.md` (nuevo)
+
+---
+
 ## SPRINT C2.29 — Scheduler + runs audit-ready (operación diaria)
 
 **Fecha:** 2026-01-18  

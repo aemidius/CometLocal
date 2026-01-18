@@ -15,12 +15,20 @@
 - Debug badge frontend (solo dev/test)
 - Evidencias post-fallo configuradas (screenshots, console logs, network)
 
-### C2.29 — Scheduler + runs audit-ready (operación diaria) 🔄 EN CURSO
+### C2.29 — Scheduler + runs audit-ready (operación diaria) ✅ CERRADO
 - Modelo RunSummary con estructura audit-ready
 - Lock por contexto (filesystem lock)
 - Endpoints API: POST /api/runs/start, GET /api/runs/latest, GET /api/runs/<run_id>
 - UI mínima: botón ejecutar, lista de runs, acceso a summary.md
 - Tests unitarios: 12/12 pasando
+
+### C2.30 — Scheduling real + notificaciones mínimas 🔄 EN CURSO
+- Modelo ScheduleV1 con persistencia por contexto
+- Tick endpoint + CLI para ejecución automática
+- Endpoints CRUD: list, upsert, toggle, delete
+- UI mínima: sección Programación en vista Ejecuciones
+- Notificaciones mínimas al finalizar run
+- Tests unitarios: 15/15 pasando
 
 ## Estado Técnico
 
