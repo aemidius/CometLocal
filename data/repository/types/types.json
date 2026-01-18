@@ -242,35 +242,6 @@
       "validity_start_mode": "issue_date"
     },
     {
-      "type_id": "TEST_MONTHLY",
-      "name": "Test Mensual",
-      "description": "Tipo de prueba mensual",
-      "scope": "worker",
-      "validity_policy": {
-        "mode": "monthly",
-        "basis": "name_date",
-        "monthly": {
-          "month_source": "name_date",
-          "valid_from": "period_start",
-          "valid_to": "period_end",
-          "grace_days": 0
-        },
-        "annual": null,
-        "fixed_end_date": null,
-        "n_months": null
-      },
-      "required_fields": [
-        "valid_from",
-        "valid_to"
-      ],
-      "platform_aliases": [],
-      "allow_late_submission": false,
-      "late_submission_max_days": null,
-      "active": true,
-      "issue_date_required": true,
-      "validity_start_mode": "issue_date"
-    },
-    {
       "type_id": "T999_OTHER",
       "name": "Otro documento",
       "description": "",
@@ -454,6 +425,61 @@
     },
     {
       "type_id": "T999_495b35f0",
+      "name": "Otro documento",
+      "description": "",
+      "scope": "worker",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "name_date",
+        "monthly": {
+          "month_source": "name_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [],
+      "platform_aliases": [],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    },
+    {
+      "type_id": "TEST_MONTHLY",
+      "name": "Test Mensual",
+      "description": "Tipo de prueba mensual",
+      "scope": "worker",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "name_date",
+        "monthly": {
+          "month_source": "name_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [
+        "valid_from",
+        "valid_to"
+      ],
+      "platform_aliases": [],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    },
+    {
+      "type_id": "T999_31ba7ad2",
       "name": "Otro documento",
       "description": "",
       "scope": "worker",

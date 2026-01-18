@@ -1,9 +1,9 @@
 [
   {
-    "job_id": "CAEJOB-20260114-221824-3814846c",
-    "created_at": "2026-01-14T22:18:24.940790",
+    "job_id": "CAEJOB-20260118-172521-f4cc8341",
+    "created_at": "2026-01-18T17:25:21.461675",
     "started_at": null,
-    "finished_at": "2026-01-14T22:20:36.620592",
+    "finished_at": "2026-01-18T17:33:17.357174",
     "plan_id": "TEST-PLAN-001",
     "scope_summary": {
       "platform_key": "egestiona",
