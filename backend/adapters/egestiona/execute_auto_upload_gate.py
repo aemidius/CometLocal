@@ -148,8 +148,15 @@ async def egestiona_execute_auto_upload(
     
     import uuid
     from datetime import datetime
+    from backend.shared.tenant_context import get_tenant_from_request
+    from backend.shared.tenant_paths import get_runs_root
+    
+    # SPRINT C2.22A: Extraer tenant_id del request
+    tenant_ctx = get_tenant_from_request(http_request)
+    runs_root = get_runs_root(DATA_DIR, tenant_ctx.tenant_id, mode="write")
+    
     run_id = f"auto_upload_{int(time.time())}_{uuid.uuid4().hex[:8]}"
-    execution_dir = Path(DATA_DIR) / "runs" / run_id / "execution"
+    execution_dir = runs_root / run_id / "execution"
     execution_dir.mkdir(parents=True, exist_ok=True)
     
     # SPRINT C2.16: Inicializar métricas de run
@@ -168,8 +175,9 @@ async def egestiona_execute_auto_upload(
         except Exception as e:
             print(f"[CAE][AUTO_UPLOAD] WARNING: Error recording execution start: {e}")
         
-        # Cargar plan congelado desde data/runs/
-        plan_path = Path(DATA_DIR) / "runs" / request.plan_id / "plan_response.json"
+        # SPRINT C2.22A: Cargar plan congelado con fallback legacy
+        plan_runs_root = get_runs_root(DATA_DIR, tenant_ctx.tenant_id, mode="read")
+        plan_path = plan_runs_root / request.plan_id / "plan_response.json"
         if plan_path.exists():
             with open(plan_path, "r", encoding="utf-8") as f:
                 import json
@@ -1058,6 +1066,7 @@ async def egestiona_execute_auto_upload(
             evidence_paths=evidence_paths,  # SPRINT C2.16.1
             run_kind="execution",  # SPRINT C2.17: Tipo de run
             base_dir="data",
+            tenant_id=tenant_ctx.tenant_id,  # SPRINT C2.22A: tenant_id
         )
     except Exception as summary_error:
         print(f"[CAE][AUTO_UPLOAD] ⚠️ Error guardando run_summary: {summary_error}")
@@ -1095,6 +1104,6 @@ async def egestiona_execute_auto_upload(
         "artifacts": {
             "run_id": run_id,
             "execution_dir": str(execution_dir),
-            "run_summary_path": str(Path(DATA_DIR) / "runs" / run_id / "run_summary.json"),
+            "run_summary_path": str(runs_root / run_id / "run_summary.json"),
         },
     }

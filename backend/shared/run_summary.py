@@ -12,6 +12,7 @@ import json
 import os
 
 from backend.config import DATA_DIR
+from backend.shared.tenant_paths import get_runs_root
 
 
 def save_run_summary(
@@ -35,6 +36,7 @@ def save_run_summary(
     evidence_paths: Optional[Dict[str, str]] = None,  # SPRINT C2.16.1: Rutas principales de evidencias
     run_kind: str = "execution",  # SPRINT C2.16.2: "execution" | "plan"
     base_dir: str | Path = "data",
+    tenant_id: str = "default",  # SPRINT C2.22A: tenant_id para multi-tenant
 ) -> Path:
     """
     Guarda run_summary.json con métricas de fiabilidad.
@@ -62,7 +64,9 @@ def save_run_summary(
         Path al archivo run_summary.json guardado
     """
     base = Path(base_dir) if isinstance(base_dir, str) else base_dir
-    run_dir = base / "runs" / run_id
+    # SPRINT C2.22A: Usar tenant runs root para escritura
+    runs_root = get_runs_root(base, tenant_id, mode="write")
+    run_dir = runs_root / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     
     summary = {
@@ -103,7 +107,7 @@ def save_run_summary(
     return summary_path
 
 
-def load_run_summary(run_id: str, base_dir: str | Path = "data") -> Optional[Dict[str, Any]]:
+def load_run_summary(run_id: str, base_dir: str | Path = "data", tenant_id: str = "default") -> Optional[Dict[str, Any]]:
     """
     Carga run_summary.json de un run.
     
@@ -115,7 +119,9 @@ def load_run_summary(run_id: str, base_dir: str | Path = "data") -> Optional[Dic
         Dict con el summary o None si no existe
     """
     base = Path(base_dir) if isinstance(base_dir, str) else base_dir
-    summary_path = base / "runs" / run_id / "run_summary.json"
+    # SPRINT C2.22A: Usar tenant runs root para lectura (con fallback legacy)
+    runs_root = get_runs_root(base, tenant_id, mode="read")
+    summary_path = runs_root / run_id / "run_summary.json"
     
     if not summary_path.exists():
         return None
@@ -132,6 +138,7 @@ def list_run_summaries(
     limit: int = 50,
     platform: Optional[str] = None,
     base_dir: str | Path = "data",
+    tenant_id: str = "default",
 ) -> List[Dict[str, Any]]:
     """
     Lista summaries de runs recientes.
@@ -145,15 +152,16 @@ def list_run_summaries(
         Lista de summaries ordenados por started_at descendente
     """
     base = Path(base_dir) if isinstance(base_dir, str) else base_dir
-    runs_dir = base / "runs"
+    # SPRINT C2.22A: Usar tenant runs root para lectura (con fallback legacy)
+    runs_root = get_runs_root(base, tenant_id, mode="read")
     
-    if not runs_dir.exists():
+    if not runs_root.exists():
         return []
     
     summaries = []
     
     # Iterar sobre directorios de runs
-    for run_dir in runs_dir.iterdir():
+    for run_dir in runs_root.iterdir():
         if not run_dir.is_dir():
             continue
         
@@ -163,7 +171,7 @@ def list_run_summaries(
         if run_id.startswith("tmp_"):
             continue
         
-        summary = load_run_summary(run_id, base_dir)
+        summary = load_run_summary(run_id, base_dir, tenant_id)
         if not summary:
             continue
         

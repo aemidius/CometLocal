@@ -12,6 +12,8 @@ from pathlib import Path
 import json
 
 from backend.config import DATA_DIR
+from backend.shared.tenant_context import get_tenant_from_request
+from backend.shared.tenant_paths import get_runs_root
 
 router = APIRouter(tags=["auto_upload"])
 
@@ -87,7 +89,7 @@ async def create_auto_upload_plan(
 
 
 @router.get("/plans/{plan_id}")
-async def get_plan(plan_id: str):
+async def get_plan(plan_id: str, request: Request = None):
     """
     SPRINT C2.18B.1: Endpoint simplificado para UI de revisión.
     
@@ -148,7 +150,7 @@ async def get_plan(plan_id: str):
 
 
 @router.get("/runs/auto_upload/plan/{plan_id}")
-async def get_auto_upload_plan(plan_id: str):
+async def get_auto_upload_plan(plan_id: str, request: Request = None):
     """
     SPRINT C2.17: Recupera plan congelado por plan_id.
     
@@ -203,8 +205,10 @@ async def execute_auto_upload_plan(
         "summary": {...}
     }
     """
-    # Cargar plan congelado
-    plan_path = Path(DATA_DIR) / "runs" / request.plan_id / "plan_response.json"
+    # SPRINT C2.22A: Resolver path con tenant y fallback legacy
+    tenant_ctx = get_tenant_from_request(http_request)
+    runs_root = get_runs_root(DATA_DIR, tenant_ctx.tenant_id, mode="read")
+    plan_path = runs_root / request.plan_id / "plan_response.json"
     
     if not plan_path.exists():
         raise HTTPException(status_code=404, detail=f"Plan {request.plan_id} not found")

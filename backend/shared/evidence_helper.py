@@ -14,15 +14,16 @@ import traceback
 from datetime import datetime
 
 
-def ensure_evidence_dir(evidence_dir: Optional[Path], run_id: Optional[str] = None) -> Path:
+def ensure_evidence_dir(evidence_dir: Optional[Path], run_id: Optional[str] = None, tenant_id: str = "default") -> Path:
     """
     Asegura que existe un directorio de evidencias.
     
-    Si evidence_dir es None, crea un directorio temporal bajo data/runs/tmp_<timestamp>/
+    Si evidence_dir es None, crea un directorio temporal bajo data/tenants/<tenant_id>/runs/tmp_<timestamp>/
     
     Args:
         evidence_dir: Directorio de evidencias (puede ser None)
         run_id: ID del run (opcional, para naming)
+        tenant_id: ID del tenant (default "default")
     
     Returns:
         Path al directorio de evidencias (nunca None)
@@ -34,11 +35,13 @@ def ensure_evidence_dir(evidence_dir: Optional[Path], run_id: Optional[str] = No
     
     # Crear directorio temporal
     from backend.config import DATA_DIR
+    from backend.shared.tenant_paths import tenant_runs_root, ensure_write_dir
     timestamp = int(time.time())
-    tmp_dir = Path(DATA_DIR) / "runs" / f"tmp_{timestamp}"
+    runs_root = tenant_runs_root(DATA_DIR, tenant_id)
+    tmp_dir = runs_root / f"tmp_{timestamp}"
     if run_id:
-        tmp_dir = Path(DATA_DIR) / "runs" / f"tmp_{run_id}_{timestamp}"
-    tmp_dir.mkdir(parents=True, exist_ok=True)
+        tmp_dir = runs_root / f"tmp_{run_id}_{timestamp}"
+    ensure_write_dir(tmp_dir)
     print(f"[EVIDENCE] evidence_dir era None, creado directorio temporal: {tmp_dir}")
     return tmp_dir
 
@@ -51,6 +54,7 @@ def generate_error_evidence(
     evidence_dir: Optional[Path],
     context: Optional[Dict[str, Any]] = None,
     run_id: Optional[str] = None,
+    tenant_id: str = "default",
 ) -> Dict[str, Any]:
     """
     Genera evidencias automáticas en caso de error.
@@ -77,7 +81,7 @@ def generate_error_evidence(
     context = context or {}
     
     # Asegurar que existe evidence_dir
-    evidence_dir = ensure_evidence_dir(evidence_dir, run_id)
+    evidence_dir = ensure_evidence_dir(evidence_dir, run_id, tenant_id)
     
     # Crear subdirectorio por fase e intento
     phase_evidence_dir = evidence_dir / phase / f"attempt_{attempt}"
@@ -181,6 +185,7 @@ def generate_timeout_evidence(
     evidence_dir: Optional[Path],
     context: Optional[Dict[str, Any]] = None,
     run_id: Optional[str] = None,
+    tenant_id: str = "default",
 ) -> Dict[str, Any]:
     """
     Genera evidencias automáticas en caso de timeout.
@@ -207,4 +212,5 @@ def generate_timeout_evidence(
         evidence_dir=evidence_dir,
         context={**(context or {}), "timeout_s": timeout_s},
         run_id=run_id,
+        tenant_id=tenant_id,
     )

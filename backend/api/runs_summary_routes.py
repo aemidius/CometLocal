@@ -5,9 +5,10 @@ SPRINT C2.16: GET /api/runs/summary para listar summaries de runs.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from typing import Optional, List
 from backend.shared.run_summary import list_run_summaries
+from backend.shared.tenant_context import get_tenant_from_request
 
 router = APIRouter(tags=["runs"])
 
@@ -16,6 +17,7 @@ router = APIRouter(tags=["runs"])
 async def get_runs_summary(
     limit: int = Query(50, ge=1, le=200, description="Límite de resultados"),
     platform: Optional[str] = Query(None, description="Filtrar por plataforma (ej: 'egestiona')"),
+    request: Request = None,
 ):
     """
     Lista summaries de runs recientes.
@@ -58,7 +60,9 @@ async def get_runs_summary(
         "total": 10,
     }
     """
-    summaries = list_run_summaries(limit=limit, platform=platform)
+    # SPRINT C2.22A: Extraer tenant_id del request
+    tenant_ctx = get_tenant_from_request(request)
+    summaries = list_run_summaries(limit=limit, platform=platform, tenant_id=tenant_ctx.tenant_id)
     
     return {
         "status": "ok",

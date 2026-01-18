@@ -16,6 +16,7 @@ from pathlib import Path
 import json
 
 from backend.config import DATA_DIR
+from backend.shared.tenant_paths import get_runs_root
 
 
 class RunMetricsV1(BaseModel):
@@ -85,7 +86,7 @@ class RunMetricsV1(BaseModel):
         return cls(**data)
 
 
-def initialize_metrics(plan_id: str, total_items: int, base_dir: Path = None) -> RunMetricsV1:
+def initialize_metrics(plan_id: str, total_items: int, base_dir: Path = None, tenant_id: str = "default") -> RunMetricsV1:
     """
     Inicializa métricas para un plan.
     
@@ -105,12 +106,12 @@ def initialize_metrics(plan_id: str, total_items: int, base_dir: Path = None) ->
     metrics.timestamps["plan_created_at"] = datetime.now(timezone.utc).isoformat()
     
     # Guardar
-    save_metrics(metrics, base_dir=base)
+    save_metrics(metrics, base_dir=base, tenant_id=tenant_id)
     
     return metrics
 
 
-def load_metrics(plan_id: str, base_dir: Path = None) -> Optional[RunMetricsV1]:
+def load_metrics(plan_id: str, base_dir: Path = None, tenant_id: str = "default") -> Optional[RunMetricsV1]:
     """
     Carga métricas de un plan.
     
@@ -122,7 +123,9 @@ def load_metrics(plan_id: str, base_dir: Path = None) -> Optional[RunMetricsV1]:
         RunMetricsV1 o None si no existe
     """
     base = Path(base_dir) if base_dir else Path(DATA_DIR)
-    metrics_path = base / "runs" / plan_id / "metrics.json"
+    # SPRINT C2.22A: Usar tenant runs root para lectura (con fallback legacy)
+    runs_root = get_runs_root(base, tenant_id, mode="read")
+    metrics_path = runs_root / plan_id / "metrics.json"
     
     if not metrics_path.exists():
         return None
@@ -136,7 +139,7 @@ def load_metrics(plan_id: str, base_dir: Path = None) -> Optional[RunMetricsV1]:
         return None
 
 
-def save_metrics(metrics: RunMetricsV1, base_dir: Path = None) -> Path:
+def save_metrics(metrics: RunMetricsV1, base_dir: Path = None, tenant_id: str = "default") -> Path:
     """
     Guarda métricas de un plan.
     
@@ -148,7 +151,9 @@ def save_metrics(metrics: RunMetricsV1, base_dir: Path = None) -> Path:
         Path al archivo guardado
     """
     base = Path(base_dir) if base_dir else Path(DATA_DIR)
-    metrics_path = base / "runs" / metrics.plan_id / "metrics.json"
+    # SPRINT C2.22A: Usar tenant runs root para escritura
+    runs_root = get_runs_root(base, tenant_id, mode="write")
+    metrics_path = runs_root / metrics.plan_id / "metrics.json"
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     
     # Actualizar updated_at

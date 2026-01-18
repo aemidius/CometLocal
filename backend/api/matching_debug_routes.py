@@ -7,16 +7,18 @@ Expone reportes de debug determinista del matching sin romper compatibilidad.
 import json
 from pathlib import Path
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from backend.config import DATA_DIR
+from backend.shared.tenant_context import get_tenant_from_request
+from backend.shared.tenant_paths import get_runs_root
 
 router = APIRouter(prefix="/api/runs", tags=["matching-debug"])
 
 
 @router.get("/{run_id}/matching_debug")
-async def get_matching_debug_index(run_id: str):
+async def get_matching_debug_index(run_id: str, request: Request = None):
     """
     SPRINT C2.18A: Devuelve índice y resumen de matching debug reports para un run.
     
@@ -79,13 +81,16 @@ async def get_matching_debug_index(run_id: str):
 
 
 @router.get("/{run_id}/matching_debug/{item_id}")
-async def get_matching_debug_item(run_id: str, item_id: str):
+async def get_matching_debug_item(run_id: str, item_id: str, request: Request = None):
     """
     SPRINT C2.18A: Devuelve el debug report completo para un item específico.
     
     Response: MatchingDebugReportV1 completo (JSON)
     """
-    run_dir = Path(DATA_DIR) / "runs" / run_id
+    # SPRINT C2.22A: Resolver path con tenant y fallback legacy
+    tenant_ctx = get_tenant_from_request(request)
+    runs_root = get_runs_root(DATA_DIR, tenant_ctx.tenant_id, mode="read")
+    run_dir = runs_root / run_id
     report_path = run_dir / "matching_debug" / f"{item_id}__debug.json"
     
     if not report_path.exists():

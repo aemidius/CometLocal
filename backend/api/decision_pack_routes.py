@@ -18,6 +18,8 @@ from backend.shared.decision_pack import (
 )
 from backend.shared.decision_pack_store import DecisionPackStore
 from backend.config import DATA_DIR
+from backend.shared.tenant_context import get_tenant_from_request
+from backend.shared.tenant_paths import get_runs_root
 
 router = APIRouter(prefix="/api/plans", tags=["decision-packs"])
 
@@ -33,6 +35,7 @@ class CreateDecisionPackRequest(BaseModel):
 async def create_decision_pack(
     plan_id: str,
     request: CreateDecisionPackRequest,
+    http_request: Request = None,
 ) -> DecisionPackV1:
     """
     Crea un Decision Pack para un plan.
@@ -190,7 +193,7 @@ async def create_decision_pack(
 
 
 @router.get("/{plan_id}/decision_packs")
-async def list_decision_packs(plan_id: str) -> dict:
+async def list_decision_packs(plan_id: str, request: Request = None) -> dict:
     """
     Lista todos los Decision Packs de un plan.
     
@@ -200,8 +203,10 @@ async def list_decision_packs(plan_id: str) -> dict:
             "packs": [...]
         }
     """
-    # Validar que el plan existe
-    plan_path = Path(DATA_DIR) / "runs" / plan_id / "plan_response.json"
+    # SPRINT C2.22A: Resolver path con tenant y fallback legacy
+    tenant_ctx = get_tenant_from_request(request)
+    runs_root = get_runs_root(DATA_DIR, tenant_ctx.tenant_id, mode="read")
+    plan_path = runs_root / plan_id / "plan_response.json"
     if not plan_path.exists():
         raise HTTPException(status_code=404, detail=f"Plan {plan_id} not found")
     
@@ -217,6 +222,7 @@ async def list_decision_packs(plan_id: str) -> dict:
 async def get_decision_pack(
     plan_id: str,
     decision_pack_id: str,
+    request: Request = None,
 ) -> DecisionPackV1:
     """
     Obtiene un Decision Pack completo.
@@ -224,8 +230,10 @@ async def get_decision_pack(
     Response:
         DecisionPackV1
     """
-    # Validar que el plan existe
-    plan_path = Path(DATA_DIR) / "runs" / plan_id / "plan_response.json"
+    # SPRINT C2.22A: Resolver path con tenant y fallback legacy
+    tenant_ctx = get_tenant_from_request(request)
+    runs_root = get_runs_root(DATA_DIR, tenant_ctx.tenant_id, mode="read")
+    plan_path = runs_root / plan_id / "plan_response.json"
     if not plan_path.exists():
         raise HTTPException(status_code=404, detail=f"Plan {plan_id} not found")
     

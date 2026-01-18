@@ -3,26 +3,30 @@ SPRINT C2.20B: API endpoints para métricas operativas.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 import json
 
 from backend.config import DATA_DIR
 from backend.shared.run_metrics import load_metrics, RunMetricsV1
+from backend.shared.tenant_context import get_tenant_from_request
+from backend.shared.tenant_paths import get_runs_root
 
 router = APIRouter(prefix="/api", tags=["metrics"])
 
 
 @router.get("/runs/{run_id}/metrics")
-async def get_run_metrics(run_id: str) -> dict:
+async def get_run_metrics(run_id: str, request: Request = None) -> dict:
     """
     Obtiene métricas de un run específico.
     
     Si run_id es un plan_id, devuelve métricas del plan.
     """
+    # SPRINT C2.22A: Extraer tenant_id del request
+    tenant_ctx = get_tenant_from_request(request)
     # Intentar cargar como plan_id primero
-    metrics = load_metrics(run_id)
+    metrics = load_metrics(run_id, tenant_id=tenant_ctx.tenant_id)
     
     if not metrics:
         raise HTTPException(status_code=404, detail=f"Metrics for {run_id} not found")
@@ -34,6 +38,7 @@ async def get_run_metrics(run_id: str) -> dict:
 async def get_metrics_summary(
     limit: int = Query(10, description="Número de runs a incluir", ge=1, le=100),
     platform: Optional[str] = Query(None, description="Filtrar por plataforma"),
+    request: Request = None,
 ) -> dict:
     """
     Obtiene resumen agregado de métricas.
@@ -53,8 +58,9 @@ async def get_metrics_summary(
         }
     }
     """
-    base = Path(DATA_DIR)
-    runs_dir = base / "runs"
+    # SPRINT C2.22A: Extraer tenant_id del request
+    tenant_ctx = get_tenant_from_request(request)
+    runs_dir = get_runs_root(DATA_DIR, tenant_ctx.tenant_id, mode="read")
     
     if not runs_dir.exists():
         return {
