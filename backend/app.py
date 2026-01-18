@@ -172,11 +172,18 @@ class AgentRunLLMRequest(BaseModel):
     max_steps: int = 8
 
 
-@app.on_event("startup")
-async def startup_event():
     # H7.8: asegurar layout base de data/ (local only)
     data_dir = ensure_data_layout(base_dir=DATA_DIR)
     print(f"Using data dir: {data_dir.resolve()}")
+    
+    # SPRINT C2.31: Asegurar dataset demo si estamos en modo demo
+    from backend.shared.demo_dataset import is_demo_mode, ensure_demo_dataset
+    if is_demo_mode():
+        try:
+            demo_result = ensure_demo_dataset()
+            print(f"[Demo] Dataset demo inicializado: tenant_id={demo_result.get('tenant_id')}")
+        except Exception as e:
+            print(f"[Demo] Error inicializando dataset demo: {e}")
     
     # v1.8: Iniciar worker de cola de jobs CAE
     from backend.cae.job_queue_v1 import start_worker
@@ -256,11 +263,14 @@ async def health():
 @app.get("/api/health")
 async def api_health():
     # SPRINT B3: Añadir información sobre E2E_SEED_ENABLED
+    # SPRINT C2.31: Añadir información sobre environment (demo mode)
     e2e_seed_enabled = os.getenv("E2E_SEED_ENABLED", "0") == "1"
+    environment = os.getenv("ENVIRONMENT", "").lower()
     return {
         "status": "ok",
         "cae_plan_patch": "v1.1.1",
         "e2e_seed_enabled": e2e_seed_enabled,  # SPRINT B3: Información de debug
+        "environment": environment,  # SPRINT C2.31: Modo demo
     }
     """
     Health check endpoint para validar que el servidor está corriendo con el código correcto.

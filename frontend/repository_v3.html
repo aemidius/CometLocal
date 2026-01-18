@@ -795,6 +795,29 @@
                 </div>
                 <div class="content-header-actions">
                     <!-- SPRINT C2.26: Contexto de coordinación HUMANO (tenant 100% transparente) -->
+                    <!-- SPRINT C2.31: Banner de onboarding demo -->
+                    <div id="demo-onboarding-banner" style="display: none; margin-bottom: 16px; padding: 16px; background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); border-radius: 8px; color: white;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h3 style="margin: 0 0 8px 0; font-size: 1.25rem;">🎉 Bienvenido a CometLocal</h3>
+                                <p style="margin: 0 0 12px 0; opacity: 0.9;">Estás en modo DEMO. Ejecuta un run demo para ver cómo funciona.</p>
+                                <button class="btn btn-primary" onclick="executeDemoRun()" id="demo-run-btn" 
+                                        style="background: white; color: #3b82f6; border: none; font-weight: 600;">
+                                    ⚡ Ejecutar run demo
+                                </button>
+                            </div>
+                            <button onclick="document.getElementById('demo-onboarding-banner').style.display='none'" 
+                                    style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; opacity: 0.7;">×</button>
+                        </div>
+                    </div>
+                    
+                    <!-- SPRINT C2.31: Badge modo demo -->
+                    <div id="demo-mode-badge" style="display: none; position: fixed; top: 10px; left: 10px; z-index: 10000; 
+                                                      background: #fbbf24; color: #92400e; padding: 6px 12px; border-radius: 4px; 
+                                                      font-size: 0.75rem; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                        Modo DEMO
+                    </div>
+                    
                     <div class="coordination-context" id="coordination-context">
                         <label for="ctx-own-company">Empresa propia:</label>
                         <select id="ctx-own-company" data-testid="ctx-own-company" style="min-width: 150px;">
@@ -1109,8 +1132,25 @@
             'LATE': 'Tarde'
         };
         
+        // SPRINT C2.31: Verificar si estamos en modo demo
+        let isDemoMode = false;
+        async function checkDemoMode() {
+            try {
+                const healthRes = await fetch(`${BACKEND_URL}/api/health`);
+                if (healthRes.ok) {
+                    const health = await healthRes.json();
+                    isDemoMode = health.environment === 'demo';
+                }
+            } catch (e) {
+                console.warn('[demo] Error checking demo mode:', e);
+            }
+        }
+        
         // SPRINT C2.26: Inicializar contexto de coordinación HUMANO
         async function initCoordinationContext() {
+            // SPRINT C2.31: Verificar modo demo
+            await checkDemoMode();
+            
             // Cargar opciones desde endpoint
             try {
                 const optionsRes = await fetch(`${BACKEND_URL}/api/coordination/context/options`);
@@ -1132,6 +1172,31 @@
                     platforms: [],
                     coordinated_companies_by_platform: {}
                 };
+            }
+            
+            // SPRINT C2.31: Auto-seleccionar contexto demo si estamos en modo demo
+            if (isDemoMode) {
+                const demoContext = {
+                    own_company_key: 'DEMO_COMPANY',
+                    platform_key: 'demo_platform',
+                    coordinated_company_key: 'DEMO_CLIENT'
+                };
+                
+                // Verificar que las opciones demo existen
+                const hasDemoOwn = coordinationOptions.own_companies.some(c => c.key === demoContext.own_company_key);
+                const hasDemoPlatform = coordinationOptions.platforms.some(p => p.key === demoContext.platform_key);
+                const hasDemoCoord = coordinationOptions.coordinated_companies_by_platform[demoContext.platform_key]?.some(
+                    c => c.key === demoContext.coordinated_company_key
+                );
+                
+                if (hasDemoOwn && hasDemoPlatform && hasDemoCoord) {
+                    setCoordinationContext(
+                        demoContext.own_company_key,
+                        demoContext.platform_key,
+                        demoContext.coordinated_company_key
+                    );
+                    console.log('[demo] Contexto demo auto-seleccionado');
+                }
             }
             
             // Cargar contexto guardado
@@ -1310,11 +1375,93 @@
             });
         });
         
+        // SPRINT C2.31: Función para ejecutar run demo
+        async function executeDemoRun() {
+            const btn = document.getElementById('demo-run-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Ejecutando...';
+            }
+            
+            try {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/runs/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        plan_id: 'demo_plan_001',
+                        dry_run: true,
+                    }),
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail?.message || errorData.detail || 'Error al ejecutar run demo');
+                }
+                
+                const result = await response.json();
+                
+                // Ocultar banner
+                const banner = document.getElementById('demo-onboarding-banner');
+                if (banner) {
+                    banner.style.display = 'none';
+                }
+                
+                // Abrir summary.md automáticamente
+                if (result.run_dir_rel) {
+                    const summaryUrl = `${BACKEND_URL}/${result.run_dir_rel}/summary.md`;
+                    window.open(summaryUrl, '_blank');
+                }
+                
+                // Mostrar notificación de éxito
+                showRunNotification(result.status, result.run_id);
+                
+                // Recargar lista de runs si estamos en vista de ejecuciones
+                if (window.location.hash === '#ejecuciones' || currentPage === 'ejecuciones') {
+                    if (typeof loadLatestRuns === 'function') {
+                        await loadLatestRuns();
+                    }
+                }
+                
+            } catch (error) {
+                alert(`Error al ejecutar run demo: ${error.message}`);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '⚡ Ejecutar run demo';
+                }
+            }
+        }
+        
+        // SPRINT C2.31: Mostrar UI demo si estamos en modo demo
+        function showDemoUI() {
+            if (isDemoMode) {
+                // Mostrar badge
+                const badge = document.getElementById('demo-mode-badge');
+                if (badge) {
+                    badge.style.display = 'block';
+                }
+                
+                // Mostrar banner si no hay contexto válido o es la primera vez
+                const context = getCoordinationContext();
+                const banner = document.getElementById('demo-onboarding-banner');
+                if (banner && (!context.isValid() || !localStorage.getItem('demo_banner_dismissed'))) {
+                    banner.style.display = 'block';
+                }
+            }
+        }
+        
         // SPRINT C2.26: Inicializar contexto de coordinación HUMANO al cargar
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initCoordinationContext);
+            document.addEventListener('DOMContentLoaded', async () => {
+                await initCoordinationContext();
+                showDemoUI();
+            });
         } else {
-            initCoordinationContext();
+            initCoordinationContext().then(() => {
+                showDemoUI();
+            });
         }
         
         function navigateTo(page, params = {}) {

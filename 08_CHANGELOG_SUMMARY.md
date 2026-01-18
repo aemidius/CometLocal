@@ -68,6 +68,73 @@ Resumen de hitos alcanzados.
 
 ---
 
+## SPRINT C2.31 — Onboarding + Demo dataset (5-minute experience)
+
+**Fecha:** 2026-01-18  
+**Estado:** ✅ COMPLETADO
+
+### Objetivos
+1. Permitir que un usuario nuevo entienda y pruebe CometLocal en ≤5 minutos
+2. Sin configurar datos reales ni tocar CAE de verdad
+3. Experiencia guiada con dataset demo controlado
+
+### Implementación
+
+#### Dataset Demo Controlado
+- **Nuevo módulo:** `backend/shared/demo_dataset.py`
+  - `ensure_demo_dataset()`: Crea dataset completo automáticamente
+  - Empresa propia: "Empresa Demo SL" (`DEMO_COMPANY`)
+  - Plataforma: "Plataforma Demo" (`demo_platform`)
+  - Empresa coordinada: "Cliente Demo SA" (`DEMO_CLIENT`)
+  - 3 tipos de documentos: Recibo SS, Contrato, Seguro
+  - 3 documentos demo: Metadata sin PDFs reales
+  - 1 plan CAE demo: `demo_plan_001`
+  - 1 schedule demo: Deshabilitado por defecto
+  - Tests: 3/3 pasando
+
+#### Modo Demo (flag)
+- **Detección:** `ENVIRONMENT=demo`
+  - Auto-selección de contexto demo en frontend
+  - Badge discreto "Modo DEMO" en UI
+  - Permite runs y scheduling (dry-run real)
+  - NO permite integraciones reales (uploader deshabilitado)
+
+#### Primer Run Guiado
+- **UI:** `frontend/repository_v3.html`
+  - Banner inicial: "Bienvenido a CometLocal — Ejecuta un run demo"
+  - Botón: "⚡ Ejecutar run demo"
+  - Al finalizar: Abre `summary.md` automáticamente
+  - Resalta evidencias generadas
+
+#### Documentación
+- **Nuevo archivo:** `docs/ONBOARDING.md`
+  - Requisitos
+  - `python -m uvicorn ...` con `ENVIRONMENT=demo`
+  - Qué probar (3 pasos)
+  - Dónde ver resultados
+- **README.md actualizado:** Apunta a onboarding
+
+#### Tests
+- **Tests unitarios:**
+  - `tests/test_demo_dataset.py`: 3 tests
+    - `test_is_demo_mode`: Detecta ENVIRONMENT=demo
+    - `test_get_demo_context`: Retorna contexto demo
+    - `test_ensure_demo_dataset`: Crea dataset completo
+  - Total: 3/3 pasando
+
+### Archivos Modificados/Creados
+- `backend/shared/demo_dataset.py` (nuevo)
+- `backend/app.py` (inicialización demo en startup)
+- `backend/api/health` (añade campo `environment`)
+- `frontend/repository_v3.html` (UI demo + banner onboarding)
+- `docs/ONBOARDING.md` (nuevo)
+- `README.md` (apunta a onboarding)
+- `tests/test_demo_dataset.py` (nuevo)
+- `03_CURRENT_STATUS.md` (actualizado)
+- `08_CHANGELOG_SUMMARY.md` (esta entrada)
+
+---
+
 ## SPRINT C2.30 — Scheduling real + notificaciones mínimas (por contexto humano)
 
 **Fecha:** 2026-01-18  

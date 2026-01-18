@@ -22,13 +22,20 @@
 - UI mínima: botón ejecutar, lista de runs, acceso a summary.md
 - Tests unitarios: 12/12 pasando
 
-### C2.30 — Scheduling real + notificaciones mínimas 🔄 EN CURSO
+### C2.30 — Scheduling real + notificaciones mínimas ✅ CERRADO
 - Modelo ScheduleV1 con persistencia por contexto
 - Tick endpoint + CLI para ejecución automática
 - Endpoints CRUD: list, upsert, toggle, delete
 - UI mínima: sección Programación en vista Ejecuciones
 - Notificaciones mínimas al finalizar run
 - Tests unitarios: 15/15 pasando
+
+### C2.31 — Onboarding + Demo dataset 🔄 EN CURSO
+- Dataset demo controlado (empresa, plataforma, documentos, plan, schedule)
+- Modo demo con flag ENVIRONMENT=demo
+- UI primer run guiado: banner y botón ejecutar demo
+- Documentación ONBOARDING.md
+- Tests unitarios: 3/3 pasando
 
 ## Estado Técnico
 

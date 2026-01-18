@@ -2,6 +2,19 @@
 
 Proyecto base tipo Comet local.
 
+## 🚀 Inicio Rápido (5 minutos)
+
+**¿Primera vez?** Sigue el [**Onboarding**](docs/ONBOARDING.md) para probar CometLocal en modo demo sin configurar datos reales.
+
+```bash
+# Arrancar en modo DEMO
+set ENVIRONMENT=demo  # Windows
+# export ENVIRONMENT=demo  # Linux/Mac
+python -m uvicorn backend.app:app --reload
+```
+
+Abre: **http://127.0.0.1:8000/repository_v3.html**
+
 ## Goal Decomposer v1
 
 This version introduces a deterministic and fully local goal decomposition system.
