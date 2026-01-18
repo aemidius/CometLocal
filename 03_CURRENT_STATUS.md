@@ -9,11 +9,18 @@
 - UX frontend: Mensajes humanos cuando falta contexto
 - Endpoint debug mejorado con información de tenant
 
-### C2.28 — Hardening E2E + Señales de Operación 🔄 EN CURSO
+### C2.28 — Hardening E2E + Señales de Operación ✅ CERRADO
 - Suite E2E smoke obligatoria consolidada
 - Señales operativas backend (logs estructurados JSON)
 - Debug badge frontend (solo dev/test)
 - Evidencias post-fallo configuradas (screenshots, console logs, network)
+
+### C2.29 — Scheduler + runs audit-ready (operación diaria) 🔄 EN CURSO
+- Modelo RunSummary con estructura audit-ready
+- Lock por contexto (filesystem lock)
+- Endpoints API: POST /api/runs/start, GET /api/runs/latest, GET /api/runs/<run_id>
+- UI mínima: botón ejecutar, lista de runs, acceso a summary.md
+- Tests unitarios: 12/12 pasando
 
 ## Estado Técnico
 

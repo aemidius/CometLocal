@@ -68,6 +68,68 @@ Resumen de hitos alcanzados.
 
 ---
 
+## SPRINT C2.29 — Scheduler + runs audit-ready (operación diaria)
+
+**Fecha:** 2026-01-18  
+**Estado:** 🔄 EN CURSO
+
+### Objetivos
+1. Añadir scheduler local (dev-friendly) para ejecutar planes CAE por contexto humano
+2. Generar "run pack" audit-ready por ejecución
+3. Implementar lock por contexto para evitar ejecuciones concurrentes
+
+### Implementación
+
+#### Modelo de Run
+- **Nuevo módulo:** `backend/shared/run_summary.py`
+  - `RunSummaryV1`: Modelo con run_id, status, context, counters, artifacts
+  - `RunContextV1`: Contexto humano (own/platform/coordinated con nombres)
+  - `create_run_dir()`: Crea estructura `data/tenants/<tenant_id>/runs/<YYYYMMDD_HHMMSS>__<run_id>/`
+  - `save_run_summary()`: Guarda summary.json, summary.md, input.json, result.json
+  - `generate_summary_md()`: Genera summary.md legible por humanos
+
+#### Lock por Contexto
+- **Nuevo módulo:** `backend/shared/run_lock.py`
+  - Lock de filesystem: `data/tenants/<tenant_id>/locks/run.lock`
+  - Bloquea nueva ejecución si existe lock activo
+  - Permite override si lock está stale (> 2h)
+  - Tests: 5/5 pasando
+
+#### Endpoints API
+- **Nuevo módulo:** `backend/api/runs_routes.py`
+  - `POST /api/runs/start`: Inicia run (requiere contexto humano, crea run_dir, ejecuta plan)
+  - `GET /api/runs/latest`: Obtiene último run del contexto
+  - `GET /api/runs/<run_id>`: Obtiene run específico con summary, input, result
+  - Integrado con `CAEExecutionRunnerV1` existente
+  - Copia evidencias del executor al run_dir audit-ready
+
+#### Frontend
+- **UI mínima:** `frontend/repository_v3.html`
+  - Nueva vista "Ejecuciones" en sidebar
+  - Botón "Ejecutar plan ahora" con toggle "Dry-run"
+  - Lista de últimas ejecuciones (última 1) con estado y timestamp
+  - Acceso rápido a summary.md (abrir/descargar)
+  - Usa mensaje humano existente si guardrail bloquea
+
+#### Tests
+- **Tests unitarios:**
+  - `tests/test_run_lock.py`: 5 tests (lock normal, stale, release)
+  - `tests/test_run_summary.py`: 3 tests (crear run_dir, guardar summary, generar MD)
+  - `tests/test_runs_routes.py`: 4 tests (guardrail, endpoints)
+  - Total: 12/12 pasando
+
+### Archivos Modificados/Creados
+- `backend/shared/run_summary.py` (nuevo)
+- `backend/shared/run_lock.py` (nuevo)
+- `backend/api/runs_routes.py` (nuevo)
+- `frontend/repository_v3.html` (UI scheduler)
+- `backend/app.py` (registro de runs_router)
+- `tests/test_run_lock.py` (nuevo)
+- `tests/test_run_summary.py` (nuevo)
+- `tests/test_runs_routes.py` (nuevo)
+
+---
+
 ## SPRINT C2.28 — Hardening E2E + Señales de Operación
 
 **Fecha:** 2026-01-18  

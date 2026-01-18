@@ -12460,6 +12460,205 @@
         } else {
             initDebugBadge();
         }
+        
+        /**
+         * SPRINT C2.29: Scheduler y runs audit-ready
+         */
+        async function loadRunsScheduler() {
+            const content = document.getElementById('page-content');
+            if (!content) return;
+            
+            content.innerHTML = `
+                <div class="card" data-testid="runs-scheduler">
+                    <h3 style="margin-bottom: 16px;">Ejecutar Plan</h3>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <input type="checkbox" id="runs-dry-run" checked>
+                            <span>Dry-run (simulación)</span>
+                        </label>
+                        <input type="text" id="runs-plan-id" placeholder="Plan ID" 
+                               style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0; margin-bottom: 8px;">
+                        <button class="btn btn-primary" onclick="executeRunNow()" id="runs-execute-btn" data-testid="runs-execute-btn">
+                            Ejecutar plan ahora
+                        </button>
+                    </div>
+                    <div id="runs-status" style="margin-top: 16px; padding: 12px; background: #1e293b; border-radius: 4px; display: none;"></div>
+                </div>
+                <div class="card" style="margin-top: 16px;" data-testid="runs-list">
+                    <h3 style="margin-bottom: 16px;">Últimas Ejecuciones</h3>
+                    <div id="runs-list-content">
+                        <div class="loading">Cargando ejecuciones...</div>
+                    </div>
+                </div>
+            `;
+            
+            // Cargar últimas ejecuciones
+            await loadLatestRuns();
+        }
+        
+        async function executeRunNow() {
+            const planIdInput = document.getElementById('runs-plan-id');
+            const dryRunCheckbox = document.getElementById('runs-dry-run');
+            const executeBtn = document.getElementById('runs-execute-btn');
+            const statusDiv = document.getElementById('runs-status');
+            
+            const planId = planIdInput.value.trim();
+            if (!planId) {
+                alert('Por favor, introduce un Plan ID');
+                return;
+            }
+            
+            const dryRun = dryRunCheckbox.checked;
+            
+            executeBtn.disabled = true;
+            executeBtn.textContent = 'Ejecutando...';
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div class="loading">Iniciando ejecución...</div>';
+            
+            try {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/runs/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        plan_id: planId,
+                        dry_run: dryRun,
+                    }),
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail?.message || errorData.detail || 'Error al ejecutar');
+                }
+                
+                const result = await response.json();
+                statusDiv.innerHTML = `
+                    <div style="color: #4ade80;">
+                        <strong>✓ Ejecución iniciada</strong><br>
+                        Run ID: ${result.run_id}<br>
+                        Estado: ${result.status}
+                    </div>
+                `;
+                
+                // Recargar lista de ejecuciones
+                await loadLatestRuns();
+                
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div style="color: #ef4444;">
+                        <strong>✗ Error</strong><br>
+                        ${escapeHtml(error.message)}
+                    </div>
+                `;
+            } finally {
+                executeBtn.disabled = false;
+                executeBtn.textContent = 'Ejecutar plan ahora';
+            }
+        }
+        
+        async function loadLatestRuns() {
+            const listContent = document.getElementById('runs-list-content');
+            if (!listContent) return;
+            
+            try {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/runs/latest`);
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        listContent.innerHTML = '<div style="color: #94a3b8;">No hay ejecuciones aún</div>';
+                        return;
+                    }
+                    throw new Error('Error al cargar ejecuciones');
+                }
+                
+                const data = await response.json();
+                const summary = data.summary;
+                
+                const statusBadge = {
+                    'success': '<span class="badge badge-ok">Éxito</span>',
+                    'error': '<span class="badge badge-falta">Error</span>',
+                    'blocked': '<span class="badge badge-tarde">Bloqueado</span>',
+                    'partial_success': '<span class="badge badge-info">Parcial</span>',
+                    'canceled': '<span class="badge">Cancelado</span>',
+                }[summary.status] || `<span class="badge">${summary.status}</span>`;
+                
+                const startedAt = new Date(summary.started_at).toLocaleString('es-ES');
+                const finishedAt = summary.finished_at 
+                    ? new Date(summary.finished_at).toLocaleString('es-ES')
+                    : 'En ejecución...';
+                
+                listContent.innerHTML = `
+                    <div style="padding: 12px; background: #1e293b; border-radius: 4px; margin-bottom: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <strong>Run: ${summary.run_id}</strong>
+                            ${statusBadge}
+                        </div>
+                        <div style="font-size: 0.875rem; color: #94a3b8;">
+                            <div>Iniciado: ${startedAt}</div>
+                            <div>Finalizado: ${finishedAt}</div>
+                            ${summary.plan_id ? `<div>Plan: ${summary.plan_id}</div>` : ''}
+                        </div>
+                        <div style="margin-top: 8px;">
+                            <a href="#" onclick="downloadRunSummary('${summary.run_id}'); return false;" 
+                               style="color: #3b82f6; text-decoration: none; font-size: 0.875rem;">
+                                📄 Ver summary.md
+                            </a>
+                        </div>
+                    </div>
+                `;
+                
+            } catch (error) {
+                listContent.innerHTML = `<div style="color: #ef4444;">Error: ${escapeHtml(error.message)}</div>`;
+            }
+        }
+        
+        async function downloadRunSummary(runId) {
+            try {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/runs/${runId}`);
+                if (!response.ok) throw new Error('Error al cargar run');
+                
+                const data = await response.json();
+                const summaryMdPath = data.artifacts?.summary_md;
+                
+                if (summaryMdPath) {
+                    // Abrir summary.md en nueva pestaña
+                    window.open(`${BACKEND_URL}/${summaryMdPath}`, '_blank');
+                } else {
+                    alert('Summary.md no disponible');
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+        
+        // Añadir opción en sidebar si no existe
+        window.addEventListener('DOMContentLoaded', () => {
+            const sidebarNav = document.querySelector('.sidebar-nav');
+            if (sidebarNav) {
+                const ejecucionesItem = document.createElement('a');
+                ejecucionesItem.className = 'nav-item';
+                ejecucionesItem.href = '#';
+                ejecucionesItem.onclick = (e) => {
+                    e.preventDefault();
+                    loadRunsScheduler();
+                    window.location.hash = 'ejecuciones';
+                };
+                ejecucionesItem.innerHTML = `
+                    <span class="nav-item-icon">⚡</span>
+                    <span>Ejecuciones</span>
+                `;
+                sidebarNav.appendChild(ejecucionesItem);
+            }
+        });
+        
+        // Integrar en router de hash
+        const originalHashChange = window.onhashchange;
+        window.addEventListener('hashchange', () => {
+            if (window.location.hash === '#ejecuciones') {
+                loadRunsScheduler();
+            }
+        });
+        
     </script>
 </body>
 </html>

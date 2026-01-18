@@ -48,6 +48,7 @@ from backend.api.preset_routes import router as preset_router  # SPRINT C2.20A
 from backend.api.metrics_routes import router as metrics_router  # SPRINT C2.20B
 from backend.api.export_routes import router as export_router  # SPRINT C2.21
 from backend.api.coordination_context_routes import router as coordination_context_router  # SPRINT C2.26
+from backend.api.runs_routes import router as runs_router  # SPRINT C2.29
 from backend.repository.document_repository_routes import router as document_repository_router
 from backend.repository.config_routes import router as config_routes_router
 from backend.repository.submission_rules_routes import router as submission_rules_router
@@ -119,6 +120,7 @@ app.include_router(preset_router)  # SPRINT C2.20A
 app.include_router(metrics_router)  # SPRINT C2.20B
 app.include_router(export_router)  # SPRINT C2.21
 app.include_router(coordination_context_router)  # SPRINT C2.26
+app.include_router(runs_router)  # SPRINT C2.29
 app.include_router(document_repository_router)
 app.include_router(config_routes_router)
 app.include_router(submission_rules_router)
