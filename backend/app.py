@@ -11,7 +11,7 @@ if sys.platform.startswith("win"):
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from pathlib import Path
 from pydantic import BaseModel
 
@@ -447,6 +447,20 @@ async def repository_ui():
     UI del Repositorio Documental (tipos y documentos).
     """
     from fastapi.responses import Response
+    response = FileResponse(FRONTEND_DIR / "repository_v3.html", media_type="text/html")
+    # Cache busting headers
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
+@app.get("/repository_v3.html", include_in_schema=False)
+async def repository_v3_html():
+    """
+    UI del Repositorio Documental v3 (ruta directa).
+    Permite acceso directo con hash routing: /repository_v3.html#plan_review
+    """
     response = FileResponse(FRONTEND_DIR / "repository_v3.html", media_type="text/html")
     # Cache busting headers
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
