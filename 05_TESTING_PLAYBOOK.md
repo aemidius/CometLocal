@@ -1,3 +1,9 @@
-# Playbook de pruebas
+# Testing Playbook — CometLocal
 
-Guía E2E para ejecutar READ-ONLY y WRITE con evidencia.
+## Unitarios
+pytest sobre lógica crítica.
+
+## E2E
+Smoke tests BLOQUEANTES:
+- coordination_context_header.spec.js
+- repo_basic_read.spec.js

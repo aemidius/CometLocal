@@ -1,3 +1,4 @@
-# Issues conocidos
+# Known Issues
 
-Fechas CAE variables por tipo y coordinadora.
+- Scheduling requiere tick externo
+- Uploader real deshabilitado en DEMO

@@ -1,18 +1,8 @@
-# CometLocal — Proyecto (CAE Agent)
+# CometLocal
 
-CometLocal es un agente local para automatizar tareas CAE/PRL en portales empresariales reales usando Playwright + FastAPI, con trazabilidad y evidencia auditable por ejecución.
+CometLocal es un sistema **local-first** para automatización de **Coordinación de Actividades Empresariales (CAE)**.
 
-## Qué hace hoy (resumen)
-- Backend FastAPI con endpoints de “runs” (escenarios).
-- Playwright integrado (headless por defecto, headful para depuración).
-- UI mínima (Home + navegación + monitor LLM + Runs viewer + Config).
-- Evidencia por run: capturas PNG + dumps + manifests + run_finished.json.
-- Plataforma CAE real: eGestiona (tenant coordinate.egestiona.es) con:
-  - READ-ONLY: listar pendientes, abrir detalle (scoped).
-  - WRITE (guardrails): subir documento pendiente para TEDELAB/Emilio, con confirmación inequívoca.
+Diseñado para operar de forma segura, auditable y automatizada,
+sin exponer conceptos técnicos internos al usuario (como *tenant*).
 
-## Filosofía de seguridad
-- SUCCESS es implícito si no hay excepción terminal.
-- Guardrails estrictos: nunca ejecutar WRITE fuera de scope.
-- Evidencia y metadatos siempre persistidos.
-- Decisiones ambiguas (p.ej. fechas) se resuelven con reglas deterministas y/o asistencia operador.
+👉 Empieza aquí: `docs/ONBOARDING.md`

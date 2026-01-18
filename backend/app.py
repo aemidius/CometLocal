@@ -172,6 +172,8 @@ class AgentRunLLMRequest(BaseModel):
     max_steps: int = 8
 
 
+@app.on_event("startup")
+async def startup_event():
     # H7.8: asegurar layout base de data/ (local only)
     data_dir = ensure_data_layout(base_dir=DATA_DIR)
     print(f"Using data dir: {data_dir.resolve()}")

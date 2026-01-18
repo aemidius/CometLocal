@@ -1,3 +1,8 @@
-# Roadmap
+# Roadmap — CometLocal
 
-Fase actual: Repositorio documental + reglas de validez + excepciones.
+## Completado
+C2.26 → C2.31: Núcleo operativo completo + demo
+
+## Próximo
+- Portales adicionales (CTAIMA / Ecoordina)
+- Empaquetado producto

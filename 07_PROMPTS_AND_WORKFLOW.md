@@ -1,3 +1,7 @@
-# Prompts y workflow
+# Prompts y Workflow
 
-Modelo de trabajo ChatGPT (responsable técnico) + Usuario (producto).
+Flujo estándar:
+1. Prompt quirúrgico
+2. Ejecución en Cursor/Codex
+3. Tests + evidencias
+4. Commit + push

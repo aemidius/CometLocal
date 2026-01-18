@@ -1,3 +1,13 @@
-# Visión de producto
+# Visión de Producto — CometLocal
 
-Automatizar tareas CAE reales (no demos) en portales complejos con ejecución determinista, evidencia auditable y mínima intervención humana.
+CometLocal es un agente local-first que automatiza flujos CAE complejos
+con control humano, determinismo y trazabilidad completa.
+
+## Principios
+- Local-first
+- Guardrails fuertes
+- Automatización programable
+- UX humana (sin exponer complejidad interna)
+
+Modelo humano:
+Empresa propia → Plataforma → Empresa coordinada

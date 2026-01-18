@@ -1,4 +1,18 @@
-# Arquitectura técnica
+# Arquitectura — CometLocal
 
-Backend FastAPI + Playwright + Runtime con invariantes.
-Separación clara entre repositorio documental y motor de subida CAE.
+- Backend: FastAPI
+- Frontend: HTML/JS (`repository_v3.html`)
+- Storage: filesystem (`data/`)
+- Automatización: Playwright
+- Tests: pytest + Playwright E2E
+
+## Runs audit-ready
+Cada ejecución genera un paquete completo:
+- input.json / result.json
+- summary.md / summary.json
+- evidencias
+- export (si aplica)
+
+## Scheduling
+- Cron-like mediante tick endpoint o CLI
+- Lock por contexto
