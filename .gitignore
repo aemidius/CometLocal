@@ -15,8 +15,9 @@ ms-playwright/
 data/runs/
 
 # Evidence outputs (keep documentation .md files if versioned)
-docs/evidence/*/
+docs/evidence/*/*
 !docs/evidence/*.md
+!docs/evidence/*/README.md
 
 # Document repository (keep seed, ignore actual docs)
 data/repository/docs/
