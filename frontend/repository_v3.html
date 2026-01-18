@@ -107,6 +107,57 @@
             color: #94a3b8;
             font-size: 0.875rem;
         }
+        .content-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 12px;
+        }
+        .tenant-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tenant-selector label {
+            font-size: 0.875rem;
+            color: #94a3b8;
+        }
+        .tenant-selector input,
+        .tenant-selector select {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 4px;
+            padding: 6px 12px;
+            color: #e2e8f0;
+            font-size: 0.875rem;
+            min-width: 150px;
+        }
+        .tenant-selector input:focus,
+        .tenant-selector select:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        .tenant-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: #1e3a8a;
+            color: #60a5fa;
+            border: 1px solid #3b82f6;
+        }
+        .tenant-badge.tenant-default {
+            background: #334155;
+            color: #94a3b8;
+            border-color: #475569;
+        }
+        .tenant-badge.tenant-custom {
+            background: #7c2d12;
+            color: #fdba74;
+            border-color: #ea580c;
+        }
         .content-body {
             flex: 1;
             overflow-y: auto;
@@ -684,8 +735,29 @@
     <!-- Main Content -->
     <div class="main-content">
         <div class="content-header">
-            <h2 id="page-title">Inicio</h2>
-            <p id="page-description">Vista general del repositorio</p>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h2 id="page-title">Inicio</h2>
+                    <p id="page-description">Vista general del repositorio</p>
+                </div>
+                <div class="content-header-actions">
+                    <!-- SPRINT C2.22C: Tenant Selector -->
+                    <div class="tenant-selector">
+                        <label for="tenant-select">Tenant:</label>
+                        <input 
+                            type="text" 
+                            id="tenant-select" 
+                            placeholder="default"
+                            list="tenant-suggestions"
+                            style="min-width: 120px;"
+                        />
+                        <span id="tenant-badge" class="tenant-badge tenant-default">default</span>
+                    </div>
+                    <datalist id="tenant-suggestions">
+                        <option value="default">default</option>
+                    </datalist>
+                </div>
+            </div>
         </div>
         <div class="content-body" id="page-content">
             <div class="loading">Cargando...</div>
@@ -727,6 +799,98 @@
         const BACKEND_URL = 'http://127.0.0.1:8000';
         let currentPage = 'inicio';
         
+        // SPRINT C2.22C: Tenant management
+        const TENANT_STORAGE_KEY = 'cometlocal_active_tenant';
+        const COMPANY_TENANT_MAP_KEY = 'cometlocal_company_tenant_map';
+        
+        /**
+         * Obtiene el tenant activo desde localStorage.
+         * @returns {string} Tenant ID (default: "default")
+         */
+        function getActiveTenant() {
+            const tenant = localStorage.getItem(TENANT_STORAGE_KEY);
+            return tenant || 'default';
+        }
+        
+        /**
+         * Guarda el tenant activo en localStorage.
+         * @param {string} tenantId - Tenant ID a guardar
+         */
+        function setActiveTenant(tenantId) {
+            localStorage.setItem(TENANT_STORAGE_KEY, tenantId);
+            updateTenantBadge();
+        }
+        
+        /**
+         * Obtiene el mapping company_key → tenant_id.
+         * @returns {Object} Mapping object
+         */
+        function getCompanyTenantMap() {
+            const mapJson = localStorage.getItem(COMPANY_TENANT_MAP_KEY);
+            try {
+                return mapJson ? JSON.parse(mapJson) : {};
+            } catch (e) {
+                return {};
+            }
+        }
+        
+        /**
+         * Guarda el mapping company_key → tenant_id.
+         * @param {Object} map - Mapping object
+         */
+        function setCompanyTenantMap(map) {
+            localStorage.setItem(COMPANY_TENANT_MAP_KEY, JSON.stringify(map));
+        }
+        
+        /**
+         * Obtiene tenant sugerido para un company_key.
+         * @param {string} companyKey - Company key
+         * @returns {string|null} Tenant ID sugerido o null
+         */
+        function getSuggestedTenantForCompany(companyKey) {
+            const map = getCompanyTenantMap();
+            return map[companyKey] || null;
+        }
+        
+        /**
+         * Helper central para fetch con header X-Tenant-ID automático.
+         * @param {string} url - URL a llamar
+         * @param {Object} options - Opciones de fetch (headers, body, etc.)
+         * @returns {Promise<Response>} Response de fetch
+         */
+        async function fetchWithTenant(url, options = {}) {
+            const tenantId = getActiveTenant();
+            
+            // Añadir header X-Tenant-ID
+            const headers = {
+                ...(options.headers || {}),
+                'X-Tenant-ID': tenantId,
+            };
+            
+            // Si Content-Type no está explícito y hay body, añadirlo
+            if (options.body && !headers['Content-Type'] && !headers['content-type']) {
+                if (typeof options.body === 'string') {
+                    try {
+                        JSON.parse(options.body);
+                        headers['Content-Type'] = 'application/json';
+                    } catch (e) {
+                        // No es JSON, no añadir Content-Type
+                    }
+                } else if (options.body instanceof FormData) {
+                    // FormData maneja su propio Content-Type
+                } else {
+                    headers['Content-Type'] = 'application/json';
+                }
+            }
+            
+            const fetchOptions = {
+                ...options,
+                headers,
+            };
+            
+            return fetch(url, fetchOptions);
+        }
+        
         // INSTRUMENTACIÓN DIAGNÓSTICA: Logs top-level al cargar script
         console.log('[BOOT] repository_v3 script loaded');
         console.log('[BOOT] typeof window.ensureCalendarioLoaded:', typeof window.ensureCalendarioLoaded);
@@ -760,6 +924,65 @@
             'LATE': 'Tarde'
         };
         
+        // SPRINT C2.22C: Inicializar tenant selector
+        function initTenantSelector() {
+            const tenantInput = document.getElementById('tenant-select');
+            const tenantBadge = document.getElementById('tenant-badge');
+            
+            if (!tenantInput || !tenantBadge) return;
+            
+            // Cargar tenant activo
+            const activeTenant = getActiveTenant();
+            tenantInput.value = activeTenant;
+            updateTenantBadge();
+            
+            // Listener para cambios
+            tenantInput.addEventListener('change', (e) => {
+                const newTenant = e.target.value.trim() || 'default';
+                setActiveTenant(newTenant);
+                tenantInput.value = newTenant;
+                
+                // Refrescar vista actual
+                if (currentPage) {
+                    loadPage(currentPage);
+                }
+            });
+            
+            // Permitir Enter para confirmar
+            tenantInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const newTenant = e.target.value.trim() || 'default';
+                    setActiveTenant(newTenant);
+                    tenantInput.value = newTenant;
+                    e.target.blur();
+                    
+                    // Refrescar vista actual
+                    if (currentPage) {
+                        loadPage(currentPage);
+                    }
+                }
+            });
+        }
+        
+        /**
+         * Actualiza el badge visual del tenant activo.
+         */
+        function updateTenantBadge() {
+            const tenantBadge = document.getElementById('tenant-badge');
+            if (!tenantBadge) return;
+            
+            const activeTenant = getActiveTenant();
+            tenantBadge.textContent = activeTenant;
+            
+            // Cambiar estilo según tenant
+            tenantBadge.className = 'tenant-badge';
+            if (activeTenant === 'default') {
+                tenantBadge.classList.add('tenant-default');
+            } else {
+                tenantBadge.classList.add('tenant-custom');
+            }
+        }
+        
         // Navigation
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
@@ -768,6 +991,13 @@
                 navigateTo(page);
             });
         });
+        
+        // SPRINT C2.22C: Inicializar tenant selector al cargar
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initTenantSelector);
+        } else {
+            initTenantSelector();
+        }
         
         function navigateTo(page, params = {}) {
             dbg('navigateTo:', { page, params });
@@ -857,7 +1087,8 @@
             if (needsTypes && (forceTypes || (calendarTypes.length === 0 && uploadTypes.length === 0 && catalogTypes.length === 0))) {
                 dbg('Loading types...', { forceTypes });
                 promises.push(
-                    fetch(`${BACKEND_URL}/api/repository/types`)
+                    // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                    fetchWithTenant(`${BACKEND_URL}/api/repository/types`)
                         .then(r => r.json())
                         .then(types => {
                             calendarTypes = types;
@@ -871,7 +1102,8 @@
             if (needsPeople && (calendarPeople.length === 0 || (typeof calendarPeople === 'object' && !Array.isArray(calendarPeople)))) {
                 dbg('Loading people...');
                 promises.push(
-                    fetch(`${BACKEND_URL}/api/config/people`)
+                    // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                    fetchWithTenant(`${BACKEND_URL}/api/config/people`)
                         .then(r => r.json())
                         .catch(() => ({people: []}))
                         .then(data => {
@@ -1021,7 +1253,8 @@
             }
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/health`);
+                // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                const response = await fetchWithTenant(`${BACKEND_URL}/api/health`);
                 if (response.ok) {
                     const health = await response.json();
                     e2eSeedEnabled = health.e2e_seed_enabled === true;
@@ -10165,7 +10398,8 @@
             }
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/runs/${planReviewState.planId}/metrics`);
+                // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                const response = await fetchWithTenant(`${BACKEND_URL}/api/runs/${planReviewState.planId}/metrics`);
                 if (!response.ok) {
                     if (response.status === 404) {
                         content.innerHTML = '<div class="alert alert-info">No hay métricas disponibles para este plan aún.</div>';
@@ -10303,11 +10537,74 @@
                 const firstItem = planReviewState.planData.items[0];
                 if (firstItem.empresa) {
                     companyKeyInput.value = firstItem.empresa;
+                    
+                    // SPRINT C2.22C: Sugerir tenant si hay mapping
+                    const suggestedTenant = getSuggestedTenantForCompany(firstItem.empresa);
+                    if (suggestedTenant) {
+                        const activeTenant = getActiveTenant();
+                        if (suggestedTenant !== activeTenant) {
+                            const statusDiv = document.getElementById('export-status');
+                            if (statusDiv) {
+                                statusDiv.innerHTML = `
+                                    <div class="alert alert-info" style="margin-bottom: 0;">
+                                        💡 Sugerencia: El tenant recomendado para <strong>${firstItem.empresa}</strong> es: <strong>${suggestedTenant}</strong>
+                                        <br>
+                                        <button class="btn btn-secondary btn-sm" onclick="setActiveTenant('${suggestedTenant}'); document.getElementById('tenant-select').value='${suggestedTenant}'; updateTenantBadge();" style="margin-top: 8px;">
+                                            Usar ${suggestedTenant}
+                                        </button>
+                                    </div>
+                                `;
+                            }
+                        }
+                    }
                 }
             }
             
-            // Limpiar status
-            document.getElementById('export-status').innerHTML = '';
+            // SPRINT C2.22C: Listener para sugerir tenant cuando se ingresa company_key
+            if (companyKeyInput) {
+                // Remover listener anterior si existe
+                const newInput = companyKeyInput.cloneNode(true);
+                companyKeyInput.parentNode.replaceChild(newInput, companyKeyInput);
+                
+                newInput.addEventListener('input', function() {
+                    const companyKey = this.value.trim();
+                    if (companyKey) {
+                        const suggestedTenant = getSuggestedTenantForCompany(companyKey);
+                        if (suggestedTenant) {
+                            const activeTenant = getActiveTenant();
+                            if (suggestedTenant !== activeTenant) {
+                                const statusDiv = document.getElementById('export-status');
+                                if (statusDiv) {
+                                    statusDiv.innerHTML = `
+                                        <div class="alert alert-info" style="margin-bottom: 0;">
+                                            💡 Sugerencia: El tenant recomendado para <strong>${companyKey}</strong> es: <strong>${suggestedTenant}</strong>
+                                            <br>
+                                            <button class="btn btn-secondary btn-sm" onclick="setActiveTenant('${suggestedTenant}'); document.getElementById('tenant-select').value='${suggestedTenant}'; updateTenantBadge();" style="margin-top: 8px;">
+                                                Usar ${suggestedTenant}
+                                            </button>
+                                        </div>
+                                    `;
+                                }
+                            }
+                        } else {
+                            const statusDiv = document.getElementById('export-status');
+                            if (statusDiv && statusDiv.innerHTML.includes('Sugerencia')) {
+                                statusDiv.innerHTML = '';
+                            }
+                        }
+                    } else {
+                        const statusDiv = document.getElementById('export-status');
+                        if (statusDiv) {
+                            statusDiv.innerHTML = '';
+                        }
+                    }
+                });
+            }
+            
+            // Limpiar status si no hay company_key
+            if (!companyKeyInput || !companyKeyInput.value) {
+                document.getElementById('export-status').innerHTML = '';
+            }
         }
         
         function closeExportModal() {
@@ -10324,10 +10621,26 @@
                 return;
             }
             
+            // SPRINT C2.22C: Obtener tenant sugerido para company_key
+            const suggestedTenant = getSuggestedTenantForCompany(companyKey);
+            const activeTenant = getActiveTenant();
+            
+            // SPRINT C2.22C: Confirmación antes de exportar
+            const confirmMessage = `Estás operando sobre el tenant: ${activeTenant}\n\n` +
+                (suggestedTenant && suggestedTenant !== activeTenant 
+                    ? `⚠️ Sugerencia: El tenant recomendado para ${companyKey} es: ${suggestedTenant}\n\n`
+                    : '') +
+                `¿Continuar con el export?`;
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
             statusDiv.innerHTML = '<div class="loading">Generando export...</div>';
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/export/cae`, {
+                // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                const response = await fetchWithTenant(`${BACKEND_URL}/api/export/cae`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -10480,7 +10793,8 @@
         // SPRINT C2.20A: Presets functions
         async function loadPresetsCache() {
             try {
-                const response = await fetch(`${BACKEND_URL}/api/presets/decision_presets?include_disabled=false`);
+                // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                const response = await fetchWithTenant(`${BACKEND_URL}/api/presets/decision_presets?include_disabled=false`);
                 if (response.ok) {
                     const data = await response.json();
                     planReviewState.presetsCache = data.presets || [];
@@ -10534,7 +10848,8 @@
             content.innerHTML = '<div class="loading">Cargando plan...</div>';
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/plans/${planId}`);
+                // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                const response = await fetchWithTenant(`${BACKEND_URL}/api/plans/${planId}`);
                 if (!response.ok) {
                     if (response.status === 404) {
                         throw new Error(`Plan ${planId} no encontrado`);
@@ -10545,6 +10860,21 @@
                 const data = await response.json();
                 planReviewState.planId = planId;
                 planReviewState.planData = data;
+                
+                // SPRINT C2.22C: Sugerir tenant si hay company_key en el plan
+                if (data.items && data.items.length > 0) {
+                    const firstItem = data.items[0];
+                    if (firstItem.empresa) {
+                        const suggestedTenant = getSuggestedTenantForCompany(firstItem.empresa);
+                        if (suggestedTenant) {
+                            const activeTenant = getActiveTenant();
+                            if (suggestedTenant !== activeTenant) {
+                                // Mostrar sugerencia (no cambiar automáticamente)
+                                console.log(`[Tenant] Sugerencia: tenant recomendado para ${firstItem.empresa} es ${suggestedTenant} (actual: ${activeTenant})`);
+                            }
+                        }
+                    }
+                }
                 
                 // Cargar draft desde localStorage
                 const savedDraft = localStorage.getItem(`plan_review_draft_${planId}`);
@@ -10999,7 +11329,8 @@
                 params.append('include_disabled', 'true');
                 params.append('limit', '200');
                 
-                const response = await fetch(`${BACKEND_URL}/api/learning/hints?${params}`);
+                // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                const response = await fetchWithTenant(`${BACKEND_URL}/api/learning/hints?${params}`);
                 if (!response.ok) {
                     throw new Error(`Error: ${response.statusText}`);
                 }
@@ -11101,7 +11432,8 @@
             
             try {
                 const body = reason ? { reason } : {};
-                const response = await fetch(`${BACKEND_URL}/api/learning/hints/${hintId}/disable`, {
+                // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                const response = await fetchWithTenant(`${BACKEND_URL}/api/learning/hints/${hintId}/disable`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body),
@@ -11371,7 +11703,8 @@
             // SPRINT C2.20B: Registrar aplicación de preset
             if (appliedCount > 0 && planReviewState.planId) {
                 try {
-                    const response = await fetch(`${BACKEND_URL}/api/runs/${planReviewState.planId}/metrics`);
+                    // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                const response = await fetchWithTenant(`${BACKEND_URL}/api/runs/${planReviewState.planId}/metrics`);
                     if (response.ok) {
                         // Métricas existen, registrar preset aplicado
                         // Nota: Esto requiere un endpoint adicional o actualizar directamente
@@ -11413,7 +11746,8 @@
             modalBody.innerHTML = '<div class="loading">Cargando presets...</div>';
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/presets/decision_presets?include_disabled=true`);
+                // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                const response = await fetchWithTenant(`${BACKEND_URL}/api/presets/decision_presets?include_disabled=true`);
                 if (!response.ok) {
                     throw new Error(`Error: ${response.statusText}`);
                 }
@@ -11574,7 +11908,8 @@
                 if (filePath) requestBody.defaults.file_path = filePath;
                 if (docId) requestBody.defaults.local_doc_id = docId;
                 
-                const response = await fetch(`${BACKEND_URL}/api/presets/decision_presets`, {
+                // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                const response = await fetchWithTenant(`${BACKEND_URL}/api/presets/decision_presets`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody),
@@ -11600,7 +11935,8 @@
             }
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/presets/decision_presets/${presetId}/disable`, {
+                // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                const response = await fetchWithTenant(`${BACKEND_URL}/api/presets/decision_presets/${presetId}/disable`, {
                     method: 'POST',
                 });
                 
@@ -11629,7 +11965,8 @@
             }
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/plans/${planReviewState.planId}/decision_packs`, {
+                // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                const response = await fetchWithTenant(`${BACKEND_URL}/api/plans/${planReviewState.planId}/decision_packs`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ decisions: decisions }),
@@ -11669,12 +12006,18 @@
                 return;
             }
             
-            if (!confirm(`¿Ejecutar plan ${planReviewState.planId} con pack ${planReviewState.savedPackId}?`)) {
+            // SPRINT C2.22C: Confirmación con tenant activo
+            const activeTenant = getActiveTenant();
+            const confirmMessage = `Estás operando sobre el tenant: ${activeTenant}\n\n` +
+                `¿Ejecutar plan ${planReviewState.planId} con pack ${planReviewState.savedPackId}?`;
+            
+            if (!confirm(confirmMessage)) {
                 return;
             }
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/runs/auto_upload/execute`, {
+                // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                const response = await fetchWithTenant(`${BACKEND_URL}/api/runs/auto_upload/execute`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
