@@ -503,6 +503,74 @@
       "active": true,
       "issue_date_required": true,
       "validity_start_mode": "issue_date"
+    },
+    {
+      "type_id": "demo_ss_receipt",
+      "name": "Recibo Seguridad Social (Demo)",
+      "description": "Tipo demo: Recibo Seguridad Social (Demo)",
+      "scope": "worker",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "name_date",
+        "monthly": {
+          "month_source": "name_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [],
+      "platform_aliases": [],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    },
+    {
+      "type_id": "demo_contract",
+      "name": "Contrato (Demo)",
+      "description": "Tipo demo: Contrato (Demo)",
+      "scope": "worker",
+      "validity_policy": {
+        "mode": "fixed_end_date",
+        "basis": "name_date",
+        "monthly": null,
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [],
+      "platform_aliases": [],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    },
+    {
+      "type_id": "demo_insurance",
+      "name": "Seguro (Demo)",
+      "description": "Tipo demo: Seguro (Demo)",
+      "scope": "company",
+      "validity_policy": {
+        "mode": "annual",
+        "basis": "name_date",
+        "monthly": null,
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [],
+      "platform_aliases": [],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
     }
   ]
 }

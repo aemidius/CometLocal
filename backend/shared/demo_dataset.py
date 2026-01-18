@@ -63,11 +63,12 @@ def ensure_demo_dataset() -> dict:
     
     # Si no existe o no tiene la empresa demo, crearla
     if not org or org.tax_id != DEMO_OWN_COMPANY_KEY:
-        from backend.repository.config_store_v1 import OrgConfigV1
-        demo_org = OrgConfigV1(
+        from backend.shared.org_v1 import OrgV1
+        demo_org = OrgV1(
             tax_id=DEMO_OWN_COMPANY_KEY,
             legal_name="Empresa Demo SL",
-            vat_id=DEMO_OWN_COMPANY_KEY,
+            org_type="SCCL",
+            notes="",
         )
         store.save_org(demo_org)
         results["org_created"] = True
@@ -77,17 +78,24 @@ def ensure_demo_dataset() -> dict:
     demo_platform_exists = any(p.key == DEMO_PLATFORM_KEY for p in platforms_data.platforms)
     
     if not demo_platform_exists:
-        from backend.repository.config_store_v1 import PlatformConfigV1, CoordinationConfigV1
+        from backend.shared.platforms_v1 import PlatformV1, CoordinationV1
         
-        demo_coordination = CoordinationConfigV1(
+        demo_coordination = CoordinationV1(
             client_code=DEMO_COORDINATED_COMPANY_KEY,
             label="Cliente Demo SA",
-            vat_id=DEMO_COORDINATED_COMPANY_KEY,
+            username="",
+            password_ref="",
+            url_override=None,
+            post_login_selector=None,
         )
         
-        demo_platform = PlatformConfigV1(
+        from backend.shared.platforms_v1 import LoginFieldsV1
+        
+        demo_platform = PlatformV1(
             key=DEMO_PLATFORM_KEY,
-            name="Plataforma Demo",
+            base_url="",
+            login_url=None,
+            login_fields=LoginFieldsV1(requires_client=False),
             coordinations=[demo_coordination],
         )
         
@@ -128,9 +136,27 @@ def ensure_demo_dataset() -> dict:
     
     for demo_type in demo_types:
         if demo_type["type_id"] not in existing_type_ids:
-            from backend.repository.document_repository_store_v1 import DocumentTypeV1
+            from backend.shared.document_repository_v1 import (
+                DocumentTypeV1,
+                ValidityPolicyV1,
+                MonthlyValidityConfigV1,
+            )
             
-            from backend.shared.document_repository_v1 import ValidityPolicyV1, MonthlyValidityConfigV1
+            # Determinar modo de validez
+            if demo_type["frequency"] == "monthly":
+                validity_mode = "monthly"
+                monthly_config = MonthlyValidityConfigV1(
+                    month_source="name_date",
+                    valid_from="period_start",
+                    valid_to="period_end",
+                    grace_days=0
+                )
+            elif demo_type["frequency"] == "yearly":
+                validity_mode = "annual"
+                monthly_config = None
+            else:
+                validity_mode = "fixed_end_date"
+                monthly_config = None
             
             type_obj = DocumentTypeV1(
                 type_id=demo_type["type_id"],
@@ -138,14 +164,9 @@ def ensure_demo_dataset() -> dict:
                 description=f"Tipo demo: {demo_type['name']}",
                 scope=demo_type["subject"],
                 validity_policy=ValidityPolicyV1(
-                    mode="monthly" if demo_type["frequency"] == "monthly" else "on_demand",
+                    mode=validity_mode,
                     basis="name_date",
-                    monthly=MonthlyValidityConfigV1(
-                        month_source="name_date",
-                        valid_from="period_start",
-                        valid_to="period_end",
-                        grace_days=0
-                    ) if demo_type["frequency"] == "monthly" else None
+                    monthly=monthly_config
                 ),
                 required_fields=[],
                 platform_aliases=[],
@@ -163,42 +184,47 @@ def ensure_demo_dataset() -> dict:
     existing_doc_ids = {d.doc_id for d in docs}
     
     demo_docs = [
-        {
-            "doc_id": "demo_doc_ss_001",
-            "type_id": "demo_ss_receipt",
-            "period": date.today().strftime("%Y-%m"),
-            "subject_id": "demo_worker_001",
-        },
-        {
-            "doc_id": "demo_doc_contract_001",
-            "type_id": "demo_contract",
-            "period": None,
-            "subject_id": "demo_worker_001",
-        },
-        {
-            "doc_id": "demo_doc_insurance_001",
-            "type_id": "demo_insurance",
-            "period": date.today().strftime("%Y"),
-            "subject_id": "company",
-        },
-    ]
+            {
+                "doc_id": "demo_doc_ss_001",
+                "type_id": "demo_ss_receipt",
+                "subject": "worker",
+                "period": date.today().strftime("%Y-%m"),
+                "subject_id": "demo_worker_001",
+            },
+            {
+                "doc_id": "demo_doc_contract_001",
+                "type_id": "demo_contract",
+                "subject": "worker",
+                "period": None,
+                "subject_id": "demo_worker_001",
+            },
+            {
+                "doc_id": "demo_doc_insurance_001",
+                "type_id": "demo_insurance",
+                "subject": "company",
+                "period": date.today().strftime("%Y"),
+                "subject_id": "company",
+            },
+        ]
     
     created_docs = []
     for demo_doc in demo_docs:
         if demo_doc["doc_id"] not in existing_doc_ids:
-            from backend.repository.document_repository_store_v1 import DocumentInstanceV1
+            from backend.shared.document_repository_v1 import DocumentInstanceV1, DocumentScopeV1, DocumentStatusV1
             
-            from backend.shared.document_repository_v1 import DocumentScopeV1
-            
+            # DocumentInstanceV1 requiere file_name_original, stored_path, sha256
+            # Para demo, creamos valores dummy
             doc_obj = DocumentInstanceV1(
                 doc_id=demo_doc["doc_id"],
+                file_name_original=f"{demo_doc['doc_id']}.pdf",
+                stored_path=f"docs/{demo_doc['doc_id']}.pdf",
+                sha256="demo_hash_" + demo_doc["doc_id"],
                 type_id=demo_doc["type_id"],
-                scope=DocumentScopeV1(
-                    subject_id=demo_doc["subject_id"],
-                    period=demo_doc["period"]
-                ),
-                status="pending",
-                created_at=datetime.now(),
+                scope=DocumentScopeV1(demo_doc["subject"]),  # "worker" o "company"
+                person_key=demo_doc["subject_id"] if demo_doc["subject"] == "worker" else None,
+                company_key=demo_doc["subject_id"] if demo_doc["subject"] == "company" else None,
+                status=DocumentStatusV1.draft,
+                period_key=demo_doc["period"],
             )
             repo_store.save_document(doc_obj)
             created_docs.append(demo_doc["doc_id"])

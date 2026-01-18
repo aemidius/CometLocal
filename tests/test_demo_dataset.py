@@ -63,7 +63,6 @@ def test_ensure_demo_dataset(tmp_path, monkeypatch):
     platforms = store.load_platforms()
     demo_platform = next((p for p in platforms.platforms if p.key == DEMO_PLATFORM_KEY), None)
     assert demo_platform is not None
-    assert "Demo" in demo_platform.name
     
     # Verificar coordinated company
     demo_coord = next(
