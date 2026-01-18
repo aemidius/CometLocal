@@ -797,17 +797,18 @@
                     <!-- SPRINT C2.24: Contexto de coordinación (tenant transparente) -->
                     <div class="coordination-context" id="coordination-context">
                         <label for="context-platform">Plataforma:</label>
-                        <select id="context-platform" style="min-width: 150px;">
+                        <select id="context-platform" data-testid="context-platform-select" style="min-width: 150px;">
                             <option value="">-- Sin seleccionar --</option>
                         </select>
                         <label for="context-external-company">Cliente:</label>
                         <input 
                             type="text" 
                             id="context-external-company" 
+                            data-testid="context-client-select"
                             placeholder="Ej: COMPANY_A"
                             style="min-width: 150px;"
                         >
-                        <span id="context-badge" class="context-badge">default</span>
+                        <span id="context-badge" class="context-badge" data-testid="context-badge">default</span>
                     </div>
                     <!-- SPRINT C2.24: Modo debug (oculto por defecto) -->
                     <div class="tenant-selector" id="debug-tenant-selector" style="display: none;">
@@ -815,12 +816,13 @@
                         <input 
                             type="text" 
                             id="tenant-select" 
+                            data-testid="context-tenant-override"
                             placeholder="default"
                             style="min-width: 120px;"
                         />
                         <span id="tenant-badge" class="tenant-badge tenant-default">default</span>
                     </div>
-                    <span class="debug-tenant-toggle" id="debug-tenant-toggle" onclick="toggleDebugTenant()">Modo debug</span>
+                    <span class="debug-tenant-toggle" id="debug-tenant-toggle" data-testid="context-debug-toggle" onclick="toggleDebugTenant()">Modo debug</span>
                 </div>
             </div>
         </div>
@@ -924,7 +926,7 @@
         }
         
         /**
-         * SPRINT C2.24: Guarda el contexto de coordinación.
+         * SPRINT C2.25: Guarda el contexto de coordinación y refresca la vista.
          * @param {string|null} platformKey - Clave de plataforma
          * @param {string|null} externalCompanyKey - Clave de empresa externa
          */
@@ -943,9 +945,21 @@
             
             updateContextBadge();
             
-            // Refrescar vista actual si es necesario
+            // SPRINT C2.25: Limpiar caches UI que dependen del tenant
+            if (planReviewState) {
+                planReviewState.debugCache = {}; // Limpiar cache de debug
+                planReviewState.presetsCache = null; // Limpiar cache de presets
+            }
+            
+            // Refrescar vista actual de forma segura
             if (currentPage) {
+                // Re-ejecutar loadPage sin romper el router hash
+                const currentHash = window.location.hash;
                 loadPage(currentPage);
+                // Restaurar hash si cambió
+                if (window.location.hash !== currentHash) {
+                    window.location.hash = currentHash;
+                }
             }
         }
         
@@ -1091,7 +1105,7 @@
         async function initCoordinationContext() {
             // Cargar plataformas disponibles
             try {
-                const platformsRes = await fetch(`${BACKEND_URL}/api/config/platforms`);
+                const platformsRes = await fetchWithContext(`${BACKEND_URL}/api/config/platforms`);
                 if (platformsRes.ok) {
                     const platformsData = await platformsRes.json();
                     availablePlatforms = platformsData.platforms || [];
@@ -2067,16 +2081,16 @@
                 // SPRINT C2.10.1: Limitar carga de documentos para evitar timeouts con miles de docs
                 // Pedir solo 50 docs más recientes para "subidas recientes" y KPIs
                 const [types, docsResponse, rules, platforms] = await Promise.all([
-                    fetch(`${BACKEND_URL}/api/repository/types`).then(r => {
+                    fetchWithContext(`${BACKEND_URL}/api/repository/types`).then(r => {
                         if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
                         return r.json();
                     }),
-                    fetch(`${BACKEND_URL}/api/repository/docs?limit=50&sort=date_desc`).then(r => {
+                    fetchWithContext(`${BACKEND_URL}/api/repository/docs?limit=50&sort=date_desc`).then(r => {
                         if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
                         return r.json();
                     }),
-                    fetch(`${BACKEND_URL}/api/repository/rules`).then(r => r.json()).catch(() => []),
-                    fetch(`${BACKEND_URL}/api/config/platforms`).then(r => r.json()).catch(() => ({platforms: []}))
+                    fetchWithContext(`${BACKEND_URL}/api/repository/rules`).then(r => r.json()).catch(() => []),
+                    fetchWithContext(`${BACKEND_URL}/api/config/platforms`).then(r => r.json()).catch(() => ({platforms: []}))
                 ]);
                 
                 const docs = Array.isArray(docsResponse) ? docsResponse : [];
@@ -3484,7 +3498,7 @@
                     params.append('company_key', selectedSubject.key);
                 }
                 
-                const response = await fetch(`${BACKEND_URL}/api/repository/types/${selectedType.type_id}/expected?${params}`);
+                const response = await fetchWithContext(`${BACKEND_URL}/api/repository/types/${selectedType.type_id}/expected?${params}`);
                 calendarPeriods = await response.json();
                 
                 const container = document.getElementById('calendar-grid-container');
@@ -3638,7 +3652,7 @@
                 if (uploadTypes.length === 0) {
                     console.log('[repo-upload] Loading types...');
                     // Try to get all types (with large page_size or without pagination)
-                    const response = await fetch(`${BACKEND_URL}/api/repository/types`);
+                    const response = await fetchWithContext(`${BACKEND_URL}/api/repository/types`);
                     const data = await response.json();
                     // Handle both array and paginated response
                     if (Array.isArray(data)) {
@@ -3650,7 +3664,7 @@
                             console.log('[repo-upload] Fetching additional pages...');
                             const totalPages = Math.ceil(data.total / (data.page_size || 20));
                             for (let page = 2; page <= totalPages; page++) {
-                                const pageResponse = await fetch(`${BACKEND_URL}/api/repository/types?page=${page}&page_size=${data.page_size || 20}`);
+                                const pageResponse = await fetchWithContext(`${BACKEND_URL}/api/repository/types?page=${page}&page_size=${data.page_size || 20}`);
                                 const pageData = await pageResponse.json();
                                 if (pageData.items && Array.isArray(pageData.items)) {
                                     uploadTypes.push(...pageData.items);
@@ -3662,7 +3676,7 @@
                     }
                     console.log('[repo-upload] types loaded count:', uploadTypes.length);
                 }
-                const peopleData = await fetch(`${BACKEND_URL}/api/config/people`).then(r => r.json()).catch(() => ({people: []}));
+                const peopleData = await fetchWithContext(`${BACKEND_URL}/api/config/people`).then(r => r.json()).catch(() => ({people: []}));
                 uploadPeople = peopleData.people || [];
                 
                 // Validate type_id if provided
@@ -3859,7 +3873,7 @@
                 
                 // Load subjects (companies + workers)
                 try {
-                    const subjectsResponse = await fetch(`${BACKEND_URL}/api/repository/subjects`);
+                    const subjectsResponse = await fetchWithContext(`${BACKEND_URL}/api/repository/subjects`);
                     if (subjectsResponse.ok) {
                         uploadSubjects = await subjectsResponse.json();
                         console.log('[repo-upload] Subjects loaded:', uploadSubjects);
@@ -5585,7 +5599,7 @@
                         const formData = new FormData();
                         formData.append('file', file.file);
                         
-                        const response = await fetch(`${BACKEND_URL}/api/repository/docs/${window.replaceDocId}/pdf`, {
+                        const response = await fetchWithContext(`${BACKEND_URL}/api/repository/docs/${window.replaceDocId}/pdf`, {
                             method: 'PUT',
                             body: formData
                         });
@@ -5682,7 +5696,17 @@
                         formData.append('validity_start_date', '');
                     }
                     
-                    const response = await fetch(`${BACKEND_URL}/api/repository/docs/upload`, {
+                    // SPRINT C2.25: Confirmación antes de subir (si usa tenant-scoped)
+                    const context = getCoordinationContext();
+                    if (context.platform_key && context.external_company_key) {
+                        const platformLabel = availablePlatforms.find(p => p.key === context.platform_key)?.label || context.platform_key;
+                        const confirmMsg = `Subir documento con contexto:\n  Plataforma: ${platformLabel}\n  Cliente: ${context.external_company_key}\n\n¿Continuar?`;
+                        if (!confirm(confirmMsg)) {
+                            continue; // Skip this file
+                        }
+                    }
+                    
+                    const response = await fetchWithContext(`${BACKEND_URL}/api/repository/docs/upload`, {
                         method: 'POST',
                         body: formData
                     });
@@ -5714,7 +5738,7 @@
             if (file.company_key) params.append('company_key', file.company_key);
             if (file.person_key) params.append('person_key', file.person_key);
             
-            const response = await fetch(`${BACKEND_URL}/api/repository/docs?${params}`);
+            const response = await fetchWithContext(`${BACKEND_URL}/api/repository/docs?${params}`);
             const docs = await response.json();
             
             if (file.period_key) {
@@ -5785,7 +5809,7 @@
             // Load data if not already loaded
             try {
                 if (searchTypes.length === 0) {
-                    const typesResponse = await fetch(`${BACKEND_URL}/api/repository/types?active=true`);
+                    const typesResponse = await fetchWithContext(`${BACKEND_URL}/api/repository/types?active=true`);
                     if (!typesResponse.ok) {
                         throw new Error(`Failed to load types: ${typesResponse.status}`);
                     }
@@ -5798,7 +5822,7 @@
             }
             
             try {
-                const peopleData = await fetch(`${BACKEND_URL}/api/config/people`).then(r => r.json()).catch(() => ({people: []}));
+                const peopleData = await fetchWithContext(`${BACKEND_URL}/api/config/people`).then(r => r.json()).catch(() => ({people: []}));
                 searchPeople = peopleData.people || [];
             } catch (error) {
                 console.warn('[repo-search] Failed to load people:', error);
@@ -5807,7 +5831,7 @@
             
             // Load subjects (companies + workers)
             try {
-                const subjectsResponse = await fetch(`${BACKEND_URL}/api/repository/subjects`);
+                const subjectsResponse = await fetchWithContext(`${BACKEND_URL}/api/repository/subjects`);
                 if (subjectsResponse.ok) {
                     searchSubjects = await subjectsResponse.json();
                 } else {
@@ -6235,7 +6259,7 @@
                 }
                 
                 // Fetch all documents (backend now supports validity_status filter)
-                const response = await fetch(`${BACKEND_URL}/api/repository/docs?${params}`);
+                const response = await fetchWithContext(`${BACKEND_URL}/api/repository/docs?${params}`);
                 let docs = await response.json();
                 if (!Array.isArray(docs)) docs = [];
                 
@@ -6523,11 +6547,11 @@
                 if (!doc) {
                     // Si no está en la lista, cargarlo desde el backend usando el endpoint específico
                     console.log('[editDocumentFromSearch] Loading from backend...');
-                    const response = await fetch(`${BACKEND_URL}/api/repository/docs/${docId}`);
+                    const response = await fetchWithContext(`${BACKEND_URL}/api/repository/docs/${docId}`);
                     if (!response.ok) {
                         if (response.status === 404) {
                             // Intentar cargar todos los documentos y buscar
-                            const allDocsResponse = await fetch(`${BACKEND_URL}/api/repository/docs`);
+                            const allDocsResponse = await fetchWithContext(`${BACKEND_URL}/api/repository/docs`);
                             if (allDocsResponse.ok) {
                                 const allDocs = await allDocsResponse.json();
                                 doc = allDocs.find(d => (d.doc_id || d.id) === docId);
@@ -6563,7 +6587,7 @@
                 if (searchTypes.length === 0) {
                     console.log('[editDocumentFromSearch] Loading types...');
                     try {
-                        const typesResponse = await fetch(`${BACKEND_URL}/api/repository/types?active=true`);
+                        const typesResponse = await fetchWithContext(`${BACKEND_URL}/api/repository/types?active=true`);
                         if (typesResponse.ok) {
                             const typesData = await typesResponse.json();
                             searchTypes = Array.isArray(typesData) ? typesData : (typesData.items || []);
@@ -6914,7 +6938,7 @@
             
             console.log('[EDITMODAL] saveDocumentEdit: sending PUT', editingDocument.doc_id, updateData);
             try {
-                const response = await fetch(`${BACKEND_URL}/api/repository/docs/${editingDocument.doc_id}`, {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/repository/docs/${editingDocument.doc_id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(updateData)
@@ -6958,7 +6982,7 @@
             }
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/repository/docs/${docId}`, {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/repository/docs/${docId}`, {
                     method: 'DELETE'
                 });
                 
@@ -6985,9 +7009,9 @@
             
             try {
                 const [rules, platforms, types] = await Promise.all([
-                    fetch(`${BACKEND_URL}/api/repository/rules`).then(r => r.json()).catch(() => []),
-                    fetch(`${BACKEND_URL}/api/config/platforms`).then(r => r.json()).catch(() => ({platforms: []})),
-                    fetch(`${BACKEND_URL}/api/repository/types`).then(r => r.json())
+                    fetchWithContext(`${BACKEND_URL}/api/repository/rules`).then(r => r.json()).catch(() => []),
+                    fetchWithContext(`${BACKEND_URL}/api/config/platforms`).then(r => r.json()).catch(() => ({platforms: []})),
+                    fetchWithContext(`${BACKEND_URL}/api/repository/types`).then(r => r.json())
                 ]);
                 
                 const egestiona = platforms.platforms?.find(p => p.key === 'egestiona');
@@ -7079,11 +7103,11 @@
             
             try {
                 const [types, platforms] = await Promise.all([
-                    fetch(`${BACKEND_URL}/api/repository/types`).then(r => r.json()),
-                    fetch(`${BACKEND_URL}/api/config/platforms`).then(r => r.json())
+                    fetchWithContext(`${BACKEND_URL}/api/repository/types`).then(r => r.json()),
+                    fetchWithContext(`${BACKEND_URL}/api/config/platforms`).then(r => r.json())
                 ]);
                 
-                const existingRules = await fetch(`${BACKEND_URL}/api/repository/rules`).then(r => r.json()).catch(() => []);
+                const existingRules = await fetchWithContext(`${BACKEND_URL}/api/repository/rules`).then(r => r.json()).catch(() => []);
                 const existingGlobalTypes = new Set(
                     existingRules.filter(r => r.scope === 'GLOBAL' && r.platform_key === 'egestiona')
                         .map(r => r.document_type_id)
@@ -7113,7 +7137,7 @@
                     };
                     
                     try {
-                        await fetch(`${BACKEND_URL}/api/repository/rules`, {
+                        await fetchWithContext(`${BACKEND_URL}/api/repository/rules`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(rule)
@@ -7174,7 +7198,7 @@
             if (catalogFilters.scope) params.append('scope', catalogFilters.scope);
             if (catalogFilters.active !== null) params.append('active', catalogFilters.active.toString());
             
-            const response = await fetch(`${BACKEND_URL}/api/repository/types?${params}`);
+            const response = await fetchWithContext(`${BACKEND_URL}/api/repository/types?${params}`);
             const data = await response.json();
             
             // Handle both paginated and non-paginated responses
@@ -7933,7 +7957,7 @@
             }
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/repository/types/${typeId}/duplicate`, {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/repository/types/${typeId}/duplicate`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ new_type_id: newId.toUpperCase() })
@@ -7957,7 +7981,7 @@
             type.active = active;
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/repository/types/${typeId}`, {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/repository/types/${typeId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(type)
@@ -7977,7 +8001,7 @@
         async function deleteType(typeId) {
             // Check if type has documents
             try {
-                const docsResponse = await fetch(`${BACKEND_URL}/api/repository/docs?type_id=${typeId}`);
+                const docsResponse = await fetchWithContext(`${BACKEND_URL}/api/repository/docs?type_id=${typeId}`);
                 const docs = await docsResponse.json();
                 
                 if (docs.length > 0) {
@@ -7996,7 +8020,7 @@
             }
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/repository/types/${typeId}`, {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/repository/types/${typeId}`, {
                     method: 'DELETE'
                 });
                 
@@ -8082,7 +8106,7 @@
             // SPRINT C2.1: Cargar configuración con manejo de errores robusto
             // No bloquear el render si falla el fetch, pero mostrar mensaje
             try {
-                const response = await fetch(`${BACKEND_URL}/api/repository/settings`);
+                const response = await fetchWithContext(`${BACKEND_URL}/api/repository/settings`);
                 if (response.ok) {
                     repositorySettings = await response.json();
                 } else {
@@ -8173,7 +8197,7 @@
             messageDiv.innerHTML = '<div class="alert alert-info">Probando ruta...</div>';
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/repository/settings?dry_run=true`, {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/repository/settings?dry_run=true`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
@@ -8221,7 +8245,7 @@
             messageDiv.innerHTML = '<div class="alert alert-info">Guardando configuración...</div>';
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/repository/settings`, {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/repository/settings`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
@@ -8431,7 +8455,7 @@
             
             // Cargar plataformas
             try {
-                const platformsRes = await fetch(`${BACKEND_URL}/api/config/platforms`).catch(() => null);
+                const platformsRes = await fetchWithContext(`${BACKEND_URL}/api/config/platforms`).catch(() => null);
                 if (platformsRes && platformsRes.ok) {
                     const platformsData = await platformsRes.json();
                     caePlanPlatforms = platformsData.platforms || [];
@@ -8697,7 +8721,7 @@
                 };
                 
                 // Llamar al endpoint
-                const response = await fetch(`${BACKEND_URL}/api/cae/plan`, {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/cae/plan`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -8870,7 +8894,7 @@
             
             try {
                 // Llamar al endpoint
-                const response = await fetch(`${BACKEND_URL}/api/repository/cae/pack`, {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/repository/cae/pack`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -8953,7 +8977,7 @@
             
             try {
                 // 1. Obtener challenge
-                const challengeResponse = await fetch(`${BACKEND_URL}/api/cae/execute/${planId}/challenge`, {
+                const challengeResponse = await fetchWithContext(`${BACKEND_URL}/api/cae/execute/${planId}/challenge`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -9047,7 +9071,7 @@
             
             try {
                 // v1.8: Encolar job en lugar de ejecutar directamente
-                const enqueueResponse = await fetch(`${BACKEND_URL}/api/cae/execute/${planId}/enqueue`, {
+                const enqueueResponse = await fetchWithContext(`${BACKEND_URL}/api/cae/execute/${planId}/enqueue`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -9133,7 +9157,7 @@
             
             const poll = async () => {
                 try {
-                    const response = await fetch(`${BACKEND_URL}/api/cae/jobs/${jobId}`);
+                    const response = await fetchWithContext(`${BACKEND_URL}/api/cae/jobs/${jobId}`);
                     if (!response.ok) {
                         throw new Error(`Error ${response.status}: ${await response.text()}`);
                     }
@@ -9291,7 +9315,7 @@
             }
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/cae/jobs/${jobId}/cancel`, {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/cae/jobs/${jobId}/cancel`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -9330,7 +9354,7 @@
             }
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/cae/jobs/${jobId}/retry`, {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/cae/jobs/${jobId}/retry`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -9564,7 +9588,7 @@
                     params.append('allow_period_fallback', 'true');
                 }
                 
-                const response = await fetch(`${BACKEND_URL}/api/cae/doc_candidates?${params}`);
+                const response = await fetchWithContext(`${BACKEND_URL}/api/cae/doc_candidates?${params}`);
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error(`[repo] Error loading doc_candidates for item ${itemIdx}:`, {
@@ -9738,7 +9762,7 @@
                     mode: 'PREPARE_WRITE',
                 };
                 
-                const response = await fetch(`${BACKEND_URL}/api/cae/plan_from_selection`, {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/cae/plan_from_selection`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -9827,7 +9851,7 @@
                 // Cargar plataformas para obtener coordinaciones
                 let coordinations = [];
                 try {
-                    const platformsResponse = await fetch(`${BACKEND_URL}/api/config/platforms`);
+                    const platformsResponse = await fetchWithContext(`${BACKEND_URL}/api/config/platforms`);
                     if (platformsResponse.ok) {
                         const platformsData = await platformsResponse.json();
                         const egestiona = platformsData.platforms?.find(p => p.key === 'egestiona');
@@ -9925,7 +9949,7 @@
                     period_keys: null,
                 };
                 
-                const response = await fetch(`${BACKEND_URL}/api/cae/coordination/snapshot`, {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/cae/coordination/snapshot`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(scope),
@@ -10175,7 +10199,7 @@
                     include_best: 'true',  // v1.7: Solicitar mejor candidato
                 });
                 
-                const response = await fetch(`${BACKEND_URL}/api/cae/coordination/snapshot/${snapshotId}/doc_candidates?${params}`);
+                const response = await fetchWithContext(`${BACKEND_URL}/api/cae/coordination/snapshot/${snapshotId}/doc_candidates?${params}`);
                 if (!response.ok) {
                     throw new Error(`Error ${response.status}: ${await response.text()}`);
                 }
@@ -10270,7 +10294,7 @@
                     mode: 'PREPARE_WRITE',
                 };
                 
-                const response = await fetch(`${BACKEND_URL}/api/cae/coordination/plan_from_snapshot_selection`, {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/cae/coordination/plan_from_snapshot_selection`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -10992,8 +11016,8 @@
             statusDiv.innerHTML = '<div class="loading">Generando export...</div>';
             
             try {
-                // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
-                const response = await fetchWithTenant(`${BACKEND_URL}/api/export/cae`, {
+                // SPRINT C2.25: Usar fetchWithContext
+                const response = await fetchWithContext(`${BACKEND_URL}/api/export/cae`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -11260,7 +11284,7 @@
             modalBody.innerHTML = '<div class="loading">Cargando debug...</div>';
             
             try {
-                const response = await fetch(`${BACKEND_URL}/api/runs/${planReviewState.planId}/matching_debug/${itemId}`);
+                const response = await fetchWithContext(`${BACKEND_URL}/api/runs/${planReviewState.planId}/matching_debug/${itemId}`);
                 if (!response.ok) {
                     if (response.status === 404) {
                         modalBody.innerHTML = '<div class="alert alert-warning">No hay debug generado para este item.</div>';
@@ -11401,7 +11425,7 @@
             // Cargar debug para obtener candidates si existe
             let debugData = null;
             try {
-                const response = await fetch(`${BACKEND_URL}/api/runs/${planReviewState.planId}/matching_debug/${itemId}`);
+                const response = await fetchWithContext(`${BACKEND_URL}/api/runs/${planReviewState.planId}/matching_debug/${itemId}`);
                 if (response.ok) {
                     debugData = await response.json();
                 }
@@ -12369,8 +12393,8 @@
             }
             
             try {
-                // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
-                const response = await fetchWithTenant(`${BACKEND_URL}/api/runs/auto_upload/execute`, {
+                // SPRINT C2.25: Usar fetchWithContext
+                const response = await fetchWithContext(`${BACKEND_URL}/api/runs/auto_upload/execute`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
