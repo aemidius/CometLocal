@@ -158,6 +158,59 @@
             color: #fdba74;
             border-color: #ea580c;
         }
+        /* SPRINT C2.24: Contexto de coordinación */
+        .coordination-context {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-right: 16px;
+            padding: 8px 12px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 4px;
+        }
+        .coordination-context label {
+            font-size: 0.875rem;
+            color: #94a3b8;
+            white-space: nowrap;
+        }
+        .coordination-context select {
+            padding: 6px 12px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 4px;
+            color: #e2e8f0;
+            font-size: 0.875rem;
+            min-width: 150px;
+        }
+        .coordination-context select:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        .context-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: #334155;
+            border: 1px solid #475569;
+            color: #94a3b8;
+        }
+        .context-badge.has-context {
+            background: #1e3a8a;
+            color: #60a5fa;
+            border-color: #3b82f6;
+        }
+        .debug-tenant-toggle {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            cursor: pointer;
+            text-decoration: underline;
+            margin-left: 8px;
+        }
+        .debug-tenant-toggle:hover {
+            color: #cbd5e1;
+        }
         .content-body {
             flex: 1;
             overflow-y: auto;
@@ -741,21 +794,33 @@
                     <p id="page-description">Vista general del repositorio</p>
                 </div>
                 <div class="content-header-actions">
-                    <!-- SPRINT C2.22C: Tenant Selector -->
-                    <div class="tenant-selector">
-                        <label for="tenant-select">Tenant:</label>
+                    <!-- SPRINT C2.24: Contexto de coordinación (tenant transparente) -->
+                    <div class="coordination-context" id="coordination-context">
+                        <label for="context-platform">Plataforma:</label>
+                        <select id="context-platform" style="min-width: 150px;">
+                            <option value="">-- Sin seleccionar --</option>
+                        </select>
+                        <label for="context-external-company">Cliente:</label>
+                        <input 
+                            type="text" 
+                            id="context-external-company" 
+                            placeholder="Ej: COMPANY_A"
+                            style="min-width: 150px;"
+                        >
+                        <span id="context-badge" class="context-badge">default</span>
+                    </div>
+                    <!-- SPRINT C2.24: Modo debug (oculto por defecto) -->
+                    <div class="tenant-selector" id="debug-tenant-selector" style="display: none;">
+                        <label for="tenant-select">Tenant (debug):</label>
                         <input 
                             type="text" 
                             id="tenant-select" 
                             placeholder="default"
-                            list="tenant-suggestions"
                             style="min-width: 120px;"
                         />
                         <span id="tenant-badge" class="tenant-badge tenant-default">default</span>
                     </div>
-                    <datalist id="tenant-suggestions">
-                        <option value="default">default</option>
-                    </datalist>
+                    <span class="debug-tenant-toggle" id="debug-tenant-toggle" onclick="toggleDebugTenant()">Modo debug</span>
                 </div>
             </div>
         </div>
@@ -799,30 +864,121 @@
         const BACKEND_URL = 'http://127.0.0.1:8000';
         let currentPage = 'inicio';
         
-        // SPRINT C2.22C: Tenant management
+        // SPRINT C2.24: Contexto de coordinación (tenant transparente)
+        const PLATFORM_STORAGE_KEY = 'cometlocal_active_platform_key';
+        const EXTERNAL_COMPANY_STORAGE_KEY = 'cometlocal_active_external_company_key';
+        const DEBUG_TENANT_STORAGE_KEY = 'cometlocal_debug_tenant';
+        const DEBUG_MODE_KEY = 'cometlocal_debug_tenant_mode';
+        
+        // SPRINT C2.22C: Tenant management (mantener para compatibilidad y modo debug)
         const TENANT_STORAGE_KEY = 'cometlocal_active_tenant';
         const COMPANY_TENANT_MAP_KEY = 'cometlocal_company_tenant_map';
         
         /**
-         * Obtiene el tenant activo desde localStorage.
-         * @returns {string} Tenant ID (default: "default")
+         * SPRINT C2.24: Normaliza un string para usarlo en tenant_id.
+         * @param {string} str - String a normalizar
+         * @returns {string} String normalizado
          */
-        function getActiveTenant() {
-            const tenant = localStorage.getItem(TENANT_STORAGE_KEY);
-            return tenant || 'default';
+        function normalizeForTenant(str) {
+            if (!str) return '';
+            return str
+                .toLowerCase()
+                .trim()
+                .replace(/\s+/g, '-')
+                .replace(/[^a-z0-9_-]/g, '')
+                .replace(/[-_]+/g, '_')
+                .replace(/^[-_]+|[-_]+$/g, '');
         }
         
         /**
-         * Guarda el tenant activo en localStorage.
+         * SPRINT C2.24: Calcula tenant_id a partir de platform_key y external_company_key.
+         * @param {string|null} platformKey - Clave de plataforma
+         * @param {string|null} externalCompanyKey - Clave de empresa externa
+         * @returns {string} Tenant ID calculado o "default"
+         */
+        function computeTenantId(platformKey, externalCompanyKey) {
+            // Si falta alguno, usar "default"
+            if (!platformKey || !externalCompanyKey) {
+                return 'default';
+            }
+            
+            const normalizedPlatform = normalizeForTenant(platformKey);
+            const normalizedCompany = normalizeForTenant(externalCompanyKey);
+            
+            if (!normalizedPlatform || !normalizedCompany) {
+                return 'default';
+            }
+            
+            return `${normalizedPlatform}__${normalizedCompany}`;
+        }
+        
+        /**
+         * SPRINT C2.24: Obtiene el contexto de coordinación activo.
+         * @returns {Object} { platform_key, external_company_key }
+         */
+        function getCoordinationContext() {
+            return {
+                platform_key: localStorage.getItem(PLATFORM_STORAGE_KEY),
+                external_company_key: localStorage.getItem(EXTERNAL_COMPANY_STORAGE_KEY),
+            };
+        }
+        
+        /**
+         * SPRINT C2.24: Guarda el contexto de coordinación.
+         * @param {string|null} platformKey - Clave de plataforma
+         * @param {string|null} externalCompanyKey - Clave de empresa externa
+         */
+        function setCoordinationContext(platformKey, externalCompanyKey) {
+            if (platformKey) {
+                localStorage.setItem(PLATFORM_STORAGE_KEY, platformKey);
+            } else {
+                localStorage.removeItem(PLATFORM_STORAGE_KEY);
+            }
+            
+            if (externalCompanyKey) {
+                localStorage.setItem(EXTERNAL_COMPANY_STORAGE_KEY, externalCompanyKey);
+            } else {
+                localStorage.removeItem(EXTERNAL_COMPANY_STORAGE_KEY);
+            }
+            
+            updateContextBadge();
+            
+            // Refrescar vista actual si es necesario
+            if (currentPage) {
+                loadPage(currentPage);
+            }
+        }
+        
+        /**
+         * SPRINT C2.24: Obtiene el tenant_id activo (derivado o debug).
+         * @returns {string} Tenant ID
+         */
+        function getActiveTenant() {
+            // Modo debug: usar tenant manual si está activo
+            const debugMode = localStorage.getItem(DEBUG_MODE_KEY) === 'true';
+            if (debugMode) {
+                const debugTenant = localStorage.getItem(DEBUG_TENANT_STORAGE_KEY);
+                if (debugTenant) {
+                    return debugTenant;
+                }
+            }
+            
+            // Modo normal: derivar de contexto
+            const context = getCoordinationContext();
+            return computeTenantId(context.platform_key, context.external_company_key);
+        }
+        
+        /**
+         * SPRINT C2.24: Guarda el tenant activo (solo para modo debug).
          * @param {string} tenantId - Tenant ID a guardar
          */
         function setActiveTenant(tenantId) {
-            localStorage.setItem(TENANT_STORAGE_KEY, tenantId);
+            localStorage.setItem(DEBUG_TENANT_STORAGE_KEY, tenantId);
             updateTenantBadge();
         }
         
         /**
-         * Obtiene el mapping company_key → tenant_id.
+         * Obtiene el mapping company_key → tenant_id (legacy, mantener compatibilidad).
          * @returns {Object} Mapping object
          */
         function getCompanyTenantMap() {
@@ -835,7 +991,7 @@
         }
         
         /**
-         * Guarda el mapping company_key → tenant_id.
+         * Guarda el mapping company_key → tenant_id (legacy, mantener compatibilidad).
          * @param {Object} map - Mapping object
          */
         function setCompanyTenantMap(map) {
@@ -843,7 +999,7 @@
         }
         
         /**
-         * Obtiene tenant sugerido para un company_key.
+         * Obtiene tenant sugerido para un company_key (legacy, mantener compatibilidad).
          * @param {string} companyKey - Company key
          * @returns {string|null} Tenant ID sugerido o null
          */
@@ -853,12 +1009,13 @@
         }
         
         /**
-         * Helper central para fetch con header X-Tenant-ID automático.
+         * SPRINT C2.24: Helper central para fetch con header X-Tenant-ID automático.
+         * Usa contexto de coordinación para derivar tenant_id.
          * @param {string} url - URL a llamar
          * @param {Object} options - Opciones de fetch (headers, body, etc.)
          * @returns {Promise<Response>} Response de fetch
          */
-        async function fetchWithTenant(url, options = {}) {
+        async function fetchWithContext(url, options = {}) {
             const tenantId = getActiveTenant();
             
             // Añadir header X-Tenant-ID
@@ -890,6 +1047,9 @@
             
             return fetch(url, fetchOptions);
         }
+        
+        // Alias para compatibilidad (deprecated)
+        const fetchWithTenant = fetchWithContext;
         
         // INSTRUMENTACIÓN DIAGNÓSTICA: Logs top-level al cargar script
         console.log('[BOOT] repository_v3 script loaded');
@@ -924,16 +1084,149 @@
             'LATE': 'Tarde'
         };
         
-        // SPRINT C2.22C: Inicializar tenant selector
-        function initTenantSelector() {
+        // SPRINT C2.24: Inicializar contexto de coordinación
+        let availablePlatforms = [];
+        let availableExternalCompanies = [];
+        
+        async function initCoordinationContext() {
+            // Cargar plataformas disponibles
+            try {
+                const platformsRes = await fetch(`${BACKEND_URL}/api/config/platforms`);
+                if (platformsRes.ok) {
+                    const platformsData = await platformsRes.json();
+                    availablePlatforms = platformsData.platforms || [];
+                }
+            } catch (e) {
+                console.warn('[context] Error loading platforms:', e);
+                availablePlatforms = [{ key: 'egestiona', label: 'eGestiona' }];
+            }
+            
+            // Cargar empresas externas (por ahora solo desde configuración, luego se puede expandir)
+            // Por defecto, usamos las empresas que aparecen en los documentos
+            availableExternalCompanies = [];
+            
+            // Cargar contexto guardado
+            const context = getCoordinationContext();
+            
+            // Inicializar selectores
+            const platformSelect = document.getElementById('context-platform');
+            const companySelect = document.getElementById('context-external-company');
+            
+            if (platformSelect) {
+                // Llenar opciones de plataforma
+                platformSelect.innerHTML = '<option value="">-- Sin seleccionar --</option>';
+                availablePlatforms.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.key;
+                    option.textContent = p.label || p.key;
+                    if (p.key === context.platform_key) {
+                        option.selected = true;
+                    }
+                    platformSelect.appendChild(option);
+                });
+                
+                platformSelect.addEventListener('change', (e) => {
+                    const platformKey = e.target.value || null;
+                    const currentCompany = companySelect.value || null;
+                    setCoordinationContext(platformKey, currentCompany);
+                    updateExternalCompanyOptions(platformKey);
+                });
+            }
+            
+            if (companySelect) {
+                updateExternalCompanyOptions(context.platform_key);
+                if (context.external_company_key) {
+                    companySelect.value = context.external_company_key;
+                }
+                
+                // Listener para input (es un input text, no select)
+                companySelect.addEventListener('input', function() {
+                    const companyKey = this.value.trim() || null;
+                    const currentPlatform = platformSelect ? platformSelect.value || null : null;
+                    setCoordinationContext(currentPlatform, companyKey);
+                });
+                
+                companySelect.addEventListener('change', function() {
+                    const companyKey = this.value.trim() || null;
+                    const currentPlatform = platformSelect ? platformSelect.value || null : null;
+                    setCoordinationContext(currentPlatform, companyKey);
+                });
+            }
+            
+            updateContextBadge();
+        }
+        
+        /**
+         * SPRINT C2.24: Actualiza las opciones de empresa externa según la plataforma seleccionada.
+         * Por ahora, permite entrada libre (input text).
+         * En el futuro se puede cargar desde configuración de la plataforma.
+         */
+        function updateExternalCompanyOptions(platformKey) {
+            const companyInput = document.getElementById('context-external-company');
+            if (!companyInput) return;
+            
+            // Ya es un input text, no necesita cambios
+            // En el futuro se puede añadir datalist con sugerencias según plataforma
+        }
+        
+        /**
+         * SPRINT C2.24: Actualiza el badge visual del contexto de coordinación.
+         */
+        function updateContextBadge() {
+            const contextBadge = document.getElementById('context-badge');
+            if (!contextBadge) return;
+            
+            const context = getCoordinationContext();
+            const tenantId = computeTenantId(context.platform_key, context.external_company_key);
+            
+            if (tenantId === 'default') {
+                contextBadge.textContent = 'default';
+                contextBadge.className = 'context-badge';
+            } else {
+                // Mostrar formato humano
+                const platformLabel = availablePlatforms.find(p => p.key === context.platform_key)?.label || context.platform_key;
+                const companyLabel = context.external_company_key;
+                contextBadge.textContent = `${platformLabel} | ${companyLabel}`;
+                contextBadge.className = 'context-badge has-context';
+            }
+        }
+        
+        /**
+         * SPRINT C2.24: Toggle modo debug para mostrar selector manual de tenant.
+         */
+        function toggleDebugTenant() {
+            const debugMode = localStorage.getItem(DEBUG_MODE_KEY) === 'true';
+            const newMode = !debugMode;
+            localStorage.setItem(DEBUG_MODE_KEY, newMode ? 'true' : 'false');
+            
+            const debugSelector = document.getElementById('debug-tenant-selector');
+            const toggle = document.getElementById('debug-tenant-toggle');
+            
+            if (debugSelector) {
+                debugSelector.style.display = newMode ? 'flex' : 'none';
+            }
+            
+            if (toggle) {
+                toggle.textContent = newMode ? 'Ocultar debug' : 'Modo debug';
+            }
+            
+            if (newMode) {
+                initDebugTenantSelector();
+            }
+        }
+        
+        /**
+         * SPRINT C2.24: Inicializar selector de tenant en modo debug.
+         */
+        function initDebugTenantSelector() {
             const tenantInput = document.getElementById('tenant-select');
             const tenantBadge = document.getElementById('tenant-badge');
             
             if (!tenantInput || !tenantBadge) return;
             
-            // Cargar tenant activo
-            const activeTenant = getActiveTenant();
-            tenantInput.value = activeTenant;
+            // Cargar tenant debug
+            const debugTenant = localStorage.getItem(DEBUG_TENANT_STORAGE_KEY) || 'default';
+            tenantInput.value = debugTenant;
             updateTenantBadge();
             
             // Listener para cambios
@@ -965,7 +1258,7 @@
         }
         
         /**
-         * Actualiza el badge visual del tenant activo.
+         * SPRINT C2.24: Actualiza el badge visual del tenant activo (modo debug).
          */
         function updateTenantBadge() {
             const tenantBadge = document.getElementById('tenant-badge');
@@ -992,11 +1285,16 @@
             });
         });
         
-        // SPRINT C2.22C: Inicializar tenant selector al cargar
+        // SPRINT C2.24: Inicializar contexto de coordinación al cargar
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initTenantSelector);
+            document.addEventListener('DOMContentLoaded', initCoordinationContext);
         } else {
-            initTenantSelector();
+            initCoordinationContext();
+        }
+        
+        // SPRINT C2.24: Verificar si modo debug está activo
+        if (localStorage.getItem(DEBUG_MODE_KEY) === 'true') {
+            toggleDebugTenant();
         }
         
         function navigateTo(page, params = {}) {
@@ -10122,7 +10420,23 @@
             const hasPlan = planReviewState.planData !== null;
             const decisionsCount = Object.keys(planReviewState.draftDecisions).length;
             
+            // SPRINT C2.24: Mostrar contexto de coordinación activo
+            const context = getCoordinationContext();
+            const tenantId = getActiveTenant();
+            const contextInfo = context.platform_key && context.external_company_key
+                ? `<div class="alert alert-info" style="margin-bottom: 16px;">
+                    <strong>Contexto activo:</strong> 
+                    ${availablePlatforms.find(p => p.key === context.platform_key)?.label || context.platform_key} | 
+                    ${context.external_company_key} 
+                    <span style="color: #94a3b8; font-size: 0.875rem;">(tenant: ${tenantId})</span>
+                </div>`
+                : `<div class="alert alert-warning" style="margin-bottom: 16px;">
+                    <strong>Sin contexto:</strong> Usando tenant "default". 
+                    Selecciona Plataforma y Cliente en el header para aislar datos.
+                </div>`;
+            
             content.innerHTML = `
+                ${contextInfo}
                 <div class="card" data-testid="plan-review-load">
                     <h3>Cargar Plan</h3>
                     <div class="form-group">
@@ -10337,8 +10651,30 @@
                             <button onclick="closeExportModal()" style="background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer;">&times;</button>
                         </div>
                         <div class="modal-body" id="export-modal-body">
+                            <!-- SPRINT C2.24: Contexto de coordinación -->
+                            <div class="card" style="margin-bottom: 16px; padding: 16px; background: #0f172a;">
+                                <h4 style="margin-bottom: 12px; font-size: 0.875rem; color: #94a3b8;">Contexto de coordinación</h4>
+                                <div class="form-group" style="margin-bottom: 12px;">
+                                    <label class="form-label">Plataforma</label>
+                                    <select id="export-platform" class="form-input">
+                                        <option value="">-- Sin seleccionar --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 12px;">
+                                    <label class="form-label">Empresa externa (Cliente)</label>
+                                    <input 
+                                        type="text" 
+                                        id="export-external-company" 
+                                        class="form-input" 
+                                        placeholder="COMPANY_A"
+                                    >
+                                    <p class="form-help" style="font-size: 0.75rem; margin-top: 4px;">Clave de la empresa en la plataforma externa</p>
+                                </div>
+                                <div id="export-context-badge" class="context-badge" style="display: inline-block; margin-top: 8px;">default</div>
+                            </div>
+                            
                             <div class="form-group">
-                                <label class="form-label">Company Key</label>
+                                <label class="form-label">Company Key (interno)</label>
                                 <input 
                                     type="text" 
                                     id="export-company-key" 
@@ -10346,6 +10682,7 @@
                                     placeholder="COMPANY123"
                                     required
                                 >
+                                <p class="form-help" style="font-size: 0.75rem; margin-top: 4px;">Clave de empresa en nuestro sistema</p>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Periodo</label>
@@ -10524,12 +10861,55 @@
             `;
         }
         
-        // SPRINT C2.21: Export CAE
-        function openExportModal() {
+        // SPRINT C2.24: Export CAE con contexto de coordinación
+        async function openExportModal() {
             const modal = document.getElementById('export-modal');
             if (!modal) return;
             
             modal.style.display = 'flex';
+            
+            // SPRINT C2.24: Inicializar selectores de contexto
+            const platformSelect = document.getElementById('export-platform');
+            const externalCompanyInput = document.getElementById('export-external-company');
+            const contextBadge = document.getElementById('export-context-badge');
+            
+            // Cargar plataformas disponibles
+            if (platformSelect) {
+                platformSelect.innerHTML = '<option value="">-- Sin seleccionar --</option>';
+                availablePlatforms.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.key;
+                    option.textContent = p.label || p.key;
+                    platformSelect.appendChild(option);
+                });
+                
+                // Cargar contexto guardado
+                const context = getCoordinationContext();
+                if (context.platform_key) {
+                    platformSelect.value = context.platform_key;
+                }
+                
+                // Listener para actualizar contexto
+                platformSelect.addEventListener('change', function() {
+                    updateExportContext();
+                });
+            }
+            
+            if (externalCompanyInput) {
+                // Cargar contexto guardado
+                const context = getCoordinationContext();
+                if (context.external_company_key) {
+                    externalCompanyInput.value = context.external_company_key;
+                }
+                
+                // Listener para actualizar contexto
+                externalCompanyInput.addEventListener('input', function() {
+                    updateExportContext();
+                });
+            }
+            
+            // Actualizar badge inicial
+            updateExportContext();
             
             // Prefill company_key desde plan si está disponible
             const companyKeyInput = document.getElementById('export-company-key');
@@ -10537,73 +10917,41 @@
                 const firstItem = planReviewState.planData.items[0];
                 if (firstItem.empresa) {
                     companyKeyInput.value = firstItem.empresa;
-                    
-                    // SPRINT C2.22C: Sugerir tenant si hay mapping
-                    const suggestedTenant = getSuggestedTenantForCompany(firstItem.empresa);
-                    if (suggestedTenant) {
-                        const activeTenant = getActiveTenant();
-                        if (suggestedTenant !== activeTenant) {
-                            const statusDiv = document.getElementById('export-status');
-                            if (statusDiv) {
-                                statusDiv.innerHTML = `
-                                    <div class="alert alert-info" style="margin-bottom: 0;">
-                                        💡 Sugerencia: El tenant recomendado para <strong>${firstItem.empresa}</strong> es: <strong>${suggestedTenant}</strong>
-                                        <br>
-                                        <button class="btn btn-secondary btn-sm" onclick="setActiveTenant('${suggestedTenant}'); document.getElementById('tenant-select').value='${suggestedTenant}'; updateTenantBadge();" style="margin-top: 8px;">
-                                            Usar ${suggestedTenant}
-                                        </button>
-                                    </div>
-                                `;
-                            }
-                        }
-                    }
                 }
             }
             
-            // SPRINT C2.22C: Listener para sugerir tenant cuando se ingresa company_key
-            if (companyKeyInput) {
-                // Remover listener anterior si existe
-                const newInput = companyKeyInput.cloneNode(true);
-                companyKeyInput.parentNode.replaceChild(newInput, companyKeyInput);
-                
-                newInput.addEventListener('input', function() {
-                    const companyKey = this.value.trim();
-                    if (companyKey) {
-                        const suggestedTenant = getSuggestedTenantForCompany(companyKey);
-                        if (suggestedTenant) {
-                            const activeTenant = getActiveTenant();
-                            if (suggestedTenant !== activeTenant) {
-                                const statusDiv = document.getElementById('export-status');
-                                if (statusDiv) {
-                                    statusDiv.innerHTML = `
-                                        <div class="alert alert-info" style="margin-bottom: 0;">
-                                            💡 Sugerencia: El tenant recomendado para <strong>${companyKey}</strong> es: <strong>${suggestedTenant}</strong>
-                                            <br>
-                                            <button class="btn btn-secondary btn-sm" onclick="setActiveTenant('${suggestedTenant}'); document.getElementById('tenant-select').value='${suggestedTenant}'; updateTenantBadge();" style="margin-top: 8px;">
-                                                Usar ${suggestedTenant}
-                                            </button>
-                                        </div>
-                                    `;
-                                }
-                            }
-                        } else {
-                            const statusDiv = document.getElementById('export-status');
-                            if (statusDiv && statusDiv.innerHTML.includes('Sugerencia')) {
-                                statusDiv.innerHTML = '';
-                            }
-                        }
-                    } else {
-                        const statusDiv = document.getElementById('export-status');
-                        if (statusDiv) {
-                            statusDiv.innerHTML = '';
-                        }
-                    }
-                });
+            // Limpiar status
+            const statusDiv = document.getElementById('export-status');
+            if (statusDiv) {
+                statusDiv.innerHTML = '';
             }
+        }
+        
+        /**
+         * SPRINT C2.24: Actualiza el contexto de coordinación desde el modal de export.
+         */
+        function updateExportContext() {
+            const platformSelect = document.getElementById('export-platform');
+            const externalCompanyInput = document.getElementById('export-external-company');
+            const contextBadge = document.getElementById('export-context-badge');
             
-            // Limpiar status si no hay company_key
-            if (!companyKeyInput || !companyKeyInput.value) {
-                document.getElementById('export-status').innerHTML = '';
+            if (!platformSelect || !externalCompanyInput || !contextBadge) return;
+            
+            const platformKey = platformSelect.value || null;
+            const externalCompanyKey = externalCompanyInput.value.trim() || null;
+            
+            // Actualizar contexto global
+            setCoordinationContext(platformKey, externalCompanyKey);
+            
+            // Actualizar badge
+            const tenantId = computeTenantId(platformKey, externalCompanyKey);
+            if (tenantId === 'default') {
+                contextBadge.textContent = 'default';
+                contextBadge.className = 'context-badge';
+            } else {
+                const platformLabel = availablePlatforms.find(p => p.key === platformKey)?.label || platformKey;
+                contextBadge.textContent = `${platformLabel} | ${externalCompanyKey}`;
+                contextBadge.className = 'context-badge has-context';
             }
         }
         
@@ -10621,16 +10969,21 @@
                 return;
             }
             
-            // SPRINT C2.22C: Obtener tenant sugerido para company_key
-            const suggestedTenant = getSuggestedTenantForCompany(companyKey);
-            const activeTenant = getActiveTenant();
+            // SPRINT C2.24: Obtener contexto de coordinación
+            const context = getCoordinationContext();
+            const tenantId = getActiveTenant();
             
-            // SPRINT C2.22C: Confirmación antes de exportar
-            const confirmMessage = `Estás operando sobre el tenant: ${activeTenant}\n\n` +
-                (suggestedTenant && suggestedTenant !== activeTenant 
-                    ? `⚠️ Sugerencia: El tenant recomendado para ${companyKey} es: ${suggestedTenant}\n\n`
-                    : '') +
-                `¿Continuar con el export?`;
+            // SPRINT C2.24: Confirmación antes de exportar con contexto visible
+            let confirmMessage = `Contexto de coordinación:\n`;
+            if (context.platform_key && context.external_company_key) {
+                const platformLabel = availablePlatforms.find(p => p.key === context.platform_key)?.label || context.platform_key;
+                confirmMessage += `  Plataforma: ${platformLabel}\n`;
+                confirmMessage += `  Cliente: ${context.external_company_key}\n`;
+                confirmMessage += `  Tenant derivado: ${tenantId}\n\n`;
+            } else {
+                confirmMessage += `  Tenant: ${tenantId} (default - sin contexto)\n\n`;
+            }
+            confirmMessage += `¿Continuar con el export?`;
             
             if (!confirm(confirmMessage)) {
                 return;
