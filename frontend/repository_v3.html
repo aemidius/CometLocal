@@ -1570,16 +1570,27 @@
             if (needsPeople && (calendarPeople.length === 0 || (typeof calendarPeople === 'object' && !Array.isArray(calendarPeople)))) {
                 dbg('Loading people...');
                 promises.push(
-                    // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
-                    fetchWithTenant(`${BACKEND_URL}/api/config/people`)
-                        .then(r => r.json())
-                        .catch(() => ({people: []}))
-                        .then(data => {
-                            const peopleList = data.people || [];
-                            calendarPeople = peopleList;
-                            uploadPeople = peopleList;
-                            dbg('People loaded:', calendarPeople.length);
-                        })
+                    // SPRINT C2.32A: Filtrar trabajadores por empresa propia seleccionada
+                    (async () => {
+                        const context = getCoordinationContext();
+                        const ownCompanyKey = context.own_company_key;
+                        
+                        let peopleUrl = `${BACKEND_URL}/api/config/people`;
+                        if (ownCompanyKey) {
+                            peopleUrl += `?own_company_key=${encodeURIComponent(ownCompanyKey)}`;
+                        }
+                        
+                        // SPRINT C2.22C: Usar fetchWithTenant para enviar X-Tenant-ID
+                        return fetchWithTenant(peopleUrl)
+                            .then(r => r.json())
+                            .catch(() => ({people: []}))
+                            .then(data => {
+                                const peopleList = data.people || [];
+                                calendarPeople = peopleList;
+                                uploadPeople = peopleList;
+                                dbg('People loaded:', calendarPeople.length);
+                            });
+                    })()
                 );
             }
             
@@ -3850,8 +3861,20 @@
                     }
                     console.log('[repo-upload] types loaded count:', uploadTypes.length);
                 }
-                const peopleData = await fetchWithContext(`${BACKEND_URL}/api/config/people`).then(r => r.json()).catch(() => ({people: []}));
+                // SPRINT C2.32A: Filtrar trabajadores por empresa propia seleccionada
+                const context = getCoordinationContext();
+                const ownCompanyKey = context.own_company_key;
+                
+                let peopleUrl = `${BACKEND_URL}/api/config/people`;
+                if (ownCompanyKey) {
+                    peopleUrl += `?own_company_key=${encodeURIComponent(ownCompanyKey)}`;
+                }
+                
+                const peopleData = await fetchWithContext(peopleUrl).then(r => r.json()).catch(() => ({people: []}));
                 uploadPeople = peopleData.people || [];
+                
+                // SPRINT C2.32A: Si hay trabajadores sin asignar, no mostrarlos por defecto
+                // (se pueden mostrar con toggle si es necesario, pero por ahora los filtramos)
                 
                 // Validate type_id if provided
                 if (params.type_id) {
@@ -5999,7 +6022,16 @@
             }
             
             try {
-                const peopleData = await fetchWithContext(`${BACKEND_URL}/api/config/people`).then(r => r.json()).catch(() => ({people: []}));
+                // SPRINT C2.32A: Filtrar trabajadores por empresa propia seleccionada
+                const context = getCoordinationContext();
+                const ownCompanyKey = context.own_company_key;
+                
+                let peopleUrl = `${BACKEND_URL}/api/config/people`;
+                if (ownCompanyKey) {
+                    peopleUrl += `?own_company_key=${encodeURIComponent(ownCompanyKey)}`;
+                }
+                
+                const peopleData = await fetchWithContext(peopleUrl).then(r => r.json()).catch(() => ({people: []}));
                 searchPeople = peopleData.people || [];
             } catch (error) {
                 console.warn('[repo-search] Failed to load people:', error);

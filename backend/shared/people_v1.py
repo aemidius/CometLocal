@@ -11,6 +11,7 @@ class PersonV1(BaseModel):
     tax_id: str = ""  # DNI/NIE/NIF
     role: str = ""  # p.ej. "worker", "admin", "prl"
     relation_type: str = ""  # p.ej. "employee", "contractor"
+    own_company_key: Optional[str] = None  # SPRINT C2.32A: Empresa propia asociada (None = "unassigned")
 
 
 class PeopleV1(BaseModel):

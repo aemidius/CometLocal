@@ -979,14 +979,18 @@ async def get_expected_periods(
 @router.get("/subjects")
 async def get_subjects() -> dict:
     """
-    Obtiene empresas y trabajadores agrupados por empresa.
+    Obtiene empresas y trabajadores agrupados por empresa propia.
+    
+    SPRINT C2.32A: Agrupa trabajadores por own_company_key.
+    Trabajadores sin own_company_key (unassigned) se agrupan bajo "unassigned".
     
     Returns:
         {
             "companies": [{"id": "E1", "name": "Empresa 1", "tax_id": "..."}, ...],
             "workers_by_company": {
                 "E1": [{"id": "W1", "name": "Juan", "tax_id": "..."}, ...],
-                "E2": [...]
+                "E2": [...],
+                "unassigned": [...]  # Trabajadores sin own_company_key
             }
         }
     """
@@ -995,8 +999,7 @@ async def get_subjects() -> dict:
         org = config_store.load_org()
         people = config_store.load_people()
         
-        # Crear empresa desde org
-        # org es OrgV1 con schema_version, legal_name, tax_id, etc.
+        # Crear empresa desde org (empresa principal)
         company_id = org.tax_id if org.tax_id else "DEFAULT"
         company_name = org.legal_name if org.legal_name else "Empresa Principal"
         company_tax_id = org.tax_id if org.tax_id else ""
@@ -1007,19 +1010,30 @@ async def get_subjects() -> dict:
             "tax_id": company_tax_id
         }]
         
-        # Agrupar trabajadores por empresa (todos en la misma empresa por ahora)
-        workers_list = []
+        # SPRINT C2.32A: Agrupar trabajadores por own_company_key
+        workers_by_company: dict[str, list] = {}
+        
         for person in people.people:
-            workers_list.append({
+            # Determinar la clave de empresa (own_company_key o "unassigned")
+            person_company_key = person.own_company_key if person.own_company_key else "unassigned"
+            
+            if person_company_key not in workers_by_company:
+                workers_by_company[person_company_key] = []
+            
+            workers_by_company[person_company_key].append({
                 "id": person.worker_id,
                 "name": person.full_name,
                 "tax_id": person.tax_id,
                 "role": person.role
             })
         
-        workers_by_company = {
-            company_id: workers_list
-        }
+        # Si hay trabajadores sin asignar, añadir "unassigned" a companies si no existe
+        if "unassigned" in workers_by_company:
+            companies.append({
+                "id": "unassigned",
+                "name": "Sin asignar",
+                "tax_id": ""
+            })
         
         return {
             "companies": companies,

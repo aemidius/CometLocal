@@ -274,9 +274,55 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
 
     @router.get("/config/people", response_class=HTMLResponse)
     def get_people():
+        from backend.shared.org_v1 import OrgV1
+        from backend.api.coordination_context_routes import get_coordination_context_options
+        
         people = store.load_people()
+        org = store.load_org()
+        
+        # Obtener opciones de empresas propias
+        try:
+            # get_coordination_context_options es async, pero estamos en función sync
+            # Usar ConfigStore directamente para evitar dependencia async
+            from backend.config import DATA_DIR
+            from backend.repository.config_store_v1 import ConfigStoreV1 as StoreHelper
+            from backend.shared.org_v1 import OrgV1 as OrgHelper
+            
+            helper_store = StoreHelper(base_dir=DATA_DIR)
+            helper_org = helper_store.load_org()
+            own_companies = [
+                type('CompanyOption', (), {
+                    'key': helper_org.tax_id if helper_org.tax_id else 'DEFAULT',
+                    'name': helper_org.legal_name if helper_org.legal_name else 'Empresa Principal'
+                })()
+            ]
+        except Exception:
+            # Fallback: usar org actual
+            own_companies = [
+                type('CompanyOption', (), {
+                    'key': org.tax_id if org.tax_id else 'DEFAULT',
+                    'name': org.legal_name if org.legal_name else 'Empresa Principal'
+                })()
+            ]
+        
+        # Construir opciones para selector (incluir "Sin asignar")
+        company_options_base = '<option value="">-- Todas --</option>'
+        company_options_base += '<option value="unassigned">Sin asignar</option>'
+        for company in own_companies:
+            company_options_base += f'<option value="{html.escape(company.key)}">{html.escape(company.name)}</option>'
+        
         rows = []
         for i, p in enumerate(people.people):
+            own_company_value = p.own_company_key if p.own_company_key else ""
+            # Construir selector con opción seleccionada
+            company_options = company_options_base.replace(
+                f'value="{own_company_value}"',
+                f'value="{own_company_value}" selected'
+            ) if own_company_value else company_options_base.replace(
+                'value="unassigned"',
+                'value="unassigned" selected'
+            )
+            
             rows.append(
                 "<tr>"
                 f"<td><input type='text' name='worker_id__{i}' value='{html.escape(p.worker_id)}'/></td>"
@@ -284,6 +330,7 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
                 f"<td><input type='text' name='tax_id__{i}' value='{html.escape(p.tax_id)}'/></td>"
                 f"<td><input type='text' name='role__{i}' value='{html.escape(p.role)}'/></td>"
                 f"<td><input type='text' name='relation_type__{i}' value='{html.escape(p.relation_type)}'/></td>"
+                f"<td><select name='own_company_key__{i}'>{company_options}</select></td>"
                 "</tr>"
             )
         # una fila extra vacía para añadir
@@ -295,14 +342,21 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
             f"<td><input type='text' name='tax_id__{j}' value=''/></td>"
             f"<td><input type='text' name='role__{j}' value=''/></td>"
             f"<td><input type='text' name='relation_type__{j}' value=''/></td>"
+            f"<td><select name='own_company_key__{j}'>{company_options_base}</select></td>"
             "</tr>"
         )
 
         body = f"""
-<form method="post">
+<form method="post" id="people-form">
   <div class="card">
-    <table>
-      <thead><tr><th>worker_id</th><th>full_name</th><th>tax_id</th><th>role</th><th>relation_type</th></tr></thead>
+    <div style="margin-bottom: 16px;">
+      <label for="filter-own-company" style="display: block; margin-bottom: 8px; font-weight: 500;">Filtrar por empresa propia:</label>
+      <select id="filter-own-company" onchange="filterPeopleTable()" style="padding: 8px; min-width: 200px;">
+        {company_options_base}
+      </select>
+    </div>
+    <table id="people-table">
+      <thead><tr><th>worker_id</th><th>full_name</th><th>tax_id</th><th>role</th><th>relation_type</th><th>Empresa propia</th></tr></thead>
       <tbody>{''.join(rows)}</tbody>
     </table>
     <div style="margin-top:12px;">
@@ -311,6 +365,25 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
     <div class="muted" style="margin-top:8px;">Deja worker_id vacío para no guardar esa fila.</div>
   </div>
 </form>
+<script>
+function filterPeopleTable() {{
+    const filter = document.getElementById('filter-own-company').value;
+    const rows = document.querySelectorAll('#people-table tbody tr');
+    rows.forEach(row => {{
+        const select = row.querySelector('select[name^="own_company_key__"]');
+        if (!select) {{
+            row.style.display = '';
+            return;
+        }}
+        const value = select.value || 'unassigned';
+        if (filter === '' || filter === value) {{
+            row.style.display = '';
+        }} else {{
+            row.style.display = 'none';
+        }}
+    }});
+}}
+</script>
 """
         return HTMLResponse(_page("Config — People", body))
 
@@ -323,6 +396,12 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
             worker_id = (form.get(f"worker_id__{i}") or "").strip()
             if not worker_id:
                 continue
+            
+            # SPRINT C2.32A: Obtener own_company_key del formulario
+            own_company_key_raw = (form.get(f"own_company_key__{i}") or "").strip()
+            # Si está vacío o es "unassigned", usar None
+            own_company_key = None if (not own_company_key_raw or own_company_key_raw == "unassigned") else own_company_key_raw
+            
             out.append(
                 PersonV1(
                     worker_id=worker_id,
@@ -330,6 +409,7 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
                     tax_id=(form.get(f"tax_id__{i}") or "").strip(),
                     role=(form.get(f"role__{i}") or "").strip(),
                     relation_type=(form.get(f"relation_type__{i}") or "").strip(),
+                    own_company_key=own_company_key,  # SPRINT C2.32A
                 )
             )
         store.save_people(PeopleV1(people=out))
