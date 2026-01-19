@@ -1140,6 +1140,8 @@
                 if (healthRes.ok) {
                     const health = await healthRes.json();
                     isDemoMode = health.environment === 'demo';
+                    // Si no es modo demo, ocultar docs demo por defecto
+                    showDemoDocs = isDemoMode;
                 }
             } catch (e) {
                 console.warn('[demo] Error checking demo mode:', e);
@@ -5956,6 +5958,8 @@
         let searchTypes = [];
         let searchPeople = [];
         let searchSubjects = { companies: [], workers_by_company: {} };
+        let isDemoMode = false;
+        let showDemoDocs = false; // Por defecto ocultar docs demo si no es modo demo
         let searchFilters = {
             query: '',
             type_id: null,
@@ -6030,6 +6034,8 @@
                         page: 1,
                         page_size: 20
                     };
+                    // Resetear showDemoDocs según el modo
+                    showDemoDocs = isDemoMode;
                 } else {
                     // Apply params
                     if (params.type_id) searchFilters.type_id = params.type_id;
@@ -6121,6 +6127,16 @@
                                     <option value="subject" ${searchFilters.sort === 'subject' ? 'selected' : ''}>Sujeto A→Z</option>
                                 </select>
                             </div>
+                            ${!isDemoMode ? `
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="search-show-demo" ${showDemoDocs ? 'checked' : ''} 
+                                           onchange="toggleShowDemoDocs(this.checked)" 
+                                           data-testid="buscar-show-demo">
+                                    <span>Mostrar documentos demo</span>
+                                </label>
+                            </div>
+                            ` : ''}
                         </div>
                         <div style="margin-bottom: 16px;">
                             <button class="btn btn-secondary" data-testid="buscar-apply" onclick="clearSearchDocsFilters()">Limpiar filtros</button>
@@ -6199,6 +6215,11 @@
             performSearch();
         }
         
+        function toggleShowDemoDocs(enabled) {
+            showDemoDocs = enabled;
+            performSearch();
+        }
+        
         function clearSearchDocsFilters() {
             searchFilters = {
                 query: '',
@@ -6210,15 +6231,19 @@
                 page: 1,
                 page_size: 20
             };
+            // Resetear showDemoDocs según el modo
+            showDemoDocs = isDemoMode;
             const queryInput = document.getElementById('search-docs-query');
             const typeSelect = document.getElementById('search-docs-type-select');
             const subjectSelect = document.getElementById('search-docs-subject-select');
             const sortSelect = document.getElementById('search-docs-sort');
+            const showDemoCheckbox = document.getElementById('search-show-demo');
             
             if (queryInput) queryInput.value = '';
             if (typeSelect) typeSelect.value = '';
             if (subjectSelect) subjectSelect.value = '';
             if (sortSelect) sortSelect.value = 'date_desc';
+            if (showDemoCheckbox) showDemoCheckbox.checked = showDemoDocs;
             
             performSearch();
         }
@@ -6448,6 +6473,40 @@
                         return fileName.includes(queryNorm) || 
                                typeName.includes(queryNorm) || 
                                typeId.includes(queryNorm);
+                    });
+                }
+                
+                // Filtrar documentos demo si no es modo demo y no se muestra demo
+                if (!isDemoMode && !showDemoDocs) {
+                    docs = docs.filter(doc => {
+                        // Verificar si es documento demo
+                        const docId = doc.doc_id || doc.id || '';
+                        const typeId = doc.type_id || '';
+                        const fileName = doc.file_name_original || doc.file_name || '';
+                        const personKey = doc.person_key || '';
+                        const companyKey = doc.company_key || '';
+                        
+                        // Patrones demo
+                        if (docId.startsWith('demo_') || typeId.startsWith('demo_')) {
+                            return false;
+                        }
+                        if (fileName.includes('(Demo)') || fileName.includes('(demo)')) {
+                            return false;
+                        }
+                        if (personKey.startsWith('demo_worker_') || personKey.startsWith('TEST_') || personKey === 'worker123') {
+                            return false;
+                        }
+                        if (companyKey.startsWith('demo_') || companyKey.startsWith('TEST_')) {
+                            return false;
+                        }
+                        
+                        // Verificar tipo
+                        const type = searchTypes.find(t => t.type_id === typeId);
+                        if (type && (type.name.includes('(Demo)') || type.name.includes('(demo)'))) {
+                            return false;
+                        }
+                        
+                        return true;
                     });
                 }
                 

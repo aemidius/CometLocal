@@ -173,4 +173,38 @@ test.describe('Repository Basic Read (C2.28 - BLOQUEANTE)', () => {
         const hash = await page.evaluate(() => window.location.hash);
         expect(hash).toBe('#ejecuciones');
     });
+
+    test('should not show demo documents by default in dev mode', async ({ page }) => {
+        // Navegar a buscar documentos
+        await page.goto('http://127.0.0.1:8000/repository_v3.html#buscar');
+        
+        // Esperar a que la vista de buscar esté lista
+        await page.waitForSelector('[data-testid="view-buscar-ready"]', { timeout: 15000, state: 'attached' });
+        await page.waitForTimeout(1000);
+        
+        // Verificar que el checkbox "Mostrar documentos demo" existe (solo si no es modo demo)
+        const showDemoCheckbox = page.locator('[data-testid="buscar-show-demo"]');
+        const checkboxExists = await showDemoCheckbox.count() > 0;
+        
+        if (checkboxExists) {
+            // Si existe el checkbox, verificar que está desmarcado por defecto
+            const isChecked = await showDemoCheckbox.isChecked();
+            expect(isChecked).toBe(false);
+            
+            // Verificar que no hay documentos con "(Demo)" en los resultados
+            const results = page.locator('[data-testid="buscar-results"]');
+            const resultsText = await results.textContent();
+            
+            // Si hay resultados, verificar que no contienen "(Demo)"
+            if (resultsText && resultsText.length > 0) {
+                expect(resultsText).not.toContain('(Demo)');
+                expect(resultsText).not.toContain('(demo)');
+            }
+        } else {
+            // Si no existe el checkbox, significa que estamos en modo demo
+            // En ese caso, los documentos demo deberían mostrarse normalmente
+            // Este test solo verifica el comportamiento en modo dev
+            console.log('[TEST] Checkbox no encontrado - probablemente en modo demo');
+        }
+    });
 });
