@@ -1134,6 +1134,7 @@
         
         // SPRINT C2.31: Verificar si estamos en modo demo
         let isDemoMode = false;
+        let showDemoDocs = false; // Por defecto ocultar docs demo si no es modo demo
         async function checkDemoMode() {
             try {
                 const healthRes = await fetch(`${BACKEND_URL}/api/health`);
@@ -5958,8 +5959,7 @@
         let searchTypes = [];
         let searchPeople = [];
         let searchSubjects = { companies: [], workers_by_company: {} };
-        let isDemoMode = false;
-        let showDemoDocs = false; // Por defecto ocultar docs demo si no es modo demo
+        // NOTA: isDemoMode y showDemoDocs están declarados en el scope global (línea ~1136)
         let searchFilters = {
             query: '',
             type_id: null,

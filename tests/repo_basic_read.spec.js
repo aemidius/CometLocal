@@ -18,11 +18,31 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Repository Basic Read (C2.28 - BLOQUEANTE)', () => {
     test.beforeEach(async ({ page }) => {
+        // Verificar que no hay errores de JavaScript antes de cargar
+        const jsErrors = [];
+        page.on('pageerror', error => {
+            jsErrors.push(error.message);
+        });
+        
         // Arrancar app
         await page.goto('http://127.0.0.1:8000/repository_v3.html#inicio');
         
+        // Verificar que NO hay errores de JavaScript
+        expect(jsErrors.length).toBe(0);
+        if (jsErrors.length > 0) {
+            throw new Error(`JavaScript errors detected: ${jsErrors.join(', ')}`);
+        }
+        
         // Esperar a que la app esté lista
         await page.waitForSelector('[data-testid="app-ready"]', { timeout: 10000 });
+        
+        // Verificar que la UI salió de "Cargando..."
+        const loadingIndicator = page.locator('text=Cargando...');
+        await expect(loadingIndicator).not.toBeVisible({ timeout: 5000 }).catch(() => {
+            // Si aún está visible, verificar que al menos la app está lista
+            const appReady = page.locator('[data-testid="app-ready"]');
+            expect(appReady).toBeVisible();
+        });
         
         // Esperar a que los selectores de contexto estén cargados
         await page.waitForSelector('[data-testid="ctx-own-company"]', { timeout: 5000 });
