@@ -1666,8 +1666,13 @@
             viewDbg(`runRoutingNow: hash=${window.location.hash}, route=${route}`);
             
             // Normalizar ruta: si no hay hash o ruta inválida, usar 'inicio'
-            const validRoutes = ['inicio', 'calendario', 'subir', 'buscar', 'plataformas', 'catalogo', 'configuracion', 'actividad', 'coordinacion', 'plan_review'];
+            const validRoutes = ['inicio', 'calendario', 'subir', 'buscar', 'plataformas', 'catalogo', 'configuracion', 'actividad', 'coordinacion', 'plan_review', 'ejecuciones'];
             const normalizedRoute = (route && validRoutes.includes(route)) ? route : 'inicio';
+            
+            // Guardrail de debug: loggear hash desconocido
+            if (route && !validRoutes.includes(route)) {
+                console.warn(`[repo] Hash desconocido detectado: #${route}. Redirigiendo a inicio.`);
+            }
             
             // Si la ruta cambió, actualizar hash (sin disparar hashchange si ya es correcto)
             const expectedHash = buildHashRoute(normalizedRoute, params);
@@ -1907,7 +1912,8 @@
                 plataformas: 'Plataformas',
                 catalogo: 'Catálogo de documentos',
                 actividad: 'Actividad',
-                plan_review: 'Revisión Plan (CAE)'
+                plan_review: 'Revisión Plan (CAE)',
+                ejecuciones: 'Ejecuciones'
             };
             
             const descriptions = {
@@ -1918,7 +1924,8 @@
                 plataformas: 'Estado de configuración de plataformas',
                 catalogo: 'Gestiona tipos de documento',
                 actividad: 'Historial de actividad',
-                plan_review: 'Revisa y decide sobre items del plan congelado'
+                plan_review: 'Revisa y decide sobre items del plan congelado',
+                ejecuciones: 'Ejecutar planes y gestionar programaciones'
             };
             
             document.getElementById('page-title').textContent = titles[page] || page;
@@ -2037,6 +2044,17 @@
                     } catch (error) {
                         console.error('[repo] Error in loadPlanReview:', error);
                         setViewState('plan_review', 'error', error.message || String(error));
+                        throw error;
+                    }
+                    break;
+                case 'ejecuciones':
+                    setViewState('ejecuciones', 'loaded');
+                    try {
+                        await loadRunsScheduler();
+                        setViewState('ejecuciones', 'ready');
+                    } catch (error) {
+                        console.error('[repo] Error in loadRunsScheduler:', error);
+                        setViewState('ejecuciones', 'error', error.message || String(error));
                         throw error;
                     }
                     break;
@@ -12689,6 +12707,11 @@
             // Cargar últimas ejecuciones y schedules
             await loadLatestRuns();
             await loadSchedules();
+            
+            // Establecer data-testid para tests E2E
+            if (content) {
+                content.setAttribute('data-testid', 'view-ejecuciones-ready');
+            }
         }
         
         async function executeRunNow() {
@@ -12833,18 +12856,26 @@
         window.addEventListener('DOMContentLoaded', () => {
             const sidebarNav = document.querySelector('.sidebar-nav');
             if (sidebarNav) {
+                // Verificar si ya existe el item
+                const existingItem = sidebarNav.querySelector('[data-page="ejecuciones"]');
+                if (existingItem) return;
+                
                 const ejecucionesItem = document.createElement('a');
                 ejecucionesItem.className = 'nav-item';
-                ejecucionesItem.href = '#';
-                ejecucionesItem.onclick = (e) => {
-                    e.preventDefault();
-                    loadRunsScheduler();
-                    window.location.hash = 'ejecuciones';
-                };
+                ejecucionesItem.href = '#ejecuciones';
+                ejecucionesItem.setAttribute('data-page', 'ejecuciones');
                 ejecucionesItem.innerHTML = `
                     <span class="nav-item-icon">⚡</span>
                     <span>Ejecuciones</span>
                 `;
+                
+                // Añadir listener de click (igual que los otros nav-items)
+                ejecucionesItem.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const page = ejecucionesItem.dataset.page;
+                    navigateTo(page);
+                });
+                
                 sidebarNav.appendChild(ejecucionesItem);
             }
         });
@@ -13079,13 +13110,8 @@
             }, 10000);
         }
         
-        // Integrar en router de hash
-        const originalHashChange = window.onhashchange;
-        window.addEventListener('hashchange', () => {
-            if (window.location.hash === '#ejecuciones') {
-                loadRunsScheduler();
-            }
-        });
+        // NOTA: El routing de ejecuciones ahora se maneja a través del router principal (runRoutingNow)
+        // No se necesita un listener de hashchange separado
         
     </script>
 </body>

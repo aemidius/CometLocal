@@ -110,4 +110,67 @@ test.describe('Repository Basic Read (C2.28 - BLOQUEANTE)', () => {
         const badgeTextAfter = await badgeAfter.textContent();
         expect(badgeTextAfter).not.toBe('Sin contexto');
     });
+
+    test('should navigate to Ejecuciones from sidebar', async ({ page }) => {
+        // Navegar a ejecuciones usando el hash
+        await page.goto('http://127.0.0.1:8000/repository_v3.html#ejecuciones');
+        
+        // Esperar a que la vista de ejecuciones esté lista
+        await page.waitForSelector('[data-testid="view-ejecuciones-ready"]', { timeout: 15000, state: 'attached' });
+        await page.waitForTimeout(500);
+        
+        // Verificar que estamos en la vista de ejecuciones (no en inicio)
+        const runsScheduler = page.locator('[data-testid="runs-scheduler"]');
+        await expect(runsScheduler).toBeVisible();
+        
+        // Verificar que NO estamos en la vista Inicio
+        // (no debe existir "Subidas recientes" o el título "Inicio" en el contenido)
+        const pageTitle = page.locator('#page-title');
+        const titleText = await pageTitle.textContent();
+        expect(titleText).toBe('Ejecuciones');
+        expect(titleText).not.toBe('Inicio');
+        
+        // Verificar que el hash es correcto
+        const hash = await page.evaluate(() => window.location.hash);
+        expect(hash).toBe('#ejecuciones');
+        
+        // Verificar que el item del sidebar está activo
+        const ejecucionesNavItem = page.locator('.nav-item[data-page="ejecuciones"]');
+        await expect(ejecucionesNavItem).toHaveClass(/active/);
+        
+        // Guardar screenshot como evidencia
+        const fs = require('fs');
+        const path = require('path');
+        const EVIDENCE_DIR = path.join(__dirname, '..', 'docs', 'evidence', 'c2_XX');
+        if (!fs.existsSync(EVIDENCE_DIR)) {
+            fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
+        }
+        await page.screenshot({ path: path.join(EVIDENCE_DIR, 'ejecuciones_view.png'), fullPage: true });
+    });
+
+    test('should navigate to Ejecuciones by clicking sidebar item', async ({ page }) => {
+        // Click en el item del sidebar "Ejecuciones"
+        const ejecucionesNavItem = page.locator('[data-page="ejecuciones"]');
+        await ejecucionesNavItem.click();
+        
+        // Esperar a que la vista de ejecuciones esté lista
+        await page.waitForSelector('[data-testid="view-ejecuciones-ready"]', { timeout: 15000, state: 'attached' });
+        await page.waitForTimeout(500);
+        
+        // Verificar que estamos en la vista de ejecuciones
+        const runsScheduler = page.locator('[data-testid="runs-scheduler"]');
+        await expect(runsScheduler).toBeVisible();
+        
+        // Verificar que el título es "Ejecuciones"
+        const pageTitle = page.locator('#page-title');
+        const titleText = await pageTitle.textContent();
+        expect(titleText).toBe('Ejecuciones');
+        
+        // Verificar que NO estamos en la vista Inicio
+        expect(titleText).not.toBe('Inicio');
+        
+        // Verificar que el hash es correcto
+        const hash = await page.evaluate(() => window.location.hash);
+        expect(hash).toBe('#ejecuciones');
+    });
 });
