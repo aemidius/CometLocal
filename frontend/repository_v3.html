@@ -1514,6 +1514,12 @@
                 
                 // Mostrar banner si no hay contexto válido o es la primera vez
                 const context = getCoordinationContext();
+                // SPRINT C2.35.2: NO mostrar demo banner si training C2.35 está activo
+                if (isC235TrainingActive()) {
+                    // Training C2.35 activo: NO mostrar demo banner
+                    return;
+                }
+                
                 const banner = document.getElementById('demo-onboarding-banner');
                 if (banner && (!context.isValid() || !localStorage.getItem('demo_banner_dismissed'))) {
                     banner.style.display = 'block';
@@ -1854,8 +1860,13 @@
                 // SPRINT C2.2: Event delegation para botones Editar
                 initEditDocumentDelegation();
                 
-                // SPRINT C2.35: Verificar estado de training
+                // SPRINT C2.35: Verificar estado de training (debe ser ANTES de que se inicialice legacy)
                 await checkTrainingState();
+                
+                // SPRINT C2.35.2: Asegurar que legacy está cerrado si C2.35 está activo
+                if (isC235TrainingActive()) {
+                    dismissLegacyTutorialIfPresent();
+                }
                 
                 // Procesar hash inicial (puede venir ya con #subir)
                 viewDbg('bootstrap: calling runRoutingNow for initial hash');
@@ -1953,6 +1964,30 @@
             }
         }
         
+        // SPRINT C2.35.2: TrainingGate - Helpers centrales para controlar legacy
+        function isC235TrainingCompleted() {
+            return trainingState.completed === true;
+        }
+        
+        function isC235TrainingActive() {
+            return !trainingState.completed;
+        }
+        
+        // SPRINT C2.35.2: Función para cerrar/ocultar training legacy si está presente
+        function dismissLegacyTutorialIfPresent() {
+            // Cerrar wizard legacy si está abierto
+            const legacyWizard = document.getElementById('training-wizard');
+            if (legacyWizard && legacyWizard.style.display !== 'none') {
+                legacyWizard.style.display = 'none';
+            }
+            
+            // Ocultar demo-onboarding-banner si está visible
+            const demoBanner = document.getElementById('demo-onboarding-banner');
+            if (demoBanner && demoBanner.style.display !== 'none') {
+                demoBanner.style.display = 'none';
+            }
+        }
+        
         function showTrainingBanner() {
             // Verificar si ya existe el banner
             if (document.getElementById('training-banner')) {
@@ -1985,6 +2020,9 @@
         }
         
         function openTrainingWizard() {
+            // SPRINT C2.35.2: Cerrar cualquier training legacy antes de abrir C2.35
+            dismissLegacyTutorialIfPresent();
+            
             // Crear modal de training
             const modal = document.createElement('div');
             modal.id = 'training-wizard-modal';
@@ -14180,6 +14218,12 @@
         let trainingCompleted = false;
         
         function initTrainingWizard() {
+            // SPRINT C2.35.2: BLOQUEAR legacy si training C2.35 está activo
+            if (isC235TrainingActive()) {
+                // Training C2.35 está activo: NO mostrar legacy
+                return;
+            }
+            
             // Verificar si el training ya se completó
             const completed = localStorage.getItem('trainingCompleted');
             if (completed === 'true') {
@@ -14193,13 +14237,20 @@
                 currentTrainingStep = parseInt(savedStep, 10);
             }
             
-            // Mostrar wizard si no está completado
-            if (!trainingCompleted) {
+            // Mostrar wizard si no está completado (solo si C2.35 está completado)
+            if (!trainingCompleted && isC235TrainingCompleted()) {
                 showTrainingWizard();
             }
         }
         
         function showTrainingWizard() {
+            // SPRINT C2.35.2: BLOQUEAR legacy si training C2.35 está activo
+            if (isC235TrainingActive()) {
+                // Training C2.35 está activo: NO mostrar legacy
+                dismissLegacyTutorialIfPresent();
+                return;
+            }
+            
             const wizard = document.getElementById('training-wizard');
             if (!wizard) return;
             
@@ -14308,16 +14359,24 @@
         
         // Inicializar training wizard después de que la app esté lista
         // SPRINT C2.33: No mostrar en tests (detectar por user agent o flag)
+        // SPRINT C2.35.2: NO auto-inicializar si training C2.35 está activo
         window.addEventListener('DOMContentLoaded', () => {
             // No mostrar training wizard si estamos en modo test
             const isTestMode = navigator.userAgent.includes('HeadlessChrome') || 
                               window.location.search.includes('notraining=true') ||
                               localStorage.getItem('trainingCompleted') === 'true';
             
-            if (!isTestMode) {
+            // SPRINT C2.35.2: NO auto-inicializar legacy si C2.35 está activo
+            if (!isTestMode && isC235TrainingCompleted()) {
+                // Solo inicializar legacy si C2.35 está completado
                 setTimeout(() => {
                     initTrainingWizard();
                 }, 2000); // Esperar 2 segundos para que la app cargue
+            } else if (!isTestMode && isC235TrainingActive()) {
+                // Si C2.35 está activo, asegurar que legacy está cerrado
+                setTimeout(() => {
+                    dismissLegacyTutorialIfPresent();
+                }, 2000);
             }
         });
         

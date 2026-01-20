@@ -106,3 +106,56 @@ Para verificar la implementación:
 - El training solo se puede completar con `confirm: true` explícito
 - Los botones de acción solo aparecen cuando `trainingState.completed === true`
 - El endpoint `add_alias` es idempotente (alias duplicado → no-op)
+
+---
+
+## C2.35.2: No Overlap Legacy Training
+
+### Problema Histórico
+Antes de C2.35.2, existía un training legacy (modal con pasos tipo "Ejecuta una simulación") que se auto-disparaba en `DOMContentLoaded` después de 2 segundos. Esto causaba solape visual cuando el training C2.35 estaba activo, mostrando ambos trainings simultáneamente.
+
+### Solución Implementada
+
+**TrainingGate Central:**
+- Helpers `isC235TrainingCompleted()` e `isC235TrainingActive()` para controlar el estado
+- Regla estricta: si `isC235TrainingActive() === true` → BLOQUEAR cualquier trigger del legacy
+- Si `isC235TrainingCompleted() === true` → legacy NO auto-start; solo manual
+
+**Desactivación de Auto-Start:**
+- `initTrainingWizard()` (legacy) ahora verifica `isC235TrainingActive()` antes de mostrar
+- `showTrainingWizard()` (legacy) bloqueado si C2.35 está activo
+- `DOMContentLoaded` listener solo inicializa legacy si C2.35 está completado
+- `demo-onboarding-banner` también bloqueado si C2.35 está activo
+
+**Hard-Guard Visual:**
+- Función `dismissLegacyTutorialIfPresent()` que cierra/oculta legacy si está presente
+- Llamada automática al abrir wizard C2.35
+- Llamada en bootstrap si C2.35 está activo
+
+### Verificación
+
+**Antes (histórico):**
+1. Abrir `/repository_v3.html#inicio` con training C2.35 incompleto
+2. Esperar 2 segundos
+3. **Bug:** Aparecían ambos trainings (banner C2.35 + modal legacy)
+
+**Ahora:**
+1. Abrir `/repository_v3.html#inicio` con training C2.35 incompleto
+2. Esperar 2 segundos
+3. **Correcto:** Solo aparece banner C2.35, NO modal legacy
+4. Navegar a `#ejecuciones` (donde antes se disparaba legacy)
+5. **Correcto:** Legacy NO aparece automáticamente
+
+**Tests E2E:**
+```bash
+npx playwright test tests/training_no_overlap.spec.js
+```
+
+**Casos cubiertos:**
+- ✅ Legacy NO aparece cuando C2.35 está activo
+- ✅ Legacy NO auto-dispara cuando C2.35 está completado
+- ✅ Legacy se cierra automáticamente si aparece mientras C2.35 wizard está abierto
+
+### Archivos Modificados (C2.35.2)
+- `frontend/repository_v3.html`: TrainingGate, guards, `dismissLegacyTutorialIfPresent()`
+- `tests/training_no_overlap.spec.js`: Tests E2E anti-solape
