@@ -733,7 +733,7 @@
 </head>
 <body data-testid="app-ready">
     <!-- SPRINT C2.35.6: Version stamp con commit hash -->
-    <div class="version-stamp">UI: <span id="version-stamp-commit">19428f3</span> <span id="build-timestamp"></span></div>
+    <div class="version-stamp">UI: <span id="version-stamp-commit">fd478f1</span> <span id="build-timestamp"></span></div>
     
     <!-- Sidebar -->
     <div class="sidebar">
@@ -9590,8 +9590,8 @@
 
         // Initialize version stamp timestamp
         document.addEventListener('DOMContentLoaded', () => {
-            // SPRINT C2.35.6: Initialize version stamp
-            const VERSION_STAMP = '19428f3';
+            // SPRINT C2.35.6: Initialize version stamp (actualizado automáticamente en cada commit)
+            const VERSION_STAMP = 'fd478f1';
             window.__COMETLOCAL_VERSION_STAMP = VERSION_STAMP;
             
             const versionStampEl = document.getElementById('version-stamp-commit');
