@@ -1,15 +1,17 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Any
 import logging
 
 from backend.browser.browser import BrowserController
 from backend.agents.agent_runner import run_training_scenario_agent
+from backend.training.training_state_store_v1 import TrainingStateStoreV1, get_training_store
+from backend.config import DATA_DIR
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/training",
+    prefix="/api/training",
     tags=["training"],
 )
 
@@ -187,4 +189,98 @@ async def run_training_scenario(
         status="ok",
         message=message,
     )
+
+
+# ========== SPRINT C2.35: Training Guiado ==========
+
+class TrainingStateResponse(BaseModel):
+    """Respuesta con estado del training."""
+    training_completed: bool
+    completed_at: Optional[str] = None
+    version: str
+
+
+class TrainingCompleteRequest(BaseModel):
+    """Request para completar training."""
+    confirm: bool
+
+
+class TrainingCompleteResponse(BaseModel):
+    """Respuesta al completar training."""
+    success: bool
+    message: str
+
+
+@router.get("/state", response_model=TrainingStateResponse)
+async def get_training_state() -> TrainingStateResponse:
+    """
+    SPRINT C2.35: Obtiene el estado actual del training guiado.
+    
+    Returns:
+        Estado del training (training_completed, completed_at, version)
+    """
+    store = get_training_store(base_dir=DATA_DIR)
+    state = store.get_state()
+    return TrainingStateResponse(
+        training_completed=state.get("training_completed", False),
+        completed_at=state.get("completed_at"),
+        version=state.get("version", "C2.35")
+    )
+
+
+@router.post("/complete", response_model=TrainingCompleteResponse)
+async def complete_training(
+    payload: TrainingCompleteRequest
+) -> TrainingCompleteResponse:
+    """
+    SPRINT C2.35: Marca el training como completado.
+    
+    Guardrails:
+    - Solo se completa si confirm=True
+    - Si ya está completado, es idempotente
+    - Nunca se borra el estado automáticamente
+    """
+    if not payload.confirm:
+        return TrainingCompleteResponse(
+            success=False,
+            message="Se requiere confirmación explícita (confirm=true) para completar el training"
+        )
+    
+    store = get_training_store(base_dir=DATA_DIR)
+    success = store.mark_completed(confirm=True)
+    
+    if success:
+        return TrainingCompleteResponse(
+            success=True,
+            message="Training completado exitosamente"
+        )
+    else:
+        return TrainingCompleteResponse(
+            success=False,
+            message="Error al guardar el estado del training"
+        )
+
+
+class LogActionRequest(BaseModel):
+    """Request para loggear una acción asistida."""
+    action: str
+    type_id: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+
+
+@router.post("/log-action")
+async def log_action(payload: LogActionRequest) -> dict:
+    """
+    SPRINT C2.35: Endpoint para loggear acciones asistidas desde el frontend.
+    """
+    from backend.training.training_action_logger import log_training_action
+    
+    log_training_action(
+        action=payload.action,
+        type_id=payload.type_id,
+        details=payload.details,
+        base_dir=DATA_DIR
+    )
+    
+    return {"status": "ok", "message": "Action logged"}
 

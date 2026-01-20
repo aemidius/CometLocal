@@ -1854,6 +1854,9 @@
                 // SPRINT C2.2: Event delegation para botones Editar
                 initEditDocumentDelegation();
                 
+                // SPRINT C2.35: Verificar estado de training
+                await checkTrainingState();
+                
                 // Procesar hash inicial (puede venir ya con #subir)
                 viewDbg('bootstrap: calling runRoutingNow for initial hash');
                 await runRoutingNow();
@@ -1923,6 +1926,293 @@
                 }
             }
         }
+        
+        // SPRINT C2.35: Training Guiado
+        let trainingState = {
+            completed: false,
+            version: null
+        };
+        
+        async function checkTrainingState() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/training/state`);
+                if (response.ok) {
+                    const state = await response.json();
+                    trainingState.completed = state.training_completed || false;
+                    trainingState.version = state.version || null;
+                    
+                    if (!trainingState.completed) {
+                        showTrainingBanner();
+                    }
+                }
+            } catch (error) {
+                console.error('[Training] Error checking state:', error);
+                // Si falla, asumir no completado (más seguro)
+                trainingState.completed = false;
+                showTrainingBanner();
+            }
+        }
+        
+        function showTrainingBanner() {
+            // Verificar si ya existe el banner
+            if (document.getElementById('training-banner')) {
+                return;
+            }
+            
+            const banner = document.createElement('div');
+            banner.id = 'training-banner';
+            banner.setAttribute('data-testid', 'training-banner');
+            banner.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; z-index: 10001; padding: 16px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-bottom: 2px solid #92400e; color: white; text-align: center; font-weight: 500; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
+            banner.innerHTML = `
+                <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                    <div style="flex: 1;">
+                        <strong>📚 Training Guiado Requerido</strong>
+                        <span style="margin-left: 12px; font-weight: normal;">Antes de continuar, completa el training guiado (5 minutos)</span>
+                    </div>
+                    <button onclick="openTrainingWizard()" style="padding: 8px 16px; background: white; color: #d97706; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                        Iniciar Training
+                    </button>
+                </div>
+            `;
+            document.body.insertBefore(banner, document.body.firstChild);
+        }
+        
+        function hideTrainingBanner() {
+            const banner = document.getElementById('training-banner');
+            if (banner) {
+                banner.remove();
+            }
+        }
+        
+        function openTrainingWizard() {
+            // Crear modal de training
+            const modal = document.createElement('div');
+            modal.id = 'training-wizard-modal';
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10002; display: flex; align-items: center; justify-content: center;';
+            modal.onclick = function(e) {
+                if (e.target === modal) {
+                    // No cerrar al hacer click fuera (training obligatorio)
+                }
+            };
+            
+            let currentStep = 1;
+            const totalSteps = 5;
+            
+            function renderStep(step) {
+                const steps = {
+                    1: {
+                        title: 'Paso 1: ¿Qué es un NO_MATCH?',
+                        content: `
+                            <p style="margin-bottom: 16px; line-height: 1.6;">
+                                Un <strong>NO_MATCH</strong> no es un error. Significa que el sistema no encontró un documento 
+                                en tu repositorio que coincida con el requisito pendiente de la plataforma.
+                            </p>
+                            <div style="background: #1e293b; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                                <p style="color: #94a3b8; margin-bottom: 8px;"><strong>Ejemplo:</strong></p>
+                                <p style="color: #cbd5e1;">
+                                    La plataforma solicita un "T104.0 Recibo autónomos" para Mayo 2024, 
+                                    pero en tu repositorio no hay ningún documento de ese tipo para ese período.
+                                </p>
+                            </div>
+                            <p style="color: #94a3b8; font-size: 0.875rem;">
+                                Esto es normal y puede ocurrir por varias razones que verás en los siguientes pasos.
+                            </p>
+                        `
+                    },
+                    2: {
+                        title: 'Paso 2: Leer el panel "¿Por qué no se ha subido?"',
+                        content: `
+                            <p style="margin-bottom: 16px; line-height: 1.6;">
+                                Cuando hay un NO_MATCH, el sistema muestra un panel explicativo con:
+                            </p>
+                            <ul style="margin-left: 20px; margin-bottom: 16px; line-height: 1.8;">
+                                <li><strong>Motivo principal:</strong> La razón más importante por la que no se encontró coincidencia</li>
+                                <li><strong>Detalles adicionales:</strong> Otras razones que pueden estar afectando</li>
+                                <li><strong>Contadores:</strong> Cuántos documentos se consideraron en cada etapa del proceso</li>
+                            </ul>
+                            <div style="background: #1e293b; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                                <p style="color: #94a3b8; margin-bottom: 8px;"><strong>Ejemplo de contadores:</strong></p>
+                                <p style="color: #cbd5e1; font-size: 0.875rem;">
+                                    Considerados: 10 | Después de tipo: 5 | Después de empresa: 3 | Después de periodo: 0
+                                </p>
+                                <p style="color: #94a3b8; font-size: 0.75rem; margin-top: 8px;">
+                                    Esto te ayuda a entender en qué punto del proceso se quedó sin documentos.
+                                </p>
+                            </div>
+                        `
+                    },
+                    3: {
+                        title: 'Paso 3: Decisiones humanas posibles',
+                        content: `
+                            <p style="margin-bottom: 16px; line-height: 1.6;">
+                                Cuando encuentres un NO_MATCH, tienes tres opciones:
+                            </p>
+                            <div style="background: #1e293b; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                                <div style="margin-bottom: 12px;">
+                                    <strong style="color: #60a5fa;">1. Ajustar tipo existente</strong>
+                                    <p style="color: #94a3b8; font-size: 0.875rem; margin-top: 4px;">
+                                        Añadir un alias al tipo de documento existente para que reconozca esta solicitud en el futuro.
+                                    </p>
+                                </div>
+                                <div style="margin-bottom: 12px;">
+                                    <strong style="color: #60a5fa;">2. Crear tipo nuevo</strong>
+                                    <p style="color: #94a3b8; font-size: 0.875rem; margin-top: 4px;">
+                                        Si este requisito requiere un tipo de documento completamente nuevo.
+                                    </p>
+                                </div>
+                                <div>
+                                    <strong style="color: #60a5fa;">3. No hacer nada</strong>
+                                    <p style="color: #94a3b8; font-size: 0.875rem; margin-top: 4px;">
+                                        Es una decisión válida. Puedes dejar el NO_MATCH como está y manejarlo manualmente.
+                                    </p>
+                                </div>
+                            </div>
+                        `
+                    },
+                    4: {
+                        title: 'Paso 4: Riesgos de automatizar',
+                        content: `
+                            <p style="margin-bottom: 16px; line-height: 1.6;">
+                                <strong>Por qué NO hay aprendizaje automático:</strong>
+                            </p>
+                            <ul style="margin-left: 20px; margin-bottom: 16px; line-height: 1.8;">
+                                <li>Los cambios afectan el comportamiento futuro del sistema</li>
+                                <li>Un alias mal asignado puede causar matches incorrectos</li>
+                                <li>Un tipo mal configurado puede generar problemas de validez</li>
+                                <li>Necesitamos que entiendas las consecuencias antes de actuar</li>
+                            </ul>
+                            <div style="background: #7f1d1d; padding: 16px; border-radius: 8px; margin-bottom: 16px; border-left: 4px solid #dc2626;">
+                                <p style="color: #fca5a5; margin-bottom: 8px;"><strong>⚠️ Qué puede romperse si se hace mal:</strong></p>
+                                <ul style="color: #fca5a5; margin-left: 20px; font-size: 0.875rem;">
+                                    <li>El sistema puede empezar a asignar documentos incorrectos automáticamente</li>
+                                    <li>Pueden generarse tipos duplicados o conflictivos</li>
+                                    <li>Los períodos de validez pueden configurarse incorrectamente</li>
+                                </ul>
+                            </div>
+                        `
+                    },
+                    5: {
+                        title: 'Paso 5: Confirmación final',
+                        content: `
+                            <p style="margin-bottom: 16px; line-height: 1.6;">
+                                Antes de desbloquear las acciones asistidas, confirma que entiendes:
+                            </p>
+                            <div style="background: #1e293b; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                                <ul style="margin-left: 20px; line-height: 1.8; color: #cbd5e1;">
+                                    <li>Las acciones modifican el comportamiento futuro del sistema</li>
+                                    <li>Debes verificar cuidadosamente antes de asignar aliases o crear tipos</li>
+                                    <li>Todas las acciones son reversibles, pero requieren intervención manual</li>
+                                    <li>El sistema registra todas las acciones para auditoría</li>
+                                </ul>
+                            </div>
+                            <div style="margin-top: 24px;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="training-confirm-checkbox" style="width: 20px; height: 20px; cursor: pointer;">
+                                    <span style="color: #e2e8f0; font-weight: 500;">
+                                        Entiendo que estas acciones modifican el comportamiento futuro
+                                    </span>
+                                </label>
+                            </div>
+                        `
+                    }
+                };
+                
+                const stepData = steps[step];
+                if (!stepData) return;
+                
+                const content = document.getElementById('training-wizard-content');
+                content.innerHTML = `
+                    <h3 style="margin-bottom: 16px; color: #e2e8f0;">${stepData.title}</h3>
+                    <div style="max-height: 400px; overflow-y: auto; margin-bottom: 24px;">
+                        ${stepData.content}
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="color: #94a3b8; font-size: 0.875rem;">
+                            Paso ${step} de ${totalSteps}
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            ${step > 1 ? `<button onclick="trainingWizardPrevious()" class="btn btn-secondary">Anterior</button>` : ''}
+                            ${step < totalSteps ? `<button onclick="trainingWizardNext()" class="btn btn-primary">Siguiente</button>` : ''}
+                            ${step === totalSteps ? `<button onclick="trainingWizardComplete()" id="training-complete-button" class="btn btn-primary" disabled data-testid="training-complete-button">Completar Training</button>` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                // Habilitar botón de completar solo si checkbox está marcado
+                if (step === totalSteps) {
+                    const checkbox = document.getElementById('training-confirm-checkbox');
+                    const completeBtn = document.getElementById('training-complete-button');
+                    checkbox.onchange = function() {
+                        completeBtn.disabled = !checkbox.checked;
+                    };
+                }
+            }
+            
+            modal.innerHTML = `
+                <div style="background: #1e293b; border-radius: 8px; padding: 24px; max-width: 700px; max-height: 90vh; overflow-y: auto; width: 90%; border: 1px solid #334155;" onclick="event.stopPropagation()">
+                    <div id="training-wizard-content" data-testid="training-step-${currentStep}">
+                        ${renderStep(currentStep)}
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            window.trainingWizardNext = function() {
+                if (currentStep < totalSteps) {
+                    currentStep++;
+                    const content = document.getElementById('training-wizard-content');
+                    content.setAttribute('data-testid', `training-step-${currentStep}`);
+                    renderStep(currentStep);
+                }
+            };
+            
+            window.trainingWizardPrevious = function() {
+                if (currentStep > 1) {
+                    currentStep--;
+                    const content = document.getElementById('training-wizard-content');
+                    content.setAttribute('data-testid', `training-step-${currentStep}`);
+                    renderStep(currentStep);
+                }
+            };
+            
+            window.trainingWizardComplete = async function() {
+                const checkbox = document.getElementById('training-confirm-checkbox');
+                if (!checkbox.checked) {
+                    alert('Debes confirmar que entiendes las consecuencias antes de completar el training.');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`${BACKEND_URL}/api/training/complete`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ confirm: true })
+                    });
+                    
+                    if (response.ok) {
+                        trainingState.completed = true;
+                        modal.remove();
+                        hideTrainingBanner();
+                        
+                        // Mostrar mensaje de éxito
+                        const successMsg = document.createElement('div');
+                        successMsg.style.cssText = 'position: fixed; top: 80px; right: 20px; z-index: 10003; padding: 16px; background: #10b981; color: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
+                        successMsg.textContent = '✅ Training completado. Acciones asistidas desbloqueadas.';
+                        document.body.appendChild(successMsg);
+                        setTimeout(() => successMsg.remove(), 5000);
+                    } else {
+                        alert('Error al completar el training. Por favor, intenta de nuevo.');
+                    }
+                } catch (error) {
+                    console.error('[Training] Error completing:', error);
+                    alert('Error al completar el training. Por favor, intenta de nuevo.');
+                }
+            };
+        }
+        
+        // Exponer función globalmente
+        window.openTrainingWizard = openTrainingWizard;
         
         // SPRINT C1.R0: Inicializar bootstrap cuando DOM está listo
         // Asegurar que siempre se ejecuta, incluso si hay errores previos
@@ -11536,6 +11826,9 @@
                 return '';
             }
             
+            // SPRINT C2.35: Verificar si training está completado
+            const trainingCompleted = trainingState.completed;
+            
             // Renderizar panel para cada item con debug
             return itemsWithDebug.map(item => {
                 const debugReport = item.debug_report;
@@ -11623,10 +11916,322 @@
                                 Después de periodo: ${debugReport.counters.local_docs_after_period || 0}
                             </div>
                         ` : ''}
+                        ${trainingCompleted ? `
+                            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #334155;">
+                                <strong style="color: #e2e8f0; margin-bottom: 8px; display: block;">Acciones asistidas:</strong>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <button onclick="handleAssignToExistingType('${item.item_id || item.pending_item_key}')" class="btn btn-secondary" data-testid="action-assign-existing-type">
+                                        Asignar a un tipo existente
+                                    </button>
+                                    <button onclick="handleCreateNewType('${item.item_id || item.pending_item_key}')" class="btn btn-secondary" data-testid="action-create-new-type">
+                                        Crear nuevo tipo
+                                    </button>
+                                </div>
+                            </div>
+                        ` : `
+                            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #334155; background: #1e293b; padding: 12px; border-radius: 4px;">
+                                <p style="color: #94a3b8; font-size: 0.875rem; margin: 0;">
+                                    🔒 Completa el training para desbloquear acciones asistidas
+                                </p>
+                            </div>
+                        `}
                     </div>
                 `;
             }).join('');
         }
+        
+        // SPRINT C2.35: Acciones Asistidas
+        async function handleAssignToExistingType(itemId) {
+            // Obtener item del plan
+            const item = planReviewState.planData.items.find(i => (i.item_id || i.pending_item_key) === itemId);
+            if (!item || !item.debug_report) {
+                alert('No se encontró el item o su información de debug.');
+                return;
+            }
+            
+            // Obtener tipos existentes (solo activos)
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/repository/types?active=true`);
+                if (!response.ok) {
+                    throw new Error('Error al cargar tipos');
+                }
+                const types = await response.json();
+                
+                // Crear modal para seleccionar tipo
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10003; display: flex; align-items: center; justify-content: center;';
+                modal.onclick = function(e) {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                };
+                
+                // Extraer alias sugerido desde el item
+                const suggestedAlias = item.tipo_doc || item.debug_report.filters_applied?.platform_key || '';
+                const platformKey = item.debug_report.filters_applied?.platform_key || 'egestiona';
+                
+                let selectedTypeId = null;
+                
+                modal.innerHTML = `
+                    <div style="background: #1e293b; border-radius: 8px; padding: 24px; max-width: 600px; width: 90%; border: 1px solid #334155;" onclick="event.stopPropagation()">
+                        <h3 style="margin-bottom: 16px; color: #e2e8f0;">Asignar a tipo existente</h3>
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 8px; color: #cbd5e1; font-weight: 500;">Seleccionar tipo:</label>
+                            <select id="type-selector" class="form-input" style="width: 100%;">
+                                <option value="">-- Seleccionar tipo --</option>
+                                ${types.map(t => `<option value="${t.type_id}">${t.name} (${t.type_id})</option>`).join('')}
+                            </select>
+                        </div>
+                        <div style="margin-bottom: 16px; background: #0f172a; padding: 12px; border-radius: 4px;">
+                            <p style="color: #94a3b8; font-size: 0.875rem; margin-bottom: 4px;"><strong>Preview:</strong></p>
+                            <p style="color: #cbd5e1; font-size: 0.875rem;" id="alias-preview">
+                                Alias: <code>${escapeHtml(suggestedAlias)}</code><br>
+                                Plataforma: <code>${escapeHtml(platformKey)}</code>
+                            </p>
+                        </div>
+                        <div style="margin-bottom: 16px; background: #1e3a8a; padding: 12px; border-radius: 4px; border-left: 4px solid #3b82f6;">
+                            <p style="color: #93c5fd; font-size: 0.875rem;">
+                                ⚠️ Esto añadirá una asociación para futuros casos similares.
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                            <button onclick="this.closest('div[style*=\"position: fixed\"]').remove()" class="btn btn-secondary">Cancelar</button>
+                            <button onclick="confirmAssignAlias('${itemId}', '${escapeHtml(suggestedAlias)}', '${escapeHtml(platformKey)}')" class="btn btn-primary" id="confirm-assign-btn" disabled>Confirmar</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Habilitar botón solo si hay tipo seleccionado
+                const selector = document.getElementById('type-selector');
+                const confirmBtn = document.getElementById('confirm-assign-btn');
+                selector.onchange = function() {
+                    selectedTypeId = selector.value;
+                    confirmBtn.disabled = !selectedTypeId;
+                };
+                
+                window.confirmAssignAlias = async function(itemId, alias, platformKey) {
+                    if (!selectedTypeId) {
+                        alert('Por favor, selecciona un tipo.');
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch(`${BACKEND_URL}/api/repository/types/${selectedTypeId}/add_alias`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                platform_key: platformKey,
+                                alias: alias,
+                                source: 'training_assisted_action'
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            modal.remove();
+                            const successMsg = document.createElement('div');
+                            successMsg.style.cssText = 'position: fixed; top: 80px; right: 20px; z-index: 10004; padding: 16px; background: #10b981; color: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
+                            successMsg.textContent = '✅ Alias añadido exitosamente.';
+                            document.body.appendChild(successMsg);
+                            setTimeout(() => successMsg.remove(), 5000);
+                            
+                            // Refrescar la vista del plan
+                            if (typeof renderPlanReview === 'function') {
+                                renderPlanReview();
+                            }
+                        } else {
+                            const error = await response.json();
+                            alert(`Error: ${error.detail || 'No se pudo añadir el alias'}`);
+                        }
+                    } catch (error) {
+                        console.error('[Training] Error assigning alias:', error);
+                        alert('Error al añadir el alias. Por favor, intenta de nuevo.');
+                    }
+                };
+            } catch (error) {
+                console.error('[Training] Error loading types:', error);
+                alert('Error al cargar los tipos. Por favor, intenta de nuevo.');
+            }
+        }
+        
+        async function handleCreateNewType(itemId) {
+            // Obtener item del plan
+            const item = planReviewState.planData.items.find(i => (i.item_id || i.pending_item_key) === itemId);
+            if (!item || !item.debug_report) {
+                alert('No se encontró el item o su información de debug.');
+                return;
+            }
+            
+            // Crear wizard para nuevo tipo
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10003; display: flex; align-items: center; justify-content: center;';
+            modal.onclick = function(e) {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            };
+            
+            const suggestedName = item.tipo_doc || 'Nuevo tipo';
+            const suggestedAlias = item.tipo_doc || '';
+            const platformKey = item.debug_report.filters_applied?.platform_key || 'egestiona';
+            
+            modal.innerHTML = `
+                <div style="background: #1e293b; border-radius: 8px; padding: 24px; max-width: 700px; width: 90%; max-height: 90vh; overflow-y: auto; border: 1px solid #334155;" onclick="event.stopPropagation()">
+                    <h3 style="margin-bottom: 16px; color: #e2e8f0;">Crear nuevo tipo desde esta solicitud</h3>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 8px; color: #cbd5e1; font-weight: 500;">Nombre del tipo:</label>
+                        <input type="text" id="new-type-name" class="form-input" value="${escapeHtml(suggestedName)}" style="width: 100%;">
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 8px; color: #cbd5e1; font-weight: 500;">Scope:</label>
+                        <select id="new-type-scope" class="form-input" style="width: 100%;">
+                            <option value="company">Empresa</option>
+                            <option value="worker">Trabajador</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 8px; color: #cbd5e1; font-weight: 500;">Política de validez:</label>
+                        <select id="new-type-validity-mode" class="form-input" style="width: 100%;">
+                            <option value="monthly">Mensual</option>
+                            <option value="annual">Anual</option>
+                            <option value="fixed_end_date">Fecha fija</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 8px; color: #cbd5e1; font-weight: 500;">Alias inicial:</label>
+                        <input type="text" id="new-type-alias" class="form-input" value="${escapeHtml(suggestedAlias)}" style="width: 100%;">
+                        <p style="color: #94a3b8; font-size: 0.75rem; margin-top: 4px;">Este alias se añadirá para la plataforma ${escapeHtml(platformKey)}</p>
+                    </div>
+                    <div style="margin-bottom: 16px; background: #1e3a8a; padding: 12px; border-radius: 4px; border-left: 4px solid #3b82f6;">
+                        <p style="color: #93c5fd; font-size: 0.875rem;">
+                            ⚠️ Se creará un nuevo tipo de documento con esta configuración.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                        <button onclick="this.closest('div[style*=\"position: fixed\"]').remove()" class="btn btn-secondary">Cancelar</button>
+                        <button onclick="confirmCreateNewType('${itemId}', '${escapeHtml(platformKey)}')" class="btn btn-primary">Crear tipo</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            window.confirmCreateNewType = async function(itemId, platformKey) {
+                const name = document.getElementById('new-type-name').value.trim();
+                const scope = document.getElementById('new-type-scope').value;
+                const validityMode = document.getElementById('new-type-validity-mode').value;
+                const alias = document.getElementById('new-type-alias').value.trim();
+                
+                if (!name) {
+                    alert('El nombre del tipo es obligatorio.');
+                    return;
+                }
+                
+                if (!alias) {
+                    alert('El alias inicial es obligatorio.');
+                    return;
+                }
+                
+                try {
+                    // Generar type_id desde el nombre
+                    const typeId = name.toUpperCase().replace(/[^A-Z0-9_]/g, '_').substring(0, 50);
+                    
+                    // Crear tipo (estructura completa según ValidityPolicyV1)
+                    let validityPolicy = {
+                        mode: validityMode,
+                        basis: "issue_date"
+                    };
+                    
+                    if (validityMode === 'monthly') {
+                        validityPolicy.monthly = {
+                            month_source: "issue_date",
+                            valid_from: "period_start",
+                            valid_to: "period_end",
+                            grace_days: 0
+                        };
+                    } else if (validityMode === 'annual') {
+                        validityPolicy.annual = {
+                            months: 12,
+                            valid_from: "issue_date",
+                            valid_to: "issue_date_plus_months"
+                        };
+                    } else if (validityMode === 'fixed_end_date') {
+                        validityPolicy.fixed_end_date = {
+                            valid_from: "issue_date",
+                            valid_to: "manual_end_date"
+                        };
+                    }
+                    
+                    const newType = {
+                        type_id: typeId,
+                        name: name,
+                        description: `Tipo creado desde acción asistida (${new Date().toISOString().split('T')[0]})`,
+                        scope: scope,
+                        active: true,
+                        platform_aliases: [alias],
+                        validity_policy: validityPolicy,
+                        required_fields: [],
+                        allow_late_submission: false,
+                        issue_date_required: true,
+                        validity_start_mode: "issue_date"
+                    };
+                    
+                    const response = await fetch(`${BACKEND_URL}/api/repository/types`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newType)
+                    });
+                    
+                    if (response.ok) {
+                        const createdType = await response.json();
+                        modal.remove();
+                        
+                        // Registrar acción
+                        try {
+                            await fetch(`${BACKEND_URL}/api/training/log-action`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    action: 'create_new_type',
+                                    type_id: createdType.type_id,
+                                    details: {
+                                        name: name,
+                                        scope: scope,
+                                        validity_mode: validityMode,
+                                        alias: alias,
+                                        platform_key: platformKey
+                                    }
+                                })
+                            });
+                        } catch (e) {
+                            console.warn('[Training] Could not log action:', e);
+                        }
+                        
+                        const successMsg = document.createElement('div');
+                        successMsg.style.cssText = 'position: fixed; top: 80px; right: 20px; z-index: 10004; padding: 16px; background: #10b981; color: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
+                        successMsg.textContent = `✅ Tipo ${createdType.type_id} creado exitosamente.`;
+                        document.body.appendChild(successMsg);
+                        setTimeout(() => successMsg.remove(), 5000);
+                        
+                        // Refrescar la vista del plan
+                        if (typeof renderPlanReview === 'function') {
+                            renderPlanReview();
+                        }
+                    } else {
+                        const error = await response.json();
+                        alert(`Error: ${error.detail || 'No se pudo crear el tipo'}`);
+                    }
+                } catch (error) {
+                    console.error('[Training] Error creating type:', error);
+                    alert('Error al crear el tipo. Por favor, intenta de nuevo.');
+                }
+            };
+        }
+        
+        // Exponer funciones globalmente
+        window.handleAssignToExistingType = handleAssignToExistingType;
+        window.handleCreateNewType = handleCreateNewType;
         
         // SPRINT C2.20A: Batch selection functions
         function toggleItemSelection(itemId) {

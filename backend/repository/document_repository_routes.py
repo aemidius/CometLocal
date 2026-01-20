@@ -162,9 +162,28 @@ async def get_type(type_id: str) -> DocumentTypeV1:
 @router.post("/types", response_model=DocumentTypeV1)
 async def create_type(doc_type: DocumentTypeV1) -> DocumentTypeV1:
     """Crea un nuevo tipo de documento."""
+    from backend.training.training_action_logger import log_training_action
+    from backend.config import DATA_DIR
+    
     store = DocumentRepositoryStoreV1()
     try:
-        return store.create_type(doc_type)
+        result = store.create_type(doc_type)
+        
+        # SPRINT C2.35: Registrar acción si fue creado vía training
+        if hasattr(doc_type, 'created_via') and doc_type.created_via == "training_assisted_creation":
+            log_training_action(
+                action="create_new_type",
+                type_id=result.type_id,
+                details={
+                    "name": result.name,
+                    "scope": result.scope.value if hasattr(result.scope, 'value') else str(result.scope),
+                    "validity_mode": result.validity_policy.mode.value if hasattr(result.validity_policy.mode, 'value') else str(result.validity_policy.mode),
+                    "aliases": result.platform_aliases
+                },
+                base_dir=DATA_DIR
+            )
+        
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -229,6 +248,87 @@ async def delete_type(type_id: str) -> dict:
         return {"status": "ok", "message": f"Type {type_id} deleted"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# ========== SPRINT C2.35: Acciones Asistidas ==========
+
+class AddAliasRequest(BaseModel):
+    """Request para añadir alias a un tipo."""
+    platform_key: str
+    alias: str
+    source: str = "training_assisted_action"
+
+
+@router.post("/types/{type_id}/add_alias", response_model=DocumentTypeV1)
+async def add_alias_to_type(
+    type_id: str,
+    request: AddAliasRequest
+) -> DocumentTypeV1:
+    """
+    SPRINT C2.35: Añade un alias a un tipo existente (acción asistida).
+    
+    Guardrails:
+    - Nunca elimina aliases existentes
+    - Nunca modifica otros campos del tipo
+    - Alias duplicado → no-op idempotente
+    - Solo añade el alias si no existe ya
+    """
+    from backend.training.training_action_logger import log_training_action
+    from backend.config import DATA_DIR
+    
+    store = DocumentRepositoryStoreV1()
+    
+    # Obtener tipo existente
+    doc_type = store.get_type(type_id)
+    if not doc_type:
+        raise HTTPException(status_code=404, detail=f"Type {type_id} not found")
+    
+    if not doc_type.active:
+        raise HTTPException(status_code=400, detail=f"Type {type_id} is inactive")
+    
+    # Verificar si el alias ya existe (idempotente)
+    existing_aliases = list(doc_type.platform_aliases)
+    alias_normalized = request.alias.strip()
+    
+    if alias_normalized in existing_aliases:
+        # Ya existe, retornar tipo sin cambios (idempotente)
+        log_training_action(
+            action="assign_existing_type",
+            type_id=type_id,
+            details={
+                "platform_key": request.platform_key,
+                "alias": alias_normalized,
+                "result": "alias_already_exists"
+            },
+            base_dir=DATA_DIR
+        )
+        return doc_type
+    
+    # Añadir alias (aditivo, no modifica otros campos)
+    new_aliases = existing_aliases + [alias_normalized]
+    
+    # Crear nuevo tipo con alias añadido
+    doc_type_dict = doc_type.model_dump()
+    doc_type_dict["platform_aliases"] = new_aliases
+    updated_type = DocumentTypeV1(**doc_type_dict)
+    
+    # Actualizar tipo
+    result = store.update_type(type_id, updated_type)
+    
+    # Registrar acción
+    log_training_action(
+        action="assign_existing_type",
+        type_id=type_id,
+        details={
+            "platform_key": request.platform_key,
+            "alias": alias_normalized,
+            "source": request.source,
+            "result": "alias_added"
+        },
+        base_dir=DATA_DIR
+    )
+    
+    return result
 
 
 # ========== DOCUMENTOS ==========
