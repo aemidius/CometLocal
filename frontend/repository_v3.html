@@ -2019,9 +2019,156 @@
             }
         }
         
+        // SPRINT C2.35.3: Inicializador estable del wizard
+        function initC235TrainingWizardState() {
+            // Definir steps como constante fuera de la función para asegurar disponibilidad
+            const TRAINING_WIZARD_STEPS = {
+                1: {
+                    title: 'Paso 1: ¿Qué es un NO_MATCH?',
+                    content: `
+                        <p style="margin-bottom: 16px; line-height: 1.6;">
+                            Un <strong>NO_MATCH</strong> no es un error. Significa que el sistema no encontró un documento 
+                            en tu repositorio que coincida con el requisito pendiente de la plataforma.
+                        </p>
+                        <div style="background: #1e293b; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                            <p style="color: #94a3b8; margin-bottom: 8px;"><strong>Ejemplo:</strong></p>
+                            <p style="color: #cbd5e1;">
+                                La plataforma solicita un "T104.0 Recibo autónomos" para Mayo 2024, 
+                                pero en tu repositorio no hay ningún documento de ese tipo para ese período.
+                            </p>
+                        </div>
+                        <p style="color: #94a3b8; font-size: 0.875rem;">
+                            Esto es normal y puede ocurrir por varias razones que verás en los siguientes pasos.
+                        </p>
+                    `
+                },
+                2: {
+                    title: 'Paso 2: Leer el panel "¿Por qué no se ha subido?"',
+                    content: `
+                        <p style="margin-bottom: 16px; line-height: 1.6;">
+                            Cuando hay un NO_MATCH, el sistema muestra un panel explicativo con:
+                        </p>
+                        <ul style="margin-left: 20px; margin-bottom: 16px; line-height: 1.8;">
+                            <li><strong>Motivo principal:</strong> La razón más importante por la que no se encontró coincidencia</li>
+                            <li><strong>Detalles adicionales:</strong> Otras razones que pueden estar afectando</li>
+                            <li><strong>Contadores:</strong> Cuántos documentos se consideraron en cada etapa del proceso</li>
+                        </ul>
+                        <div style="background: #1e293b; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                            <p style="color: #94a3b8; margin-bottom: 8px;"><strong>Ejemplo de contadores:</strong></p>
+                            <p style="color: #cbd5e1; font-size: 0.875rem;">
+                                Considerados: 10 | Después de tipo: 5 | Después de empresa: 3 | Después de periodo: 0
+                            </p>
+                            <p style="color: #94a3b8; font-size: 0.75rem; margin-top: 8px;">
+                                Esto te ayuda a entender en qué punto del proceso se quedó sin documentos.
+                            </p>
+                        </div>
+                    `
+                },
+                3: {
+                    title: 'Paso 3: Decisiones humanas posibles',
+                    content: `
+                        <p style="margin-bottom: 16px; line-height: 1.6;">
+                            Cuando encuentres un NO_MATCH, tienes tres opciones:
+                        </p>
+                        <div style="background: #1e293b; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                            <div style="margin-bottom: 12px;">
+                                <strong style="color: #60a5fa;">1. Ajustar tipo existente</strong>
+                                <p style="color: #94a3b8; font-size: 0.875rem; margin-top: 4px;">
+                                    Añadir un alias al tipo de documento existente para que reconozca esta solicitud en el futuro.
+                                </p>
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <strong style="color: #60a5fa;">2. Crear tipo nuevo</strong>
+                                <p style="color: #94a3b8; font-size: 0.875rem; margin-top: 4px;">
+                                    Si este requisito requiere un tipo de documento completamente nuevo.
+                                </p>
+                            </div>
+                            <div>
+                                <strong style="color: #60a5fa;">3. No hacer nada</strong>
+                                <p style="color: #94a3b8; font-size: 0.875rem; margin-top: 4px;">
+                                    Es una decisión válida. Puedes dejar el NO_MATCH como está y manejarlo manualmente.
+                                </p>
+                            </div>
+                        </div>
+                    `
+                },
+                4: {
+                    title: 'Paso 4: Riesgos de automatizar',
+                    content: `
+                        <p style="margin-bottom: 16px; line-height: 1.6;">
+                            <strong>Por qué NO hay aprendizaje automático:</strong>
+                        </p>
+                        <ul style="margin-left: 20px; margin-bottom: 16px; line-height: 1.8;">
+                            <li>Los cambios afectan el comportamiento futuro del sistema</li>
+                            <li>Un alias mal asignado puede causar matches incorrectos</li>
+                            <li>Un tipo mal configurado puede generar problemas de validez</li>
+                            <li>Necesitamos que entiendas las consecuencias antes de actuar</li>
+                        </ul>
+                        <div style="background: #7f1d1d; padding: 16px; border-radius: 8px; margin-bottom: 16px; border-left: 4px solid #dc2626;">
+                            <p style="color: #fca5a5; margin-bottom: 8px;"><strong>⚠️ Qué puede romperse si se hace mal:</strong></p>
+                            <ul style="color: #fca5a5; margin-left: 20px; font-size: 0.875rem;">
+                                <li>El sistema puede empezar a asignar documentos incorrectos automáticamente</li>
+                                <li>Pueden generarse tipos duplicados o conflictivos</li>
+                                <li>Los períodos de validez pueden configurarse incorrectamente</li>
+                            </ul>
+                        </div>
+                    `
+                },
+                5: {
+                    title: 'Paso 5: Confirmación final',
+                    content: `
+                        <p style="margin-bottom: 16px; line-height: 1.6;">
+                            Antes de desbloquear las acciones asistidas, confirma que entiendes:
+                        </p>
+                        <div style="background: #1e293b; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                            <ul style="margin-left: 20px; line-height: 1.8; color: #cbd5e1;">
+                                <li>Las acciones modifican el comportamiento futuro del sistema</li>
+                                <li>Debes verificar cuidadosamente antes de asignar aliases o crear tipos</li>
+                                <li>Todas las acciones son reversibles, pero requieren intervención manual</li>
+                                <li>El sistema registra todas las acciones para auditoría</li>
+                            </ul>
+                        </div>
+                        <div style="margin-top: 24px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="training-confirm-checkbox" style="width: 20px; height: 20px; cursor: pointer;">
+                                <span style="color: #e2e8f0; font-weight: 500;">
+                                    Entiendo que estas acciones modifican el comportamiento futuro
+                                </span>
+                            </label>
+                        </div>
+                    `
+                }
+            };
+            
+            const TOTAL_STEPS = 5;
+            
+            return {
+                steps: TRAINING_WIZARD_STEPS,
+                totalSteps: TOTAL_STEPS,
+                getInitialStep: function() {
+                    // Siempre empezar en paso 1 (clamp)
+                    return 1;
+                },
+                clampStep: function(step) {
+                    // Asegurar que step esté en rango válido
+                    if (step < 1) return 1;
+                    if (step > TOTAL_STEPS) return TOTAL_STEPS;
+                    return step;
+                },
+                isValidStep: function(step) {
+                    return step >= 1 && step <= TOTAL_STEPS && TRAINING_WIZARD_STEPS[step] !== undefined;
+                }
+            };
+        }
+        
         function openTrainingWizard() {
             // SPRINT C2.35.2: Cerrar cualquier training legacy antes de abrir C2.35
             dismissLegacyTutorialIfPresent();
+            
+            // SPRINT C2.35.3: Inicializar estado del wizard de forma estable
+            const wizardState = initC235TrainingWizardState();
+            const steps = wizardState.steps;
+            const totalSteps = wizardState.totalSteps;
             
             // Crear modal de training
             const modal = document.createElement('div');
@@ -2035,11 +2182,126 @@
                 }
             };
             
-            let currentStep = 1;
-            const totalSteps = 5;
+            // SPRINT C2.35.3: Inicializar currentStep con clamp
+            let currentStep = wizardState.clampStep(wizardState.getInitialStep());
             
+            // SPRINT C2.35.3: Función renderStep con guardrails
             function renderStep(step) {
-                const steps = {
+                // Clamp step al rango válido
+                step = wizardState.clampStep(step);
+                
+                // Verificar que steps está definido
+                if (!steps || typeof steps !== 'object') {
+                    console.error('[C2.35.3] Steps no está definido correctamente');
+                    return `
+                        <div style="padding: 24px; text-align: center;">
+                            <h3 style="color: #ef4444; margin-bottom: 16px;">Error al cargar el training</h3>
+                            <p style="color: #94a3b8; margin-bottom: 16px;">No se pudo cargar el training (pasos no disponibles).</p>
+                            <button onclick="location.reload()" class="btn btn-primary" data-testid="training-wizard-reload">Recargar</button>
+                        </div>
+                    `;
+                }
+                
+                const stepData = steps[step];
+                
+                // SPRINT C2.35.3: Guardrail: nunca retornar undefined
+                if (!stepData) {
+                    console.warn('[C2.35.3] Step no encontrado:', { step, stepsLength: Object.keys(steps).length, availableSteps: Object.keys(steps) });
+                    return `
+                        <div style="padding: 24px; text-align: center;">
+                            <h3 style="color: #ef4444; margin-bottom: 16px;" data-testid="training-step-title">Error al cargar el paso</h3>
+                            <p style="color: #94a3b8; margin-bottom: 16px;">No se pudo cargar el paso ${step} del training (paso no disponible).</p>
+                            <button onclick="location.reload()" class="btn btn-primary" data-testid="training-wizard-reload">Recargar</button>
+                        </div>
+                    `;
+                }
+                
+                // Renderizar paso válido
+                const content = document.getElementById('training-wizard-content');
+                if (!content) {
+                    // Si no existe el contenedor, retornar HTML para insertar
+                    return `
+                        <h3 style="margin-bottom: 16px; color: #e2e8f0;" data-testid="training-step-title">${stepData.title}</h3>
+                        <div style="max-height: 400px; overflow-y: auto; margin-bottom: 24px;">
+                            ${stepData.content}
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="color: #94a3b8; font-size: 0.875rem;">
+                                Paso ${step} de ${totalSteps}
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                ${step > 1 ? `<button onclick="trainingWizardPrevious()" class="btn btn-secondary" data-testid="training-wizard-previous">Anterior</button>` : ''}
+                                ${step < totalSteps ? `<button onclick="trainingWizardNext()" class="btn btn-primary" data-testid="training-wizard-next">Siguiente</button>` : ''}
+                                ${step === totalSteps ? `<button onclick="trainingWizardComplete()" id="training-complete-button" class="btn btn-primary" disabled data-testid="training-complete-button">Completar Training</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Si existe el contenedor, actualizarlo directamente
+                content.innerHTML = `
+                    <h3 style="margin-bottom: 16px; color: #e2e8f0;" data-testid="training-step-title">${stepData.title}</h3>
+                    <div style="max-height: 400px; overflow-y: auto; margin-bottom: 24px;">
+                        ${stepData.content}
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="color: #94a3b8; font-size: 0.875rem;">
+                            Paso ${step} de ${totalSteps}
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            ${step > 1 ? `<button onclick="trainingWizardPrevious()" class="btn btn-secondary" data-testid="training-wizard-previous">Anterior</button>` : ''}
+                            ${step < totalSteps ? `<button onclick="trainingWizardNext()" class="btn btn-primary" data-testid="training-wizard-next">Siguiente</button>` : ''}
+                            ${step === totalSteps ? `<button onclick="trainingWizardComplete()" id="training-complete-button" class="btn btn-primary" disabled data-testid="training-complete-button">Completar Training</button>` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                // Habilitar botón de completar solo si checkbox está marcado
+                if (step === totalSteps) {
+                    const checkbox = document.getElementById('training-confirm-checkbox');
+                    const completeBtn = document.getElementById('training-complete-button');
+                    if (checkbox && completeBtn) {
+                        checkbox.onchange = function() {
+                            completeBtn.disabled = !checkbox.checked;
+                        };
+                    }
+                }
+                
+                // Retornar string vacío si ya se actualizó el contenido directamente
+                return '';
+            }
+            
+            modal.innerHTML = `
+                <div style="background: #1e293b; border-radius: 8px; padding: 24px; max-width: 700px; max-height: 90vh; overflow-y: auto; width: 90%; border: 1px solid #334155; pointer-events: auto;" onclick="event.stopPropagation()">
+                    <div id="training-wizard-content" data-testid="training-step-${currentStep}">
+                        ${renderStep(currentStep)}
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            window.trainingWizardNext = function() {
+                if (currentStep < totalSteps) {
+                    currentStep = wizardState.clampStep(currentStep + 1);
+                    const content = document.getElementById('training-wizard-content');
+                    if (content) {
+                        content.setAttribute('data-testid', `training-step-${currentStep}`);
+                        renderStep(currentStep);
+                    }
+                }
+            };
+            
+            window.trainingWizardPrevious = function() {
+                if (currentStep > 1) {
+                    currentStep = wizardState.clampStep(currentStep - 1);
+                    const content = document.getElementById('training-wizard-content');
+                    if (content) {
+                        content.setAttribute('data-testid', `training-step-${currentStep}`);
+                        renderStep(currentStep);
+                    }
+                }
+            };
                     1: {
                         title: 'Paso 1: ¿Qué es un NO_MATCH?',
                         content: `

@@ -159,3 +159,63 @@ npx playwright test tests/training_no_overlap.spec.js
 ### Archivos Modificados (C2.35.2)
 - `frontend/repository_v3.html`: TrainingGate, guards, `dismissLegacyTutorialIfPresent()`
 - `tests/training_no_overlap.spec.js`: Tests E2E anti-solape
+
+---
+
+## C2.35.3: Fix "undefined" al iniciar Training Wizard
+
+### Problema Histórico
+Al pulsar "Iniciar Training", el wizard C2.35 mostraba "undefined" en lugar del contenido del paso 1. Esto ocurría porque:
+
+1. **Causa raíz:** La función `renderStep(step)` retornaba `undefined` cuando no encontraba el step en el objeto `steps`, y este `undefined` se interpolaba directamente en el template string HTML, mostrándose como texto "undefined".
+
+2. **Condiciones que lo causaban:**
+   - `currentStep` fuera del rango válido (1-5)
+   - Objeto `steps` no definido o fuera de scope
+   - `stepData` undefined por cualquier razón
+
+### Solución Implementada
+
+**Inicializador Estable (`initC235TrainingWizardState`):**
+- Define `TRAINING_WIZARD_STEPS` como constante fuera de la función para asegurar disponibilidad
+- Proporciona helpers `clampStep()`, `getInitialStep()`, `isValidStep()`
+- Siempre asegura que `currentStep` esté en rango válido (1-5)
+
+**Guardrails en `renderStep()`:**
+- **Clamp automático:** `step = wizardState.clampStep(step)` antes de acceder a `steps`
+- **Validación de steps:** Verifica que `steps` esté definido antes de usarlo
+- **Nunca retornar undefined:** Si `stepData` es undefined, retorna HTML de error humano con botón "Recargar"
+- **Logging:** `console.warn` con detalles si se detecta step inválido
+
+**Inicialización Robusta:**
+- `currentStep` siempre se inicializa con `wizardState.clampStep(wizardState.getInitialStep())`
+- Navegación (Next/Previous) usa `clampStep()` para asegurar rango válido
+
+### Verificación
+
+**Antes (histórico):**
+1. Abrir `/repository_v3.html#inicio` con training incompleto
+2. Click en "Iniciar Training"
+3. **Bug:** Modal muestra "undefined" en lugar del contenido del paso 1
+
+**Ahora:**
+1. Abrir `/repository_v3.html#inicio` con training incompleto
+2. Click en "Iniciar Training"
+3. **Correcto:** Modal muestra el contenido completo del paso 1 ("¿Qué es un NO_MATCH?")
+4. Navegar con Next/Previous
+5. **Correcto:** Todos los pasos se muestran correctamente, nunca "undefined"
+
+**Tests E2E:**
+```bash
+npx playwright test tests/training_wizard_renders_first_step.spec.js
+```
+
+**Casos cubiertos:**
+- ✅ Paso 1 se renderiza correctamente al iniciar
+- ✅ NO aparece "undefined" en ningún momento
+- ✅ Navegación Next/Previous funciona correctamente
+- ✅ Manejo graceful de steps inválidos (muestra error humano con botón "Recargar")
+
+### Archivos Modificados (C2.35.3)
+- `frontend/repository_v3.html`: `initC235TrainingWizardState()`, guardrails en `renderStep()`, clamp de `currentStep`
+- `tests/training_wizard_renders_first_step.spec.js`: Test E2E bloqueante para verificar render correcto

@@ -1,0 +1,51 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic: "UI build: upload-autocomplete-v1"
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - heading "Repositorio" [level=1] [ref=e4]
+      - paragraph [ref=e5]: Documental
+    - navigation [ref=e6]:
+      - generic [ref=e7] [cursor=pointer]:
+        - generic [ref=e8]: 🏠
+        - text: Inicio
+      - generic [ref=e9] [cursor=pointer]:
+        - generic [ref=e10]: 📤
+        - text: Subir documentos
+      - generic [ref=e11] [cursor=pointer]:
+        - generic [ref=e12]: 🔍
+        - text: Buscar documentos
+      - generic [ref=e13] [cursor=pointer]:
+        - generic [ref=e14]: 📅
+        - text: Calendario de documentos
+      - generic [ref=e15] [cursor=pointer]:
+        - generic [ref=e16]: ⚡
+        - text: Ejecuciones
+      - generic [ref=e17] [cursor=pointer]:
+        - generic [ref=e18]: ⚙️
+        - text: Configuración
+  - generic [ref=e19]:
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - heading "Inicio" [level=2] [ref=e23]
+        - paragraph [ref=e24]: Vista general del repositorio
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - generic [ref=e27]: "Empresa propia:"
+          - combobox "Empresa propia:" [ref=e28]:
+            - option "-- Cargando --" [selected]
+          - generic [ref=e29]: "Plataforma:"
+          - combobox "Plataforma:" [ref=e30]:
+            - option "-- Cargando --" [selected]
+          - generic [ref=e31]: "Empresa coordinada:"
+          - combobox "Empresa coordinada:" [ref=e32]:
+            - option "-- Selecciona plataforma primero --" [selected]
+          - generic [ref=e33]: Sin contexto
+        - generic [ref=e35] [cursor=pointer]:
+          - checkbox "Modo avanzado" [ref=e36]
+          - generic [ref=e37]: Modo avanzado
+    - generic [ref=e39]: Cargando...
+  - button "×" [ref=e42] [cursor=pointer]
+```
