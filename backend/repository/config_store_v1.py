@@ -69,7 +69,16 @@ class ConfigStoreV1:
         return PeopleV1.model_validate({"schema_version": "v1", "people": people or []})
 
     def save_people(self, people: PeopleV1) -> None:
-        self._write_json("people.json", {"schema_version": "v1", "people": [p.model_dump(mode="json") for p in people.people]})
+        # HOTFIX: Asegurar que own_company_key se persiste explícitamente
+        # model_dump(mode="json") ya incluye own_company_key, pero lo verificamos explícitamente
+        serialized_people = []
+        for p in people.people:
+            person_dict = p.model_dump(mode="json")
+            # Asegurar que own_company_key está presente en el dict serializado
+            # (model_dump ya lo incluye, pero esto es un guardrail explícito)
+            person_dict["own_company_key"] = p.own_company_key
+            serialized_people.append(person_dict)
+        self._write_json("people.json", {"schema_version": "v1", "people": serialized_people})
 
     def load_platforms(self) -> PlatformsV1:
         raw = self._read_json("platforms.json")

@@ -82,6 +82,8 @@ def validate_write_request_context(request: Request) -> None:
       - En caso contrario:
         - lanzar HTTPException 400 con payload estable
     
+    HOTFIX: Rutas /config/* requieren contexto humano (no son legacy).
+    
     Args:
         request: Request de FastAPI
     
@@ -104,6 +106,7 @@ def validate_write_request_context(request: Request) -> None:
     # SPRINT C2.28: Log estructurado antes de rechazar
     _log_guardrail_block(request)
     
+    # HOTFIX: Asegurar que HTTPException se lanza correctamente con status_code 400
     # WRITE sin contexto válido: rechazar
     raise HTTPException(
         status_code=400,

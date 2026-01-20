@@ -50,6 +50,8 @@ from backend.api.export_routes import router as export_router  # SPRINT C2.21
 from backend.api.coordination_context_routes import router as coordination_context_router  # SPRINT C2.26
 from backend.api.runs_routes import router as runs_router  # SPRINT C2.29
 from backend.api.schedules_routes import router as schedules_router  # SPRINT C2.30
+from backend.api.preview_routes import router as preview_router  # SPRINT C2.36
+from backend.api.suggestions_routes import router as suggestions_router  # SPRINT C2.36
 from backend.repository.document_repository_routes import router as document_repository_router
 from backend.repository.config_routes import router as config_routes_router
 from backend.repository.submission_rules_routes import router as submission_rules_router
@@ -74,6 +76,16 @@ from backend.config import DATA_DIR
 
 app = FastAPI(title="CometLocal Backend")
 
+# HOTFIX: Registrar exception handler ANTES del middleware
+# (FastAPI procesa exception handlers en orden de registro)
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc: HTTPException):
+    """Asegura que HTTPException se devuelve con el status_code correcto."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
+
 # CORS abierto para desarrollo (luego afinaremos)
 app.add_middleware(
     CORSMiddleware,
@@ -89,12 +101,17 @@ async def context_guardrail_middleware(request: Request, call_next):
     """
     Middleware que valida contexto humano para operaciones WRITE.
     SPRINT C2.28: Incluye logs estructurados para señales operativas.
+    HOTFIX: Capturar HTTPException y devolver respuesta JSON directamente.
     """
     try:
         validate_write_request_context(request)
-    except HTTPException:
-        # Re-lanzar HTTPException para que FastAPI la maneje
-        raise
+    except HTTPException as exc:
+        # HOTFIX: Devolver respuesta JSON directamente desde el middleware
+        # para asegurar que se respeta el status_code 400
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail}
+        )
     except Exception:
         # Otros errores: continuar sin bloquear
         pass
@@ -123,6 +140,8 @@ app.include_router(export_router)  # SPRINT C2.21
 app.include_router(coordination_context_router)  # SPRINT C2.26
 app.include_router(runs_router)  # SPRINT C2.29
 app.include_router(schedules_router)  # SPRINT C2.30
+app.include_router(preview_router)  # SPRINT C2.36
+app.include_router(suggestions_router)  # SPRINT C2.36
 app.include_router(document_repository_router)
 app.include_router(config_routes_router)
 app.include_router(submission_rules_router)
@@ -143,6 +162,8 @@ async def validation_exception_handler(request, exc):
         status_code=400,
         content={"detail": str(exc)}
     )
+
+# Exception handler ya registrado arriba (antes del middleware)
 
 
 
@@ -506,6 +527,17 @@ async def repository_v3_html():
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
+
+# SPRINT C2.33: Redirigir rutas /config/* a repository_v3.html#configuracion para unificación visual
+@app.get("/config", include_in_schema=False)
+async def redirect_config():
+    """Redirige /config a repository_v3.html#configuracion"""
+    return RedirectResponse(url="/repository_v3.html#configuracion", status_code=302)
+
+@app.get("/config/{section:path}", include_in_schema=False)
+async def redirect_config_section(section: str):
+    """Redirige /config/{section} a repository_v3.html#configuracion?section={section}"""
+    return RedirectResponse(url=f"/repository_v3.html#configuracion?section={section}", status_code=302)
 
 
 @app.get("/simulation/portal_a/login.html", include_in_schema=False)

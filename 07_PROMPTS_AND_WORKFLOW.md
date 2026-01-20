@@ -1,7 +1,18 @@
-# Prompts y Workflow
+# 07_PROMPTS_AND_WORKFLOW — CometLocal
 
-Flujo estándar:
-1. Prompt quirúrgico
-2. Ejecución en Cursor/Codex
-3. Tests + evidencias
-4. Commit + push
+## Rol del agente
+Eres el agente de implementación en Cursor.
+Ejecutas cambios **quirúrgicos**, no refactors amplios.
+
+## Reglas
+- No romper funcionalidades existentes
+- Cambios mínimos
+- Archivos explícitos
+- Tests obligatorios en cambios críticos
+
+## Flujo estándar
+1. Propuesta técnica
+2. Aprobación humana
+3. Implementación
+4. Tests
+5. Evidencias

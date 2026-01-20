@@ -274,85 +274,101 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
 
     @router.get("/config/people", response_class=HTMLResponse)
     def get_people():
-        from backend.shared.org_v1 import OrgV1
-        from backend.api.coordination_context_routes import get_coordination_context_options
+        """
+        GET /config/people - Renderiza formulario de edición de trabajadores.
         
-        people = store.load_people()
-        org = store.load_org()
-        
-        # Obtener opciones de empresas propias
+        Siempre devuelve 200, incluso si hay errores internos (muestra HTML de error amigable).
+        """
         try:
-            # get_coordination_context_options es async, pero estamos en función sync
-            # Usar ConfigStore directamente para evitar dependencia async
-            from backend.config import DATA_DIR
-            from backend.repository.config_store_v1 import ConfigStoreV1 as StoreHelper
-            from backend.shared.org_v1 import OrgV1 as OrgHelper
+            from backend.shared.org_v1 import OrgV1
+            from backend.api.coordination_context_routes import get_coordination_context_options
             
-            helper_store = StoreHelper(base_dir=DATA_DIR)
-            helper_org = helper_store.load_org()
-            own_companies = [
-                type('CompanyOption', (), {
-                    'key': helper_org.tax_id if helper_org.tax_id else 'DEFAULT',
-                    'name': helper_org.legal_name if helper_org.legal_name else 'Empresa Principal'
-                })()
-            ]
-        except Exception:
-            # Fallback: usar org actual
-            own_companies = [
-                type('CompanyOption', (), {
-                    'key': org.tax_id if org.tax_id else 'DEFAULT',
-                    'name': org.legal_name if org.legal_name else 'Empresa Principal'
-                })()
-            ]
-        
-        # Construir opciones para selector (incluir "Sin asignar")
-        company_options_base = '<option value="">-- Todas --</option>'
-        company_options_base += '<option value="unassigned">Sin asignar</option>'
-        for company in own_companies:
-            company_options_base += f'<option value="{html.escape(company.key)}">{html.escape(company.name)}</option>'
-        
-        rows = []
-        for i, p in enumerate(people.people):
-            own_company_value = p.own_company_key if p.own_company_key else ""
-            # Construir selector con opción seleccionada
-            company_options = company_options_base.replace(
-                f'value="{own_company_value}"',
-                f'value="{own_company_value}" selected'
-            ) if own_company_value else company_options_base.replace(
-                'value="unassigned"',
-                'value="unassigned" selected'
-            )
+            people = store.load_people()
+            org = store.load_org()
             
+            # Obtener opciones de empresas propias
+            try:
+                # get_coordination_context_options es async, pero estamos en función sync
+                # Usar ConfigStore directamente para evitar dependencia async
+                from backend.config import DATA_DIR
+                from backend.repository.config_store_v1 import ConfigStoreV1 as StoreHelper
+                from backend.shared.org_v1 import OrgV1 as OrgHelper
+                
+                helper_store = StoreHelper(base_dir=DATA_DIR)
+                helper_org = helper_store.load_org()
+                own_companies = [
+                    type('CompanyOption', (), {
+                        'key': helper_org.tax_id if helper_org.tax_id else 'DEFAULT',
+                        'name': helper_org.legal_name if helper_org.legal_name else 'Empresa Principal'
+                    })()
+                ]
+            except Exception:
+                # Fallback: usar org actual
+                own_companies = [
+                    type('CompanyOption', (), {
+                        'key': org.tax_id if org.tax_id else 'DEFAULT',
+                        'name': org.legal_name if org.legal_name else 'Empresa Principal'
+                    })()
+                ]
+            
+            # Construir opciones para selector de FILTRO (incluye "-- Todas --")
+            filter_options_base = '<option value="">-- Todas --</option>'
+            filter_options_base += '<option value="unassigned">Sin asignar</option>'
+            for company in own_companies:
+                filter_options_base += f'<option value="{html.escape(company.key)}">{html.escape(company.name)}</option>'
+            
+            # Construir opciones para selector de FILA (NO incluye "-- Todas --")
+            row_options_base = '<option value="unassigned">Sin asignar</option>'
+            for company in own_companies:
+                row_options_base += f'<option value="{html.escape(company.key)}">{html.escape(company.name)}</option>'
+            
+            rows = []
+            for i, p in enumerate(people.people):
+                own_company_value = p.own_company_key if p.own_company_key else "unassigned"
+                # Construir selector con opción seleccionada (usar row_options_base, no filter)
+                company_options = row_options_base.replace(
+                    f'value="{own_company_value}"',
+                    f'value="{own_company_value}" selected'
+                ) if own_company_value != "unassigned" else row_options_base.replace(
+                    'value="unassigned"',
+                    'value="unassigned" selected'
+                )
+                
+                rows.append(
+                    "<tr>"
+                    f"<td><input type='text' name='worker_id__{i}' value='{html.escape(p.worker_id)}'/></td>"
+                    f"<td><input type='text' name='full_name__{i}' value='{html.escape(p.full_name)}'/></td>"
+                    f"<td><input type='text' name='tax_id__{i}' value='{html.escape(p.tax_id)}'/></td>"
+                    f"<td><input type='text' name='role__{i}' value='{html.escape(p.role)}'/></td>"
+                    f"<td><input type='text' name='relation_type__{i}' value='{html.escape(p.relation_type)}'/></td>"
+                    f"<td><select name='own_company_key__{i}'>{company_options}</select></td>"
+                    "</tr>"
+                )
+            # una fila extra vacía para añadir
+            j = len(people.people)
             rows.append(
                 "<tr>"
-                f"<td><input type='text' name='worker_id__{i}' value='{html.escape(p.worker_id)}'/></td>"
-                f"<td><input type='text' name='full_name__{i}' value='{html.escape(p.full_name)}'/></td>"
-                f"<td><input type='text' name='tax_id__{i}' value='{html.escape(p.tax_id)}'/></td>"
-                f"<td><input type='text' name='role__{i}' value='{html.escape(p.role)}'/></td>"
-                f"<td><input type='text' name='relation_type__{i}' value='{html.escape(p.relation_type)}'/></td>"
-                f"<td><select name='own_company_key__{i}'>{company_options}</select></td>"
+                f"<td><input type='text' name='worker_id__{j}' value=''/></td>"
+                f"<td><input type='text' name='full_name__{j}' value=''/></td>"
+                f"<td><input type='text' name='tax_id__{j}' value=''/></td>"
+                f"<td><input type='text' name='role__{j}' value=''/></td>"
+                f"<td><input type='text' name='relation_type__{j}' value=''/></td>"
+                f"<td><select name='own_company_key__{j}'>{row_options_base}</select></td>"
                 "</tr>"
             )
-        # una fila extra vacía para añadir
-        j = len(people.people)
-        rows.append(
-            "<tr>"
-            f"<td><input type='text' name='worker_id__{j}' value=''/></td>"
-            f"<td><input type='text' name='full_name__{j}' value=''/></td>"
-            f"<td><input type='text' name='tax_id__{j}' value=''/></td>"
-            f"<td><input type='text' name='role__{j}' value=''/></td>"
-            f"<td><input type='text' name='relation_type__{j}' value=''/></td>"
-            f"<td><select name='own_company_key__{j}'>{company_options_base}</select></td>"
-            "</tr>"
-        )
 
-        body = f"""
+            # HOTFIX: Construir el string JavaScript de forma segura para evitar que Python
+            # intente evaluar expresiones JavaScript como código Python
+            # Usar concatenación de strings para el template literal de JavaScript
+            js_error_fallback = "`Error ${response.status}: ${response.statusText}`"
+            
+            body = f"""
 <form method="post" id="people-form">
   <div class="card">
     <div style="margin-bottom: 16px;">
       <label for="filter-own-company" style="display: block; margin-bottom: 8px; font-weight: 500;">Filtrar por empresa propia:</label>
       <select id="filter-own-company" onchange="filterPeopleTable()" style="padding: 8px; min-width: 200px;">
-        {company_options_base}
+        {filter_options_base}
       </select>
     </div>
     <table id="people-table">
@@ -360,8 +376,9 @@ def create_config_viewer_router(*, base_dir: Path) -> APIRouter:
       <tbody>{''.join(rows)}</tbody>
     </table>
     <div style="margin-top:12px;">
-      <button class="btn" type="submit">Guardar</button>
+      <button class="btn" type="submit" id="people-save-btn">Guardar</button>
     </div>
+    <div id="people-form-error" style="margin-top: 12px; display: none; padding: 12px; background: #fee; border: 1px solid #fcc; border-radius: 4px; color: #c00;"></div>
     <div class="muted" style="margin-top:8px;">Deja worker_id vacío para no guardar esa fila.</div>
   </div>
 </form>
@@ -383,13 +400,128 @@ function filterPeopleTable() {{
         }}
     }});
 }}
+
+// Interceptar submit del formulario para añadir headers de contexto humano
+document.getElementById('people-form').addEventListener('submit', async function(e) {{
+    e.preventDefault();
+    
+    const form = e.target;
+    const errorDiv = document.getElementById('people-form-error');
+    const saveBtn = document.getElementById('people-save-btn');
+    
+    // Ocultar error previo
+    errorDiv.style.display = 'none';
+    errorDiv.textContent = '';
+    
+    // Obtener contexto del parent window (si estamos en iframe) o del mismo window
+    let context = null;
+    try {{
+        if (window.parent && window.parent !== window) {{
+            // Estamos en iframe, obtener contexto del parent
+            if (window.parent.getCoordinationContext) {{
+                context = window.parent.getCoordinationContext();
+            }}
+        }} else if (window.getCoordinationContext) {{
+            // Estamos en el mismo window
+            context = window.getCoordinationContext();
+        }}
+    }} catch (err) {{
+        console.warn('[config/people] No se pudo obtener contexto del parent:', err);
+    }}
+    
+    // Verificar que tenemos contexto válido
+    if (!context || !context.isValid()) {{
+        errorDiv.textContent = 'Error: Selecciona Empresa propia, Plataforma y Empresa coordinada en el header principal antes de guardar.';
+        errorDiv.style.display = 'block';
+        return;
+    }}
+    
+    // Construir FormData desde el formulario
+    const formData = new FormData(form);
+    
+    // Deshabilitar botón mientras se guarda
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Guardando...';
+    
+    try {{
+        // Hacer POST con headers de contexto
+        const response = await fetch('/config/people', {{
+            method: 'POST',
+            body: formData,
+            headers: {{
+                'X-Coordination-Own-Company': context.own_company_key,
+                'X-Coordination-Platform': context.platform_key,
+                'X-Coordination-Coordinated-Company': context.coordinated_company_key
+            }}
+        }});
+        
+        if (!response.ok) {{
+            // Intentar leer error como JSON
+            let errorMessage = 'Error al guardar';
+            try {{
+                const errorData = await response.json();
+                if (errorData.detail) {{
+                    if (typeof errorData.detail === 'object' && errorData.detail.message) {{
+                        errorMessage = errorData.detail.message;
+                    }} else if (typeof errorData.detail === 'string') {{
+                        errorMessage = errorData.detail;
+                    }}
+                }}
+            }} catch (e) {{
+                // HOTFIX: Usar template literal de JavaScript sin que Python lo interprete
+                errorMessage = 'Error ' + response.status + ': ' + response.statusText;
+            }}
+            
+            errorDiv.textContent = errorMessage;
+            errorDiv.style.display = 'block';
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Guardar';
+            return;
+        }}
+        
+        // Éxito: recargar la página para mostrar cambios
+        window.location.reload();
+        
+    }} catch (error) {{
+        errorDiv.textContent = 'Error de conexión: ' + (error.message || String(error));
+        errorDiv.style.display = 'block';
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Guardar';
+    }}
+}});
 </script>
 """
-        return HTMLResponse(_page("Config — People", body))
+            return HTMLResponse(_page("Config — People", body))
+        except Exception as e:
+            # HOTFIX: Siempre devolver 200, incluso si hay errores internos
+            # Loggear el error pero mostrar HTML amigable
+            logger.error(f"Error en get_people: {e}", exc_info=True)
+            error_body = f"""
+<div class="card" style="border-color: #fcc; background: #fee;">
+  <h3 style="color: #c00; margin-top: 0;">Error al cargar configuración de trabajadores</h3>
+  <p>Ha ocurrido un error interno. Por favor, intenta recargar la página.</p>
+  <details style="margin-top: 12px;">
+    <summary style="cursor: pointer; color: #666;">Detalles técnicos</summary>
+    <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; margin-top: 8px; font-size: 12px; overflow-x: auto;">{html.escape(str(e))}</pre>
+  </details>
+  <div style="margin-top: 12px;">
+    <a class="btn" href="/config">Volver a Config</a>
+  </div>
+</div>
+"""
+            return HTMLResponse(_page("Config — People (Error)", error_body), status_code=200)
 
     @router.post("/config/people")
     async def post_people(request: Request):
         form = {k: str(v) for k, v in (await request.form()).items()}
+        
+        # HOTFIX: Logging temporal para diagnosticar persistencia own_company_key
+        import os
+        if os.getenv("ENVIRONMENT", "").lower() in ("dev", "development"):
+            logger.info(f"[HOTFIX] Form keys recibidos: {list(form.keys())}")
+            own_company_keys = {k: v for k, v in form.items() if k.startswith("own_company_key__")}
+            logger.info(f"[HOTFIX] own_company_key fields: {own_company_keys}")
+        
         idxs = _get_indices(form, "worker_id__")
         out: List[PersonV1] = []
         for i in idxs:
@@ -399,20 +531,44 @@ function filterPeopleTable() {{
             
             # SPRINT C2.32A: Obtener own_company_key del formulario
             own_company_key_raw = (form.get(f"own_company_key__{i}") or "").strip()
-            # Si está vacío o es "unassigned", usar None
-            own_company_key = None if (not own_company_key_raw or own_company_key_raw == "unassigned") else own_company_key_raw
+            # Si está vacío, es "unassigned" o es "-- Todas --" (que solo es para filtro), usar None
+            # Nunca guardar "-- Todas --" como valor real
+            if not own_company_key_raw or own_company_key_raw == "unassigned" or own_company_key_raw == "-- Todas --" or own_company_key_raw == "":
+                own_company_key = None
+            else:
+                own_company_key = own_company_key_raw
             
-            out.append(
-                PersonV1(
-                    worker_id=worker_id,
-                    full_name=(form.get(f"full_name__{i}") or "").strip(),
-                    tax_id=(form.get(f"tax_id__{i}") or "").strip(),
-                    role=(form.get(f"role__{i}") or "").strip(),
-                    relation_type=(form.get(f"relation_type__{i}") or "").strip(),
-                    own_company_key=own_company_key,  # SPRINT C2.32A
-                )
+            # HOTFIX: Logging temporal
+            if os.getenv("ENVIRONMENT", "").lower() in ("dev", "development"):
+                logger.info(f"[HOTFIX] worker_id={worker_id}, own_company_key_raw={own_company_key_raw!r}, own_company_key={own_company_key!r}")
+            
+            person = PersonV1(
+                worker_id=worker_id,
+                full_name=(form.get(f"full_name__{i}") or "").strip(),
+                tax_id=(form.get(f"tax_id__{i}") or "").strip(),
+                role=(form.get(f"role__{i}") or "").strip(),
+                relation_type=(form.get(f"relation_type__{i}") or "").strip(),
+                own_company_key=own_company_key,  # SPRINT C2.32A
             )
+            
+            # HOTFIX: Verificar que own_company_key está en el modelo antes de guardar
+            if os.getenv("ENVIRONMENT", "").lower() in ("dev", "development"):
+                logger.info(f"[HOTFIX] PersonV1 creado: {person.model_dump()}")
+            
+            out.append(person)
+        
+        # HOTFIX: Verificar serialización antes de guardar
+        if os.getenv("ENVIRONMENT", "").lower() in ("dev", "development"):
+            serialized = [p.model_dump(mode="json") for p in out]
+            logger.info(f"[HOTFIX] Serialización antes de guardar: {serialized}")
+        
         store.save_people(PeopleV1(people=out))
+        
+        # HOTFIX: Verificar que se guardó correctamente
+        if os.getenv("ENVIRONMENT", "").lower() in ("dev", "development"):
+            saved = store.load_people()
+            logger.info(f"[HOTFIX] Verificación post-guardado: {[p.model_dump() for p in saved.people]}")
+        
         return RedirectResponse(url="/config/people", status_code=303)
 
     @router.get("/config/platforms", response_class=HTMLResponse)

@@ -116,32 +116,6 @@
       "validity_start_mode": "manual"
     },
     {
-      "type_id": "E2E_TYPE_3f915656_0",
-      "name": "E2E Test Type 1",
-      "description": "Tipo de prueba E2E 1",
-      "scope": "worker",
-      "validity_policy": {
-        "mode": "monthly",
-        "basis": "issue_date",
-        "monthly": {
-          "month_source": "issue_date",
-          "valid_from": "period_start",
-          "valid_to": "period_end",
-          "grace_days": 0
-        },
-        "annual": null,
-        "fixed_end_date": null,
-        "n_months": null
-      },
-      "required_fields": [],
-      "platform_aliases": [],
-      "allow_late_submission": false,
-      "late_submission_max_days": null,
-      "active": false,
-      "issue_date_required": true,
-      "validity_start_mode": "issue_date"
-    },
-    {
       "type_id": "T7775_POLIZA_JUSTIFICANTE_PAGO_POLIZA_RESP_CIVIL",
       "name": "Póliza + Justificante pago póliza Resp. Civil",
       "description": "Póliza + Justificante pago póliza Resp. Civil",
@@ -242,15 +216,15 @@
       "validity_start_mode": "issue_date"
     },
     {
-      "type_id": "T999_OTHER",
-      "name": "Otro documento",
+      "type_id": "TEST_TYPE",
+      "name": "Test Type",
       "description": "",
-      "scope": "worker",
+      "scope": "company",
       "validity_policy": {
         "mode": "monthly",
-        "basis": "name_date",
+        "basis": "issue_date",
         "monthly": {
-          "month_source": "name_date",
+          "month_source": "issue_date",
           "valid_from": "period_start",
           "valid_to": "period_end",
           "grace_days": 0
@@ -260,218 +234,10 @@
         "n_months": null
       },
       "required_fields": [],
-      "platform_aliases": [],
-      "allow_late_submission": false,
-      "late_submission_max_days": null,
-      "active": true,
-      "issue_date_required": true,
-      "validity_start_mode": "issue_date"
-    },
-    {
-      "type_id": "T999_bf194334",
-      "name": "Otro documento",
-      "description": "",
-      "scope": "worker",
-      "validity_policy": {
-        "mode": "monthly",
-        "basis": "name_date",
-        "monthly": {
-          "month_source": "name_date",
-          "valid_from": "period_start",
-          "valid_to": "period_end",
-          "grace_days": 0
-        },
-        "annual": null,
-        "fixed_end_date": null,
-        "n_months": null
-      },
-      "required_fields": [],
-      "platform_aliases": [],
-      "allow_late_submission": false,
-      "late_submission_max_days": null,
-      "active": true,
-      "issue_date_required": true,
-      "validity_start_mode": "issue_date"
-    },
-    {
-      "type_id": "T999_4443a8c4",
-      "name": "Otro documento",
-      "description": "",
-      "scope": "worker",
-      "validity_policy": {
-        "mode": "monthly",
-        "basis": "name_date",
-        "monthly": {
-          "month_source": "name_date",
-          "valid_from": "period_start",
-          "valid_to": "period_end",
-          "grace_days": 0
-        },
-        "annual": null,
-        "fixed_end_date": null,
-        "n_months": null
-      },
-      "required_fields": [],
-      "platform_aliases": [],
-      "allow_late_submission": false,
-      "late_submission_max_days": null,
-      "active": true,
-      "issue_date_required": true,
-      "validity_start_mode": "issue_date"
-    },
-    {
-      "type_id": "T999_b26fa1bd",
-      "name": "Otro documento",
-      "description": "",
-      "scope": "worker",
-      "validity_policy": {
-        "mode": "monthly",
-        "basis": "name_date",
-        "monthly": {
-          "month_source": "name_date",
-          "valid_from": "period_start",
-          "valid_to": "period_end",
-          "grace_days": 0
-        },
-        "annual": null,
-        "fixed_end_date": null,
-        "n_months": null
-      },
-      "required_fields": [],
-      "platform_aliases": [],
-      "allow_late_submission": false,
-      "late_submission_max_days": null,
-      "active": true,
-      "issue_date_required": true,
-      "validity_start_mode": "issue_date"
-    },
-    {
-      "type_id": "T999_8e54d1d3",
-      "name": "Otro documento",
-      "description": "",
-      "scope": "worker",
-      "validity_policy": {
-        "mode": "monthly",
-        "basis": "name_date",
-        "monthly": {
-          "month_source": "name_date",
-          "valid_from": "period_start",
-          "valid_to": "period_end",
-          "grace_days": 0
-        },
-        "annual": null,
-        "fixed_end_date": null,
-        "n_months": null
-      },
-      "required_fields": [],
-      "platform_aliases": [],
-      "allow_late_submission": false,
-      "late_submission_max_days": null,
-      "active": true,
-      "issue_date_required": true,
-      "validity_start_mode": "issue_date"
-    },
-    {
-      "type_id": "T999_98354684",
-      "name": "Otro documento",
-      "description": "",
-      "scope": "worker",
-      "validity_policy": {
-        "mode": "monthly",
-        "basis": "name_date",
-        "monthly": {
-          "month_source": "name_date",
-          "valid_from": "period_start",
-          "valid_to": "period_end",
-          "grace_days": 0
-        },
-        "annual": null,
-        "fixed_end_date": null,
-        "n_months": null
-      },
-      "required_fields": [],
-      "platform_aliases": [],
-      "allow_late_submission": false,
-      "late_submission_max_days": null,
-      "active": true,
-      "issue_date_required": true,
-      "validity_start_mode": "issue_date"
-    },
-    {
-      "type_id": "T999_8f85fe1a",
-      "name": "Otro documento",
-      "description": "",
-      "scope": "worker",
-      "validity_policy": {
-        "mode": "monthly",
-        "basis": "name_date",
-        "monthly": {
-          "month_source": "name_date",
-          "valid_from": "period_start",
-          "valid_to": "period_end",
-          "grace_days": 0
-        },
-        "annual": null,
-        "fixed_end_date": null,
-        "n_months": null
-      },
-      "required_fields": [],
-      "platform_aliases": [],
-      "allow_late_submission": false,
-      "late_submission_max_days": null,
-      "active": true,
-      "issue_date_required": true,
-      "validity_start_mode": "issue_date"
-    },
-    {
-      "type_id": "T999_495b35f0",
-      "name": "Otro documento",
-      "description": "",
-      "scope": "worker",
-      "validity_policy": {
-        "mode": "monthly",
-        "basis": "name_date",
-        "monthly": {
-          "month_source": "name_date",
-          "valid_from": "period_start",
-          "valid_to": "period_end",
-          "grace_days": 0
-        },
-        "annual": null,
-        "fixed_end_date": null,
-        "n_months": null
-      },
-      "required_fields": [],
-      "platform_aliases": [],
-      "allow_late_submission": false,
-      "late_submission_max_days": null,
-      "active": true,
-      "issue_date_required": true,
-      "validity_start_mode": "issue_date"
-    },
-    {
-      "type_id": "TEST_MONTHLY",
-      "name": "Test Mensual",
-      "description": "Tipo de prueba mensual",
-      "scope": "worker",
-      "validity_policy": {
-        "mode": "monthly",
-        "basis": "name_date",
-        "monthly": {
-          "month_source": "name_date",
-          "valid_from": "period_start",
-          "valid_to": "period_end",
-          "grace_days": 0
-        },
-        "annual": null,
-        "fixed_end_date": null,
-        "n_months": null
-      },
-      "required_fields": [
-        "valid_from",
-        "valid_to"
+      "platform_aliases": [
+        "existing_alias",
+        "new_alias"
       ],
-      "platform_aliases": [],
       "allow_late_submission": false,
       "late_submission_max_days": null,
       "active": true,
@@ -479,15 +245,15 @@
       "validity_start_mode": "issue_date"
     },
     {
-      "type_id": "T999_31ba7ad2",
-      "name": "Otro documento",
+      "type_id": "TEST_TYPE_NO_DUP",
+      "name": "Test Type No Dup",
       "description": "",
-      "scope": "worker",
+      "scope": "company",
       "validity_policy": {
         "mode": "monthly",
-        "basis": "name_date",
+        "basis": "issue_date",
         "monthly": {
-          "month_source": "name_date",
+          "month_source": "issue_date",
           "valid_from": "period_start",
           "valid_to": "period_end",
           "grace_days": 0
@@ -497,7 +263,150 @@
         "n_months": null
       },
       "required_fields": [],
+      "platform_aliases": [
+        "existing_alias"
+      ],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    },
+    {
+      "type_id": "TEST_TYPE_NO_DELETE",
+      "name": "Test Type No Delete",
+      "description": "",
+      "scope": "company",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "issue_date",
+        "monthly": {
+          "month_source": "issue_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [],
+      "platform_aliases": [
+        "alias1",
+        "alias2",
+        "alias3",
+        "new_alias"
+      ],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    },
+    {
+      "type_id": "TEST_TYPE_ADD",
+      "name": "Test Type Add",
+      "description": "",
+      "scope": "company",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "issue_date",
+        "monthly": {
+          "month_source": "issue_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [],
+      "platform_aliases": [
+        "existing_alias",
+        "new_alias"
+      ],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    },
+    {
+      "type_id": "TYPE_1",
+      "name": "Recibo Autónomos",
+      "description": "",
+      "scope": "worker",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "issue_date",
+        "monthly": {
+          "month_source": "issue_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [],
+      "platform_aliases": [
+        "T205.0"
+      ],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    },
+    {
+      "type_id": "TYPE_2",
+      "name": "Otro Tipo",
+      "description": "",
+      "scope": "company",
+      "validity_policy": {
+        "mode": "annual",
+        "basis": "issue_date",
+        "monthly": null,
+        "annual": {
+          "months": 12,
+          "valid_from": "issue_date",
+          "valid_to": "issue_date_plus_months"
+        },
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [],
       "platform_aliases": [],
+      "allow_late_submission": false,
+      "late_submission_max_days": null,
+      "active": true,
+      "issue_date_required": true,
+      "validity_start_mode": "issue_date"
+    },
+    {
+      "type_id": "TYPE_0",
+      "name": "Type 0",
+      "description": "",
+      "scope": "company",
+      "validity_policy": {
+        "mode": "monthly",
+        "basis": "issue_date",
+        "monthly": {
+          "month_source": "issue_date",
+          "valid_from": "period_start",
+          "valid_to": "period_end",
+          "grace_days": 0
+        },
+        "annual": null,
+        "fixed_end_date": null,
+        "n_months": null
+      },
+      "required_fields": [],
+      "platform_aliases": [
+        "T0"
+      ],
       "allow_late_submission": false,
       "late_submission_max_days": null,
       "active": true,

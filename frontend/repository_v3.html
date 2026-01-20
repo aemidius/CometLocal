@@ -11963,6 +11963,9 @@
                         ${trainingCompleted ? `
                             <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #334155;">
                                 <strong style="color: #e2e8f0; margin-bottom: 8px; display: block;">Acciones asistidas:</strong>
+                                <div id="suggestions-container-${item.item_id || item.pending_item_key}" style="margin-bottom: 12px;">
+                                    <!-- SPRINT C2.36: Sugerencias se cargarán aquí -->
+                                </div>
                                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                     <button onclick="handleAssignToExistingType('${item.item_id || item.pending_item_key}')" class="btn btn-secondary" data-testid="action-assign-existing-type">
                                         Asignar a un tipo existente
@@ -11984,8 +11987,153 @@
             }).join('');
         }
         
+        // SPRINT C2.36: Cargar sugerencias para un item
+        async function loadSuggestionsForItem(itemId) {
+            const item = planReviewState.planData.items.find(i => (i.item_id || i.pending_item_key) === itemId);
+            if (!item || !item.debug_report) {
+                return;
+            }
+            
+            const container = document.getElementById(`suggestions-container-${itemId}`);
+            if (!container) {
+                return;
+            }
+            
+            try {
+                const context = getCoordinationContext();
+                const pendingData = {
+                    tipo_doc: item.tipo_doc,
+                    elemento: item.elemento,
+                    empresa: item.empresa,
+                    trabajador: item.trabajador,
+                    fecha_inicio: item.fecha_inicio,
+                    fecha_fin: item.fecha_fin,
+                    raw_data: item.raw_data || {}
+                };
+                
+                const response = await fetch(`${BACKEND_URL}/api/suggestions/types`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        pending: pendingData,
+                        context: {
+                            company_key: context.own_company_key || '',
+                            person_key: context.person_key || '',
+                            platform_key: item.debug_report.filters_applied?.platform_key || 'egestiona'
+                        },
+                        limit: 3
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const suggestions = data.suggestions || [];
+                    
+                    if (suggestions.length > 0) {
+                        container.innerHTML = `
+                            <div style="background: #1e3a8a; padding: 12px; border-radius: 4px; border-left: 4px solid #3b82f6; margin-bottom: 8px;">
+                                <strong style="color: #93c5fd; font-size: 0.875rem; display: block; margin-bottom: 8px;">💡 Tipos sugeridos:</strong>
+                                ${suggestions.map(s => `
+                                    <div style="margin-bottom: 8px; padding: 8px; background: #0f172a; border-radius: 4px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                                            <div style="flex: 1;">
+                                                <strong style="color: #60a5fa; font-size: 0.875rem;">${escapeHtml(s.type_name)}</strong>
+                                                <span style="color: #94a3b8; font-size: 0.75rem; margin-left: 8px;">(${escapeHtml(s.type_id)})</span>
+                                                <div style="margin-top: 4px;">
+                                                    ${s.reasons.map(r => `<span style="color: #cbd5e1; font-size: 0.75rem; display: inline-block; margin-right: 8px; margin-top: 4px; padding: 2px 6px; background: #1e293b; border-radius: 3px;">${escapeHtml(r)}</span>`).join('')}
+                                                </div>
+                                            </div>
+                                            <button onclick="useSuggestedType('${itemId}', '${escapeHtml(s.type_id)}', '${escapeHtml(item.tipo_doc || '')}')" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.75rem; margin-left: 8px;">
+                                                Usar este tipo
+                                            </button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    } else {
+                        container.innerHTML = '';
+                    }
+                }
+            } catch (error) {
+                console.error('[C2.36] Error loading suggestions:', error);
+                // Silencioso: si falla, simplemente no mostramos sugerencias
+                container.innerHTML = '';
+            }
+        }
+        
+        // SPRINT C2.36: Usar tipo sugerido
+        async function useSuggestedType(itemId, typeId, alias) {
+            // Abrir modal de asignar alias con el tipo pre-seleccionado
+            await handleAssignToExistingType(itemId, typeId, alias);
+        }
+        
+        // SPRINT C2.36: Mostrar preview de impacto antes de confirmar
+        async function showImpactPreview(action, itemId, typeId, alias, draftType, platformKey) {
+            const item = planReviewState.planData.items.find(i => (i.item_id || i.pending_item_key) === itemId);
+            if (!item || !item.debug_report) {
+                return null;
+            }
+            
+            try {
+                const context = getCoordinationContext();
+                const pendingData = {
+                    tipo_doc: item.tipo_doc,
+                    elemento: item.elemento,
+                    empresa: item.empresa,
+                    trabajador: item.trabajador,
+                    fecha_inicio: item.fecha_inicio,
+                    fecha_fin: item.fecha_fin,
+                    raw_data: item.raw_data || {}
+                };
+                
+                let previewResponse;
+                if (action === 'assign_alias') {
+                    previewResponse = await fetch(`${BACKEND_URL}/api/preview/assign-alias`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            pending: pendingData,
+                            type_id: typeId,
+                            alias: alias,
+                            platform_key: platformKey,
+                            context: {
+                                company_key: context.own_company_key || '',
+                                person_key: context.person_key || '',
+                                platform_key: platformKey
+                            }
+                        })
+                    });
+                } else if (action === 'create_type') {
+                    previewResponse = await fetch(`${BACKEND_URL}/api/preview/create-type`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            pending: pendingData,
+                            draft_type: draftType,
+                            platform_key: platformKey,
+                            context: {
+                                company_key: context.own_company_key || '',
+                                person_key: context.person_key || '',
+                                platform_key: platformKey
+                            }
+                        })
+                    });
+                } else {
+                    return null;
+                }
+                
+                if (previewResponse.ok) {
+                    return await previewResponse.json();
+                }
+            } catch (error) {
+                console.error('[C2.36] Error getting preview:', error);
+            }
+            return null;
+        }
+        
         // SPRINT C2.35: Acciones Asistidas
-        async function handleAssignToExistingType(itemId) {
+        async function handleAssignToExistingType(itemId, preselectedTypeId = null, preselectedAlias = null) {
             // Obtener item del plan
             const item = planReviewState.planData.items.find(i => (i.item_id || i.pending_item_key) === itemId);
             if (!item || !item.debug_report) {
@@ -12040,7 +12188,7 @@
                         </div>
                         <div style="display: flex; gap: 8px; justify-content: flex-end;">
                             <button onclick="this.closest('div[style*=\"position: fixed\"]').remove()" class="btn btn-secondary">Cancelar</button>
-                            <button onclick="confirmAssignAlias('${itemId}', '${escapeHtml(suggestedAlias)}', '${escapeHtml(platformKey)}')" class="btn btn-primary" id="confirm-assign-btn" disabled>Confirmar</button>
+                            <button onclick="showPreviewAndConfirmAssignAlias('${itemId}', '${escapeHtml(suggestedAlias)}', '${escapeHtml(platformKey)}')" class="btn btn-primary" id="confirm-assign-btn" disabled>Ver Preview</button>
                         </div>
                     </div>
                 `;
@@ -12055,14 +12203,126 @@
                     confirmBtn.disabled = !selectedTypeId;
                 };
                 
-                window.confirmAssignAlias = async function(itemId, alias, platformKey) {
+                // SPRINT C2.36: Pre-seleccionar tipo si viene de sugerencia
+                if (preselectedTypeId) {
+                    selectedTypeId = preselectedTypeId;
+                    const selector = document.getElementById('type-selector');
+                    if (selector) {
+                        selector.value = preselectedTypeId;
+                        const confirmBtn = document.getElementById('confirm-assign-btn');
+                        if (confirmBtn) {
+                            confirmBtn.disabled = false;
+                        }
+                    }
+                }
+                
+                // SPRINT C2.36: Mostrar preview antes de confirmar
+                window.showPreviewAndConfirmAssignAlias = async function(itemId, alias, platformKey) {
+                    const selector = document.getElementById('type-selector');
+                    const selectedTypeId = selector ? selector.value : null;
+                    
                     if (!selectedTypeId) {
                         alert('Por favor, selecciona un tipo.');
                         return;
                     }
                     
+                    // Obtener preview
+                    const preview = await showImpactPreview('assign_alias', itemId, selectedTypeId, alias, null, platformKey);
+                    
+                    // Mostrar modal de preview
+                    const previewModal = document.createElement('div');
+                    previewModal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10004; display: flex; align-items: center; justify-content: center;';
+                    previewModal.onclick = function(e) {
+                        if (e.target === previewModal) {
+                            previewModal.remove();
+                        }
+                    };
+                    
+                    const previewContent = preview ? `
+                        <div style="margin-bottom: 16px; background: #0f172a; padding: 16px; border-radius: 4px; border-left: 4px solid #3b82f6;">
+                            <h4 style="color: #60a5fa; margin-bottom: 12px; font-size: 1rem;">📊 Impacto esperado:</h4>
+                            <div style="margin-bottom: 12px;">
+                                <strong style="color: #cbd5e1; font-size: 0.875rem;">Afectará a:</strong>
+                                <ul style="color: #94a3b8; font-size: 0.875rem; margin-top: 4px; margin-left: 20px;">
+                                    <li>${preview.will_affect.pending_count} pendiente(s) similar(es)</li>
+                                    ${preview.will_affect.platforms.length > 0 ? `<li>Plataforma(s): ${preview.will_affect.platforms.join(', ')}</li>` : ''}
+                                </ul>
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <strong style="color: #cbd5e1; font-size: 0.875rem;">Añadirá:</strong>
+                                <ul style="color: #94a3b8; font-size: 0.875rem; margin-top: 4px; margin-left: 20px;">
+                                    ${preview.will_add.aliases.map(a => `<li>Alias: <code>${escapeHtml(a)}</code></li>`).join('')}
+                                </ul>
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <strong style="color: #cbd5e1; font-size: 0.875rem;">NO cambiará:</strong>
+                                <ul style="color: #94a3b8; font-size: 0.875rem; margin-top: 4px; margin-left: 20px;">
+                                    ${preview.will_not_change.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+                                </ul>
+                            </div>
+                            ${preview.confidence_notes.length > 0 ? `
+                                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #334155;">
+                                    <strong style="color: #cbd5e1; font-size: 0.875rem;">Notas de confianza:</strong>
+                                    <ul style="color: #60a5fa; font-size: 0.875rem; margin-top: 4px; margin-left: 20px;">
+                                        ${preview.confidence_notes.map(note => `<li>${escapeHtml(note)}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+                        </div>
+                    ` : `
+                        <div style="margin-bottom: 16px; background: #1e3a8a; padding: 12px; border-radius: 4px; border-left: 4px solid #3b82f6;">
+                            <p style="color: #93c5fd; font-size: 0.875rem;">
+                                ⚠️ No se pudo generar preview. Continuar con precaución.
+                            </p>
+                        </div>
+                    `;
+                    
+                    previewModal.innerHTML = `
+                        <div style="background: #1e293b; border-radius: 8px; padding: 24px; max-width: 700px; width: 90%; max-height: 90vh; overflow-y: auto; border: 1px solid #334155;" onclick="event.stopPropagation()">
+                            <h3 style="margin-bottom: 16px; color: #e2e8f0;">Confirmar: Añadir alias a tipo existente</h3>
+                            ${previewContent}
+                            <div style="margin-bottom: 16px; background: #1e3a8a; padding: 12px; border-radius: 4px; border-left: 4px solid #3b82f6;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #93c5fd;">
+                                    <input type="checkbox" id="impact-preview-confirm" style="width: 18px; height: 18px; cursor: pointer;">
+                                    <span style="font-size: 0.875rem;">Confirmo que entiendo el impacto y quiero proceder</span>
+                                </label>
+                            </div>
+                            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                                <button onclick="this.closest('div[style*=\"position: fixed\"]').remove()" class="btn btn-secondary">Cancelar</button>
+                                <button onclick="confirmAssignAlias('${itemId}', '${escapeHtml(alias)}', '${escapeHtml(platformKey)}', '${escapeHtml(selectedTypeId)}')" class="btn btn-primary" id="impact-preview-apply-btn" disabled data-testid="impact-preview-confirm">Aplicar</button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(previewModal);
+                    
+                    // Habilitar botón solo si checkbox está marcado
+                    const confirmCheckbox = document.getElementById('impact-preview-confirm');
+                    const applyBtn = document.getElementById('impact-preview-apply-btn');
+                    if (confirmCheckbox && applyBtn) {
+                        confirmCheckbox.onchange = function() {
+                            applyBtn.disabled = !confirmCheckbox.checked;
+                        };
+                    }
+                };
+                
+                window.confirmAssignAlias = async function(itemId, alias, platformKey, typeId) {
+                    if (!typeId) {
+                        // Obtener del selector si no viene como parámetro
+                        const selector = document.getElementById('type-selector');
+                        typeId = selector ? selector.value : null;
+                    }
+                    
+                    if (!typeId) {
+                        alert('Por favor, selecciona un tipo.');
+                        return;
+                    }
+                    
+                    // Cerrar modales
+                    document.querySelectorAll('div[style*="z-index: 10003"], div[style*="z-index: 10004"]').forEach(m => m.remove());
+                    
                     try {
-                        const response = await fetch(`${BACKEND_URL}/api/repository/types/${selectedTypeId}/add_alias`, {
+                        const response = await fetchWithContext(`${BACKEND_URL}/api/repository/types/${typeId}/add_alias`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -12073,9 +12333,8 @@
                         });
                         
                         if (response.ok) {
-                            modal.remove();
                             const successMsg = document.createElement('div');
-                            successMsg.style.cssText = 'position: fixed; top: 80px; right: 20px; z-index: 10004; padding: 16px; background: #10b981; color: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
+                            successMsg.style.cssText = 'position: fixed; top: 80px; right: 20px; z-index: 10005; padding: 16px; background: #10b981; color: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
                             successMsg.textContent = '✅ Alias añadido exitosamente.';
                             document.body.appendChild(successMsg);
                             setTimeout(() => successMsg.remove(), 5000);
@@ -12154,12 +12413,155 @@
                     </div>
                     <div style="display: flex; gap: 8px; justify-content: flex-end;">
                         <button onclick="this.closest('div[style*=\"position: fixed\"]').remove()" class="btn btn-secondary">Cancelar</button>
-                        <button onclick="confirmCreateNewType('${itemId}', '${escapeHtml(platformKey)}')" class="btn btn-primary">Crear tipo</button>
+                        <button onclick="showPreviewAndConfirmCreateType('${itemId}', '${escapeHtml(platformKey)}')" class="btn btn-primary">Ver Preview</button>
                     </div>
                 </div>
             `;
             
             document.body.appendChild(modal);
+            
+            // SPRINT C2.36: Mostrar preview antes de confirmar crear tipo
+            window.showPreviewAndConfirmCreateType = async function(itemId, platformKey) {
+                const name = document.getElementById('new-type-name').value.trim();
+                const scope = document.getElementById('new-type-scope').value;
+                const validityMode = document.getElementById('new-type-validity-mode').value;
+                const alias = document.getElementById('new-type-alias').value.trim();
+                
+                if (!name) {
+                    alert('El nombre del tipo es obligatorio.');
+                    return;
+                }
+                
+                if (!alias) {
+                    alert('El alias inicial es obligatorio.');
+                    return;
+                }
+                
+                // Generar type_id desde el nombre
+                const typeId = name.toUpperCase().replace(/[^A-Z0-9_]/g, '_').substring(0, 50);
+                
+                // Crear tipo (estructura completa según ValidityPolicyV1)
+                let validityPolicy = {
+                    mode: validityMode,
+                    basis: "issue_date"
+                };
+                
+                if (validityMode === 'monthly') {
+                    validityPolicy.monthly = {
+                        month_source: "issue_date",
+                        valid_from: "period_start",
+                        valid_to: "period_end",
+                        grace_days: 0
+                    };
+                } else if (validityMode === 'annual') {
+                    validityPolicy.annual = {
+                        months: 12,
+                        valid_from: "issue_date",
+                        valid_to: "issue_date_plus_months"
+                    };
+                } else if (validityMode === 'fixed_end_date') {
+                    validityPolicy.fixed_end_date = {
+                        valid_from: "issue_date",
+                        valid_to: "manual_end_date"
+                    };
+                }
+                
+                const draftType = {
+                    type_id: typeId,
+                    name: name,
+                    description: `Tipo creado desde acción asistida (${new Date().toISOString().split('T')[0]})`,
+                    scope: scope,
+                    active: true,
+                    platform_aliases: [alias],
+                    validity_policy: validityPolicy,
+                    required_fields: [],
+                    allow_late_submission: false,
+                    issue_date_required: true,
+                    validity_start_mode: "issue_date"
+                };
+                
+                // Obtener preview
+                const preview = await showImpactPreview('create_type', itemId, null, null, draftType, platformKey);
+                
+                // Mostrar modal de preview
+                const previewModal = document.createElement('div');
+                previewModal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10004; display: flex; align-items: center; justify-content: center;';
+                previewModal.onclick = function(e) {
+                    if (e.target === previewModal) {
+                        previewModal.remove();
+                    }
+                };
+                
+                const previewContent = preview ? `
+                    <div style="margin-bottom: 16px; background: #0f172a; padding: 16px; border-radius: 4px; border-left: 4px solid #3b82f6;">
+                        <h4 style="color: #60a5fa; margin-bottom: 12px; font-size: 1rem;">📊 Impacto esperado:</h4>
+                        <div style="margin-bottom: 12px;">
+                            <strong style="color: #cbd5e1; font-size: 0.875rem;">Afectará a:</strong>
+                            <ul style="color: #94a3b8; font-size: 0.875rem; margin-top: 4px; margin-left: 20px;">
+                                <li>${preview.will_affect.pending_count} pendiente(s) similar(es)</li>
+                                ${preview.will_affect.platforms.length > 0 ? `<li>Plataforma(s): ${preview.will_affect.platforms.join(', ')}</li>` : ''}
+                            </ul>
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <strong style="color: #cbd5e1; font-size: 0.875rem;">Añadirá:</strong>
+                            <ul style="color: #94a3b8; font-size: 0.875rem; margin-top: 4px; margin-left: 20px;">
+                                <li>Nuevo tipo: <code>${escapeHtml(preview.will_add.type_name || name)}</code> (${escapeHtml(preview.will_add.type_id || typeId)})</li>
+                                <li>Scope: ${escapeHtml(preview.will_add.scope || scope)}</li>
+                                <li>Validez: ${escapeHtml(preview.will_add.validity_mode || validityMode)}</li>
+                                ${preview.will_add.aliases.map(a => `<li>Alias: <code>${escapeHtml(a)}</code></li>`).join('')}
+                            </ul>
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <strong style="color: #cbd5e1; font-size: 0.875rem;">NO cambiará:</strong>
+                            <ul style="color: #94a3b8; font-size: 0.875rem; margin-top: 4px; margin-left: 20px;">
+                                ${preview.will_not_change.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+                            </ul>
+                        </div>
+                        ${preview.confidence_notes.length > 0 ? `
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #334155;">
+                                <strong style="color: #cbd5e1; font-size: 0.875rem;">Notas de confianza:</strong>
+                                <ul style="color: #60a5fa; font-size: 0.875rem; margin-top: 4px; margin-left: 20px;">
+                                    ${preview.confidence_notes.map(note => `<li>${escapeHtml(note)}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : `
+                    <div style="margin-bottom: 16px; background: #1e3a8a; padding: 12px; border-radius: 4px; border-left: 4px solid #3b82f6;">
+                        <p style="color: #93c5fd; font-size: 0.875rem;">
+                            ⚠️ No se pudo generar preview. Continuar con precaución.
+                        </p>
+                    </div>
+                `;
+                
+                previewModal.innerHTML = `
+                    <div style="background: #1e293b; border-radius: 8px; padding: 24px; max-width: 700px; width: 90%; max-height: 90vh; overflow-y: auto; border: 1px solid #334155;" onclick="event.stopPropagation()">
+                        <h3 style="margin-bottom: 16px; color: #e2e8f0;">Confirmar: Crear nuevo tipo</h3>
+                        ${previewContent}
+                        <div style="margin-bottom: 16px; background: #1e3a8a; padding: 12px; border-radius: 4px; border-left: 4px solid #3b82f6;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #93c5fd;">
+                                <input type="checkbox" id="impact-preview-confirm-create" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-size: 0.875rem;">Confirmo que entiendo el impacto y quiero proceder</span>
+                            </label>
+                        </div>
+                        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                            <button onclick="this.closest('div[style*=\"position: fixed\"]').remove()" class="btn btn-secondary">Cancelar</button>
+                            <button onclick="confirmCreateNewType('${itemId}', '${escapeHtml(platformKey)}')" class="btn btn-primary" id="impact-preview-apply-create-btn" disabled data-testid="impact-preview-confirm">Aplicar</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(previewModal);
+                
+                // Habilitar botón solo si checkbox está marcado
+                const confirmCheckbox = document.getElementById('impact-preview-confirm-create');
+                const applyBtn = document.getElementById('impact-preview-apply-create-btn');
+                if (confirmCheckbox && applyBtn) {
+                    confirmCheckbox.onchange = function() {
+                        applyBtn.disabled = !confirmCheckbox.checked;
+                    };
+                }
+            };
             
             window.confirmCreateNewType = async function(itemId, platformKey) {
                 const name = document.getElementById('new-type-name').value.trim();
@@ -12176,6 +12578,9 @@
                     alert('El alias inicial es obligatorio.');
                     return;
                 }
+                
+                // Cerrar modales
+                document.querySelectorAll('div[style*="z-index: 10003"], div[style*="z-index: 10004"]').forEach(m => m.remove());
                 
                 try {
                     // Generar type_id desde el nombre
@@ -12221,7 +12626,7 @@
                         validity_start_mode: "issue_date"
                     };
                     
-                    const response = await fetch(`${BACKEND_URL}/api/repository/types`, {
+                    const response = await fetchWithContext(`${BACKEND_URL}/api/repository/types`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(newType)
@@ -12229,11 +12634,10 @@
                     
                     if (response.ok) {
                         const createdType = await response.json();
-                        modal.remove();
                         
                         // Registrar acción
                         try {
-                            await fetch(`${BACKEND_URL}/api/training/log-action`, {
+                            await fetchWithContext(`${BACKEND_URL}/api/training/log-action`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
