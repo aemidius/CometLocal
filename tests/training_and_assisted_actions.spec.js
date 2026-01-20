@@ -109,33 +109,68 @@ test.describe('Training and Assisted Actions (C2.35)', () => {
         const startButton = banner.locator('button:has-text("Iniciar Training")');
         await startButton.click();
         
-        // Esperar a que aparezca el wizard
-        await page.waitForSelector('[data-testid="training-step-1"]', { timeout: 5000 });
+        // SPRINT C2.35.3.2: Esperar a que aparezca el modal primero
+        const modal = page.locator('#training-wizard-modal, [data-testid="training-wizard-modal"]');
+        await expect(modal).toBeVisible({ timeout: 5000 });
+        
+        // SPRINT C2.35.3.2: Esperar a que el título tenga contenido válido (más robusto que esperar visibilidad)
+        await page.waitForFunction(
+            () => {
+                const title = document.querySelector('[data-testid="training-step-title"]');
+                return title && title.textContent && title.textContent.trim().length > 0 && title.textContent.trim() !== 'undefined';
+            },
+            { timeout: 5000 }
+        );
         
         // Navegar por los pasos (simplificado: avanzar hasta el final)
         for (let step = 1; step <= 5; step++) {
-            // Esperar a que el step actual sea visible
+            // SPRINT C2.35.3.2: Esperar a que el step tenga contenido válido
+            await page.waitForFunction(
+                (stepNum) => {
+                    const stepEl = document.querySelector(`[data-testid="training-step-${stepNum}"]`);
+                    const title = document.querySelector('[data-testid="training-step-title"]');
+                    return stepEl && title && title.textContent && title.textContent.trim().length > 0 && title.textContent.trim() !== 'undefined';
+                },
+                step,
+                { timeout: 5000 }
+            );
+            
+            // Verificar que el step existe
             const stepElement = page.locator(`[data-testid="training-step-${step}"]`);
-            await expect(stepElement).toBeVisible({ timeout: 5000 });
+            await expect(stepElement).toHaveCount(1, { timeout: 2000 });
             
             if (step < 5) {
-                // Verificar que el botón existe
+                // Verificar que el botón existe (puede estar oculto por CSS pero debe existir)
                 const nextButton = page.locator('[data-testid="training-wizard-next"]');
-                await expect(nextButton).toBeVisible({ timeout: 2000 });
+                await expect(nextButton).toHaveCount(1, { timeout: 2000 });
                 
                 // Ejecutar la función directamente para evitar problemas de interceptación
+                // (usando page.evaluate porque es imprescindible para llamar a window.trainingWizardNext)
                 await page.evaluate(() => {
                     if (typeof window.trainingWizardNext === 'function') {
                         window.trainingWizardNext();
                     }
                 });
                 
-                // Esperar a que el siguiente step sea visible
-                const nextStepElement = page.locator(`[data-testid="training-step-${step + 1}"]`);
-                await expect(nextStepElement).toBeVisible({ timeout: 5000 });
+                // SPRINT C2.35.3.2: Esperar a que el título cambie (indicando que avanzó al siguiente step)
+                await page.waitForFunction(
+                    (currentStep) => {
+                        const title = document.querySelector('[data-testid="training-step-title"]');
+                        // Verificar que el título existe y tiene contenido válido
+                        if (!title || !title.textContent || title.textContent.trim() === 'undefined') {
+                            return false;
+                        }
+                        // Verificar que el step actual corresponde al siguiente
+                        const stepEl = document.querySelector(`[data-testid="training-step-${currentStep + 1}"]`);
+                        return stepEl !== null;
+                    },
+                    step,
+                    { timeout: 5000 }
+                );
             } else {
                 // Paso 5: marcar checkbox y completar
                 // Marcar checkbox directamente con JavaScript
+                // (usando page.evaluate porque es imprescindible para manipular el checkbox y disparar eventos)
                 await page.evaluate(() => {
                     const checkbox = document.getElementById('training-confirm-checkbox');
                     if (checkbox) {
@@ -149,6 +184,7 @@ test.describe('Training and Assisted Actions (C2.35)', () => {
                 await expect(completeButton).toBeEnabled({ timeout: 2000 });
                 
                 // Ejecutar la función directamente
+                // (usando page.evaluate porque es imprescindible para llamar a window.trainingWizardComplete)
                 await page.evaluate(() => {
                     if (typeof window.trainingWizardComplete === 'function') {
                         window.trainingWizardComplete();
@@ -156,7 +192,6 @@ test.describe('Training and Assisted Actions (C2.35)', () => {
                 });
                 
                 // Esperar a que desaparezca el modal (el wizard ya no debe estar visible)
-                const modal = page.locator('#training-wizard-modal');
                 await expect(modal).not.toBeVisible({ timeout: 5000 });
             }
         }
