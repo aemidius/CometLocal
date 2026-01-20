@@ -219,3 +219,112 @@ npx playwright test tests/training_wizard_renders_first_step.spec.js
 ### Archivos Modificados (C2.35.3)
 - `frontend/repository_v3.html`: `initC235TrainingWizardState()`, guardrails en `renderStep()`, clamp de `currentStep`
 - `tests/training_wizard_renders_first_step.spec.js`: Test E2E bloqueante para verificar render correcto
+
+---
+
+## C2.35.4: Fix Modal Training en Blanco (No "Colgado")
+
+### Problema Histórico
+Al pulsar "Iniciar Training", el modal aparecía vacío (sin título ni botones), dando la impresión de estar "colgado" aunque ya no mostraba "undefined".
+
+### Solución Implementada
+
+**Render Robusto con Try/Catch:**
+- `renderStep()` envuelto en try/catch completo
+- Función `renderErrorFallback()` que muestra mensaje humano + detalles técnicos colapsables
+- Logging de errores con `console.error()`
+
+**Estado "Loading" Inmediato:**
+- El modal se crea con contenido inicial: "Cargando training..."
+- El render del step se ejecuta en `setTimeout(0)` para evitar race conditions
+- El usuario ve feedback inmediato
+
+**Guard "No Blank Modal":**
+- Validación post-render: verifica que existe `[data-testid="training-step-title"]` con texto no vacío
+- Si falla, fuerza fallback humano automáticamente
+- Verificación de existencia de botones (next/previous/complete)
+
+**CSS Visibility Guard:**
+- Asegura `display: block`, `visibility: visible`, `opacity: 1` en el contenedor
+- Evita reglas CSS que oculten el contenido
+
+### Verificación
+
+**Tests E2E:**
+```bash
+npx playwright test tests/training_wizard_not_blank.spec.js
+```
+
+**Casos cubiertos:**
+- ✅ Modal nunca aparece vacío
+- ✅ Siempre muestra contenido válido o mensaje de error humano
+- ✅ Botón "Recargar" funcional en caso de error
+
+### Archivos Modificados (C2.35.4)
+- `frontend/repository_v3.html`: Try/catch robusto, loading state, validación post-render, CSS guards
+- `tests/training_wizard_not_blank.spec.js`: Test E2E bloqueante para verificar que el modal nunca está vacío
+
+---
+
+## C2.35.5: Fix Training Wizard Stuck en "Cargando training..." (Timeout + Diagnóstico)
+
+### Problema Histórico
+Al pulsar "Iniciar Training", el modal mostraba "Cargando training..." y se quedaba ahí indefinidamente, sin mostrar el paso 1 ni un mensaje de error.
+
+### Causa Raíz
+**Race condition + falta de timeout guard:**
+- El `setTimeout(0)` que renderiza el step podía no ejecutarse o fallar silenciosamente
+- Si `renderStep()` retornaba cadena vacía (porque actualizaba directamente el DOM), el código no actualizaba el `innerHTML` y el loading permanecía
+- No había timeout hard guard que forzara fallback si pasaba mucho tiempo
+- El try/catch dentro del setTimeout capturaba errores, pero si el setTimeout no se ejecutaba, no había fallback
+
+### Solución Implementada
+
+**Timeout Hard Guard (2500ms):**
+- Timer de 2500ms que fuerza fallback humano si el modal sigue en loading
+- Se cancela automáticamente cuando el render se completa exitosamente
+- Mensaje de error específico: "No se pudo cargar el training (timeout)"
+
+**Render Protegido:**
+- Try/catch robusto dentro del callback de `setTimeout`
+- Función `clearLoadingAndTimeout()` que limpia el loading y cancela el timeout
+- Si `renderStep()` actualiza directamente el DOM, se limpia el loading explícitamente
+
+**Validación Post-Render:**
+- Verifica que el título existe y tiene contenido válido
+- Si no, fuerza fallback automáticamente
+
+**Botón "Recargar" Funcional:**
+- Cierra el modal y vuelve a abrir el wizard (en lugar de solo recargar la página)
+- Limpia timers previos
+
+**Logs de Diagnóstico:**
+- `console.log('[C2.35.5] openTrainingWizard: scheduled render')`
+- `console.log('[C2.35.5] openTrainingWizard: render start')`
+- `console.log('[C2.35.5] openTrainingWizard: render ok')`
+- `console.error('[C2.35.5] openTrainingWizard: render error', err)`
+- `console.error('[C2.35.5] Timeout: el training se quedó en loading más de 2.5s')`
+
+### Verificación
+
+**Tests E2E:**
+```bash
+npx playwright test tests/training_wizard_not_stuck_loading.spec.js
+```
+
+**Casos cubiertos:**
+- ✅ Loading desaparece en <= 3s y aparece contenido válido o fallback
+- ✅ No se queda en loading permanente
+- ✅ Timeout funciona correctamente (fuerza fallback después de 2.5s)
+- ✅ Botón "Recargar" funcional en caso de error
+
+**Cómo verificar manualmente:**
+1. Abrir `/repository_v3.html#inicio` con training incompleto
+2. Click en "Iniciar Training"
+3. **Correcto:** "Cargando training..." aparece brevemente (< 1s normalmente)
+4. **Correcto:** Aparece el Paso 1 o un mensaje de error con botón "Recargar"
+5. **Correcto:** NO se queda en "Cargando training..." indefinidamente
+
+### Archivos Modificados (C2.35.5)
+- `frontend/repository_v3.html`: Timeout hard guard (2500ms), `clearLoadingAndTimeout()`, logs de diagnóstico, botón "Recargar" funcional
+- `tests/training_wizard_not_stuck_loading.spec.js`: Test E2E bloqueante para verificar que el loading no se queda indefinido

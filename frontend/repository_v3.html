@@ -2228,7 +2228,13 @@
                         `;
                     }
                     
-                    // Si existe el contenedor, actualizarlo directamente
+                    // SPRINT C2.35.5: Si existe el contenedor, actualizarlo directamente (esto elimina el loading automáticamente)
+                    // Limpiar loading primero para asegurar que no quede
+                    const loadingEl = content.querySelector('[data-testid="training-wizard-loading"]');
+                    if (loadingEl) {
+                        loadingEl.remove();
+                    }
+                    
                     content.innerHTML = `
                         <h3 style="margin-bottom: 16px; color: #e2e8f0;" data-testid="training-step-title">${stepData.title}</h3>
                         <div style="max-height: 400px; overflow-y: auto; margin-bottom: 24px;">
@@ -2265,9 +2271,21 @@
                 }
             }
             
-            // SPRINT C2.35.4: Función helper para renderizar fallback de error
+            // SPRINT C2.35.5: Función helper para renderizar fallback de error
             function renderErrorFallback(message, errorDetail = null) {
                 const errorId = 'error-detail-' + Date.now();
+                // SPRINT C2.35.5: Botón "Recargar" que cierra el modal y lo vuelve a abrir
+                const reloadHandler = `(function() {
+                    const modal = document.getElementById('training-wizard-modal');
+                    if (modal) {
+                        modal.remove();
+                    }
+                    if (typeof window.openTrainingWizard === 'function') {
+                        window.openTrainingWizard();
+                    } else {
+                        location.reload();
+                    }
+                })()`;
                 return `
                     <div style="padding: 24px; text-align: center;">
                         <h3 style="color: #ef4444; margin-bottom: 16px;" data-testid="training-step-title">Error al cargar el training</h3>
@@ -2278,16 +2296,16 @@
                                 <pre style="color: #ef4444; font-size: 0.75rem; margin-top: 8px; white-space: pre-wrap; word-break: break-all;">${String(errorDetail)}</pre>
                             </details>
                         ` : ''}
-                        <button onclick="location.reload()" class="btn btn-primary" data-testid="training-wizard-reload">Recargar</button>
+                        <button onclick="${reloadHandler}" class="btn btn-primary" data-testid="training-wizard-reload">Recargar</button>
                     </div>
                 `;
             }
             
-            // SPRINT C2.35.4: Estado loading inicial
+            // SPRINT C2.35.5: Estado loading inicial
             modal.innerHTML = `
                 <div style="background: #1e293b; border-radius: 8px; padding: 24px; max-width: 700px; max-height: 90vh; overflow-y: auto; width: 90%; border: 1px solid #334155; pointer-events: auto; display: block;" onclick="event.stopPropagation()">
                     <div id="training-wizard-content" data-testid="training-wizard-content" style="display: block;">
-                        <div style="padding: 24px; text-align: center; color: #94a3b8;">
+                        <div style="padding: 24px; text-align: center; color: #94a3b8;" data-testid="training-wizard-loading">
                             Cargando training...
                         </div>
                     </div>
@@ -2296,30 +2314,100 @@
             
             document.body.appendChild(modal);
             
-            // SPRINT C2.35.4: Renderizar contenido en microtask para evitar race conditions
+            // SPRINT C2.35.5: Timeout hard guard (2500ms) para prevenir loading indefinido
+            let loadingTimeout = setTimeout(() => {
+                console.error('[C2.35.5] Timeout: el training se quedó en loading más de 2.5s');
+                const content = document.getElementById('training-wizard-content');
+                if (content) {
+                    const loadingEl = content.querySelector('[data-testid="training-wizard-loading"]');
+                    if (loadingEl) {
+                        // Aún está en loading, forzar fallback
+                        content.innerHTML = renderErrorFallback(
+                            'No se pudo cargar el training (timeout).',
+                            'El render del training excedió el tiempo máximo de espera (2.5s). Esto puede indicar un error en la inicialización o un problema de rendimiento.'
+                        );
+                    }
+                }
+            }, 2500);
+            
+            // SPRINT C2.35.5: Función helper para cancelar timeout y limpiar loading
+            function clearLoadingAndTimeout() {
+                if (loadingTimeout) {
+                    clearTimeout(loadingTimeout);
+                    loadingTimeout = null;
+                }
+                const content = document.getElementById('training-wizard-content');
+                if (content) {
+                    // SPRINT C2.35.5: Limpiar loading de forma más robusta
+                    const loadingEl = content.querySelector('[data-testid="training-wizard-loading"]');
+                    if (loadingEl) {
+                        loadingEl.remove();
+                    }
+                    // También verificar si hay un div con "Cargando training..." directamente
+                    const loadingText = content.textContent || '';
+                    if (loadingText.includes('Cargando training...')) {
+                        // Si el contenido solo tiene loading, limpiarlo completamente
+                        const allChildren = Array.from(content.children);
+                        if (allChildren.length === 1 && allChildren[0].textContent && allChildren[0].textContent.includes('Cargando training...')) {
+                            content.innerHTML = '';
+                        }
+                    }
+                }
+            }
+            
+            // SPRINT C2.35.5: Renderizar contenido en microtask con try/catch robusto
+            console.log('[C2.35.5] openTrainingWizard: scheduled render');
             setTimeout(() => {
+                console.log('[C2.35.5] openTrainingWizard: render start');
                 try {
                     const content = document.getElementById('training-wizard-content');
                     if (!content) {
-                        console.error('[C2.35.4] training-wizard-content no encontrado después de appendChild');
+                        console.error('[C2.35.5] training-wizard-content no encontrado después de appendChild');
+                        clearLoadingAndTimeout();
+                        // Intentar insertar fallback en el modal directamente
+                        const modalContent = modal.querySelector('div > div');
+                        if (modalContent) {
+                            modalContent.innerHTML = renderErrorFallback('No se pudo encontrar el contenedor del training.');
+                        }
                         return;
                     }
                     
+                    // SPRINT C2.35.5: Limpiar loading antes de renderizar
+                    clearLoadingAndTimeout();
+                    
                     // Renderizar el step
                     const stepHtml = renderStep(currentStep);
-                    if (stepHtml) {
+                    
+                    // SPRINT C2.35.5: SIEMPRE actualizar innerHTML, incluso si renderStep retorna ''
+                    // (porque renderStep puede actualizar directamente el DOM en algunos casos)
+                    if (stepHtml && stepHtml.trim().length > 0) {
+                        // Actualizar con el HTML del step (el loading ya se limpió arriba)
                         content.innerHTML = stepHtml;
+                    } else {
+                        // Si renderStep retornó vacío, verificar si actualizó directamente
+                        const title = content.querySelector('[data-testid="training-step-title"]');
+                        if (!title || !title.textContent || title.textContent.trim().length === 0) {
+                            // No se actualizó, forzar render
+                            console.warn('[C2.35.5] renderStep retornó vacío y no actualizó el DOM, forzando render');
+                            const forcedHtml = renderStep(currentStep, null);
+                            if (forcedHtml && forcedHtml.trim().length > 0) {
+                                content.innerHTML = forcedHtml;
+                            } else {
+                                throw new Error('renderStep no pudo generar contenido válido');
+                            }
+                        }
+                        // Si ya se actualizó directamente, no hacer nada más (el loading ya se limpió)
                     }
                     
-                    // SPRINT C2.35.4: Validar que el contenido se renderizó correctamente
+                    // SPRINT C2.35.5: Validar que el contenido se renderizó correctamente
                     const title = content.querySelector('[data-testid="training-step-title"]');
                     if (!title || !title.textContent || title.textContent.trim().length === 0) {
-                        console.error('[C2.35.4] Validación fallida: título no encontrado o vacío');
+                        console.error('[C2.35.5] Validación fallida: título no encontrado o vacío');
                         content.innerHTML = renderErrorFallback('El contenido del training no se pudo cargar correctamente.');
                         return;
                     }
                     
-                    // SPRINT C2.35.4: Asegurar que el contenido es visible (CSS guard)
+                    // SPRINT C2.35.5: Asegurar que el contenido es visible (CSS guard)
                     content.style.display = 'block';
                     content.style.visibility = 'visible';
                     content.style.opacity = '1';
@@ -2330,14 +2418,23 @@
                     const hasComplete = content.querySelector('[data-testid="training-complete-button"]');
                     
                     if (!hasNext && !hasPrevious && !hasComplete) {
-                        console.warn('[C2.35.4] No se encontraron botones de navegación');
+                        console.warn('[C2.35.5] No se encontraron botones de navegación');
                         // No es crítico, pero logueamos
                     }
+                    
+                    console.log('[C2.35.5] openTrainingWizard: render ok');
                 } catch (err) {
-                    console.error('[C2.35.4] Error al renderizar contenido del modal:', err);
+                    console.error('[C2.35.5] openTrainingWizard: render error', err);
+                    clearLoadingAndTimeout();
                     const content = document.getElementById('training-wizard-content');
                     if (content) {
                         content.innerHTML = renderErrorFallback('Error inesperado al cargar el training.', err.message || String(err));
+                    } else {
+                        // Fallback extremo: insertar en el modal directamente
+                        const modalContent = modal.querySelector('div > div');
+                        if (modalContent) {
+                            modalContent.innerHTML = renderErrorFallback('Error crítico al cargar el training.', err.message || String(err));
+                        }
                     }
                 }
             }, 0);
