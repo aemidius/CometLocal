@@ -732,8 +732,8 @@
     </style>
 </head>
 <body data-testid="app-ready">
-    <!-- Version stamp -->
-    <div class="version-stamp">UI build: upload-autocomplete-v1 <span id="build-timestamp"></span></div>
+    <!-- SPRINT C2.35.6: Version stamp con commit hash -->
+    <div class="version-stamp">UI: <span id="version-stamp-commit">19428f3</span> <span id="build-timestamp"></span></div>
     
     <!-- Sidebar -->
     <div class="sidebar">
@@ -2511,6 +2511,8 @@
                     
                     if (response.ok) {
                         trainingState.completed = true;
+                        // SPRINT C2.35.6: Detener guard global al cerrar el modal
+                        stopGlobalLoadingGuard();
                         modal.remove();
                         hideTrainingBanner();
                         
@@ -2530,8 +2532,112 @@
             };
         }
         
+        // SPRINT C2.35.6: Guard global anti-loading infinito (watchdog)
+        // Este guard detecta si el modal está en loading más de 2.5s desde cualquier vista
+        let trainingModalOpenTime = null;
+        let globalLoadingGuardInterval = null;
+        
+        function startGlobalLoadingGuard() {
+            // Limpiar intervalo previo si existe
+            if (globalLoadingGuardInterval) {
+                clearInterval(globalLoadingGuardInterval);
+            }
+            
+            // Resetear tiempo de apertura
+            trainingModalOpenTime = null;
+            
+            // Iniciar watchdog cada 500ms
+            globalLoadingGuardInterval = setInterval(() => {
+                const modal = document.getElementById('training-wizard-modal');
+                if (!modal) {
+                    // No hay modal, detener guard y resetear tiempo
+                    stopGlobalLoadingGuard();
+                    return;
+                }
+                
+                // Si es la primera vez que detectamos el modal, registrar tiempo
+                if (trainingModalOpenTime === null) {
+                    trainingModalOpenTime = Date.now();
+                    return;
+                }
+                
+                // Verificar si está en loading
+                const content = document.getElementById('training-wizard-content');
+                if (!content) {
+                    return;
+                }
+                
+                const loadingEl = content.querySelector('[data-testid="training-wizard-loading"]');
+                const textContent = content.textContent || '';
+                const isInLoading = loadingEl !== null || textContent.includes('Cargando training...');
+                
+                if (isInLoading) {
+                    const elapsed = Date.now() - trainingModalOpenTime;
+                    if (elapsed > 2500) {
+                        // Ha pasado más de 2.5s y sigue en loading, forzar fallback
+                        console.error('[C2.35.6] Guard global: detectado loading infinito, forzando fallback');
+                        clearInterval(globalLoadingGuardInterval);
+                        globalLoadingGuardInterval = null;
+                        trainingModalOpenTime = null;
+                        
+                        // Forzar fallback - necesitamos acceso a renderErrorFallback
+                        // Buscar la función en el scope o definirla inline
+                        const errorMessage = 'No se pudo cargar el training (timeout detectado por guard global).';
+                        const errorDetail = `El modal ha estado en "Cargando training..." durante ${Math.round(elapsed / 1000)}s. Esto indica un problema en el renderizado.`;
+                        
+                        // Usar el mismo formato que renderErrorFallback
+                        const reloadHandler = `(function() {
+                            const modal = document.getElementById('training-wizard-modal');
+                            if (modal) {
+                                modal.remove();
+                            }
+                            if (typeof window.openTrainingWizard === 'function') {
+                                window.openTrainingWizard();
+                            } else {
+                                location.reload();
+                            }
+                        })()`;
+                        
+                        content.innerHTML = `
+                            <div style="padding: 24px; text-align: center;">
+                                <h3 style="color: #ef4444; margin-bottom: 16px;" data-testid="training-step-title">Error al cargar el training</h3>
+                                <p style="color: #94a3b8; margin-bottom: 16px;">${errorMessage}</p>
+                                <details style="margin-bottom: 16px; text-align: left; background: #1e293b; padding: 12px; border-radius: 4px;">
+                                    <summary style="color: #94a3b8; cursor: pointer; font-size: 0.875rem;">Ver detalle</summary>
+                                    <pre style="color: #ef4444; font-size: 0.75rem; margin-top: 8px; white-space: pre-wrap; word-break: break-all;">${String(errorDetail)}</pre>
+                                </details>
+                                <button onclick="${reloadHandler}" class="btn btn-primary" data-testid="training-wizard-reload">Recargar</button>
+                            </div>
+                        `;
+                    }
+                } else {
+                    // Ya no está en loading, resetear tiempo
+                    trainingModalOpenTime = null;
+                }
+            }, 500);
+        }
+        
+        function stopGlobalLoadingGuard() {
+            if (globalLoadingGuardInterval) {
+                clearInterval(globalLoadingGuardInterval);
+                globalLoadingGuardInterval = null;
+            }
+            trainingModalOpenTime = null;
+        }
+        
+        // SPRINT C2.35.6: Exponer funciones del guard globalmente para poder detenerlo desde trainingWizardComplete
+        window.startGlobalLoadingGuard = startGlobalLoadingGuard;
+        window.stopGlobalLoadingGuard = stopGlobalLoadingGuard;
+        
+        // SPRINT C2.35.6: Modificar openTrainingWizard para iniciar el guard
+        const originalOpenTrainingWizard = openTrainingWizard;
+        function openTrainingWizardWithGuard() {
+            startGlobalLoadingGuard();
+            return originalOpenTrainingWizard.apply(this, arguments);
+        }
+        
         // Exponer función globalmente
-        window.openTrainingWizard = openTrainingWizard;
+        window.openTrainingWizard = openTrainingWizardWithGuard;
         
         // SPRINT C1.R0: Inicializar bootstrap cuando DOM está listo
         // Asegurar que siempre se ejecuta, incluso si hay errores previos
@@ -9484,6 +9590,15 @@
 
         // Initialize version stamp timestamp
         document.addEventListener('DOMContentLoaded', () => {
+            // SPRINT C2.35.6: Initialize version stamp
+            const VERSION_STAMP = '19428f3';
+            window.__COMETLOCAL_VERSION_STAMP = VERSION_STAMP;
+            
+            const versionStampEl = document.getElementById('version-stamp-commit');
+            if (versionStampEl) {
+                versionStampEl.textContent = VERSION_STAMP;
+            }
+            
             const timestampEl = document.getElementById('build-timestamp');
             if (timestampEl) {
                 const now = new Date();

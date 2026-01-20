@@ -1,17 +1,18 @@
 /**
- * SPRINT C2.35.5: Test E2E para verificar que el modal de training nunca se queda en "Cargando training..." indefinidamente.
+ * SPRINT C2.35.5/C2.35.6: Test E2E para verificar que el modal de training nunca se queda en "Cargando training..." indefinidamente.
  * 
  * Verifica:
  * 1) El loading aparece inicialmente
  * 2) En <= 3s desaparece el loading y aparece contenido válido o fallback de error
  * 3) No se queda en loading permanente
+ * 4) Funciona desde múltiples vistas (inicio, catálogo)
  */
 
 import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
-test.describe('Training Wizard Not Stuck Loading (C2.35.5)', () => {
+test.describe('Training Wizard Not Stuck Loading (C2.35.5/C2.35.6)', () => {
     // Helper para resetear estado de training
     function resetTrainingState() {
         const statePath = path.join(__dirname, '..', 'data', 'training', 'state.json');
@@ -20,12 +21,17 @@ test.describe('Training Wizard Not Stuck Loading (C2.35.5)', () => {
         }
     }
 
-    test.beforeEach(async ({ page }) => {
+    // Helper para setup común de la app
+    async function setupApp(page, view = 'inicio') {
         // Resetear training state para asegurar que el training está incompleto
         resetTrainingState();
         
-        // Arrancar app
-        await page.goto('http://127.0.0.1:8000/repository_v3.html#inicio');
+        // Arrancar app en la vista especificada
+        const hash = view === 'catalog' ? '#catalog' : '#inicio';
+        await page.goto(`http://127.0.0.1:8000/repository_v3.html${hash}`);
+        
+        // Esperar a que la app esté lista
+        await page.waitForSelector('[data-testid="app-ready"]', { timeout: 10000 });
         
         // Esperar a que la app esté lista
         await page.waitForSelector('[data-testid="app-ready"]', { timeout: 10000 });
@@ -77,6 +83,10 @@ test.describe('Training Wizard Not Stuck Loading (C2.35.5)', () => {
                 throw e;
             }
         }
+    }
+
+    test.beforeEach(async ({ page }) => {
+        await setupApp(page, 'inicio');
     });
 
     test('should not stay in loading state indefinitely', async ({ page }) => {
@@ -189,6 +199,57 @@ test.describe('Training Wizard Not Stuck Loading (C2.35.5)', () => {
         const titleText = await title.textContent();
         expect(titleText).toBeTruthy();
         expect(titleText.trim().length).toBeGreaterThan(0);
+    });
+
+    test('should not stay in loading from catalog view', async ({ page }) => {
+        // SPRINT C2.35.6: Verificar desde vista de catálogo
+        await setupApp(page, 'catalog');
+        
+        // Click en "Iniciar Training"
+        const startButton = page.locator('button:has-text("Iniciar Training")');
+        await expect(startButton).toBeVisible({ timeout: 10000 });
+        await startButton.click();
+        
+        // Esperar a que aparezca el modal
+        const modal = page.locator('#training-wizard-modal');
+        await expect(modal).toBeVisible({ timeout: 1000 });
+        
+        // Verificar que aparece "Cargando training..." inicialmente
+        const loadingText = page.locator('text=Cargando training...');
+        await expect(loadingText).toBeVisible({ timeout: 500 });
+        
+        // Verificar que en <= 3s desaparece el loading y aparece contenido válido o fallback
+        await page.waitForFunction(
+            () => {
+                const content = document.getElementById('training-wizard-content');
+                if (!content) return false;
+                
+                // Verificar que NO está en loading
+                const loadingEl = content.querySelector('[data-testid="training-wizard-loading"]');
+                if (loadingEl) return false;
+                
+                // Verificar que el texto no contiene "Cargando training..."
+                const textContent = content.textContent || '';
+                if (textContent.includes('Cargando training...')) {
+                    return false;
+                }
+                
+                // Verificar que hay contenido válido
+                const title = content.querySelector('[data-testid="training-step-title"]');
+                return title && title.textContent && title.textContent.trim().length > 0;
+            },
+            { timeout: 3000 }
+        );
+        
+        // Verificar que hay contenido válido
+        const title = page.locator('[data-testid="training-step-title"]');
+        await expect(title).toHaveCount(1, { timeout: 1000 });
+        
+        const titleText = await title.textContent();
+        expect(titleText).toBeTruthy();
+        expect(titleText.trim().length).toBeGreaterThan(0);
+        expect(titleText.trim()).not.toBe('undefined');
+        expect(titleText.trim()).not.toContain('Cargando training...');
     });
 
     test('should have reload button in error fallback', async ({ page }) => {
