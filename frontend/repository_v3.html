@@ -742,13 +742,10 @@
             <p>Documental</p>
         </div>
         <nav class="sidebar-nav">
+            <!-- SPRINT C2.33: Menú principal visible por defecto (modo normal) -->
             <a class="nav-item active" data-page="inicio">
                 <span class="nav-item-icon">🏠</span>
                 Inicio
-            </a>
-            <a class="nav-item" data-page="calendario">
-                <span class="nav-item-icon">📅</span>
-                Calendario de documentos
             </a>
             <a class="nav-item" data-page="subir">
                 <span class="nav-item-icon">📤</span>
@@ -758,30 +755,41 @@
                 <span class="nav-item-icon">🔍</span>
                 Buscar documentos
             </a>
-            <a class="nav-item" data-page="plataformas">
-                <span class="nav-item-icon">🌐</span>
-                Plataformas
+            <a class="nav-item" data-page="calendario">
+                <span class="nav-item-icon">📅</span>
+                Calendario de documentos
             </a>
-            <a class="nav-item" data-page="catalogo">
-                <span class="nav-item-icon">📚</span>
-                Catálogo de documentos
+            <a class="nav-item" data-page="ejecuciones">
+                <span class="nav-item-icon">⚡</span>
+                Ejecuciones
             </a>
             <a class="nav-item" data-page="configuracion">
                 <span class="nav-item-icon">⚙️</span>
                 Configuración
             </a>
-            <a class="nav-item" data-page="actividad">
-                <span class="nav-item-icon">📜</span>
-                Actividad
-            </a>
-            <a class="nav-item" data-page="coordinacion">
-                <span class="nav-item-icon">🔗</span>
-                Coordinación CAE
-            </a>
-            <a class="nav-item" data-page="plan_review">
-                <span class="nav-item-icon">📋</span>
-                Revisión Plan (CAE)
-            </a>
+            <!-- SPRINT C2.33: Opciones avanzadas ocultas por defecto (modo experto) -->
+            <div id="expert-menu-items" style="display: none;">
+                <a class="nav-item" data-page="plataformas">
+                    <span class="nav-item-icon">🌐</span>
+                    Plataformas
+                </a>
+                <a class="nav-item" data-page="catalogo">
+                    <span class="nav-item-icon">📚</span>
+                    Catálogo de documentos
+                </a>
+                <a class="nav-item" data-page="actividad">
+                    <span class="nav-item-icon">📜</span>
+                    Actividad
+                </a>
+                <a class="nav-item" data-page="coordinacion">
+                    <span class="nav-item-icon">🔗</span>
+                    Coordinación CAE
+                </a>
+                <a class="nav-item" data-page="plan_review">
+                    <span class="nav-item-icon">📋</span>
+                    Revisión Plan (CAE)
+                </a>
+            </div>
         </nav>
     </div>
     
@@ -833,6 +841,13 @@
                         </select>
                         <span id="ctx-badge" class="context-badge" data-testid="ctx-badge">Sin contexto</span>
                     </div>
+                    <!-- SPRINT C2.33: Toggle modo experto -->
+                    <div style="margin-top: 12px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.875rem; color: #94a3b8;">
+                            <input type="checkbox" id="expert-mode-toggle" onchange="toggleExpertMode(this.checked)">
+                            <span>Modo avanzado</span>
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -843,6 +858,20 @@
     
     <!-- SPRINT C2.9.5: Contenedor global para markers de estado de vistas (invariante) -->
     <div id="view-state-root" style="display: none;" aria-hidden="true"></div>
+    
+    <!-- SPRINT C2.33: Training guiado (wizard) -->
+    <div id="training-wizard" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+                                       background: rgba(0, 0, 0, 0.8); z-index: 10000; 
+                                       display: flex; align-items: center; justify-content: center;">
+        <div class="card" style="max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; position: relative;">
+            <button onclick="closeTrainingWizard()" 
+                    style="position: absolute; top: 16px; right: 16px; background: none; border: none; 
+                           color: #94a3b8; font-size: 24px; cursor: pointer; line-height: 1;">×</button>
+            <div id="training-wizard-content">
+                <!-- Contenido se carga dinámicamente -->
+            </div>
+        </div>
+    </div>
     
     <script>
         // SPRINT C1.R0: Establecer app-ready INMEDIATAMENTE al inicio del script
@@ -1109,6 +1138,8 @@
         });
         window.addEventListener('DOMContentLoaded', () => {
             console.log('[EVENT] DOMContentLoaded');
+            // SPRINT C2.33: Inicializar modo experto
+            initExpertMode();
         });
         window.addEventListener('hashchange', () => {
             console.log('[EVENT] hashchange -> ' + location.hash);
@@ -1131,6 +1162,41 @@
             'MISSING': 'Falta',
             'LATE': 'Tarde'
         };
+        
+        // SPRINT C2.33: Modo experto (activado por ?expert=true o toggle)
+        let expertMode = false;
+        function initExpertMode() {
+            // Verificar URL param
+            const urlParams = new URLSearchParams(window.location.search);
+            expertMode = urlParams.get('expert') === 'true';
+            
+            // Verificar localStorage
+            const stored = localStorage.getItem('expertMode');
+            if (stored !== null) {
+                expertMode = stored === 'true';
+            }
+            
+            // Aplicar estado
+            updateExpertModeUI();
+        }
+        
+        function toggleExpertMode(enabled) {
+            expertMode = enabled;
+            localStorage.setItem('expertMode', enabled ? 'true' : 'false');
+            updateExpertModeUI();
+        }
+        
+        function updateExpertModeUI() {
+            const expertMenuItems = document.getElementById('expert-menu-items');
+            const expertToggle = document.getElementById('expert-mode-toggle');
+            
+            if (expertMenuItems) {
+                expertMenuItems.style.display = expertMode ? 'block' : 'none';
+            }
+            if (expertToggle) {
+                expertToggle.checked = expertMode;
+            }
+        }
         
         // SPRINT C2.31: Verificar si estamos en modo demo
         let isDemoMode = false;
@@ -1680,6 +1746,7 @@
             viewDbg(`runRoutingNow: hash=${window.location.hash}, route=${route}`);
             
             // Normalizar ruta: si no hay hash o ruta inválida, usar 'inicio'
+            // SPRINT C2.33: Rutas válidas (incluye configuracion con sub-rutas)
             const validRoutes = ['inicio', 'calendario', 'subir', 'buscar', 'plataformas', 'catalogo', 'configuracion', 'actividad', 'coordinacion', 'plan_review', 'ejecuciones'];
             const normalizedRoute = (route && validRoutes.includes(route)) ? route : 'inicio';
             
@@ -1927,7 +1994,8 @@
                 catalogo: 'Catálogo de documentos',
                 actividad: 'Actividad',
                 plan_review: 'Revisión Plan (CAE)',
-                ejecuciones: 'Ejecuciones'
+                ejecuciones: 'Ejecuciones',
+                configuracion: 'Configuración'
             };
             
             const descriptions = {
@@ -1939,7 +2007,8 @@
                 catalogo: 'Gestiona tipos de documento',
                 actividad: 'Historial de actividad',
                 plan_review: 'Revisa y decide sobre items del plan congelado',
-                ejecuciones: 'Ejecutar planes y gestionar programaciones'
+                ejecuciones: 'Ejecutar planes y gestionar programaciones',
+                configuracion: 'Configuración del sistema'
             };
             
             document.getElementById('page-title').textContent = titles[page] || page;
@@ -2020,7 +2089,9 @@
                 case 'settings':
                     setViewState('settings', 'loaded');
                     try {
-                        await loadConfiguracion();
+                        // SPRINT C2.33: Cargar sub-sección de configuración según params
+                        const configSection = params.section || 'repository';
+                        await loadConfiguracion(configSection, params);
                         setViewState('settings', 'ready');
                     } catch (error) {
                         console.error('[repo] Error in loadConfiguracion:', error);
@@ -8360,92 +8431,222 @@
         
         let repositorySettings = null;
         
-        async function loadConfiguracion() {
+        // SPRINT C2.33: Cargar configuración con sub-secciones
+        async function loadConfiguracion(section = 'repository', params = {}) {
             const content = document.getElementById('page-content');
             
             if (!content) {
                 throw new Error('page-content element not found');
             }
             
-            // SPRINT C2.1: Cargar configuración con manejo de errores robusto
-            // No bloquear el render si falla el fetch, pero mostrar mensaje
-            try {
-                const response = await fetchWithContext(`${BACKEND_URL}/api/repository/settings`);
-                if (response.ok) {
-                    repositorySettings = await response.json();
-                } else {
-                    // Si es 404, usar valores por defecto (no es crítico)
-                    if (response.status === 404) {
-                        console.warn('[config] Settings endpoint not found (404), using defaults');
-                        repositorySettings = { repository_root_dir: '' };
+            // Menú de sub-secciones
+            const configSections = [
+                { id: 'repository', name: 'Repositorio', icon: '📁' },
+                { id: 'org', name: 'Empresa', icon: '🏢' },
+                { id: 'people', name: 'Trabajadores', icon: '👥' },
+                { id: 'platforms', name: 'Plataformas', icon: '🌐' },
+                { id: 'secrets', name: 'Credenciales', icon: '🔐' }
+            ];
+            
+            const sectionMenu = configSections.map(s => `
+                <a href="#configuracion?section=${s.id}" 
+                   class="config-section-link ${section === s.id ? 'active' : ''}"
+                   onclick="navigateTo('configuracion', {section: '${s.id}'}); return false;"
+                   style="display: flex; align-items: center; gap: 8px; padding: 12px; margin-bottom: 8px; 
+                          background: ${section === s.id ? '#1e3a8a' : '#1e293b'}; 
+                          border-radius: 6px; text-decoration: none; color: ${section === s.id ? '#3b82f6' : '#cbd5e1'}; 
+                          transition: all 0.2s;">
+                    <span style="font-size: 1.2rem;">${s.icon}</span>
+                    <span>${s.name}</span>
+                </a>
+            `).join('');
+            
+            let sectionContent = '';
+            
+            // Cargar contenido según sección
+            if (section === 'repository') {
+                // SPRINT C2.1: Cargar configuración con manejo de errores robusto
+                try {
+                    const response = await fetchWithContext(`${BACKEND_URL}/api/repository/settings`);
+                    if (response.ok) {
+                        repositorySettings = await response.json();
                     } else {
-                        // Otros errores pueden ser críticos, pero aún así continuar
-                        console.warn('[config] Failed to load settings:', response.status);
-                        repositorySettings = { repository_root_dir: '' };
+                        if (response.status === 404) {
+                            console.warn('[config] Settings endpoint not found (404), using defaults');
+                            repositorySettings = { repository_root_dir: '' };
+                        } else {
+                            console.warn('[config] Failed to load settings:', response.status);
+                            repositorySettings = { repository_root_dir: '' };
+                        }
                     }
+                } catch (error) {
+                    console.error('[config] Error loading settings:', error);
+                    repositorySettings = { repository_root_dir: '' };
                 }
-            } catch (error) {
-                // Error de red o fetch fallido - no crítico, continuar con valores por defecto
-                console.error('[config] Error loading settings:', error);
-                repositorySettings = { repository_root_dir: '' };
-                // No re-lanzar el error - permitir que el formulario se renderice con valores por defecto
-                // Pero mostrar mensaje de advertencia si es un error crítico
-                if (error.message && !error.message.includes('404')) {
-                    // Solo mostrar error si no es 404 (que es esperado si el endpoint no existe aún)
-                    console.warn('[config] Non-404 error loading settings, will render with defaults');
-                }
+                
+                sectionContent = `
+                    <div class="card" data-testid="configuracion-view">
+                        <h3>Configuración del Repositorio</h3>
+                        <p style="color: #94a3b8; margin-bottom: 24px;">
+                            Configura la ruta en el servidor donde se guardan los documentos subidos.
+                            <strong>Nota:</strong> Esta ruta es del servidor donde corre CometLocal (tu PC).
+                        </p>
+                        
+                        <div class="form-group" data-testid="configuracion-settings">
+                            <label class="form-label">Ruta del repositorio</label>
+                            <input type="text" 
+                                   class="form-input" 
+                                   id="config-repository-root"
+                                   value="${repositorySettings?.repository_root_dir || ''}"
+                                   placeholder="D:\\Proyectos\\CometLocal\\data\\repository"
+                                   style="font-family: monospace; font-size: 0.9rem;">
+                            <div class="form-help" style="margin-top: 8px; color: #94a3b8; font-size: 0.875rem;">
+                                Ruta absoluta en el servidor donde se guardan los PDFs subidos.
+                                <br>Ejemplo Windows: <code>D:\\Proyectos\\CometLocal\\data\\repository</code>
+                                <br>Ejemplo Linux: <code>/home/usuario/data/repository</code>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 12px; margin-top: 24px;">
+                            <button class="btn btn-secondary" onclick="testRepositoryPath()">
+                                Probar ruta
+                            </button>
+                            <button class="btn btn-primary" data-testid="configuracion-save" onclick="saveRepositorySettings()">
+                                Guardar
+                            </button>
+                        </div>
+                        
+                    <div id="config-message" style="margin-top: 16px;"></div>
+                </div>
+                ${section === 'repository' ? `
+                    <div class="card" style="margin-top: 24px;">
+                        <h4>Ayuda</h4>
+                        <p style="color: #94a3b8; font-size: 0.875rem; margin-bottom: 12px;">
+                            ¿Primera vez usando CometLocal?
+                        </p>
+                        <button class="btn btn-secondary" onclick="reopenTraining()" style="font-size: 0.875rem;">
+                            🎓 Abrir guía de inicio
+                        </button>
+                    </div>
+                ` : ''}
+            `;
+            } else if (section === 'org') {
+                sectionContent = await loadConfigOrg();
+            } else if (section === 'people') {
+                sectionContent = await loadConfigPeople();
+            } else if (section === 'platforms') {
+                sectionContent = await loadConfigPlatforms();
+            } else if (section === 'secrets') {
+                sectionContent = await loadConfigSecrets();
             }
             
-            // Renderizar siempre, incluso si falló el fetch
+            // Renderizar con menú lateral y contenido
             content.innerHTML = `
-                <div class="card" data-testid="configuracion-view">
-                    <h3>Configuración del Repositorio</h3>
-                    <p style="color: #94a3b8; margin-bottom: 24px;">
-                        Configura la ruta en el servidor donde se guardan los documentos subidos.
-                        <strong>Nota:</strong> Esta ruta es del servidor donde corre CometLocal (tu PC).
-                    </p>
-                    
-                    <div class="form-group" data-testid="configuracion-settings">
-                        <label class="form-label">Ruta del repositorio</label>
-                        <input type="text" 
-                               class="form-input" 
-                               id="config-repository-root"
-                               value="${repositorySettings?.repository_root_dir || ''}"
-                               placeholder="D:\\Proyectos\\CometLocal\\data\\repository"
-                               style="font-family: monospace; font-size: 0.9rem;">
-                        <div class="form-help" style="margin-top: 8px; color: #94a3b8; font-size: 0.875rem;">
-                            Ruta absoluta en el servidor donde se guardan los PDFs subidos.
-                            <br>Ejemplo Windows: <code>D:\\Proyectos\\CometLocal\\data\\repository</code>
-                            <br>Ejemplo Linux: <code>/home/usuario/data/repository</code>
+                <div style="display: flex; gap: 24px;">
+                    <div style="width: 200px; flex-shrink: 0;">
+                        <div class="card" style="padding: 16px;">
+                            <h4 style="margin-bottom: 16px; font-size: 1rem;">Secciones</h4>
+                            ${sectionMenu}
                         </div>
                     </div>
-                    
-                    <div style="display: flex; gap: 12px; margin-top: 24px;">
-                        <button class="btn btn-secondary" onclick="testRepositoryPath()">
-                            Probar ruta
-                        </button>
-                        <button class="btn btn-primary" data-testid="configuracion-save" onclick="saveRepositorySettings()">
-                            Guardar
-                        </button>
+                    <div style="flex: 1;">
+                        ${sectionContent}
                     </div>
-                    
-                    <div id="config-message" style="margin-top: 16px;"></div>
                 </div>
             `;
             
-            // SPRINT C2.1: Añadir señal cuando el formulario está renderizado
-            const formInput = document.getElementById('config-repository-root');
-            if (formInput) {
-                formInput.setAttribute('data-testid', 'settings-ui-ready');
-                // También en el contenedor principal para compatibilidad
-                const card = content.querySelector('.card');
-                if (card) {
-                    // SPRINT C2.8: Asegurar que configuracion-view está presente (el innerHTML ya lo incluye, pero lo verificamos)
-                    card.setAttribute('data-testid', 'configuracion-view');
-                    // Mantener también settings-ui-ready para compatibilidad
-                    card.setAttribute('data-settings-ui-ready', 'true');
-                }
+            // Establecer data-testid
+            const card = content.querySelector('.card');
+            if (card) {
+                card.setAttribute('data-testid', 'configuracion-view');
             }
+        }
+        
+        // SPRINT C2.33: Funciones para cargar sub-secciones de configuración
+        async function loadConfigOrg() {
+            try {
+                const response = await fetchWithContext(`${BACKEND_URL}/api/config/org`);
+                const org = response.ok ? await response.json() : null;
+                
+                return `
+                    <div class="card">
+                        <h3>Empresa Propia</h3>
+                        <p style="color: #94a3b8; margin-bottom: 24px;">
+                            Configura los datos de tu empresa.
+                        </p>
+                        <div style="background: #1e293b; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                            <div style="margin-bottom: 12px;">
+                                <strong>Nombre legal:</strong> ${org?.legal_name || 'No configurado'}
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <strong>CIF/NIF:</strong> ${org?.tax_id || 'No configurado'}
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <strong>Tipo:</strong> ${org?.org_type || 'No configurado'}
+                            </div>
+                        </div>
+                        <p style="color: #94a3b8; font-size: 0.875rem;">
+                            Para editar, usa la interfaz avanzada en <a href="/config/org" target="_blank" style="color: #3b82f6;">/config/org</a>
+                        </p>
+                    </div>
+                `;
+            } catch (error) {
+                return `<div class="card"><div class="alert alert-error">Error al cargar: ${error.message}</div></div>`;
+            }
+        }
+        
+        async function loadConfigPeople() {
+            return `
+                <div class="card">
+                    <h3>Trabajadores</h3>
+                    <p style="color: #94a3b8; margin-bottom: 24px;">
+                        Gestiona los trabajadores de tu empresa.
+                    </p>
+                    <iframe src="/config/people" 
+                            style="width: 100%; height: 600px; border: 1px solid #334155; border-radius: 8px; background: #0f172a;"
+                            frameborder="0">
+                    </iframe>
+                    <p style="color: #94a3b8; font-size: 0.875rem; margin-top: 8px;">
+                        O abre en nueva pestaña: <a href="/config/people" target="_blank" style="color: #3b82f6;">/config/people</a>
+                    </p>
+                </div>
+            `;
+        }
+        
+        async function loadConfigPlatforms() {
+            return `
+                <div class="card">
+                    <h3>Plataformas CAE</h3>
+                    <p style="color: #94a3b8; margin-bottom: 24px;">
+                        Configura las plataformas CAE y sus credenciales.
+                    </p>
+                    <iframe src="/config/platforms" 
+                            style="width: 100%; height: 600px; border: 1px solid #334155; border-radius: 8px; background: #0f172a;"
+                            frameborder="0">
+                    </iframe>
+                    <p style="color: #94a3b8; font-size: 0.875rem; margin-top: 8px;">
+                        O abre en nueva pestaña: <a href="/config/platforms" target="_blank" style="color: #3b82f6;">/config/platforms</a>
+                    </p>
+                </div>
+            `;
+        }
+        
+        async function loadConfigSecrets() {
+            return `
+                <div class="card">
+                    <h3>Credenciales</h3>
+                    <p style="color: #94a3b8; margin-bottom: 24px;">
+                        Gestiona las credenciales almacenadas de forma segura.
+                    </p>
+                    <iframe src="/config/secrets" 
+                            style="width: 100%; height: 600px; border: 1px solid #334155; border-radius: 8px; background: #0f172a;"
+                            frameborder="0">
+                    </iframe>
+                    <p style="color: #94a3b8; font-size: 0.875rem; margin-top: 8px;">
+                        O abre en nueva pestaña: <a href="/config/secrets" target="_blank" style="color: #3b82f6;">/config/secrets</a>
+                    </p>
+                </div>
+            `;
         }
         
         async function testRepositoryPath() {
@@ -10825,6 +11026,9 @@
                                 </tbody>
                             </table>
                         </div>
+                        
+                        <!-- SPRINT C2.34: Panel de debug "¿Por qué no se ha subido?" -->
+                        ${renderMatchingDebugPanel()}
                     </div>
                     
                     <div class="card" data-testid="decision-pack-section">
@@ -11310,6 +11514,116 @@
                             </button>
                         </td>
                     </tr>
+                `;
+            }).join('');
+        }
+        
+        // SPRINT C2.34: Renderizar panel de debug "¿Por qué no se ha subido?"
+        function renderMatchingDebugPanel() {
+            if (!planReviewState.planData || !planReviewState.planData.items) {
+                return '';
+            }
+            
+            // Filtrar items con debug_report y que no sean AUTO_UPLOAD
+            const itemsWithDebug = planReviewState.planData.items.filter(item => {
+                const debugReport = item.debug_report;
+                if (!debugReport) return false;
+                const decision = item.decision?.action || item.decision || '';
+                return decision !== 'AUTO_UPLOAD' && decision !== 'AUTO_SUBMIT_OK';
+            });
+            
+            if (itemsWithDebug.length === 0) {
+                return '';
+            }
+            
+            // Renderizar panel para cada item con debug
+            return itemsWithDebug.map(item => {
+                const debugReport = item.debug_report;
+                if (!debugReport || !debugReport.reasons || debugReport.reasons.length === 0) {
+                    return '';
+                }
+                
+                const primaryReason = debugReport.reasons[0];
+                const otherReasons = debugReport.reasons.slice(1);
+                
+                // Mapear códigos a mensajes y acciones humanas
+                const reasonMessages = {
+                    'NO_LOCAL_DOCS': {
+                        message: 'No hay documentos en tu repositorio para este requisito.',
+                        action: 'Subir el documento correspondiente al repositorio.'
+                    },
+                    'TYPE_NOT_FOUND': {
+                        message: 'El tipo de documento no existe en el catálogo.',
+                        action: 'Revisar configuración de tipos de documento.'
+                    },
+                    'TYPE_INACTIVE': {
+                        message: 'El tipo de documento está inactivo.',
+                        action: 'Activar el tipo de documento en el catálogo.'
+                    },
+                    'ALIAS_NOT_MATCHING': {
+                        message: 'No se reconoce el tipo en esta plataforma.',
+                        action: 'Revisar alias del tipo o configuración de plataforma.'
+                    },
+                    'SCOPE_MISMATCH': {
+                        message: 'El tipo de documento no coincide con el scope del requisito.',
+                        action: 'Revisar el scope del tipo de documento o el requisito.'
+                    },
+                    'PERIOD_MISMATCH': {
+                        message: `Hay documentos, pero no cubren el periodo ${debugReport.filters_applied?.period_key || 'solicitado'}.`,
+                        action: 'Sube el documento del periodo correcto o revisa el periodo.'
+                    },
+                    'COMPANY_MISMATCH': {
+                        message: 'El documento existe pero está asignado a otra empresa.',
+                        action: 'Revisar asignación de empresa en los documentos.'
+                    },
+                    'PERSON_MISMATCH': {
+                        message: 'El documento existe pero está asignado a otro trabajador.',
+                        action: 'Revisar asignación de trabajador en los documentos.'
+                    },
+                    'VALIDITY_MISMATCH': {
+                        message: 'Hay documentos pero ninguno es válido para la fecha actual.',
+                        action: 'Revisar fechas de validez de los documentos o subir uno válido.'
+                    }
+                };
+                
+                const primaryInfo = reasonMessages[primaryReason.code] || {
+                    message: primaryReason.message || 'No se pudo determinar la causa específica.',
+                    action: primaryReason.hint || 'Revisar configuración y documentos disponibles.'
+                };
+                
+                return `
+                    <div class="card" style="margin-top: 16px; background: #1e293b; border: 1px solid #475569; border-left: 4px solid #f59e0b;" data-testid="matching-debug-panel">
+                        <h4 style="color: #fbbf24; margin-bottom: 12px;">❓ ¿Por qué no se ha subido?</h4>
+                        <div style="margin-bottom: 12px;" data-testid="matching-debug-primary">
+                            <strong style="color: #e2e8f0;">Motivo principal:</strong>
+                            <p style="color: #cbd5e1; margin-top: 4px; margin-bottom: 8px;">${escapeHtml(primaryInfo.message)}</p>
+                        </div>
+                        ${otherReasons.length > 0 ? `
+                            <div style="margin-bottom: 12px;" data-testid="matching-debug-reasons">
+                                <strong style="color: #e2e8f0;">Detalles adicionales:</strong>
+                                <ul style="color: #cbd5e1; margin-top: 4px; margin-left: 20px;">
+                                    ${otherReasons.map(r => {
+                                        const info = reasonMessages[r.code] || { message: r.message || '' };
+                                        return `<li>${escapeHtml(info.message)}</li>`;
+                                    }).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #334155;" data-testid="matching-debug-actions">
+                            <strong style="color: #e2e8f0;">Qué puedes hacer ahora:</strong>
+                            <p style="color: #60a5fa; margin-top: 4px;">${escapeHtml(primaryInfo.action)}</p>
+                        </div>
+                        ${debugReport.counters ? `
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #334155; font-size: 0.875rem; color: #94a3b8;">
+                                <strong>Contadores:</strong> 
+                                Considerados: ${debugReport.counters.local_docs_considered || 0} | 
+                                Después de tipo: ${debugReport.counters.local_docs_after_type || 0} | 
+                                Después de scope: ${debugReport.counters.local_docs_after_scope || 0} | 
+                                Después de empresa: ${debugReport.counters.local_docs_after_company || 0} | 
+                                Después de periodo: ${debugReport.counters.local_docs_after_period || 0}
+                            </div>
+                        ` : ''}
+                    </div>
                 `;
             }).join('');
         }
@@ -12727,15 +13041,20 @@
             content.innerHTML = `
                 <div class="card" data-testid="runs-scheduler">
                     <h3 style="margin-bottom: 16px;">Ejecutar Plan</h3>
+                    <p style="color: #94a3b8; margin-bottom: 24px;">
+                        Ejecuta un plan de envío de documentos. Usa simulación para probar sin enviar realmente.
+                    </p>
                     <div style="margin-bottom: 16px;">
-                        <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <label class="form-label">Plan ID</label>
+                        <input type="text" id="runs-plan-id" placeholder="Introduce el ID del plan" 
+                               style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0; margin-bottom: 16px;">
+                        <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; cursor: pointer;">
                             <input type="checkbox" id="runs-dry-run" checked>
-                            <span>Dry-run (simulación)</span>
+                            <span>Simulación (recomendado)</span>
                         </label>
-                        <input type="text" id="runs-plan-id" placeholder="Plan ID" 
-                               style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0; margin-bottom: 8px;">
-                        <button class="btn btn-primary" onclick="executeRunNow()" id="runs-execute-btn" data-testid="runs-execute-btn">
-                            Ejecutar plan ahora
+                        <button class="btn btn-primary btn-lg" onclick="executeRunNow()" id="runs-execute-btn" data-testid="runs-execute-btn" 
+                                style="width: 100%; padding: 12px; font-size: 1rem; font-weight: 600;">
+                            ⚡ Ejecutar ahora
                         </button>
                     </div>
                     <div id="runs-status" style="margin-top: 16px; padding: 12px; background: #1e293b; border-radius: 4px; display: none;"></div>
@@ -12842,11 +13161,14 @@
                 }
                 
                 const result = await response.json();
+                // SPRINT C2.33: Mensaje humano (ocultar run_id)
+                const statusMsg = result.status === 'success' ? '✓ Ejecución iniciada correctamente' : 
+                                 result.status === 'error' ? '✗ Error al iniciar ejecución' :
+                                 '⏳ Ejecución en proceso';
                 statusDiv.innerHTML = `
-                    <div style="color: #4ade80;">
-                        <strong>✓ Ejecución iniciada</strong><br>
-                        Run ID: ${result.run_id}<br>
-                        Estado: ${result.status}
+                    <div style="color: #4ade80; padding: 12px; background: #1e293b; border-radius: 4px;">
+                        <strong>${statusMsg}</strong><br>
+                        <span style="font-size: 0.875rem; color: #94a3b8;">La ejecución está en curso. Revisa la lista de ejecuciones para ver el progreso.</span>
                     </div>
                 `;
                 
@@ -12865,7 +13187,7 @@
                 `;
             } finally {
                 executeBtn.disabled = false;
-                executeBtn.textContent = 'Ejecutar plan ahora';
+                executeBtn.textContent = '⚡ Ejecutar ahora';
             }
         }
         
@@ -12899,21 +13221,50 @@
                     ? new Date(summary.finished_at).toLocaleString('es-ES')
                     : 'En ejecución...';
                 
+                // SPRINT C2.33: Vista humana de ejecuciones (ocultar run_id, mostrar solo info relevante)
+                const statusLabel = {
+                    'success': '✓ Éxito',
+                    'error': '✗ Error',
+                    'blocked': '⚠ Bloqueado',
+                    'partial_success': '⚠ Parcial',
+                    'canceled': '⊘ Cancelado',
+                }[summary.status] || summary.status;
+                
+                const statusColor = {
+                    'success': '#4ade80',
+                    'error': '#ef4444',
+                    'blocked': '#fbbf24',
+                    'partial_success': '#fbbf24',
+                    'canceled': '#94a3b8',
+                }[summary.status] || '#94a3b8';
+                
                 listContent.innerHTML = `
-                    <div style="padding: 12px; background: #1e293b; border-radius: 4px; margin-bottom: 8px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <strong>Run: ${summary.run_id}</strong>
-                            ${statusBadge}
+                    <div style="padding: 16px; background: #1e293b; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid ${statusColor};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <div>
+                                <div style="font-size: 1.1rem; font-weight: 600; color: ${statusColor}; margin-bottom: 4px;">
+                                    ${statusLabel}
+                                </div>
+                                <div style="font-size: 0.875rem; color: #94a3b8;">
+                                    ${startedAt}
+                                </div>
+                            </div>
+                            ${summary.finished_at ? `
+                                <div style="text-align: right;">
+                                    <div style="font-size: 0.875rem; color: #94a3b8;">Finalizado</div>
+                                    <div style="font-size: 0.875rem; color: #cbd5e1;">${finishedAt}</div>
+                                </div>
+                            ` : '<div style="color: #3b82f6;">En ejecución...</div>'}
                         </div>
-                        <div style="font-size: 0.875rem; color: #94a3b8;">
-                            <div>Iniciado: ${startedAt}</div>
-                            <div>Finalizado: ${finishedAt}</div>
-                            ${summary.plan_id ? `<div>Plan: ${summary.plan_id}</div>` : ''}
-                        </div>
-                        <div style="margin-top: 8px;">
+                        ${summary.plan_id ? `
+                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155;">
+                                <div style="font-size: 0.875rem; color: #94a3b8;">Plan: <code style="color: #cbd5e1;">${summary.plan_id}</code></div>
+                            </div>
+                        ` : ''}
+                        <div style="margin-top: 12px;">
                             <a href="#" onclick="downloadRunSummary('${summary.run_id}'); return false;" 
-                               style="color: #3b82f6; text-decoration: none; font-size: 0.875rem;">
-                                📄 Ver summary.md
+                               style="color: #3b82f6; text-decoration: none; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 4px;">
+                                📄 Ver resumen
                             </a>
                         </div>
                     </div>
@@ -13203,6 +13554,161 @@
         
         // NOTA: El routing de ejecuciones ahora se maneja a través del router principal (runRoutingNow)
         // No se necesita un listener de hashchange separado
+        
+        // SPRINT C2.33: Training guiado (wizard)
+        const TRAINING_STEPS = [
+            { id: 'company', title: 'Selecciona tu empresa', description: 'Elige la empresa propia con la que trabajas.' },
+            { id: 'people', title: 'Revisa los trabajadores', description: 'Verifica que los trabajadores estén correctamente configurados.' },
+            { id: 'platform', title: 'Configura plataforma y cliente', description: 'Selecciona la plataforma CAE y el cliente coordinado.' },
+            { id: 'upload', title: 'Sube un documento', description: 'Prueba a subir un documento al repositorio.' },
+            { id: 'calendar', title: 'Mira el calendario', description: 'Revisa qué documentos faltan por mes.' },
+            { id: 'execute', title: 'Ejecuta una simulación', description: 'Ejecuta un run en modo simulación (dry-run) para ver cómo funciona.' }
+        ];
+        
+        let currentTrainingStep = 0;
+        let trainingCompleted = false;
+        
+        function initTrainingWizard() {
+            // Verificar si el training ya se completó
+            const completed = localStorage.getItem('trainingCompleted');
+            if (completed === 'true') {
+                trainingCompleted = true;
+                return;
+            }
+            
+            // Verificar si hay un paso guardado
+            const savedStep = localStorage.getItem('trainingStep');
+            if (savedStep) {
+                currentTrainingStep = parseInt(savedStep, 10);
+            }
+            
+            // Mostrar wizard si no está completado
+            if (!trainingCompleted) {
+                showTrainingWizard();
+            }
+        }
+        
+        function showTrainingWizard() {
+            const wizard = document.getElementById('training-wizard');
+            if (!wizard) return;
+            
+            const step = TRAINING_STEPS[currentTrainingStep];
+            if (!step) {
+                completeTraining();
+                return;
+            }
+            
+            const content = document.getElementById('training-wizard-content');
+            content.innerHTML = `
+                <h2 style="margin-bottom: 8px;">${step.title}</h2>
+                <p style="color: #94a3b8; margin-bottom: 24px;">${step.description}</p>
+                <div style="margin-bottom: 16px;">
+                    <div style="font-size: 0.875rem; color: #94a3b8;">
+                        Paso ${currentTrainingStep + 1} de ${TRAINING_STEPS.length}
+                    </div>
+                    <div style="width: 100%; height: 4px; background: #1e293b; border-radius: 2px; margin-top: 8px;">
+                        <div style="width: ${((currentTrainingStep + 1) / TRAINING_STEPS.length) * 100}%; height: 100%; 
+                                    background: #3b82f6; border-radius: 2px; transition: width 0.3s;"></div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    ${currentTrainingStep > 0 ? `
+                        <button class="btn btn-secondary" onclick="previousTrainingStep()">Anterior</button>
+                    ` : ''}
+                    <button class="btn btn-secondary" onclick="skipTraining()">Saltar</button>
+                    <button class="btn btn-primary" onclick="nextTrainingStep()">
+                        ${currentTrainingStep === TRAINING_STEPS.length - 1 ? 'Finalizar' : 'Siguiente'}
+                    </button>
+                </div>
+            `;
+            
+            wizard.style.display = 'flex';
+            
+            // Navegar a la vista correspondiente
+            navigateToTrainingStep(step.id);
+        }
+        
+        function navigateToTrainingStep(stepId) {
+            switch(stepId) {
+                case 'company':
+                    navigateTo('inicio');
+                    break;
+                case 'people':
+                    navigateTo('configuracion', { section: 'people' });
+                    break;
+                case 'platform':
+                    navigateTo('inicio');
+                    break;
+                case 'upload':
+                    navigateTo('subir');
+                    break;
+                case 'calendar':
+                    navigateTo('calendario');
+                    break;
+                case 'execute':
+                    navigateTo('ejecuciones');
+                    break;
+            }
+        }
+        
+        function nextTrainingStep() {
+            if (currentTrainingStep < TRAINING_STEPS.length - 1) {
+                currentTrainingStep++;
+                localStorage.setItem('trainingStep', currentTrainingStep.toString());
+                showTrainingWizard();
+            } else {
+                completeTraining();
+            }
+        }
+        
+        function previousTrainingStep() {
+            if (currentTrainingStep > 0) {
+                currentTrainingStep--;
+                localStorage.setItem('trainingStep', currentTrainingStep.toString());
+                showTrainingWizard();
+            }
+        }
+        
+        function skipTraining() {
+            completeTraining();
+        }
+        
+        function closeTrainingWizard() {
+            const wizard = document.getElementById('training-wizard');
+            if (wizard) {
+                wizard.style.display = 'none';
+            }
+        }
+        
+        function completeTraining() {
+            trainingCompleted = true;
+            localStorage.setItem('trainingCompleted', 'true');
+            localStorage.removeItem('trainingStep');
+            closeTrainingWizard();
+        }
+        
+        function reopenTraining() {
+            trainingCompleted = false;
+            currentTrainingStep = 0;
+            localStorage.removeItem('trainingCompleted');
+            localStorage.removeItem('trainingStep');
+            showTrainingWizard();
+        }
+        
+        // Inicializar training wizard después de que la app esté lista
+        // SPRINT C2.33: No mostrar en tests (detectar por user agent o flag)
+        window.addEventListener('DOMContentLoaded', () => {
+            // No mostrar training wizard si estamos en modo test
+            const isTestMode = navigator.userAgent.includes('HeadlessChrome') || 
+                              window.location.search.includes('notraining=true') ||
+                              localStorage.getItem('trainingCompleted') === 'true';
+            
+            if (!isTestMode) {
+                setTimeout(() => {
+                    initTrainingWizard();
+                }, 2000); // Esperar 2 segundos para que la app cargue
+            }
+        });
         
     </script>
 </body>

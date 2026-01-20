@@ -4,7 +4,7 @@ import json
 import re
 from datetime import date, datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 
 from backend.shared.document_repository_v1 import (
     DocumentTypeV1,
@@ -22,6 +22,18 @@ from backend.shared.matching_debug_report import (
     CandidateTop,
     MatchingOutcome,
     PrimaryReasonCode,
+)
+from backend.repository.matching_debug_codes_v1 import (
+    make_reason,
+    NO_LOCAL_DOCS,
+    TYPE_NOT_FOUND,
+    TYPE_INACTIVE,
+    ALIAS_NOT_MATCHING,
+    SCOPE_MISMATCH,
+    PERIOD_MISMATCH,
+    COMPANY_MISMATCH,
+    PERSON_MISMATCH,
+    VALIDITY_MISMATCH,
 )
 
 # Mantener compatibilidad: normalize_text para matching
@@ -516,6 +528,36 @@ class DocumentMatcherV1:
                     if pending_period_key:
                         reason = f"Missing document for period {pending_period_key}"
                     # SPRINT C2.18A: Ya se actualizó debug_report arriba si existe
+                    
+                    # SPRINT C2.34: Generar matching_debug_report
+                    stage_counts = {
+                        "local_docs_considered": len(all_docs) if 'all_docs' in locals() else 0,
+                        "local_docs_after_type": 0,
+                        "local_docs_after_scope": 0,
+                        "local_docs_after_company": 0,
+                        "local_docs_after_person": 0,
+                        "local_docs_after_period": 0,
+                        "local_docs_after_validity": 0,
+                    }
+                    context = {
+                        "company_key": company_key,
+                        "person_key": person_key,
+                        "platform_key": platform_key,
+                        "period_key": pending_period_key,
+                    }
+                    type_lookup_info = {
+                        "type_id": rule.document_type_id,
+                        "found": True,
+                        "active": True,
+                        "scope": doc_type.scope.value if hasattr(doc_type.scope, 'value') else str(doc_type.scope),
+                    }
+                    alias_info = {"alias_received": base_text, "matched": True} if base_text else None
+                    match_result_dict = {"decision": "NO_MATCH", "best_doc": None, "confidence": 0.0}
+                    matching_debug_report_c234 = self.build_matching_debug_report(
+                        pending=pending, context=context, repo_docs=[], match_result=match_result_dict,
+                        stage_counts=stage_counts, type_lookup_info=type_lookup_info, alias_info=alias_info
+                    )
+                    
                     return {
                         "best_doc": None,
                         "alternatives": [],
@@ -527,6 +569,7 @@ class DocumentMatcherV1:
                             "form": rule.form.model_dump(mode="json")
                         },
                         "matching_debug_report": debug_report.model_dump(mode="json") if debug_report else None,  # SPRINT C2.18A
+                        "matching_debug_report_c234": matching_debug_report_c234,  # SPRINT C2.34
                     }
         
         # 1) Fallback: Encontrar tipos candidatos por aliases (método original)
@@ -585,6 +628,31 @@ class DocumentMatcherV1:
                 debug_info["reasons"] = [f"No type match found for text: '{base_text}'"]
                 if evidence_dir:
                     self._save_debug_info(evidence_dir, debug_info)
+                
+                # SPRINT C2.34: Generar matching_debug_report
+                stage_counts = {
+                    "local_docs_considered": len(all_docs) if 'all_docs' in locals() else 0,
+                    "local_docs_after_type": 0,
+                    "local_docs_after_scope": 0,
+                    "local_docs_after_company": 0,
+                    "local_docs_after_person": 0,
+                    "local_docs_after_period": 0,
+                    "local_docs_after_validity": 0,
+                }
+                context = {
+                    "company_key": company_key,
+                    "person_key": person_key,
+                    "platform_key": platform_key,
+                    "period_key": pending_period_key,
+                }
+                type_lookup_info = {"type_id": None, "found": False, "active": False, "scope": None}
+                alias_info = {"alias_received": base_text, "matched": False} if base_text else None
+                match_result_dict = {"decision": "NO_MATCH", "best_doc": None, "confidence": 0.0}
+                matching_debug_report_c234 = self.build_matching_debug_report(
+                    pending=pending, context=context, repo_docs=[], match_result=match_result_dict,
+                    stage_counts=stage_counts, type_lookup_info=type_lookup_info, alias_info=alias_info
+                )
+                
                 return {
                     "best_doc": None,
                     "alternatives": [],
@@ -592,6 +660,7 @@ class DocumentMatcherV1:
                     "reasons": [f"No type match found for text: '{base_text}'"],
                     "needs_operator": True,
                     "matching_debug_report": debug_report.model_dump(mode="json") if debug_report else None,  # SPRINT C2.18A
+                    "matching_debug_report_c234": matching_debug_report_c234,  # SPRINT C2.34
                 }
         
         if not matching_types:
@@ -689,6 +758,36 @@ class DocumentMatcherV1:
                     debug_info["reasons"] = [f"Missing document for period {pending_period_key}"]
                     if evidence_dir:
                         self._save_debug_info(evidence_dir, debug_info)
+                    
+                    # SPRINT C2.34: Generar matching_debug_report
+                    stage_counts = {
+                        "local_docs_considered": len(all_docs) if 'all_docs' in locals() else 0,
+                        "local_docs_after_type": total_docs_after_type_filter if 'total_docs_after_type_filter' in locals() else 0,
+                        "local_docs_after_scope": 0,
+                        "local_docs_after_company": 0,
+                        "local_docs_after_person": 0,
+                        "local_docs_after_period": 0,
+                        "local_docs_after_validity": 0,
+                    }
+                    context = {
+                        "company_key": company_key,
+                        "person_key": person_key,
+                        "platform_key": platform_key,
+                        "period_key": pending_period_key,
+                    }
+                    type_lookup_info = {
+                        "type_id": doc_type.type_id,
+                        "found": True,
+                        "active": True,
+                        "scope": doc_type.scope.value if hasattr(doc_type.scope, 'value') else str(doc_type.scope),
+                    }
+                    alias_info = {"alias_received": base_text, "matched": True} if base_text else None
+                    match_result_dict = {"decision": "NO_MATCH", "best_doc": None, "confidence": 0.0}
+                    matching_debug_report_c234 = self.build_matching_debug_report(
+                        pending=pending, context=context, repo_docs=[], match_result=match_result_dict,
+                        stage_counts=stage_counts, type_lookup_info=type_lookup_info, alias_info=alias_info
+                    )
+                    
                     return {
                         "best_doc": None,
                         "alternatives": [],
@@ -696,6 +795,7 @@ class DocumentMatcherV1:
                         "reasons": [f"Missing document for period {pending_period_key}"],
                         "needs_operator": True,
                         "matching_debug_report": debug_report.model_dump(mode="json") if debug_report else None,  # SPRINT C2.18A
+                        "matching_debug_report_c234": matching_debug_report_c234,  # SPRINT C2.34
                     }
             else:
                 # Sin period_key: Query 1: Con empresa y persona
@@ -949,6 +1049,39 @@ class DocumentMatcherV1:
             debug_info["reasons"] = [f"No documents found for company={company_key}, person={person_key}"]
             if evidence_dir:
                 self._save_debug_info(evidence_dir, debug_info)
+            
+            # SPRINT C2.34: Generar matching_debug_report
+            stage_counts = {
+                "local_docs_considered": len(all_docs) if 'all_docs' in locals() else 0,
+                "local_docs_after_type": total_docs_after_type_filter if 'total_docs_after_type_filter' in locals() else 0,
+                "local_docs_after_scope": 0,
+                "local_docs_after_company": 0,
+                "local_docs_after_person": 0,
+                "local_docs_after_period": 0,
+                "local_docs_after_validity": 0,
+            }
+            context = {
+                "company_key": company_key,
+                "person_key": person_key,
+                "platform_key": platform_key,
+                "period_key": pending_period_key,
+            }
+            type_lookup_info = None
+            if matching_types:
+                first_type, _ = matching_types[0]
+                type_lookup_info = {
+                    "type_id": first_type.type_id,
+                    "found": True,
+                    "active": True,
+                    "scope": first_type.scope.value if hasattr(first_type.scope, 'value') else str(first_type.scope),
+                }
+            alias_info = {"alias_received": base_text, "matched": len(matching_types) > 0} if base_text else None
+            match_result_dict = {"decision": "NO_MATCH", "best_doc": None, "confidence": 0.0}
+            matching_debug_report_c234 = self.build_matching_debug_report(
+                pending=pending, context=context, repo_docs=[], match_result=match_result_dict,
+                stage_counts=stage_counts, type_lookup_info=type_lookup_info, alias_info=alias_info
+            )
+            
             return {
                 "best_doc": None,
                 "alternatives": [],
@@ -956,6 +1089,7 @@ class DocumentMatcherV1:
                 "reasons": [f"No documents found for company={company_key}, person={person_key}"],
                 "needs_operator": True,
                 "matching_debug_report": debug_report.model_dump(mode="json") if debug_report else None,  # SPRINT C2.18A
+                "matching_debug_report_c234": matching_debug_report_c234,  # SPRINT C2.34
             }
         
         # 3) Ordenar por score descendente
@@ -1050,6 +1184,73 @@ class DocumentMatcherV1:
             if evidence_dir:
                 self._save_debug_report(evidence_dir, pending, debug_report)
         
+        # SPRINT C2.34: Determinar decision y generar matching_debug_report si aplica
+        decision = "AUTO_UPLOAD" if best.score >= 0.7 and not needs_operator else "REVIEW_REQUIRED" if best.score >= 0.5 else "NO_MATCH"
+        
+        # Recopilar stage_counts para matching_debug_report
+        stage_counts = {
+            "local_docs_considered": len(all_docs) if 'all_docs' in locals() else 0,
+            "local_docs_after_type": total_docs_after_type_filter if 'total_docs_after_type_filter' in locals() else 0,
+            "local_docs_after_scope": docs_after_subject_filter if 'docs_after_subject_filter' in locals() else 0,
+            "local_docs_after_company": docs_after_subject_filter if 'docs_after_subject_filter' in locals() else 0,  # Aproximación
+            "local_docs_after_person": docs_after_subject_filter if 'docs_after_subject_filter' in locals() and person_key else 0,  # Aproximación
+            "local_docs_after_period": len(all_candidates) if pending_period_key else len(all_candidates),
+            "local_docs_after_validity": len(all_candidates),  # Aproximación: todos los candidatos pasaron validity
+        }
+        
+        # Construir context para matching_debug_report
+        context = {
+            "company_key": company_key,
+            "person_key": person_key,
+            "platform_key": platform_key,
+            "period_key": pending_period_key,
+        }
+        
+        # Construir type_lookup_info
+        type_lookup_info = None
+        if matching_types:
+            first_type, _ = matching_types[0]
+            type_lookup_info = {
+                "type_id": first_type.type_id,
+                "found": True,
+                "active": True,
+                "scope": first_type.scope.value if hasattr(first_type.scope, 'value') else str(first_type.scope),
+            }
+        else:
+            # Intentar obtener type_id desde pending si es posible
+            type_lookup_info = {
+                "type_id": None,
+                "found": False,
+                "active": False,
+                "scope": None,
+            }
+        
+        # Construir alias_info
+        alias_info = None
+        if base_text:
+            alias_info = {
+                "alias_received": base_text,
+                "matched": len(matching_types) > 0,
+            }
+        
+        # Generar matching_debug_report si decision es NO_MATCH o REVIEW_REQUIRED
+        matching_debug_report_c234 = None
+        if decision in ("NO_MATCH", "REVIEW_REQUIRED"):
+            match_result_dict = {
+                "decision": decision,
+                "best_doc": best.to_dict() if best else None,
+                "confidence": best.score if best else 0.0,
+            }
+            matching_debug_report_c234 = self.build_matching_debug_report(
+                pending=pending,
+                context=context,
+                repo_docs=all_candidates if all_candidates else [],
+                match_result=match_result_dict,
+                stage_counts=stage_counts,
+                type_lookup_info=type_lookup_info,
+                alias_info=alias_info,
+            )
+        
         # INSTRUMENTACIÓN: Guardar resultado final
         debug_info["match_result"] = "MATCH_FOUND" if best.score >= 0.7 else "LOW_CONFIDENCE_MATCH"
         debug_info["best_doc"] = best.to_dict()
@@ -1068,6 +1269,7 @@ class DocumentMatcherV1:
             "needs_operator": needs_operator,
             "matched_rule": None,  # No vino de regla
             "matching_debug_report": debug_report.model_dump(mode="json") if debug_report else None,  # SPRINT C2.18A
+            "matching_debug_report_c234": matching_debug_report_c234,  # SPRINT C2.34: Nuevo formato simplificado
         }
     
     def _save_debug_info(self, evidence_dir: Path, debug_info: dict) -> None:
@@ -1170,4 +1372,184 @@ class DocumentMatcherV1:
             # No fallar si no se puede guardar debug report
             print(f"[MATCHING_DEBUG] Error guardando debug report: {e}")
             pass
+    
+    def build_matching_debug_report(
+        self,
+        pending: PendingItemV1,
+        context: Dict[str, Any],
+        repo_docs: List[DocumentInstanceV1],
+        match_result: Dict[str, Any],
+        stage_counts: Dict[str, int],
+        type_lookup_info: Optional[Dict[str, Any]] = None,
+        alias_info: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        SPRINT C2.34: Genera matching_debug_report determinista cuando decision es NO_MATCH/REVIEW_REQUIRED.
+        
+        Esta función es pura y determinista: mismo input -> mismo output.
+        No modifica la lógica de matching, solo añade explicación.
+        
+        Args:
+            pending: Item pendiente
+            context: Contexto con company_key, person_key, platform_key, etc.
+            repo_docs: Lista de documentos del repositorio considerados
+            match_result: Resultado del matching (con decision, best_doc, etc.)
+            stage_counts: Contadores por etapa del pipeline
+            type_lookup_info: Info sobre búsqueda de tipos (opcional)
+            alias_info: Info sobre aliases (opcional)
+        
+        Returns:
+            Dict con matching_debug_report o None si no aplica
+        """
+        decision = match_result.get("decision")
+        if decision not in ("NO_MATCH", "REVIEW_REQUIRED"):
+            # Solo generar report para NO_MATCH o REVIEW_REQUIRED
+            return None
+        
+        # Obtener pending_id (si existe en pending o generar desde datos)
+        pending_id = getattr(pending, "item_id", None) or f"{pending.tipo_doc}|{pending.elemento}"
+        
+        # Construir filters_applied
+        filters_applied = {
+            "own_company_key": context.get("own_company_key"),
+            "company_key": context.get("company_key"),
+            "person_key": context.get("person_key"),
+            "period_key": context.get("period_key"),
+            "platform_key": context.get("platform_key", "egestiona"),
+        }
+        
+        # Construir reasons (ordenados por prioridad)
+        reasons = []
+        
+        # 1. NO_LOCAL_DOCS: Si no hay docs en repo o lista filtrada inicial vacía
+        local_docs_considered = stage_counts.get("local_docs_considered", len(repo_docs))
+        if local_docs_considered == 0:
+            reasons.append(make_reason(
+                NO_LOCAL_DOCS,
+                "No hay documentos en el repositorio para este requisito",
+                "Subir el documento correspondiente al repositorio"
+            ))
+        
+        # 2. TYPE_NOT_FOUND / TYPE_INACTIVE: Si type_id no existe o está inactivo
+        if type_lookup_info:
+            type_id = type_lookup_info.get("type_id")
+            type_found = type_lookup_info.get("found", False)
+            type_active = type_lookup_info.get("active", False)
+            
+            if not type_found:
+                reasons.append(make_reason(
+                    TYPE_NOT_FOUND,
+                    f"El tipo de documento no existe en el catálogo",
+                    "Revisar configuración de tipos de documento",
+                    {"type_id_attempted": type_id}
+                ))
+            elif not type_active:
+                reasons.append(make_reason(
+                    TYPE_INACTIVE,
+                    f"El tipo de documento está inactivo",
+                    "Activar el tipo de documento en el catálogo",
+                    {"type_id": type_id}
+                ))
+        
+        # 3. ALIAS_NOT_MATCHING: Si alias/platform_name no puede mapearse
+        if alias_info:
+            alias_received = alias_info.get("alias_received")
+            alias_matched = alias_info.get("matched", False)
+            if alias_received and not alias_matched:
+                reasons.append(make_reason(
+                    ALIAS_NOT_MATCHING,
+                    f"No se reconoce el alias '{alias_received}' en esta plataforma",
+                    "Revisar alias del tipo o configuración de plataforma",
+                    {"alias_received": alias_received}
+                ))
+        
+        # 4. SCOPE_MISMATCH: Si pending es worker pero type scope es company-only, o viceversa
+        pending_scope = "worker" if pending.trabajador else "company"
+        if type_lookup_info:
+            type_scope = type_lookup_info.get("scope")
+            if type_scope and pending_scope != type_scope:
+                reasons.append(make_reason(
+                    SCOPE_MISMATCH,
+                    f"El tipo de documento es de scope '{type_scope}' pero el requisito es '{pending_scope}'",
+                    "Revisar el scope del tipo de documento o el requisito",
+                    {"pending_scope": pending_scope, "type_scope": type_scope}
+                ))
+        
+        # 5. COMPANY_MISMATCH / PERSON_MISMATCH: Si hay docs del type pero para otra company/person
+        docs_after_type = stage_counts.get("local_docs_after_type", 0)
+        docs_after_company = stage_counts.get("local_docs_after_company", 0)
+        docs_after_person = stage_counts.get("local_docs_after_person", 0)
+        
+        if docs_after_type > 0 and docs_after_company == 0:
+            company_key = context.get("company_key")
+            reasons.append(make_reason(
+                COMPANY_MISMATCH,
+                f"Hay documentos del tipo pero para otra empresa (buscado: {company_key})",
+                "Revisar asignación de empresa en los documentos",
+                {"company_key_searched": company_key}
+            ))
+        
+        if pending_scope == "worker" and docs_after_company > 0 and docs_after_person == 0:
+            person_key = context.get("person_key")
+            reasons.append(make_reason(
+                PERSON_MISMATCH,
+                f"Hay documentos del tipo pero para otro trabajador (buscado: {person_key})",
+                "Revisar asignación de trabajador en los documentos",
+                {"person_key_searched": person_key}
+            ))
+        
+        # 6. PERIOD_MISMATCH: Si period_key existe y no hay docs que cubran ese period_key
+        period_key = context.get("period_key")
+        docs_after_period = stage_counts.get("local_docs_after_period", 0)
+        if period_key and docs_after_company > 0 and docs_after_period == 0:
+            reasons.append(make_reason(
+                PERIOD_MISMATCH,
+                f"Hay documentos, pero no cubren el periodo {period_key}",
+                "Sube el documento del periodo correcto o revisa el periodo",
+                {"period_key_searched": period_key}
+            ))
+        
+        # 7. VALIDITY_MISMATCH: Si tras validity filter no queda nada
+        docs_after_validity = stage_counts.get("local_docs_after_validity", 0)
+        if docs_after_period > 0 and docs_after_validity == 0:
+            reasons.append(make_reason(
+                VALIDITY_MISMATCH,
+                "Hay documentos pero ninguno es válido para la fecha actual",
+                "Revisar fechas de validez de los documentos o subir uno válido"
+            ))
+        
+        # Asegurar que hay al menos un reason
+        if not reasons:
+            reasons.append(make_reason(
+                NO_LOCAL_DOCS,
+                "No se pudo determinar la causa específica",
+                "Revisar configuración y documentos disponibles"
+            ))
+        
+        # Ordenar reasons por prioridad (ya están en orden de prioridad por cómo se añaden)
+        # Pero asegurar orden determinista: ordenar por code
+        reasons_sorted = sorted(reasons, key=lambda r: r["code"])
+        
+        # Construir counters (best-effort)
+        counters = {
+            "local_docs_considered": stage_counts.get("local_docs_considered", 0),
+            "local_docs_after_type": stage_counts.get("local_docs_after_type", 0),
+            "local_docs_after_scope": stage_counts.get("local_docs_after_scope", 0),
+            "local_docs_after_company": stage_counts.get("local_docs_after_company", 0),
+            "local_docs_after_person": stage_counts.get("local_docs_after_person", 0),
+            "local_docs_after_period": stage_counts.get("local_docs_after_period", 0),
+            "local_docs_after_validity": stage_counts.get("local_docs_after_validity", 0),
+        }
+        
+        # Construir report determinista
+        report = {
+            "pending_id": pending_id,
+            "decision": decision,
+            "filters_applied": filters_applied,
+            "reasons": reasons_sorted,
+            "counters": counters,
+        }
+        
+        # Asegurar orden determinista en JSON (sort_keys al serializar)
+        return report
 

@@ -1127,7 +1127,8 @@ def run_build_submission_plan_readonly_headful(
                 },
                 "decision": decision,
                 "pending_fingerprint": fingerprint,  # Añadir fingerprint para dedupe
-                "rule_form": None  # Se llenará si match vino de regla
+                "rule_form": None,  # Se llenará si match vino de regla
+                "debug_report": match_result.get("matching_debug_report_c234"),  # SPRINT C2.34: Reporte de debug simplificado
             }
             
             # Si el match vino de regla, añadir rule.form al plan item
