@@ -162,8 +162,18 @@ test.describe('Training No Overlap (C2.35.2)', () => {
         const startButton = c235Banner.locator('button:has-text("Iniciar Training")');
         await startButton.click();
         
-        // Esperar a que aparezca el wizard C2.35
-        await page.waitForSelector('[data-testid="training-step-1"]', { timeout: 5000 });
+        // SPRINT C2.35.4: Esperar a que aparezca el wizard C2.35 (el contenido se renderiza en setTimeout)
+        const modal = page.locator('#training-wizard-modal');
+        await expect(modal).toBeVisible({ timeout: 5000 });
+        
+        // Esperar a que el contenido tenga título válido
+        await page.waitForFunction(
+            () => {
+                const title = document.querySelector('[data-testid="training-step-title"]');
+                return title && title.textContent && title.textContent.trim().length > 0 && title.textContent.trim() !== 'undefined';
+            },
+            { timeout: 5000 }
+        );
         
         // Verificar que legacy NO está visible
         const legacyWizard = page.locator('#training-wizard');

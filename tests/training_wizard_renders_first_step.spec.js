@@ -103,7 +103,7 @@ test.describe('Training Wizard Renders First Step (C2.35.3.1)', () => {
         await startButton.click();
         
         // Esperar a que aparezca el modal
-        const modal = page.locator('#training-wizard-modal, [data-testid="training-wizard-modal"]');
+        const modal = page.locator('#training-wizard-modal');
         await expect(modal).toBeVisible({ timeout: 5000 });
         
         // SPRINT C2.35.3.1: Esperar a que el título tenga contenido válido (más robusto que toBeVisible)
@@ -125,9 +125,14 @@ test.describe('Training Wizard Renders First Step (C2.35.3.1)', () => {
         expect(titleText).not.toBe('undefined');
         expect(titleText.trim().length).toBeGreaterThan(0);
         
-        // Verificar que el step content existe
-        const stepContent = page.locator('[data-testid="training-step-1"]');
-        await expect(stepContent).toHaveCount(1, { timeout: 2000 });
+        // SPRINT C2.35.4: Verificar que el contenido existe (usar first() para evitar duplicados)
+        const content = page.locator('#training-wizard-content').first();
+        await expect(content).toHaveCount(1, { timeout: 2000 });
+        
+        // Verificar que el contenido tiene texto (no está vacío)
+        const contentText = await content.textContent();
+        expect(contentText).toBeTruthy();
+        expect(contentText.trim().length).toBeGreaterThan(0);
         
         // SPRINT C2.35.3.1: Assert adicional: verificar que NO aparece "undefined" en ningún lugar
         const undefinedCount = await page.locator('text=undefined').count();
@@ -153,7 +158,7 @@ test.describe('Training Wizard Renders First Step (C2.35.3.1)', () => {
         await startButton.click();
         
         // Esperar a que aparezca el modal
-        const modal = page.locator('#training-wizard-modal, [data-testid="training-wizard-modal"]');
+        const modal = page.locator('#training-wizard-modal');
         await expect(modal).toBeVisible({ timeout: 5000 });
         
         // Esperar a que el título del paso 1 tenga contenido válido

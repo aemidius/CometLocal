@@ -2170,9 +2170,10 @@
             const steps = wizardState.steps;
             const totalSteps = wizardState.totalSteps;
             
-            // Crear modal de training
+            // SPRINT C2.35.4: Crear modal de training con data-testid
             const modal = document.createElement('div');
             modal.id = 'training-wizard-modal';
+            modal.setAttribute('data-testid', 'training-wizard-modal');
             modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10002; display: flex; align-items: center; justify-content: center;';
             modal.onclick = function(e) {
                 // Solo prevenir cierre si el click es directamente en el modal (no en sus hijos)
@@ -2185,42 +2186,50 @@
             // SPRINT C2.35.3: Inicializar currentStep con clamp
             let currentStep = wizardState.clampStep(wizardState.getInitialStep());
             
-            // SPRINT C2.35.3: Función renderStep con guardrails
-            function renderStep(step) {
-                // Clamp step al rango válido
-                step = wizardState.clampStep(step);
-                
-                // Verificar que steps está definido
-                if (!steps || typeof steps !== 'object') {
-                    console.error('[C2.35.3] Steps no está definido correctamente');
-                    return `
-                        <div style="padding: 24px; text-align: center;">
-                            <h3 style="color: #ef4444; margin-bottom: 16px;">Error al cargar el training</h3>
-                            <p style="color: #94a3b8; margin-bottom: 16px;">No se pudo cargar el training (pasos no disponibles).</p>
-                            <button onclick="location.reload()" class="btn btn-primary" data-testid="training-wizard-reload">Recargar</button>
-                        </div>
-                    `;
-                }
-                
-                const stepData = steps[step];
-                
-                // SPRINT C2.35.3: Guardrail: nunca retornar undefined
-                if (!stepData) {
-                    console.warn('[C2.35.3] Step no encontrado:', { step, stepsLength: Object.keys(steps).length, availableSteps: Object.keys(steps) });
-                    return `
-                        <div style="padding: 24px; text-align: center;">
-                            <h3 style="color: #ef4444; margin-bottom: 16px;" data-testid="training-step-title">Error al cargar el paso</h3>
-                            <p style="color: #94a3b8; margin-bottom: 16px;">No se pudo cargar el paso ${step} del training (paso no disponible).</p>
-                            <button onclick="location.reload()" class="btn btn-primary" data-testid="training-wizard-reload">Recargar</button>
-                        </div>
-                    `;
-                }
-                
-                // Renderizar paso válido
-                const content = document.getElementById('training-wizard-content');
-                if (!content) {
-                    // Si no existe el contenedor, retornar HTML para insertar
-                    return `
+            // SPRINT C2.35.4: Función renderStep con try/catch y fallback robusto
+            function renderStep(step, errorDetail = null) {
+                try {
+                    // Clamp step al rango válido
+                    step = wizardState.clampStep(step);
+                    
+                    // Verificar que steps está definido
+                    if (!steps || typeof steps !== 'object') {
+                        console.error('[C2.35.4] Steps no está definido correctamente');
+                        return renderErrorFallback('No se pudo cargar el training (pasos no disponibles).', errorDetail);
+                    }
+                    
+                    const stepData = steps[step];
+                    
+                    // SPRINT C2.35.4: Guardrail: nunca retornar undefined
+                    if (!stepData) {
+                        console.warn('[C2.35.4] Step no encontrado:', { step, stepsLength: Object.keys(steps).length, availableSteps: Object.keys(steps) });
+                        return renderErrorFallback(`No se pudo cargar el paso ${step} del training (paso no disponible).`, errorDetail);
+                    }
+                    
+                    // Renderizar paso válido
+                    const content = document.getElementById('training-wizard-content');
+                    if (!content) {
+                        // Si no existe el contenedor, retornar HTML para insertar
+                        return `
+                            <h3 style="margin-bottom: 16px; color: #e2e8f0;" data-testid="training-step-title">${stepData.title}</h3>
+                            <div style="max-height: 400px; overflow-y: auto; margin-bottom: 24px;">
+                                ${stepData.content}
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="color: #94a3b8; font-size: 0.875rem;">
+                                    Paso ${step} de ${totalSteps}
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    ${step > 1 ? `<button onclick="trainingWizardPrevious()" class="btn btn-secondary" data-testid="training-wizard-previous">Anterior</button>` : ''}
+                                    ${step < totalSteps ? `<button onclick="trainingWizardNext()" class="btn btn-primary" data-testid="training-wizard-next">Siguiente</button>` : ''}
+                                    ${step === totalSteps ? `<button onclick="trainingWizardComplete()" id="training-complete-button" class="btn btn-primary" disabled data-testid="training-complete-button">Completar Training</button>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Si existe el contenedor, actualizarlo directamente
+                    content.innerHTML = `
                         <h3 style="margin-bottom: 16px; color: #e2e8f0;" data-testid="training-step-title">${stepData.title}</h3>
                         <div style="max-height: 400px; overflow-y: auto; margin-bottom: 24px;">
                             ${stepData.content}
@@ -2236,69 +2245,155 @@
                             </div>
                         </div>
                     `;
-                }
-                
-                // Si existe el contenedor, actualizarlo directamente
-                content.innerHTML = `
-                    <h3 style="margin-bottom: 16px; color: #e2e8f0;" data-testid="training-step-title">${stepData.title}</h3>
-                    <div style="max-height: 400px; overflow-y: auto; margin-bottom: 24px;">
-                        ${stepData.content}
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="color: #94a3b8; font-size: 0.875rem;">
-                            Paso ${step} de ${totalSteps}
-                        </div>
-                        <div style="display: flex; gap: 8px;">
-                            ${step > 1 ? `<button onclick="trainingWizardPrevious()" class="btn btn-secondary" data-testid="training-wizard-previous">Anterior</button>` : ''}
-                            ${step < totalSteps ? `<button onclick="trainingWizardNext()" class="btn btn-primary" data-testid="training-wizard-next">Siguiente</button>` : ''}
-                            ${step === totalSteps ? `<button onclick="trainingWizardComplete()" id="training-complete-button" class="btn btn-primary" disabled data-testid="training-complete-button">Completar Training</button>` : ''}
-                        </div>
-                    </div>
-                `;
-                
-                // Habilitar botón de completar solo si checkbox está marcado
-                if (step === totalSteps) {
-                    const checkbox = document.getElementById('training-confirm-checkbox');
-                    const completeBtn = document.getElementById('training-complete-button');
-                    if (checkbox && completeBtn) {
-                        checkbox.onchange = function() {
-                            completeBtn.disabled = !checkbox.checked;
-                        };
+                    
+                    // Habilitar botón de completar solo si checkbox está marcado
+                    if (step === totalSteps) {
+                        const checkbox = document.getElementById('training-confirm-checkbox');
+                        const completeBtn = document.getElementById('training-complete-button');
+                        if (checkbox && completeBtn) {
+                            checkbox.onchange = function() {
+                                completeBtn.disabled = !checkbox.checked;
+                            };
+                        }
                     }
+                    
+                    // Retornar string vacío si ya se actualizó el contenido directamente
+                    return '';
+                } catch (err) {
+                    console.error('[C2.35.4] Error en renderStep:', err);
+                    return renderErrorFallback('Error inesperado al renderizar el paso del training.', err.message || String(err));
                 }
-                
-                // Retornar string vacío si ya se actualizó el contenido directamente
-                return '';
             }
             
+            // SPRINT C2.35.4: Función helper para renderizar fallback de error
+            function renderErrorFallback(message, errorDetail = null) {
+                const errorId = 'error-detail-' + Date.now();
+                return `
+                    <div style="padding: 24px; text-align: center;">
+                        <h3 style="color: #ef4444; margin-bottom: 16px;" data-testid="training-step-title">Error al cargar el training</h3>
+                        <p style="color: #94a3b8; margin-bottom: 16px;">${message}</p>
+                        ${errorDetail ? `
+                            <details style="margin-bottom: 16px; text-align: left; background: #1e293b; padding: 12px; border-radius: 4px;">
+                                <summary style="color: #94a3b8; cursor: pointer; font-size: 0.875rem;">Ver detalle</summary>
+                                <pre style="color: #ef4444; font-size: 0.75rem; margin-top: 8px; white-space: pre-wrap; word-break: break-all;">${String(errorDetail)}</pre>
+                            </details>
+                        ` : ''}
+                        <button onclick="location.reload()" class="btn btn-primary" data-testid="training-wizard-reload">Recargar</button>
+                    </div>
+                `;
+            }
+            
+            // SPRINT C2.35.4: Estado loading inicial
             modal.innerHTML = `
-                <div style="background: #1e293b; border-radius: 8px; padding: 24px; max-width: 700px; max-height: 90vh; overflow-y: auto; width: 90%; border: 1px solid #334155; pointer-events: auto;" onclick="event.stopPropagation()">
-                    <div id="training-wizard-content" data-testid="training-step-${currentStep}">
-                        ${renderStep(currentStep)}
+                <div style="background: #1e293b; border-radius: 8px; padding: 24px; max-width: 700px; max-height: 90vh; overflow-y: auto; width: 90%; border: 1px solid #334155; pointer-events: auto; display: block;" onclick="event.stopPropagation()">
+                    <div id="training-wizard-content" data-testid="training-wizard-content" style="display: block;">
+                        <div style="padding: 24px; text-align: center; color: #94a3b8;">
+                            Cargando training...
+                        </div>
                     </div>
                 </div>
             `;
             
             document.body.appendChild(modal);
             
-            window.trainingWizardNext = function() {
-                if (currentStep < totalSteps) {
-                    currentStep = wizardState.clampStep(currentStep + 1);
+            // SPRINT C2.35.4: Renderizar contenido en microtask para evitar race conditions
+            setTimeout(() => {
+                try {
+                    const content = document.getElementById('training-wizard-content');
+                    if (!content) {
+                        console.error('[C2.35.4] training-wizard-content no encontrado después de appendChild');
+                        return;
+                    }
+                    
+                    // Renderizar el step
+                    const stepHtml = renderStep(currentStep);
+                    if (stepHtml) {
+                        content.innerHTML = stepHtml;
+                    }
+                    
+                    // SPRINT C2.35.4: Validar que el contenido se renderizó correctamente
+                    const title = content.querySelector('[data-testid="training-step-title"]');
+                    if (!title || !title.textContent || title.textContent.trim().length === 0) {
+                        console.error('[C2.35.4] Validación fallida: título no encontrado o vacío');
+                        content.innerHTML = renderErrorFallback('El contenido del training no se pudo cargar correctamente.');
+                        return;
+                    }
+                    
+                    // SPRINT C2.35.4: Asegurar que el contenido es visible (CSS guard)
+                    content.style.display = 'block';
+                    content.style.visibility = 'visible';
+                    content.style.opacity = '1';
+                    
+                    // Verificar que los botones existen (al menos uno debe existir)
+                    const hasNext = content.querySelector('[data-testid="training-wizard-next"]');
+                    const hasPrevious = content.querySelector('[data-testid="training-wizard-previous"]');
+                    const hasComplete = content.querySelector('[data-testid="training-complete-button"]');
+                    
+                    if (!hasNext && !hasPrevious && !hasComplete) {
+                        console.warn('[C2.35.4] No se encontraron botones de navegación');
+                        // No es crítico, pero logueamos
+                    }
+                } catch (err) {
+                    console.error('[C2.35.4] Error al renderizar contenido del modal:', err);
                     const content = document.getElementById('training-wizard-content');
                     if (content) {
-                        content.setAttribute('data-testid', `training-step-${currentStep}`);
-                        renderStep(currentStep);
+                        content.innerHTML = renderErrorFallback('Error inesperado al cargar el training.', err.message || String(err));
+                    }
+                }
+            }, 0);
+            
+            window.trainingWizardNext = function() {
+                try {
+                    if (currentStep < totalSteps) {
+                        currentStep = wizardState.clampStep(currentStep + 1);
+                        const content = document.getElementById('training-wizard-content');
+                        if (content) {
+                            content.setAttribute('data-testid', `training-step-${currentStep}`);
+                            renderStep(currentStep);
+                            
+                            // SPRINT C2.35.4: Validar que el contenido se renderizó
+                            setTimeout(() => {
+                                const title = content.querySelector('[data-testid="training-step-title"]');
+                                if (!title || !title.textContent || title.textContent.trim().length === 0) {
+                                    console.error('[C2.35.4] Validación fallida después de next');
+                                    content.innerHTML = renderErrorFallback('Error al avanzar al siguiente paso.');
+                                }
+                            }, 0);
+                        }
+                    }
+                } catch (err) {
+                    console.error('[C2.35.4] Error en trainingWizardNext:', err);
+                    const content = document.getElementById('training-wizard-content');
+                    if (content) {
+                        content.innerHTML = renderErrorFallback('Error al avanzar al siguiente paso.', err.message || String(err));
                     }
                 }
             };
             
             window.trainingWizardPrevious = function() {
-                if (currentStep > 1) {
-                    currentStep = wizardState.clampStep(currentStep - 1);
+                try {
+                    if (currentStep > 1) {
+                        currentStep = wizardState.clampStep(currentStep - 1);
+                        const content = document.getElementById('training-wizard-content');
+                        if (content) {
+                            content.setAttribute('data-testid', `training-step-${currentStep}`);
+                            renderStep(currentStep);
+                            
+                            // SPRINT C2.35.4: Validar que el contenido se renderizó
+                            setTimeout(() => {
+                                const title = content.querySelector('[data-testid="training-step-title"]');
+                                if (!title || !title.textContent || title.textContent.trim().length === 0) {
+                                    console.error('[C2.35.4] Validación fallida después de previous');
+                                    content.innerHTML = renderErrorFallback('Error al retroceder al paso anterior.');
+                                }
+                            }, 0);
+                        }
+                    }
+                } catch (err) {
+                    console.error('[C2.35.4] Error en trainingWizardPrevious:', err);
                     const content = document.getElementById('training-wizard-content');
                     if (content) {
-                        content.setAttribute('data-testid', `training-step-${currentStep}`);
-                        renderStep(currentStep);
+                        content.innerHTML = renderErrorFallback('Error al retroceder al paso anterior.', err.message || String(err));
                     }
                 }
             };
