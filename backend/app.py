@@ -544,11 +544,17 @@ async def get_version():
             except Exception:
                 pass
     
-    return {
+    response_data = {
         "ui_version": ui_version,
         "backend_version": backend_version,
         "build_time": datetime.now().isoformat()
     }
+    
+    # SPRINT C2.35.9: Añadir header de versión también en /api/version para pruebas
+    from fastapi.responses import JSONResponse
+    response = JSONResponse(content=response_data)
+    response.headers["X-CometLocal-UI-Version"] = ui_version
+    return response
 
 @app.get("/repository", include_in_schema=False)
 async def repository_ui():

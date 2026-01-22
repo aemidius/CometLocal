@@ -22,9 +22,23 @@ test.describe('UI Version Consistency (C2.35.8)', () => {
         expect(versionInfo.ui_version).not.toBe('');
         expect(versionInfo.ui_version).not.toBe('unknown');
         
+        // Verificar header X-CometLocal-UI-Version en /api/version
+        const apiHeaderVersion = versionResponse.headers()['x-cometlocal-ui-version'];
+        expect(apiHeaderVersion).toBeTruthy();
+        expect(apiHeaderVersion).toBe(versionInfo.ui_version);
+        
         // 2) Abrir /repository y leer footer "UI: ..."
         await page.goto('http://127.0.0.1:8000/repository');
         await page.waitForSelector('[data-testid="app-ready"]', { timeout: 10000 });
+        
+        // Esperar a que el fetch de /api/version complete y actualice el footer
+        await page.waitForFunction(
+            () => {
+                const el = document.getElementById('version-stamp-commit');
+                return el && el.textContent && el.textContent !== '...' && el.textContent.trim().length > 0;
+            },
+            { timeout: 5000 }
+        );
         
         // Leer el hash del footer
         const versionStampEl = page.locator('#version-stamp-commit');
@@ -32,37 +46,45 @@ test.describe('UI Version Consistency (C2.35.8)', () => {
         const footerVersion = await versionStampEl.textContent();
         expect(footerVersion).toBeTruthy();
         expect(footerVersion.trim().length).toBeGreaterThan(0);
+        expect(footerVersion.trim()).not.toBe('...');
         
         // 3) Assert: el hash del git (ui_version del API) debe coincidir con el footer
-        // (El footer puede tener un VERSION_STAMP hardcodeado, pero el API siempre lee del git)
         expect(footerVersion.trim()).toBe(versionInfo.ui_version);
         
-        // 4) Verificar header X-CometLocal-UI-Version
+        // 4) Verificar header X-CometLocal-UI-Version en /repository
         const response = await page.request.get('http://127.0.0.1:8000/repository');
         const headerVersion = response.headers()['x-cometlocal-ui-version'];
         expect(headerVersion).toBeTruthy();
         expect(headerVersion).toBe(versionInfo.ui_version);
         expect(headerVersion).toBe(footerVersion.trim());
         
-        // 5) Verificar window.__COMETLOCAL_VERSION_STAMP (debe coincidir con el footer)
+        // 5) Verificar window.__COMETLOCAL_VERSION_STAMP (debe coincidir con el footer y API)
         const windowVersion = await page.evaluate(() => {
             return window.__COMETLOCAL_VERSION_STAMP;
         });
         expect(windowVersion).toBeTruthy();
         expect(windowVersion).toBe(footerVersion.trim());
-        // Nota: windowVersion puede diferir de ui_version si el VERSION_STAMP está desactualizado,
-        // pero el test verifica que el footer y window coinciden (que es lo importante para el usuario)
+        expect(windowVersion).toBe(versionInfo.ui_version);
     });
     
     test('should not show version mismatch banner when versions match', async ({ page }) => {
         await page.goto('http://127.0.0.1:8000/repository');
         await page.waitForSelector('[data-testid="app-ready"]', { timeout: 10000 });
         
-        // Esperar un poco para que el check de versión se complete
+        // Esperar a que el fetch de /api/version complete
+        await page.waitForFunction(
+            () => {
+                const el = document.getElementById('version-stamp-commit');
+                return el && el.textContent && el.textContent !== '...' && el.textContent.trim().length > 0;
+            },
+            { timeout: 5000 }
+        );
+        
+        // Esperar un poco más para que el check de versión se complete
         await page.waitForTimeout(1000);
         
         // Verificar que NO aparece el banner de desincronización
         const mismatchBanner = page.locator('[data-testid="ui-version-mismatch-banner"]');
-        await expect(mismatchBanner).not.toBeVisible({ timeout: 1000 });
+        await expect(mismatchBanner).not.toBeVisible({ timeout: 2000 });
     });
 });
