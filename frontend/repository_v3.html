@@ -733,7 +733,7 @@
 </head>
 <body data-testid="app-ready">
     <!-- SPRINT C2.35.6: Version stamp con commit hash -->
-    <div class="version-stamp">UI: <span id="version-stamp-commit">9cf5001</span> <span id="build-timestamp"></span></div>
+    <div class="version-stamp">UI: <span id="version-stamp-commit">a29040d</span> <span id="build-timestamp"></span></div>
     
     <!-- Sidebar -->
     <div class="sidebar">
@@ -9575,7 +9575,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             // SPRINT C2.35.6: Initialize version stamp (actualizado automáticamente en cada commit)
             // SPRINT C2.35.8: El backend lee el hash del git directamente, este es solo un fallback
-            const VERSION_STAMP = '9cf5001';
+            const VERSION_STAMP = 'a29040d';
             window.__COMETLOCAL_VERSION_STAMP = VERSION_STAMP;
             
             const versionStampEl = document.getElementById('version-stamp-commit');
