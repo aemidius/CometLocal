@@ -2558,16 +2558,15 @@
                         }
                         contentEl.setAttribute('data-testid', `training-step-${currentStep}`);
                         renderStep(currentStep, { modalEl, contentEl });
-                            
-                            // SPRINT C2.35.10: Validar que el contenido se renderizó usando referencia local
-                            setTimeout(() => {
-                                const title = contentEl.querySelector('[data-testid="training-step-title"]');
-                                if (!title || !title.textContent || title.textContent.trim().length === 0) {
-                                    console.error('[C2.35.10] Validación fallida después de next');
-                                    contentEl.innerHTML = renderErrorFallback('Error al avanzar al siguiente paso.');
-                                }
-                            }, 0);
-                        }
+                        
+                        // SPRINT C2.35.10: Validar que el contenido se renderizó usando referencia local
+                        setTimeout(() => {
+                            const title = contentEl.querySelector('[data-testid="training-step-title"]');
+                            if (!title || !title.textContent || title.textContent.trim().length === 0) {
+                                console.error('[C2.35.10] Validación fallida después de next');
+                                contentEl.innerHTML = renderErrorFallback('Error al avanzar al siguiente paso.');
+                            }
+                        }, 0);
                     }
                 } catch (err) {
                     console.error('[C2.35.4] Error en trainingWizardNext:', err);
@@ -2596,16 +2595,15 @@
                         }
                         contentEl.setAttribute('data-testid', `training-step-${currentStep}`);
                         renderStep(currentStep, { modalEl, contentEl });
-                            
-                            // SPRINT C2.35.10: Validar que el contenido se renderizó usando referencia local
-                            setTimeout(() => {
-                                const title = contentEl.querySelector('[data-testid="training-step-title"]');
-                                if (!title || !title.textContent || title.textContent.trim().length === 0) {
-                                    console.error('[C2.35.10] Validación fallida después de previous');
-                                    contentEl.innerHTML = renderErrorFallback('Error al retroceder al paso anterior.');
-                                }
-                            }, 0);
-                        }
+                        
+                        // SPRINT C2.35.10: Validar que el contenido se renderizó usando referencia local
+                        setTimeout(() => {
+                            const title = contentEl.querySelector('[data-testid="training-step-title"]');
+                            if (!title || !title.textContent || title.textContent.trim().length === 0) {
+                                console.error('[C2.35.10] Validación fallida después de previous');
+                                contentEl.innerHTML = renderErrorFallback('Error al retroceder al paso anterior.');
+                            }
+                        }, 0);
                     }
                 } catch (err) {
                     console.error('[C2.35.4] Error en trainingWizardPrevious:', err);
