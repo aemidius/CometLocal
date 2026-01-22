@@ -2161,9 +2161,79 @@
             };
         }
         
+        // SPRINT C2.35.10: Función para limpiar duplicados del DOM antes de crear wizard
+        function cleanupTrainingWizardDomIfAny() {
+            const modals = document.querySelectorAll('[data-testid="training-wizard-modal"]');
+            const modalsById = document.querySelectorAll('#training-wizard-modal');
+            const contents = document.querySelectorAll('[data-testid="training-wizard-content"]');
+            const contentsById = document.querySelectorAll('#training-wizard-content');
+            
+            const modalCount = modals.length;
+            const contentCount = contents.length;
+            
+            if (modalCount > 1 || modalsById.length > 1) {
+                console.error('[C2.35.10] Duplicate modals detected:', { 
+                    byTestId: modalCount, 
+                    byId: modalsById.length 
+                });
+                // Eliminar todos los modals antiguos
+                modals.forEach((m, idx) => {
+                    if (idx < modalCount - 1) {
+                        // Mantener solo el último, eliminar los anteriores
+                        console.log('[C2.35.10] Removing duplicate modal', idx);
+                        m.remove();
+                    }
+                });
+                modalsById.forEach((m, idx) => {
+                    if (idx < modalsById.length - 1) {
+                        console.log('[C2.35.10] Removing duplicate modal by ID', idx);
+                        m.remove();
+                    }
+                });
+            }
+            
+            if (contentCount > 1 || contentsById.length > 1) {
+                console.error('[C2.35.10] Duplicate contents detected:', { 
+                    byTestId: contentCount, 
+                    byId: contentsById.length 
+                });
+                // Eliminar todos los contents antiguos
+                contents.forEach((c, idx) => {
+                    if (idx < contentCount - 1) {
+                        console.log('[C2.35.10] Removing duplicate content', idx);
+                        c.remove();
+                    }
+                });
+                contentsById.forEach((c, idx) => {
+                    if (idx < contentsById.length - 1) {
+                        console.log('[C2.35.10] Removing duplicate content by ID', idx);
+                        c.remove();
+                    }
+                });
+            }
+            
+            // Eliminar cualquier modal legacy por ID
+            const legacyModal = document.getElementById('training-wizard-modal');
+            if (legacyModal && !legacyModal.hasAttribute('data-testid')) {
+                console.log('[C2.35.10] Removing legacy modal without data-testid');
+                legacyModal.remove();
+            }
+            
+            // Log conteos finales
+            const finalModals = document.querySelectorAll('[data-testid="training-wizard-modal"]');
+            const finalContents = document.querySelectorAll('[data-testid="training-wizard-content"]');
+            console.log('[C2.35.10] Final counts after cleanup', { 
+                modals: finalModals.length, 
+                contents: finalContents.length 
+            });
+        }
+        
         function openTrainingWizard() {
             // SPRINT C2.35.2: Cerrar cualquier training legacy antes de abrir C2.35
             dismissLegacyTutorialIfPresent();
+            
+            // SPRINT C2.35.10: Limpiar duplicados antes de crear nuevo wizard
+            cleanupTrainingWizardDomIfAny();
             
             // SPRINT C2.35.3: Inicializar estado del wizard de forma estable
             const wizardState = initC235TrainingWizardState();
@@ -2183,20 +2253,30 @@
                 }
             };
             
+            // SPRINT C2.35.10: Guardar referencias locales al modal y content
+            let modalEl = null;
+            let contentEl = null;
+            
             // SPRINT C2.35.3: Inicializar currentStep con clamp
             let currentStep = wizardState.clampStep(wizardState.getInitialStep());
             
-            // SPRINT C2.35.7: Función para limpiar el contenedor del training wizard
-            function clearTrainingWizardContent() {
-                const el = document.getElementById('training-wizard-content');
-                if (el) {
-                    el.innerHTML = '';
+            // SPRINT C2.35.10: Función para limpiar el contenedor usando referencia local
+            function clearTrainingWizardContent(contentEl) {
+                if (contentEl) {
+                    contentEl.innerHTML = '';
                 }
             }
             
             // SPRINT C2.35.4: Función renderStep con try/catch y fallback robusto
-            function renderStep(step, errorDetail = null) {
+            // SPRINT C2.35.10: Usa referencias locales (modalEl, contentEl) en lugar de document.querySelector
+            function renderStep(step, { modalEl, contentEl }, errorDetail = null) {
                 try {
+                    // SPRINT C2.35.10: Validar referencias locales
+                    if (!modalEl || !contentEl) {
+                        console.error('[C2.35.10] Referencias locales inválidas:', { modalEl: !!modalEl, contentEl: !!contentEl });
+                        return renderErrorFallback('Referencias DOM inválidas (modal o content no encontrados).', errorDetail);
+                    }
+                    
                     // Clamp step al rango válido
                     step = wizardState.clampStep(step);
                     
@@ -2214,18 +2294,11 @@
                         return renderErrorFallback(`No se pudo cargar el paso ${step} del training (paso no disponible).`, errorDetail);
                     }
                     
-                    // SPRINT C2.35.7: Obtener el contenedor (debe existir siempre)
-                    const content = document.getElementById('training-wizard-content');
-                    if (!content) {
-                        console.error('[C2.35.7] training-wizard-content no encontrado, no se puede renderizar');
-                        return renderErrorFallback('No se pudo encontrar el contenedor del training.', errorDetail);
-                    }
+                    // SPRINT C2.35.10: LIMPIAR SIEMPRE antes de renderizar usando referencia local
+                    clearTrainingWizardContent(contentEl);
                     
-                    // SPRINT C2.35.7: LIMPIAR SIEMPRE antes de renderizar (esto elimina el loading definitivamente)
-                    clearTrainingWizardContent();
-                    
-                    // SPRINT C2.35.7: Renderizar directamente en el contenedor (unificado)
-                    content.innerHTML = `
+                    // SPRINT C2.35.10: Renderizar directamente en el contenedor usando referencia local (NO document.querySelector)
+                    contentEl.innerHTML = `
                         <h3 style="margin-bottom: 16px; color: #e2e8f0;" data-testid="training-step-title">${stepData.title}</h3>
                         <div style="max-height: 400px; overflow-y: auto; margin-bottom: 24px;">
                             ${stepData.content}
@@ -2242,10 +2315,10 @@
                         </div>
                     `;
                     
-                    // Habilitar botón de completar solo si checkbox está marcado
+                    // SPRINT C2.35.10: Habilitar botón de completar usando referencia local
                     if (step === totalSteps) {
-                        const checkbox = document.getElementById('training-confirm-checkbox');
-                        const completeBtn = document.getElementById('training-complete-button');
+                        const checkbox = contentEl.querySelector('#training-confirm-checkbox');
+                        const completeBtn = contentEl.querySelector('#training-complete-button');
                         if (checkbox && completeBtn) {
                             checkbox.onchange = function() {
                                 completeBtn.disabled = !checkbox.checked;
@@ -2253,11 +2326,30 @@
                         }
                     }
                     
+                    // SPRINT C2.35.10: Guard post-render robusto
+                    const titleEl = contentEl.querySelector('[data-testid="training-step-title"]');
+                    const hasLoadingText = contentEl.textContent && contentEl.textContent.includes('Cargando training');
+                    
+                    if (hasLoadingText) {
+                        console.error('[C2.35.10] Loading text aún presente después de render');
+                        contentEl.innerHTML = renderErrorFallback('No se pudo renderizar el paso (loading no eliminado).', 'El texto "Cargando training" aún está presente después del render.');
+                        return '';
+                    }
+                    
+                    if (!titleEl || !titleEl.textContent || titleEl.textContent.trim().length === 0) {
+                        console.error('[C2.35.10] Título no encontrado o vacío después de render');
+                        contentEl.innerHTML = renderErrorFallback('No se pudo renderizar el paso (DOM inconsistente).', 'El título del paso no se encontró o está vacío.');
+                        return '';
+                    }
+                    
                     // Retornar string vacío si ya se actualizó el contenido directamente
                     return '';
                 } catch (err) {
                     console.error('[C2.35.4] Error en renderStep:', err);
-                    return renderErrorFallback('Error inesperado al renderizar el paso del training.', err.message || String(err));
+                    if (contentEl) {
+                        contentEl.innerHTML = renderErrorFallback('Error inesperado al renderizar el paso del training.', err.message || String(err));
+                    }
+                    return '';
                 }
             }
             
@@ -2304,15 +2396,45 @@
             
             document.body.appendChild(modal);
             
+            // SPRINT C2.35.10: Obtener referencias locales después de appendChild
+            modalEl = modal; // Ya tenemos la referencia
+            contentEl = modalEl.querySelector('[data-testid="training-wizard-content"]');
+            
+            if (!contentEl) {
+                console.error('[C2.35.10] No se pudo encontrar contentEl después de crear modal');
+                contentEl = modalEl.querySelector('#training-wizard-content');
+            }
+            
+            if (!contentEl) {
+                console.error('[C2.35.10] ContentEl no encontrado ni por testid ni por ID');
+                modal.remove();
+                return;
+            }
+            
+            // SPRINT C2.35.10: Log conteos después de crear
+            const modalsAfter = document.querySelectorAll('[data-testid="training-wizard-modal"]');
+            const contentsAfter = document.querySelectorAll('[data-testid="training-wizard-content"]');
+            console.log('[C2.35.10] Counts after creation', { 
+                modals: modalsAfter.length, 
+                contents: contentsAfter.length 
+            });
+            
+            if (modalsAfter.length > 1 || contentsAfter.length > 1) {
+                console.error('[C2.35.10] Duplicados detectados después de creación!', {
+                    modals: modalsAfter.length,
+                    contents: contentsAfter.length
+                });
+            }
+            
             // SPRINT C2.35.5: Timeout hard guard (2500ms) para prevenir loading indefinido
+            // SPRINT C2.35.10: Usar referencia local contentEl en lugar de document.getElementById
             let loadingTimeout = setTimeout(() => {
                 console.error('[C2.35.5] Timeout: el training se quedó en loading más de 2.5s');
-                const content = document.getElementById('training-wizard-content');
-                if (content) {
-                    const loadingEl = content.querySelector('[data-testid="training-wizard-loading"]');
+                if (contentEl) {
+                    const loadingEl = contentEl.querySelector('[data-testid="training-wizard-loading"]');
                     if (loadingEl) {
                         // Aún está en loading, forzar fallback
-                        content.innerHTML = renderErrorFallback(
+                        contentEl.innerHTML = renderErrorFallback(
                             'No se pudo cargar el training (timeout).',
                             'El render del training excedió el tiempo máximo de espera (2.5s). Esto puede indicar un error en la inicialización o un problema de rendimiento.'
                         );
@@ -2321,25 +2443,25 @@
             }, 2500);
             
             // SPRINT C2.35.5: Función helper para cancelar timeout y limpiar loading
+            // SPRINT C2.35.10: Usar referencia local contentEl
             function clearLoadingAndTimeout() {
                 if (loadingTimeout) {
                     clearTimeout(loadingTimeout);
                     loadingTimeout = null;
                 }
-                const content = document.getElementById('training-wizard-content');
-                if (content) {
+                if (contentEl) {
                     // SPRINT C2.35.5: Limpiar loading de forma más robusta
-                    const loadingEl = content.querySelector('[data-testid="training-wizard-loading"]');
+                    const loadingEl = contentEl.querySelector('[data-testid="training-wizard-loading"]');
                     if (loadingEl) {
                         loadingEl.remove();
                     }
                     // También verificar si hay un div con "Cargando training..." directamente
-                    const loadingText = content.textContent || '';
+                    const loadingText = contentEl.textContent || '';
                     if (loadingText.includes('Cargando training...')) {
                         // Si el contenido solo tiene loading, limpiarlo completamente
-                        const allChildren = Array.from(content.children);
+                        const allChildren = Array.from(contentEl.children);
                         if (allChildren.length === 1 && allChildren[0].textContent && allChildren[0].textContent.includes('Cargando training...')) {
-                            content.innerHTML = '';
+                            contentEl.innerHTML = '';
                         }
                     }
                 }
@@ -2350,12 +2472,12 @@
             setTimeout(() => {
                 console.log('[C2.35.5] openTrainingWizard: render start');
                 try {
-                    const content = document.getElementById('training-wizard-content');
-                    if (!content) {
-                        console.error('[C2.35.5] training-wizard-content no encontrado después de appendChild');
+                    // SPRINT C2.35.10: Usar referencia local contentEl en lugar de document.getElementById
+                    if (!contentEl) {
+                        console.error('[C2.35.10] contentEl no encontrado después de appendChild');
                         clearLoadingAndTimeout();
-                        // Intentar insertar fallback en el modal directamente
-                        const modalContent = modal.querySelector('div > div');
+                        // Intentar insertar fallback en el modal directamente usando referencia local
+                        const modalContent = modalEl ? modalEl.querySelector('div > div') : null;
                         if (modalContent) {
                             modalContent.innerHTML = renderErrorFallback('No se pudo encontrar el contenedor del training.');
                         }
@@ -2365,54 +2487,53 @@
                     // SPRINT C2.35.5: Limpiar loading antes de renderizar
                     clearLoadingAndTimeout();
                     
-                    // SPRINT C2.35.7: renderStep() ahora SIEMPRE escribe directamente en el contenedor
-                    // y limpia el loading automáticamente con clearTrainingWizardContent()
-                    const stepHtml = renderStep(currentStep);
+                    // SPRINT C2.35.10: renderStep() usa referencias locales (modalEl, contentEl)
+                    const stepHtml = renderStep(currentStep, { modalEl, contentEl });
                     
-                    // SPRINT C2.35.7: renderStep() siempre actualiza el DOM directamente,
+                    // SPRINT C2.35.10: renderStep() siempre actualiza el DOM directamente usando contentEl,
                     // pero si retorna HTML (fallback de error), también lo insertamos
                     if (stepHtml && stepHtml.trim().length > 0) {
                         // Solo actualizar si renderStep retornó HTML (caso de error)
                         // Normalmente renderStep retorna '' porque ya actualizó el DOM
-                        content.innerHTML = stepHtml;
+                        contentEl.innerHTML = stepHtml;
                     }
                     
-                    // SPRINT C2.35.7: Validar que el contenido se renderizó correctamente
-                    // (renderStep ya limpió el loading, así que no debería quedar)
-                    
-                    // SPRINT C2.35.5: Validar que el contenido se renderizó correctamente
-                    const title = content.querySelector('[data-testid="training-step-title"]');
+                    // SPRINT C2.35.10: Validar que el contenido se renderizó correctamente usando referencia local
+                    // (renderStep ya limpió el loading y validó, pero verificamos una vez más)
+                    const title = contentEl.querySelector('[data-testid="training-step-title"]');
                     if (!title || !title.textContent || title.textContent.trim().length === 0) {
-                        console.error('[C2.35.5] Validación fallida: título no encontrado o vacío');
-                        content.innerHTML = renderErrorFallback('El contenido del training no se pudo cargar correctamente.');
+                        console.error('[C2.35.10] Validación fallida: título no encontrado o vacío');
+                        contentEl.innerHTML = renderErrorFallback('El contenido del training no se pudo cargar correctamente.');
                         return;
                     }
                     
-                    // SPRINT C2.35.5: Asegurar que el contenido es visible (CSS guard)
-                    content.style.display = 'block';
-                    content.style.visibility = 'visible';
-                    content.style.opacity = '1';
+                    // SPRINT C2.35.10: Verificar que NO hay texto "Cargando training"
+                    if (contentEl.textContent && contentEl.textContent.includes('Cargando training')) {
+                        console.error('[C2.35.10] Loading text aún presente después de validación');
+                        contentEl.innerHTML = renderErrorFallback('El loading no se eliminó correctamente.');
+                        return;
+                    }
                     
-                    // Verificar que los botones existen (al menos uno debe existir)
-                    const hasNext = content.querySelector('[data-testid="training-wizard-next"]');
-                    const hasPrevious = content.querySelector('[data-testid="training-wizard-previous"]');
-                    const hasComplete = content.querySelector('[data-testid="training-complete-button"]');
+                    // SPRINT C2.35.10: Verificar que los botones existen usando referencia local
+                    const hasNext = contentEl.querySelector('[data-testid="training-wizard-next"]');
+                    const hasPrevious = contentEl.querySelector('[data-testid="training-wizard-previous"]');
+                    const hasComplete = contentEl.querySelector('[data-testid="training-complete-button"]');
                     
                     if (!hasNext && !hasPrevious && !hasComplete) {
-                        console.warn('[C2.35.5] No se encontraron botones de navegación');
+                        console.warn('[C2.35.10] No se encontraron botones de navegación');
                         // No es crítico, pero logueamos
                     }
                     
-                    console.log('[C2.35.5] openTrainingWizard: render ok');
+                    console.log('[C2.35.10] openTrainingWizard: render ok');
                 } catch (err) {
                     console.error('[C2.35.5] openTrainingWizard: render error', err);
                     clearLoadingAndTimeout();
-                    const content = document.getElementById('training-wizard-content');
-                    if (content) {
-                        content.innerHTML = renderErrorFallback('Error inesperado al cargar el training.', err.message || String(err));
+                    // SPRINT C2.35.10: Usar referencia local contentEl en lugar de document.getElementById
+                    if (contentEl) {
+                        contentEl.innerHTML = renderErrorFallback('Error inesperado al cargar el training.', err.message || String(err));
                     } else {
-                        // Fallback extremo: insertar en el modal directamente
-                        const modalContent = modal.querySelector('div > div');
+                        // Fallback extremo: insertar en el modal directamente usando referencia local
+                        const modalContent = modalEl ? modalEl.querySelector('div > div') : null;
                         if (modalContent) {
                             modalContent.innerHTML = renderErrorFallback('Error crítico al cargar el training.', err.message || String(err));
                         }
@@ -2424,27 +2545,36 @@
                 try {
                     if (currentStep < totalSteps) {
                         currentStep = wizardState.clampStep(currentStep + 1);
-                        const content = document.getElementById('training-wizard-content');
-                        if (content) {
-                            // SPRINT C2.35.7: renderStep() ya limpia el contenido antes de renderizar
-                            content.setAttribute('data-testid', `training-step-${currentStep}`);
-                            renderStep(currentStep);
+                        // SPRINT C2.35.10: Obtener referencias locales desde el modal existente
+                        const modalEl = document.querySelector('[data-testid="training-wizard-modal"]');
+                        if (!modalEl) {
+                            console.error('[C2.35.10] Modal no encontrado en trainingWizardNext');
+                            return;
+                        }
+                        const contentEl = modalEl.querySelector('[data-testid="training-wizard-content"]');
+                        if (!contentEl) {
+                            console.error('[C2.35.10] Content no encontrado en trainingWizardNext');
+                            return;
+                        }
+                        contentEl.setAttribute('data-testid', `training-step-${currentStep}`);
+                        renderStep(currentStep, { modalEl, contentEl });
                             
-                            // SPRINT C2.35.4: Validar que el contenido se renderizó
+                            // SPRINT C2.35.10: Validar que el contenido se renderizó usando referencia local
                             setTimeout(() => {
-                                const title = content.querySelector('[data-testid="training-step-title"]');
+                                const title = contentEl.querySelector('[data-testid="training-step-title"]');
                                 if (!title || !title.textContent || title.textContent.trim().length === 0) {
-                                    console.error('[C2.35.4] Validación fallida después de next');
-                                    content.innerHTML = renderErrorFallback('Error al avanzar al siguiente paso.');
+                                    console.error('[C2.35.10] Validación fallida después de next');
+                                    contentEl.innerHTML = renderErrorFallback('Error al avanzar al siguiente paso.');
                                 }
                             }, 0);
                         }
                     }
                 } catch (err) {
                     console.error('[C2.35.4] Error en trainingWizardNext:', err);
-                    const content = document.getElementById('training-wizard-content');
-                    if (content) {
-                        content.innerHTML = renderErrorFallback('Error al avanzar al siguiente paso.', err.message || String(err));
+                    const modalEl = document.querySelector('[data-testid="training-wizard-modal"]');
+                    const contentEl = modalEl ? modalEl.querySelector('[data-testid="training-wizard-content"]') : null;
+                    if (contentEl) {
+                        contentEl.innerHTML = renderErrorFallback('Error al avanzar al siguiente paso.', err.message || String(err));
                     }
                 }
             };
@@ -2453,27 +2583,36 @@
                 try {
                     if (currentStep > 1) {
                         currentStep = wizardState.clampStep(currentStep - 1);
-                        const content = document.getElementById('training-wizard-content');
-                        if (content) {
-                            // SPRINT C2.35.7: renderStep() ya limpia el contenido antes de renderizar
-                            content.setAttribute('data-testid', `training-step-${currentStep}`);
-                            renderStep(currentStep);
+                        // SPRINT C2.35.10: Obtener referencias locales desde el modal existente
+                        const modalEl = document.querySelector('[data-testid="training-wizard-modal"]');
+                        if (!modalEl) {
+                            console.error('[C2.35.10] Modal no encontrado en trainingWizardPrevious');
+                            return;
+                        }
+                        const contentEl = modalEl.querySelector('[data-testid="training-wizard-content"]');
+                        if (!contentEl) {
+                            console.error('[C2.35.10] Content no encontrado en trainingWizardPrevious');
+                            return;
+                        }
+                        contentEl.setAttribute('data-testid', `training-step-${currentStep}`);
+                        renderStep(currentStep, { modalEl, contentEl });
                             
-                            // SPRINT C2.35.4: Validar que el contenido se renderizó
+                            // SPRINT C2.35.10: Validar que el contenido se renderizó usando referencia local
                             setTimeout(() => {
-                                const title = content.querySelector('[data-testid="training-step-title"]');
+                                const title = contentEl.querySelector('[data-testid="training-step-title"]');
                                 if (!title || !title.textContent || title.textContent.trim().length === 0) {
-                                    console.error('[C2.35.4] Validación fallida después de previous');
-                                    content.innerHTML = renderErrorFallback('Error al retroceder al paso anterior.');
+                                    console.error('[C2.35.10] Validación fallida después de previous');
+                                    contentEl.innerHTML = renderErrorFallback('Error al retroceder al paso anterior.');
                                 }
                             }, 0);
                         }
                     }
                 } catch (err) {
                     console.error('[C2.35.4] Error en trainingWizardPrevious:', err);
-                    const content = document.getElementById('training-wizard-content');
-                    if (content) {
-                        content.innerHTML = renderErrorFallback('Error al retroceder al paso anterior.', err.message || String(err));
+                    const modalEl = document.querySelector('[data-testid="training-wizard-modal"]');
+                    const contentEl = modalEl ? modalEl.querySelector('[data-testid="training-wizard-content"]') : null;
+                    if (contentEl) {
+                        contentEl.innerHTML = renderErrorFallback('Error al retroceder al paso anterior.', err.message || String(err));
                     }
                 }
             };
