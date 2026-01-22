@@ -2228,6 +2228,36 @@
             });
         }
         
+        // SPRINT C2.35.10.2: Función helper global para renderizar fallback de error
+        function renderErrorFallback(message, errorDetail = null) {
+            const errorId = 'error-detail-' + Date.now();
+            // SPRINT C2.35.5: Botón "Recargar" que cierra el modal y lo vuelve a abrir
+            const reloadHandler = `(function() {
+                const modal = document.getElementById('training-wizard-modal');
+                if (modal) {
+                    modal.remove();
+                }
+                if (typeof window.openTrainingWizard === 'function') {
+                    window.openTrainingWizard();
+                } else {
+                    location.reload();
+                }
+            })()`;
+            return `
+                <div style="padding: 24px; text-align: center;">
+                    <h3 style="color: #ef4444; margin-bottom: 16px;" data-testid="training-step-title">Error al cargar el training</h3>
+                    <p style="color: #94a3b8; margin-bottom: 16px;">${message}</p>
+                    ${errorDetail ? `
+                        <details style="margin-bottom: 16px; text-align: left; background: #1e293b; padding: 12px; border-radius: 4px;">
+                            <summary style="color: #94a3b8; cursor: pointer; font-size: 0.875rem;">Ver detalle</summary>
+                            <pre style="color: #ef4444; font-size: 0.75rem; margin-top: 8px; white-space: pre-wrap; word-break: break-all;">${String(errorDetail)}</pre>
+                        </details>
+                    ` : ''}
+                    <button onclick="${reloadHandler}" class="btn btn-primary" data-testid="training-wizard-reload">Recargar</button>
+                </div>
+            `;
+        }
+        
         function openTrainingWizard() {
             // SPRINT C2.35.2: Cerrar cualquier training legacy antes de abrir C2.35
             dismissLegacyTutorialIfPresent();
@@ -2351,36 +2381,6 @@
                     }
                     return '';
                 }
-            }
-            
-            // SPRINT C2.35.5: Función helper para renderizar fallback de error
-            function renderErrorFallback(message, errorDetail = null) {
-                const errorId = 'error-detail-' + Date.now();
-                // SPRINT C2.35.5: Botón "Recargar" que cierra el modal y lo vuelve a abrir
-                const reloadHandler = `(function() {
-                    const modal = document.getElementById('training-wizard-modal');
-                    if (modal) {
-                        modal.remove();
-                    }
-                    if (typeof window.openTrainingWizard === 'function') {
-                        window.openTrainingWizard();
-                    } else {
-                        location.reload();
-                    }
-                })()`;
-                return `
-                    <div style="padding: 24px; text-align: center;">
-                        <h3 style="color: #ef4444; margin-bottom: 16px;" data-testid="training-step-title">Error al cargar el training</h3>
-                        <p style="color: #94a3b8; margin-bottom: 16px;">${message}</p>
-                        ${errorDetail ? `
-                            <details style="margin-bottom: 16px; text-align: left; background: #1e293b; padding: 12px; border-radius: 4px;">
-                                <summary style="color: #94a3b8; cursor: pointer; font-size: 0.875rem;">Ver detalle</summary>
-                                <pre style="color: #ef4444; font-size: 0.75rem; margin-top: 8px; white-space: pre-wrap; word-break: break-all;">${String(errorDetail)}</pre>
-                            </details>
-                        ` : ''}
-                        <button onclick="${reloadHandler}" class="btn btn-primary" data-testid="training-wizard-reload">Recargar</button>
-                    </div>
-                `;
             }
             
             // SPRINT C2.35.5: Estado loading inicial
@@ -2545,15 +2545,25 @@
                 try {
                     if (currentStep < totalSteps) {
                         currentStep = wizardState.clampStep(currentStep + 1);
-                        // SPRINT C2.35.10: Obtener referencias locales desde el modal existente
-                        const modalEl = document.querySelector('[data-testid="training-wizard-modal"]');
+                        // SPRINT C2.35.10.2: Obtener referencias locales con fallback robusto
+                        const modalEl = document.querySelector('[data-testid="training-wizard-modal"]') || document.getElementById('training-wizard-modal');
                         if (!modalEl) {
-                            console.error('[C2.35.10] Modal no encontrado en trainingWizardNext');
+                            console.error('[C2.35.10.2] Modal no encontrado en trainingWizardNext');
+                            // Intentar mostrar fallback en cualquier contenedor visible
+                            const fallbackEl = document.querySelector('[data-testid="training-wizard-content"]') || document.getElementById('training-wizard-content');
+                            if (fallbackEl) {
+                                fallbackEl.innerHTML = renderErrorFallback('No se pudo encontrar el modal del training. Recarga la página.');
+                            }
                             return;
                         }
-                        const contentEl = modalEl.querySelector('[data-testid="training-wizard-content"]');
+                        const contentEl = modalEl.querySelector('[data-testid="training-wizard-content"]') || modalEl.querySelector('#training-wizard-content');
                         if (!contentEl) {
-                            console.error('[C2.35.10] Content no encontrado en trainingWizardNext');
+                            console.error('[C2.35.10.2] Content no encontrado en trainingWizardNext');
+                            // SPRINT C2.35.10.2: Mostrar fallback dentro del modal en lugar de solo return
+                            const fallbackContainer = modalEl.querySelector('div > div') || modalEl.firstElementChild;
+                            if (fallbackContainer) {
+                                fallbackContainer.innerHTML = renderErrorFallback('No se pudo actualizar el paso. Recarga la página.');
+                            }
                             return;
                         }
                         contentEl.setAttribute('data-testid', `training-step-${currentStep}`);
@@ -2570,10 +2580,16 @@
                     }
                 } catch (err) {
                     console.error('[C2.35.4] Error en trainingWizardNext:', err);
-                    const modalEl = document.querySelector('[data-testid="training-wizard-modal"]');
-                    const contentEl = modalEl ? modalEl.querySelector('[data-testid="training-wizard-content"]') : null;
+                    const modalEl = document.querySelector('[data-testid="training-wizard-modal"]') || document.getElementById('training-wizard-modal');
+                    const contentEl = modalEl ? (modalEl.querySelector('[data-testid="training-wizard-content"]') || modalEl.querySelector('#training-wizard-content')) : null;
                     if (contentEl) {
                         contentEl.innerHTML = renderErrorFallback('Error al avanzar al siguiente paso.', err.message || String(err));
+                    } else if (modalEl) {
+                        // Fallback: insertar en cualquier contenedor del modal
+                        const fallbackContainer = modalEl.querySelector('div > div') || modalEl.firstElementChild;
+                        if (fallbackContainer) {
+                            fallbackContainer.innerHTML = renderErrorFallback('Error crítico al avanzar al siguiente paso.', err.message || String(err));
+                        }
                     }
                 }
             };
@@ -2582,15 +2598,25 @@
                 try {
                     if (currentStep > 1) {
                         currentStep = wizardState.clampStep(currentStep - 1);
-                        // SPRINT C2.35.10: Obtener referencias locales desde el modal existente
-                        const modalEl = document.querySelector('[data-testid="training-wizard-modal"]');
+                        // SPRINT C2.35.10.2: Obtener referencias locales con fallback robusto
+                        const modalEl = document.querySelector('[data-testid="training-wizard-modal"]') || document.getElementById('training-wizard-modal');
                         if (!modalEl) {
-                            console.error('[C2.35.10] Modal no encontrado en trainingWizardPrevious');
+                            console.error('[C2.35.10.2] Modal no encontrado en trainingWizardPrevious');
+                            // Intentar mostrar fallback en cualquier contenedor visible
+                            const fallbackEl = document.querySelector('[data-testid="training-wizard-content"]') || document.getElementById('training-wizard-content');
+                            if (fallbackEl) {
+                                fallbackEl.innerHTML = renderErrorFallback('No se pudo encontrar el modal del training. Recarga la página.');
+                            }
                             return;
                         }
-                        const contentEl = modalEl.querySelector('[data-testid="training-wizard-content"]');
+                        const contentEl = modalEl.querySelector('[data-testid="training-wizard-content"]') || modalEl.querySelector('#training-wizard-content');
                         if (!contentEl) {
-                            console.error('[C2.35.10] Content no encontrado en trainingWizardPrevious');
+                            console.error('[C2.35.10.2] Content no encontrado en trainingWizardPrevious');
+                            // SPRINT C2.35.10.2: Mostrar fallback dentro del modal en lugar de solo return
+                            const fallbackContainer = modalEl.querySelector('div > div') || modalEl.firstElementChild;
+                            if (fallbackContainer) {
+                                fallbackContainer.innerHTML = renderErrorFallback('No se pudo actualizar el paso. Recarga la página.');
+                            }
                             return;
                         }
                         contentEl.setAttribute('data-testid', `training-step-${currentStep}`);
@@ -2607,10 +2633,16 @@
                     }
                 } catch (err) {
                     console.error('[C2.35.4] Error en trainingWizardPrevious:', err);
-                    const modalEl = document.querySelector('[data-testid="training-wizard-modal"]');
-                    const contentEl = modalEl ? modalEl.querySelector('[data-testid="training-wizard-content"]') : null;
+                    const modalEl = document.querySelector('[data-testid="training-wizard-modal"]') || document.getElementById('training-wizard-modal');
+                    const contentEl = modalEl ? (modalEl.querySelector('[data-testid="training-wizard-content"]') || modalEl.querySelector('#training-wizard-content')) : null;
                     if (contentEl) {
                         contentEl.innerHTML = renderErrorFallback('Error al retroceder al paso anterior.', err.message || String(err));
+                    } else if (modalEl) {
+                        // Fallback: insertar en cualquier contenedor del modal
+                        const fallbackContainer = modalEl.querySelector('div > div') || modalEl.firstElementChild;
+                        if (fallbackContainer) {
+                            fallbackContainer.innerHTML = renderErrorFallback('Error crítico al retroceder al paso anterior.', err.message || String(err));
+                        }
                     }
                 }
             };
