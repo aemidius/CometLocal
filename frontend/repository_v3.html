@@ -733,7 +733,7 @@
 </head>
 <body data-testid="app-ready">
     <!-- SPRINT C2.35.6: Version stamp con commit hash -->
-    <div class="version-stamp">UI: <span id="version-stamp-commit">fd478f1</span> <span id="build-timestamp"></span></div>
+    <div class="version-stamp">UI: <span id="version-stamp-commit">edcc051</span> <span id="build-timestamp"></span></div>
     
     <!-- Sidebar -->
     <div class="sidebar">
@@ -9574,7 +9574,7 @@
         // Initialize version stamp timestamp
         document.addEventListener('DOMContentLoaded', () => {
             // SPRINT C2.35.6: Initialize version stamp (actualizado automáticamente en cada commit)
-            const VERSION_STAMP = 'fd478f1';
+            const VERSION_STAMP = 'edcc051';
             window.__COMETLOCAL_VERSION_STAMP = VERSION_STAMP;
             
             const versionStampEl = document.getElementById('version-stamp-commit');
@@ -9587,6 +9587,59 @@
                 const now = new Date();
                 timestampEl.textContent = now.toISOString().slice(0, 19).replace('T', ' ');
             }
+            
+            // SPRINT C2.35.8: Verificar desincronización UI vs backend
+            (async function checkUIVersionSync() {
+                try {
+                    const response = await fetch('/api/version');
+                    if (!response.ok) {
+                        console.warn('[C2.35.8] No se pudo verificar versión UI:', response.status);
+                        return;
+                    }
+                    const versionInfo = await response.json();
+                    const backendUIVersion = versionInfo.ui_version;
+                    const frontendUIVersion = window.__COMETLOCAL_VERSION_STAMP;
+                    
+                    if (backendUIVersion && frontendUIVersion && backendUIVersion !== frontendUIVersion) {
+                        // SPRINT C2.35.8: Mostrar banner rojo de desincronización
+                        const banner = document.createElement('div');
+                        banner.id = 'ui-version-mismatch-banner';
+                        banner.setAttribute('data-testid', 'ui-version-mismatch-banner');
+                        banner.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; z-index: 10004; padding: 16px; background: #dc2626; color: white; text-align: center; font-weight: 500; box-shadow: 0 4px 6px rgba(0,0,0,0.3);';
+                        banner.innerHTML = `
+                            <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                                <div style="flex: 1;">
+                                    <strong>⚠️ UI Desincronizada</strong>
+                                    <span style="margin-left: 12px; font-weight: normal;">
+                                        Frontend: ${frontendUIVersion} | Backend: ${backendUIVersion}
+                                    </span>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button onclick="location.reload()" style="padding: 8px 16px; background: white; color: #dc2626; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                                        Recargar
+                                    </button>
+                                    <button onclick="document.getElementById('ui-version-mismatch-banner').remove()" style="padding: 8px 16px; background: rgba(255,255,255,0.2); color: white; border: 1px solid white; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                                        Cerrar
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                        document.body.insertBefore(banner, document.body.firstChild);
+                        console.error('[C2.35.8] UI desincronizada detectada:', {
+                            frontend: frontendUIVersion,
+                            backend: backendUIVersion
+                        });
+                    } else {
+                        console.log('[C2.35.8] Versión UI sincronizada:', {
+                            frontend: frontendUIVersion,
+                            backend: backendUIVersion
+                        });
+                    }
+                } catch (error) {
+                    console.warn('[C2.35.8] Error al verificar versión UI:', error);
+                    // No bloquear la app si falla el check
+                }
+            })();
             
             const { route } = parseHashRoute();
             if (!route && (!window.location.hash || window.location.hash === '#')) {

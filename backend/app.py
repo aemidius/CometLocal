@@ -501,17 +501,98 @@ async def form_sandbox_ui():
     return FileResponse(FRONTEND_DIR / "form_sandbox.html")
 
 
+# SPRINT C2.35.8: Endpoint de versión para diagnóstico de desincronización
+@app.get("/api/version", response_model=dict, include_in_schema=True)
+async def get_version():
+    """
+    Devuelve información de versión de UI y backend para diagnóstico de desincronización.
+    """
+    import subprocess
+    from datetime import datetime
+    
+    # Obtener hash del commit actual
+    try:
+        backend_version = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=BASE_DIR,
+            stderr=subprocess.DEVNULL,
+            text=True
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        backend_version = "unknown"
+    
+    # Obtener UI version desde el HTML o git
+    html_file = FRONTEND_DIR / "repository_v3.html"
+    ui_version = "unknown"
+    if html_file.exists():
+        try:
+            # Intentar git primero
+            ui_version = subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=BASE_DIR,
+                stderr=subprocess.DEVNULL,
+                text=True
+            ).strip()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Fallback: leer VERSION_STAMP del HTML
+            try:
+                html_content = html_file.read_text(encoding="utf-8")
+                import re
+                match = re.search(r"const VERSION_STAMP = ['\"]([^'\"]+)['\"]", html_content)
+                if match:
+                    ui_version = match.group(1)
+            except Exception:
+                pass
+    
+    return {
+        "ui_version": ui_version,
+        "backend_version": backend_version,
+        "build_time": datetime.now().isoformat()
+    }
+
 @app.get("/repository", include_in_schema=False)
 async def repository_ui():
     """
     UI del Repositorio Documental (tipos y documentos).
+    SPRINT C2.35.8: Single-source-of-truth - siempre lee desde disco y añade version header.
     """
     from fastapi.responses import Response
-    response = FileResponse(FRONTEND_DIR / "repository_v3.html", media_type="text/html")
-    # Cache busting headers
+    import subprocess
+    
+    # SPRINT C2.35.8: Leer archivo desde disco en cada request (no cache)
+    html_file = FRONTEND_DIR / "repository_v3.html"
+    if not html_file.exists():
+        raise HTTPException(status_code=404, detail="repository_v3.html not found")
+    
+    # SPRINT C2.35.8: Obtener hash del commit actual o VERSION_STAMP del HTML
+    try:
+        # Intentar obtener hash del git
+        git_hash = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=BASE_DIR,
+            stderr=subprocess.DEVNULL,
+            text=True
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Fallback: leer VERSION_STAMP del HTML si existe
+        try:
+            html_content = html_file.read_text(encoding="utf-8")
+            import re
+            match = re.search(r"const VERSION_STAMP = ['\"]([^'\"]+)['\"]", html_content)
+            if match:
+                git_hash = match.group(1)
+            else:
+                git_hash = "unknown"
+        except Exception:
+            git_hash = "unknown"
+    
+    response = FileResponse(html_file, media_type="text/html")
+    # SPRINT C2.35.8: Cache busting headers (ya existían, pero reforzados)
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
+    # SPRINT C2.35.8: Header de versión UI
+    response.headers["X-CometLocal-UI-Version"] = git_hash
     return response
 
 
@@ -520,12 +601,42 @@ async def repository_v3_html():
     """
     UI del Repositorio Documental v3 (ruta directa).
     Permite acceso directo con hash routing: /repository_v3.html#plan_review
+    SPRINT C2.35.8: Single-source-of-truth - siempre lee desde disco y añade version header.
     """
-    response = FileResponse(FRONTEND_DIR / "repository_v3.html", media_type="text/html")
-    # Cache busting headers
+    import subprocess
+    
+    # SPRINT C2.35.8: Leer archivo desde disco en cada request (no cache)
+    html_file = FRONTEND_DIR / "repository_v3.html"
+    if not html_file.exists():
+        raise HTTPException(status_code=404, detail="repository_v3.html not found")
+    
+    # SPRINT C2.35.8: Obtener hash del commit actual o VERSION_STAMP del HTML
+    try:
+        git_hash = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=BASE_DIR,
+            stderr=subprocess.DEVNULL,
+            text=True
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        try:
+            html_content = html_file.read_text(encoding="utf-8")
+            import re
+            match = re.search(r"const VERSION_STAMP = ['\"]([^'\"]+)['\"]", html_content)
+            if match:
+                git_hash = match.group(1)
+            else:
+                git_hash = "unknown"
+        except Exception:
+            git_hash = "unknown"
+    
+    response = FileResponse(html_file, media_type="text/html")
+    # SPRINT C2.35.8: Cache busting headers
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
+    # SPRINT C2.35.8: Header de versión UI
+    response.headers["X-CometLocal-UI-Version"] = git_hash
     return response
 
 # SPRINT C2.33: Redirigir rutas /config/* a repository_v3.html#configuracion para unificación visual
