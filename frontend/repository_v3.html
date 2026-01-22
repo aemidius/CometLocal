@@ -2186,6 +2186,14 @@
             // SPRINT C2.35.3: Inicializar currentStep con clamp
             let currentStep = wizardState.clampStep(wizardState.getInitialStep());
             
+            // SPRINT C2.35.7: Función para limpiar el contenedor del training wizard
+            function clearTrainingWizardContent() {
+                const el = document.getElementById('training-wizard-content');
+                if (el) {
+                    el.innerHTML = '';
+                }
+            }
+            
             // SPRINT C2.35.4: Función renderStep con try/catch y fallback robusto
             function renderStep(step, errorDetail = null) {
                 try {
@@ -2206,35 +2214,17 @@
                         return renderErrorFallback(`No se pudo cargar el paso ${step} del training (paso no disponible).`, errorDetail);
                     }
                     
-                    // Renderizar paso válido
+                    // SPRINT C2.35.7: Obtener el contenedor (debe existir siempre)
                     const content = document.getElementById('training-wizard-content');
                     if (!content) {
-                        // Si no existe el contenedor, retornar HTML para insertar
-                        return `
-                            <h3 style="margin-bottom: 16px; color: #e2e8f0;" data-testid="training-step-title">${stepData.title}</h3>
-                            <div style="max-height: 400px; overflow-y: auto; margin-bottom: 24px;">
-                                ${stepData.content}
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div style="color: #94a3b8; font-size: 0.875rem;">
-                                    Paso ${step} de ${totalSteps}
-                                </div>
-                                <div style="display: flex; gap: 8px;">
-                                    ${step > 1 ? `<button onclick="trainingWizardPrevious()" class="btn btn-secondary" data-testid="training-wizard-previous">Anterior</button>` : ''}
-                                    ${step < totalSteps ? `<button onclick="trainingWizardNext()" class="btn btn-primary" data-testid="training-wizard-next">Siguiente</button>` : ''}
-                                    ${step === totalSteps ? `<button onclick="trainingWizardComplete()" id="training-complete-button" class="btn btn-primary" disabled data-testid="training-complete-button">Completar Training</button>` : ''}
-                                </div>
-                            </div>
-                        `;
+                        console.error('[C2.35.7] training-wizard-content no encontrado, no se puede renderizar');
+                        return renderErrorFallback('No se pudo encontrar el contenedor del training.', errorDetail);
                     }
                     
-                    // SPRINT C2.35.5: Si existe el contenedor, actualizarlo directamente (esto elimina el loading automáticamente)
-                    // Limpiar loading primero para asegurar que no quede
-                    const loadingEl = content.querySelector('[data-testid="training-wizard-loading"]');
-                    if (loadingEl) {
-                        loadingEl.remove();
-                    }
+                    // SPRINT C2.35.7: LIMPIAR SIEMPRE antes de renderizar (esto elimina el loading definitivamente)
+                    clearTrainingWizardContent();
                     
+                    // SPRINT C2.35.7: Renderizar directamente en el contenedor (unificado)
                     content.innerHTML = `
                         <h3 style="margin-bottom: 16px; color: #e2e8f0;" data-testid="training-step-title">${stepData.title}</h3>
                         <div style="max-height: 400px; overflow-y: auto; margin-bottom: 24px;">
@@ -2375,29 +2365,20 @@
                     // SPRINT C2.35.5: Limpiar loading antes de renderizar
                     clearLoadingAndTimeout();
                     
-                    // Renderizar el step
+                    // SPRINT C2.35.7: renderStep() ahora SIEMPRE escribe directamente en el contenedor
+                    // y limpia el loading automáticamente con clearTrainingWizardContent()
                     const stepHtml = renderStep(currentStep);
                     
-                    // SPRINT C2.35.5: SIEMPRE actualizar innerHTML, incluso si renderStep retorna ''
-                    // (porque renderStep puede actualizar directamente el DOM en algunos casos)
+                    // SPRINT C2.35.7: renderStep() siempre actualiza el DOM directamente,
+                    // pero si retorna HTML (fallback de error), también lo insertamos
                     if (stepHtml && stepHtml.trim().length > 0) {
-                        // Actualizar con el HTML del step (el loading ya se limpió arriba)
+                        // Solo actualizar si renderStep retornó HTML (caso de error)
+                        // Normalmente renderStep retorna '' porque ya actualizó el DOM
                         content.innerHTML = stepHtml;
-                    } else {
-                        // Si renderStep retornó vacío, verificar si actualizó directamente
-                        const title = content.querySelector('[data-testid="training-step-title"]');
-                        if (!title || !title.textContent || title.textContent.trim().length === 0) {
-                            // No se actualizó, forzar render
-                            console.warn('[C2.35.5] renderStep retornó vacío y no actualizó el DOM, forzando render');
-                            const forcedHtml = renderStep(currentStep, null);
-                            if (forcedHtml && forcedHtml.trim().length > 0) {
-                                content.innerHTML = forcedHtml;
-                            } else {
-                                throw new Error('renderStep no pudo generar contenido válido');
-                            }
-                        }
-                        // Si ya se actualizó directamente, no hacer nada más (el loading ya se limpió)
                     }
+                    
+                    // SPRINT C2.35.7: Validar que el contenido se renderizó correctamente
+                    // (renderStep ya limpió el loading, así que no debería quedar)
                     
                     // SPRINT C2.35.5: Validar que el contenido se renderizó correctamente
                     const title = content.querySelector('[data-testid="training-step-title"]');
@@ -2445,6 +2426,7 @@
                         currentStep = wizardState.clampStep(currentStep + 1);
                         const content = document.getElementById('training-wizard-content');
                         if (content) {
+                            // SPRINT C2.35.7: renderStep() ya limpia el contenido antes de renderizar
                             content.setAttribute('data-testid', `training-step-${currentStep}`);
                             renderStep(currentStep);
                             
@@ -2473,6 +2455,7 @@
                         currentStep = wizardState.clampStep(currentStep - 1);
                         const content = document.getElementById('training-wizard-content');
                         if (content) {
+                            // SPRINT C2.35.7: renderStep() ya limpia el contenido antes de renderizar
                             content.setAttribute('data-testid', `training-step-${currentStep}`);
                             renderStep(currentStep);
                             
