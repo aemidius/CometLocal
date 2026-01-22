@@ -160,10 +160,31 @@ async def get_type(type_id: str) -> DocumentTypeV1:
 
 
 @router.post("/types", response_model=DocumentTypeV1)
-async def create_type(doc_type: DocumentTypeV1) -> DocumentTypeV1:
+async def create_type(doc_type: DocumentTypeV1, request: Request) -> DocumentTypeV1:
     """Crea un nuevo tipo de documento."""
     from backend.training.training_action_logger import log_training_action
     from backend.config import DATA_DIR
+    import os
+    
+    # SPRINT C2.36.1: Guardrail anti-contaminación - rechazar tipos demo en entorno normal
+    demo_patterns = ["TEST_", "T999_", "E2E_TYPE_", "E2E_", "DEMO_"]
+    is_demo_type = any(doc_type.type_id.startswith(pattern) for pattern in demo_patterns)
+    is_demo_name = any(pattern in doc_type.name for pattern in ["Test Type", "Test ", "Demo ", "E2E Test"])
+    
+    # Permitir solo si:
+    # 1. Estamos en entorno de test (ENVIRONMENT=test)
+    # 2. O viene header X-E2E=1 (tests E2E)
+    # 3. O no es tipo demo
+    environment = os.getenv("ENVIRONMENT", "").lower()
+    is_e2e_header = request.headers.get("X-E2E") == "1"
+    is_test_env = environment == "test" or environment == "demo"
+    
+    if (is_demo_type or is_demo_name) and not (is_test_env or is_e2e_header):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Los tipos demo/test (patrones: {', '.join(demo_patterns)}) no están permitidos en entorno normal. "
+                   f"Usa ENVIRONMENT=test o header X-E2E=1 para tests."
+        )
     
     store = DocumentRepositoryStoreV1()
     try:
@@ -343,6 +364,7 @@ async def upload_document(
     period_key: Optional[str] = Form(None),
     issue_date: Optional[str] = Form(None),
     validity_start_date: Optional[str] = Form(None),
+    request: Request = None,
 ) -> DocumentInstanceV1:
     """
     Sube un PDF al repositorio y lo asocia a un tipo + sujeto.
@@ -353,6 +375,23 @@ async def upload_document(
     - company_key: Clave de empresa (si scope=company)
     - person_key: Clave de persona (si scope=worker)
     """
+    import os
+    
+    # SPRINT C2.36.1: Guardrail anti-contaminación - rechazar documentos demo en entorno normal
+    demo_patterns = ["TEST_", "T999_", "E2E_TYPE_", "E2E_", "DEMO_"]
+    is_demo_type = any(type_id.startswith(pattern) for pattern in demo_patterns)
+    
+    environment = os.getenv("ENVIRONMENT", "").lower()
+    is_e2e_header = request.headers.get("X-E2E") == "1" if request else False
+    is_test_env = environment == "test" or environment == "demo"
+    
+    if is_demo_type and not (is_test_env or is_e2e_header):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Los documentos con tipos demo/test no están permitidos en entorno normal. "
+                   f"Usa ENVIRONMENT=test o header X-E2E=1 para tests."
+        )
+    
     store = DocumentRepositoryStoreV1()
     
     # Validar tipo

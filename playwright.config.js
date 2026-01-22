@@ -54,6 +54,8 @@ module.exports = {
       CAE_EXECUTOR_MODE: 'FAKE',  // v1.9.1: Asegurar modo FAKE para tests E2E
       // SPRINT C2.10.2: Aislar datos E2E en directorio separado
       REPOSITORY_DATA_DIR: 'data/repository_e2e',
+      // SPRINT C2.36.1: Guardrail anti-contaminación - forzar entorno test para E2E
+      ENVIRONMENT: 'test',
     },
     stdout: 'pipe',
     stderr: 'pipe',
