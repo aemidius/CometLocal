@@ -9016,6 +9016,14 @@
                 return;
             }
             
+            // SPRINT FIX: Validar contexto de coordinación antes de guardar
+            const context = getCoordinationContext();
+            if (!context.isValid()) {
+                alert('Selecciona Empresa propia, Plataforma y Empresa coordinada antes de guardar el tipo de documento.');
+                showContextRequiredMessage();
+                return;
+            }
+            
             // Al editar, usar el type_id del objeto editingType
             const finalTypeId = editingType ? editingType.type_id : (typeId || '');
             
@@ -9095,7 +9103,8 @@
                     validityPolicy: JSON.stringify(validityPolicy, null, 2)
                 });
                 
-                const response = await fetch(url, {
+                // SPRINT FIX: Usar fetchWithContext para incluir headers de coordinación
+                const response = await fetchWithContext(url, {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(typeData)
